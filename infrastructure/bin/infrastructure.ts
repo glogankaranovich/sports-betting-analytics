@@ -2,7 +2,7 @@
 import * as cdk from 'aws-cdk-lib/core';
 import { SportsBettingPipelineStack } from '../lib/pipeline-stack';
 import { SportsBettingStage } from '../lib/sports-betting-stage';
-import { ENVIRONMENTS } from '../src/config/environments';
+import { ENVIRONMENTS } from '../lib/config/environments';
 
 const app = new cdk.App();
 
