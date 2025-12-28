@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
 import { SportsBettingStage } from '../lib/sports-betting-stage';
-import { ENVIRONMENTS } from '../lib/config/environments';
+import { ENVIRONMENTS } from '../src/config/environments';
 
 const app = new cdk.App();
 
