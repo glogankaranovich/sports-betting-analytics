@@ -1,0 +1,126 @@
+"""
+Configuration management for sports data crawlers.
+
+This module handles loading and managing crawler configurations
+from environment variables and configuration files.
+"""
+
+import os
+from typing import Dict, List
+from dataclasses import dataclass
+from .base_crawler import CrawlerConfig, DataSourceType
+
+
+@dataclass
+class CrawlerSettings:
+    """Global crawler settings."""
+    default_sports: List[str]
+    collection_interval_minutes: int
+    max_concurrent_crawlers: int
+    data_retention_days: int
+    enable_historical_data: bool
+
+
+class CrawlerConfigManager:
+    """Manages crawler configurations and settings."""
+    
+    DEFAULT_SPORTS = [
+        'nfl', 'nba', 'mlb', 'nhl', 
+        'soccer_epl', 'soccer_uefa_champs_league'
+    ]
+    
+    def __init__(self):
+        self.settings = self._load_settings()
+        self.crawler_configs = self._load_crawler_configs()
+    
+    def _load_settings(self) -> CrawlerSettings:
+        """Load global crawler settings from environment."""
+        return CrawlerSettings(
+            default_sports=self._get_env_list('CRAWLER_DEFAULT_SPORTS', self.DEFAULT_SPORTS),
+            collection_interval_minutes=int(os.getenv('CRAWLER_INTERVAL_MINUTES', '60')),
+            max_concurrent_crawlers=int(os.getenv('CRAWLER_MAX_CONCURRENT', '5')),
+            data_retention_days=int(os.getenv('CRAWLER_DATA_RETENTION_DAYS', '30')),
+            enable_historical_data=os.getenv('CRAWLER_ENABLE_HISTORICAL', 'false').lower() == 'true'
+        )
+    
+    def _load_crawler_configs(self) -> Dict[str, CrawlerConfig]:
+        """Load individual crawler configurations."""
+        configs = {}
+        
+        # The Odds API configuration
+        if os.getenv('THE_ODDS_API_KEY'):
+            configs['the_odds_api'] = CrawlerConfig(
+                name='the_odds_api',
+                source_type=DataSourceType.API,
+                base_url='https://api.the-odds-api.com/v4',
+                api_key=os.getenv('THE_ODDS_API_KEY'),
+                rate_limit_per_minute=int(os.getenv('THE_ODDS_API_RATE_LIMIT', '10')),
+                timeout_seconds=int(os.getenv('THE_ODDS_API_TIMEOUT', '30')),
+                retry_attempts=int(os.getenv('THE_ODDS_API_RETRIES', '3')),
+                enabled=os.getenv('THE_ODDS_API_ENABLED', 'true').lower() == 'true'
+            )
+        
+        # SportsData.io configuration (if API key provided)
+        if os.getenv('SPORTSDATA_IO_API_KEY'):
+            configs['sportsdata_io'] = CrawlerConfig(
+                name='sportsdata_io',
+                source_type=DataSourceType.API,
+                base_url='https://api.sportsdata.io/v3',
+                api_key=os.getenv('SPORTSDATA_IO_API_KEY'),
+                rate_limit_per_minute=int(os.getenv('SPORTSDATA_IO_RATE_LIMIT', '60')),
+                timeout_seconds=int(os.getenv('SPORTSDATA_IO_TIMEOUT', '30')),
+                retry_attempts=int(os.getenv('SPORTSDATA_IO_RETRIES', '3')),
+                enabled=os.getenv('SPORTSDATA_IO_ENABLED', 'false').lower() == 'true'
+            )
+        
+        return configs
+    
+    def _get_env_list(self, env_var: str, default: List[str]) -> List[str]:
+        """Get a list from environment variable (comma-separated)."""
+        env_value = os.getenv(env_var)
+        if env_value:
+            return [item.strip() for item in env_value.split(',')]
+        return default
+    
+    def get_enabled_crawlers(self) -> Dict[str, CrawlerConfig]:
+        """Get only enabled crawler configurations."""
+        return {name: config for name, config in self.crawler_configs.items() if config.enabled}
+    
+    def update_crawler_config(self, name: str, **kwargs):
+        """Update a crawler configuration."""
+        if name in self.crawler_configs:
+            config = self.crawler_configs[name]
+            for key, value in kwargs.items():
+                if hasattr(config, key):
+                    setattr(config, key, value)
+    
+    def disable_crawler(self, name: str):
+        """Disable a specific crawler."""
+        if name in self.crawler_configs:
+            self.crawler_configs[name].enabled = False
+    
+    def enable_crawler(self, name: str):
+        """Enable a specific crawler."""
+        if name in self.crawler_configs:
+            self.crawler_configs[name].enabled = True
+    
+    def get_config_summary(self) -> Dict[str, any]:
+        """Get a summary of current configuration."""
+        return {
+            'settings': {
+                'default_sports': self.settings.default_sports,
+                'collection_interval_minutes': self.settings.collection_interval_minutes,
+                'max_concurrent_crawlers': self.settings.max_concurrent_crawlers,
+                'data_retention_days': self.settings.data_retention_days,
+                'enable_historical_data': self.settings.enable_historical_data,
+            },
+            'crawlers': {
+                name: {
+                    'enabled': config.enabled,
+                    'source_type': config.source_type.value,
+                    'rate_limit_per_minute': config.rate_limit_per_minute,
+                    'has_api_key': bool(config.api_key),
+                }
+                for name, config in self.crawler_configs.items()
+            }
+        }
