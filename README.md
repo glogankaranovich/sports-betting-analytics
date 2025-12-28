@@ -2,6 +2,13 @@
 
 A comprehensive system for analyzing sports data and making informed betting decisions using machine learning.
 
+## 🚀 Multi-Account Pipeline Active
+
+This project uses automated deployment pipeline:
+- **Dev**: Manual deployment for development/testing
+- **Staging**: Automated deployment + integration tests  
+- **Production**: Automated deployment if staging tests pass
+
 ## Features
 
 - **Data Collection**: Web crawler/scraper for sports statistics and betting data
@@ -16,7 +23,23 @@ A comprehensive system for analyzing sports data and making informed betting dec
 - **Data Storage**: AWS DynamoDB for structured data, S3 for raw data
 - **ML Engine**: Custom prediction models with probability calculations
 - **Frontend**: React web application
-- **Infrastructure**: AWS-based deployment
+- **Infrastructure**: AWS multi-account setup with automated pipeline
+
+## Quick Commands
+
+```bash
+# Deploy to dev environment
+make deploy-dev
+
+# Deploy pipeline (staging/prod automation)  
+make deploy-pipeline
+
+# Run all tests
+make test
+
+# Start development server
+make dev
+```
 
 ## Project Structure
 

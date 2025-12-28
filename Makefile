@@ -1,5 +1,5 @@
 # Sports Betting Analytics - Makefile
-.PHONY: help install test build deploy clean dev test-api test-infra
+.PHONY: help install test build deploy clean dev test-api test-infra bootstrap-dev deploy-dev deploy-pipeline
 
 # Default target
 help:
@@ -20,9 +20,11 @@ help:
 	@echo "  make build           - Build all components"
 	@echo ""
 	@echo "☁️  Infrastructure:"
-	@echo "  make deploy          - Deploy infrastructure to AWS"
-	@echo "  make destroy         - Destroy AWS infrastructure"
-	@echo "  make diff            - Show infrastructure changes"
+	@echo "  make bootstrap-dev   - Bootstrap CDK in dev account"
+	@echo "  make deploy-dev      - Deploy to dev environment"
+	@echo "  make deploy-pipeline - Deploy pipeline (staging/prod automation)"
+	@echo "  make destroy-dev     - Destroy dev infrastructure"
+	@echo "  make diff-dev        - Show dev infrastructure changes"
 	@echo "  make synth           - Generate CloudFormation template"
 	@echo ""
 	@echo "🧹 Cleanup:"
@@ -65,26 +67,49 @@ build:
 	cd infrastructure && npm run build
 
 # Infrastructure targets
-deploy: test-infra build
-	@echo "☁️  Deploying infrastructure..."
-	@aws sts get-caller-identity --query 'Account' --output text | xargs -I {} echo "📋 Deploying to AWS Account: {}"
-	cd infrastructure && npx cdk bootstrap
-	cd infrastructure && npx cdk deploy --require-approval never
-	@echo "✅ Infrastructure deployed!"
-	@echo "📋 Don't forget to update backend/.env with output values"
+bootstrap-dev:
+	@echo "🔧 Bootstrapping CDK in dev account..."
+	@aws sts get-caller-identity --profile sports-betting-dev --query 'Account' --output text | xargs -I {} echo "📋 Bootstrapping dev account: {}"
+	cd infrastructure && npx cdk bootstrap aws://540477485595/us-east-1 --profile sports-betting-dev
 
-destroy:
-	@echo "🗑️  Destroying infrastructure..."
-	@read -p "Are you sure you want to destroy all AWS resources? (y/N): " confirm && [ "$$confirm" = "y" ]
-	cd infrastructure && npx cdk destroy --force
+deploy-dev: test-infra build
+	@echo "☁️  Deploying to dev environment..."
+	@aws sts get-caller-identity --profile sports-betting-dev --query 'Account' --output text | xargs -I {} echo "📋 Deploying to dev account: {}"
+	cd infrastructure && npx cdk deploy dev/Infrastructure --app "npx ts-node bin/dev.ts" --profile sports-betting-dev --require-approval never
+	@echo "✅ Dev infrastructure deployed!"
+	@echo "📋 Verifying resources..."
+	@make verify-dev
 
-diff:
-	@echo "📊 Showing infrastructure changes..."
-	cd infrastructure && npx cdk diff
+deploy-pipeline: test-infra build
+	@echo "☁️  Deploying pipeline (staging/prod automation)..."
+	@aws sts get-caller-identity --profile sports-betting-pipeline --query 'Account' --output text | xargs -I {} echo "📋 Deploying to pipeline account: {}"
+	@echo "🔧 Bootstrapping staging account..."
+	@aws sts get-caller-identity --profile sports-betting-staging --query 'Account' --output text | xargs -I {} echo "📋 Bootstrapping staging account: {}"
+	cd infrastructure && npx cdk bootstrap aws://352312075009/us-east-1 --profile sports-betting-staging --trust 083314012659 --cloudformation-execution-policies arn:aws:iam::aws:policy/AdministratorAccess
+	@echo "🔧 Bootstrapping prod account..."
+	@aws sts get-caller-identity --profile sports-betting-prod --query 'Account' --output text | xargs -I {} echo "📋 Bootstrapping prod account: {}"
+	cd infrastructure && npx cdk bootstrap aws://198784968537/us-east-1 --profile sports-betting-prod --trust 083314012659 --cloudformation-execution-policies arn:aws:iam::aws:policy/AdministratorAccess
+	@echo "🚀 Deploying pipeline..."
+	cd infrastructure && npx cdk deploy --profile sports-betting-pipeline --require-approval never
+	@echo "✅ Pipeline deployed!"
+
+destroy-dev:
+	@echo "🗑️  Destroying dev infrastructure..."
+	@read -p "Are you sure you want to destroy dev AWS resources? (y/N): " confirm && [ "$$confirm" = "y" ]
+	cd infrastructure && npx cdk destroy --app "npx ts-node bin/dev.ts" --profile sports-betting-dev --force
+
+diff-dev:
+	@echo "📊 Showing dev infrastructure changes..."
+	cd infrastructure && npx cdk diff --app "npx ts-node bin/dev.ts" --profile sports-betting-dev
 
 synth:
 	@echo "📄 Generating CloudFormation template..."
 	cd infrastructure && npx cdk synth
+
+verify-dev:
+	@echo "🔍 Verifying dev resources..."
+	@aws dynamodb list-tables --profile sports-betting-dev --query 'TableNames[?contains(@, `sports-betting`) && contains(@, `dev`)]' --output table
+	@aws s3 ls --profile sports-betting-dev | grep sports-betting | grep dev
 
 # Utility targets
 clean:
