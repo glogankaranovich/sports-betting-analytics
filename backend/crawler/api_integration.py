@@ -70,15 +70,23 @@ async def trigger_data_collection(
 @router.get("/collect/{sport}")
 async def collect_sport_data(sport: str):
     """Collect data for a specific sport immediately."""
+    from .data_processor import create_data_processor
+    
     service = await get_crawler_service()
     
     try:
         results = await service.collect_sports_data([sport])
         events = results.get(sport, [])
         
+        # Process and store the data
+        processor = create_data_processor()
+        stats = await processor.process_and_store(events, sport)
+        processing_summary = processor.get_processing_summary(stats)
+        
         return {
             "sport": sport,
             "events_collected": len(events),
+            "processing_stats": processing_summary,
             "events": [
                 {
                     "event_id": event.event_id,
@@ -97,17 +105,62 @@ async def collect_sport_data(sport: str):
         raise HTTPException(status_code=500, detail=f"Failed to collect data for {sport}")
 
 
+@router.get("/data/{sport}")
+async def get_stored_data(sport: str, limit: int = 10):
+    """Get stored data for a specific sport from DynamoDB."""
+    from .data_processor import create_data_processor
+    
+    try:
+        processor = create_data_processor()
+        
+        # Query DynamoDB for recent data
+        response = processor.sports_data_table.query(
+            IndexName='sport-collected_at-index',  # Assuming we have this GSI
+            KeyConditionExpression='sport = :sport',
+            ExpressionAttributeValues={':sport': sport},
+            ScanIndexForward=False,  # Most recent first
+            Limit=limit
+        )
+        
+        items = response.get('Items', [])
+        
+        return {
+            "sport": sport,
+            "count": len(items),
+            "data": items,
+            "retrieved_at": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve data for {sport}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve data for {sport}")
+
+
 async def collect_and_store_data(service: SportsCrawlerService, sports: Optional[List[str]]):
     """Background task to collect and store sports data."""
+    from .data_processor import create_data_processor
+    
     try:
         logger.info(f"Starting background data collection for sports: {sports}")
         results = await service.collect_sports_data(sports)
         
-        # TODO: Store results in database
-        # This will be implemented when we add database integration
+        # Initialize data processor
+        processor = create_data_processor()
         
-        total_events = sum(len(events) for events in results.values())
-        logger.info(f"Background collection completed: {total_events} events collected")
+        # Process and store data for each sport
+        total_stored = 0
+        processing_results = {}
+        
+        for sport, events in results.items():
+            if events:
+                stats = await processor.process_and_store(events, sport)
+                processing_results[sport] = processor.get_processing_summary(stats)
+                total_stored += stats.stored_events
+                
+                logger.info(f"Processed {sport}: {stats.stored_events}/{stats.total_events} events stored")
+        
+        logger.info(f"Background collection completed: {total_stored} total events stored")
+        logger.debug(f"Processing results: {processing_results}")
         
     except Exception as e:
         logger.error(f"Background data collection failed: {e}")

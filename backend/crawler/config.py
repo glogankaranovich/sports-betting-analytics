@@ -6,8 +6,35 @@ from environment variables and configuration files.
 """
 
 import os
-from typing import Dict, List
+import json
+import boto3
+from typing import Dict, List, Optional
 from dataclasses import dataclass
+
+
+def get_secret_value(secret_arn: str) -> Optional[str]:
+    """Get secret value from AWS Secrets Manager."""
+    try:
+        client = boto3.client('secretsmanager')
+        response = client.get_secret_value(SecretId=secret_arn)
+        return response['SecretString']
+    except Exception as e:
+        print(f"Failed to get secret {secret_arn}: {e}")
+        return None
+
+
+def get_odds_api_key() -> Optional[str]:
+    """Get The Odds API key from environment or Secrets Manager."""
+    # First try direct environment variable (for local development)
+    if os.getenv('THE_ODDS_API_KEY'):
+        return os.getenv('THE_ODDS_API_KEY')
+    
+    # Then try Secrets Manager (for Lambda)
+    secret_arn = os.getenv('ODDS_API_SECRET_ARN')
+    if secret_arn:
+        return get_secret_value(secret_arn)
+    
+    return None
 from .base_crawler import CrawlerConfig, DataSourceType
 
 
@@ -48,12 +75,13 @@ class CrawlerConfigManager:
         configs = {}
         
         # The Odds API configuration
-        if os.getenv('THE_ODDS_API_KEY'):
+        odds_api_key = get_odds_api_key()
+        if odds_api_key:
             configs['the_odds_api'] = CrawlerConfig(
                 name='the_odds_api',
                 source_type=DataSourceType.API,
                 base_url='https://api.the-odds-api.com/v4',
-                api_key=os.getenv('THE_ODDS_API_KEY'),
+                api_key=odds_api_key,
                 rate_limit_per_minute=int(os.getenv('THE_ODDS_API_RATE_LIMIT', '10')),
                 timeout_seconds=int(os.getenv('THE_ODDS_API_TIMEOUT', '30')),
                 retry_attempts=int(os.getenv('THE_ODDS_API_RETRIES', '3')),

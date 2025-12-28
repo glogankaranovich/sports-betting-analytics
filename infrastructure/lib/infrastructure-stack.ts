@@ -1,7 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export interface InfrastructureStackProps extends cdk.StackProps {
@@ -56,6 +61,83 @@ export class InfrastructureStack extends cdk.Stack {
       autoDeleteObjects: props.stage !== 'prod',
     });
 
+    // Reference existing secret for The Odds API key
+    const oddsApiSecret = secretsmanager.Secret.fromSecretNameV2(
+      this, 
+      'OddsApiSecret', 
+      `sports-betting/odds-api-key-${props.stage}`
+    );
+
+    // Lambda function for data collection
+    const dataCollectorFunction = new lambda.Function(this, 'DataCollectorFunction', {
+      functionName: `sports-betting-data-collector-${props.stage}`,
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'lambda_handler.lambda_handler',
+      code: lambda.Code.fromAsset('../backend/crawler'),
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 512,
+      environment: {
+        BETS_TABLE_NAME: betsTable.tableName,
+        PREDICTIONS_TABLE_NAME: predictionsTable.tableName,
+        SPORTS_DATA_TABLE_NAME: sportsDataTable.tableName,
+        RAW_DATA_BUCKET_NAME: rawDataBucket.bucketName,
+        STAGE: props.stage,
+        ODDS_API_SECRET_ARN: oddsApiSecret.secretArn,
+      },
+    });
+
+    // Grant permissions to Lambda
+    betsTable.grantReadWriteData(dataCollectorFunction);
+    predictionsTable.grantReadWriteData(dataCollectorFunction);
+    sportsDataTable.grantReadWriteData(dataCollectorFunction);
+    rawDataBucket.grantReadWrite(dataCollectorFunction);
+    oddsApiSecret.grantRead(dataCollectorFunction);
+
+    // CloudWatch Events for scheduling
+    const sportsCollectionRule = new events.Rule(this, 'SportsCollectionRule', {
+      ruleName: `sports-betting-sports-collection-${props.stage}`,
+      description: 'Trigger sports data collection every 4 hours',
+      schedule: events.Schedule.rate(cdk.Duration.hours(4)),
+    });
+
+    const redditCollectionRule = new events.Rule(this, 'RedditCollectionRule', {
+      ruleName: `sports-betting-reddit-collection-${props.stage}`,
+      description: 'Trigger Reddit insights collection every 2 hours',
+      schedule: events.Schedule.rate(cdk.Duration.hours(2)),
+    });
+
+    // Add Lambda targets to rules
+    sportsCollectionRule.addTarget(new targets.LambdaFunction(dataCollectorFunction, {
+      event: events.RuleTargetInput.fromObject({
+        collection_type: 'sports',
+        source: 'cloudwatch-event'
+      })
+    }));
+
+    redditCollectionRule.addTarget(new targets.LambdaFunction(dataCollectorFunction, {
+      event: events.RuleTargetInput.fromObject({
+        collection_type: 'reddit',
+        source: 'cloudwatch-event'
+      })
+    }));
+
+    // API Gateway for manual triggers
+    const api = new apigateway.RestApi(this, 'DataCollectionApi', {
+      restApiName: `sports-betting-data-api-${props.stage}`,
+      description: 'API for manual data collection triggers',
+    });
+
+    const dataCollectionIntegration = new apigateway.LambdaIntegration(dataCollectorFunction);
+
+    // POST /collect/sports
+    const collectResource = api.root.addResource('collect');
+    const sportsResource = collectResource.addResource('sports');
+    sportsResource.addMethod('POST', dataCollectionIntegration);
+
+    // POST /collect/reddit  
+    const redditResource = collectResource.addResource('reddit');
+    redditResource.addMethod('POST', dataCollectionIntegration);
+
     // Output important values
     new cdk.CfnOutput(this, 'BetsTableName', {
       value: betsTable.tableName,
@@ -63,6 +145,14 @@ export class InfrastructureStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'RawDataBucketName', {
       value: rawDataBucket.bucketName,
+    });
+
+    new cdk.CfnOutput(this, 'DataCollectorFunctionName', {
+      value: dataCollectorFunction.functionName,
+    });
+
+    new cdk.CfnOutput(this, 'DataCollectionApiUrl', {
+      value: api.url,
     });
   }
 }

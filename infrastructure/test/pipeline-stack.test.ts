@@ -30,6 +30,6 @@ describe('Sports Betting Pipeline Stack', () => {
 
   test('Creates CodeBuild Projects', () => {
     // Pipeline creates multiple build projects
-    template.resourceCountIs('AWS::CodeBuild::Project', 4); // Synth + SelfMutation + IntegrationTests + Assets
+    template.resourceCountIs('AWS::CodeBuild::Project', 5); // Synth + SelfMutation + IntegrationTests + Assets + Lambda
   });
 });
