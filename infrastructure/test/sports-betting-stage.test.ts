@@ -19,8 +19,8 @@ describe('Sports Betting Stage', () => {
 
   test('Stage Creates Infrastructure Stack', () => {
     // Verify the stage creates the infrastructure stack
-    template.resourceCountIs('AWS::DynamoDB::Table', 3);
-    template.resourceCountIs('AWS::S3::Bucket', 2);
+    template.resourceCountIs('AWS::DynamoDB::Table', 5);
+    template.resourceCountIs('AWS::S3::Bucket', 3);
   });
 
   test('Stage Passes Correct Props', () => {

@@ -159,3 +159,42 @@ A comprehensive system for analyzing sports data and making informed betting dec
 - **Phase 6**: 1 week (Deployment)
 
 **Total Estimated Duration**: 9-12 weeks
+
+## Future Phases (Advanced Features)
+
+### Phase 7: Social Intelligence & Collaboration
+- [ ] **Task 10**: AI Agent for Group Conversations
+  - Discord/Slack bot integration for betting discussions
+  - Individual user prediction tracking and accuracy scoring
+  - Personal bias pattern recognition (optimistic, contrarian, etc.)
+  - Opinion weighting based on historical performance
+  - Real-time conversation analysis and bet extraction
+
+- [ ] **Task 11**: Custom Model Builder Interface
+  - Web UI for selecting and weighting data sources
+  - Personal model configuration (team stats, referee bias, sentiment ratios)
+  - Individual bias adjustments and expert trust settings
+  - Save/load custom model configurations
+  - Performance comparison between user models and base models
+
+- [ ] **Task 12**: Collaborative Betting Platform
+  - User profiles with betting history and preferences
+  - Social features for sharing successful model configurations
+  - Expert user models available as community templates
+  - A/B testing framework for user-created vs system models
+  - Leaderboards and performance analytics by user
+
+### Phase 8: Advanced Analytics & Personalization
+- [ ] **Task 13**: Enhanced Sentiment Analysis
+  - Real-time social media monitoring across platforms
+  - Influencer opinion tracking and impact measurement
+  - News sentiment analysis and market reaction correlation
+  - Community consensus vs contrarian signal detection
+
+- [ ] **Task 14**: Personalized Recommendation Engine
+  - Individual risk tolerance profiling
+  - Betting style analysis and optimization
+  - Personalized bankroll management strategies
+  - Custom alert systems for value opportunities
+
+**Extended Timeline**: Additional 6-8 weeks for advanced features

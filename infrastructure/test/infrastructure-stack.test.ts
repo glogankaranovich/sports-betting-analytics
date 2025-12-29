@@ -10,7 +10,7 @@ describe('Sports Betting Infrastructure Stack', () => {
     });
     const devTemplate = Template.fromStack(devStack);
 
-    devTemplate.resourceCountIs('AWS::DynamoDB::Table', 3);
+    devTemplate.resourceCountIs('AWS::DynamoDB::Table', 5);
     devTemplate.hasResourceProperties('AWS::DynamoDB::Table', {
       TableName: 'sports-betting-bets-dev',
       BillingMode: 'PAY_PER_REQUEST'
@@ -24,7 +24,7 @@ describe('Sports Betting Infrastructure Stack', () => {
     });
     const template = Template.fromStack(stack);
 
-    template.resourceCountIs('AWS::S3::Bucket', 2);
+    template.resourceCountIs('AWS::S3::Bucket', 3);
   });
 
   test('Has Different Removal Policies by Stage', () => {

@@ -48,6 +48,24 @@ export class InfrastructureStack extends cdk.Stack {
       removalPolicy: props.stage === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
+    // Referee data table for bias tracking
+    const refereeDataTable = new dynamodb.Table(this, 'RefereeDataTable', {
+      tableName: `sports-betting-referees-${props.stage}`,
+      partitionKey: { name: 'referee_id', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'game_date', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: props.stage === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Model metadata and performance tracking
+    const modelsTable = new dynamodb.Table(this, 'ModelsTable', {
+      tableName: `sports-betting-models-${props.stage}`,
+      partitionKey: { name: 'model_id', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'version', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: props.stage === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
     // S3 Buckets
     const rawDataBucket = new s3.Bucket(this, 'RawDataBucket', {
       bucketName: `sports-betting-raw-data-${props.stage}-${cdk.Aws.ACCOUNT_ID}`,
@@ -59,6 +77,14 @@ export class InfrastructureStack extends cdk.Stack {
       bucketName: `sports-betting-assets-${props.stage}-${cdk.Aws.ACCOUNT_ID}`,
       removalPolicy: props.stage === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       autoDeleteObjects: props.stage !== 'prod',
+    });
+
+    // ML models and artifacts bucket
+    const modelsBucket = new s3.Bucket(this, 'ModelsBucket', {
+      bucketName: `sports-betting-models-${props.stage}-${cdk.Aws.ACCOUNT_ID}`,
+      removalPolicy: props.stage === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: props.stage !== 'prod',
+      versioned: true, // Enable versioning for model artifacts
     });
 
     // Reference existing secret for The Odds API key
@@ -80,7 +106,10 @@ export class InfrastructureStack extends cdk.Stack {
         BETS_TABLE_NAME: betsTable.tableName,
         PREDICTIONS_TABLE_NAME: predictionsTable.tableName,
         SPORTS_DATA_TABLE_NAME: sportsDataTable.tableName,
+        REFEREE_DATA_TABLE_NAME: refereeDataTable.tableName,
+        MODELS_TABLE_NAME: modelsTable.tableName,
         RAW_DATA_BUCKET_NAME: rawDataBucket.bucketName,
+        MODELS_BUCKET_NAME: modelsBucket.bucketName,
         STAGE: props.stage,
         ODDS_API_SECRET_ARN: oddsApiSecret.secretArn,
       },
@@ -90,7 +119,10 @@ export class InfrastructureStack extends cdk.Stack {
     betsTable.grantReadWriteData(dataCollectorFunction);
     predictionsTable.grantReadWriteData(dataCollectorFunction);
     sportsDataTable.grantReadWriteData(dataCollectorFunction);
+    refereeDataTable.grantReadWriteData(dataCollectorFunction);
+    modelsTable.grantReadWriteData(dataCollectorFunction);
     rawDataBucket.grantReadWrite(dataCollectorFunction);
+    modelsBucket.grantReadWrite(dataCollectorFunction);
     oddsApiSecret.grantRead(dataCollectorFunction);
 
     // CloudWatch Events for scheduling
