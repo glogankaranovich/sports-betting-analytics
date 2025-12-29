@@ -101,6 +101,13 @@ export class InfrastructureStack extends cdk.Stack {
       `sports-betting/odds-api-key-${props.stage}`
     );
 
+    // Reference SportsData.io API secret
+    const sportsDataSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'SportsDataSecret',
+      'sports-betting/sportsdata-api-key'
+    );
+
     // Lambda function for data collection
     const dataCollectorFunction = new lambda.Function(this, 'DataCollectorFunction', {
       functionName: `sports-betting-data-collector-${props.stage}`,
@@ -119,6 +126,7 @@ export class InfrastructureStack extends cdk.Stack {
         MODELS_BUCKET_NAME: modelsBucket.bucketName,
         STAGE: props.stage,
         ODDS_API_SECRET_ARN: oddsApiSecret.secretArn,
+        SPORTSDATA_API_SECRET_ARN: sportsDataSecret.secretArn,
       },
     });
 
@@ -131,6 +139,7 @@ export class InfrastructureStack extends cdk.Stack {
     rawDataBucket.grantReadWrite(dataCollectorFunction);
     modelsBucket.grantReadWrite(dataCollectorFunction);
     oddsApiSecret.grantRead(dataCollectorFunction);
+    sportsDataSecret.grantRead(dataCollectorFunction);
 
     // Grant integration test role read access to resources
     betsTable.grantReadData(integrationTestRole);

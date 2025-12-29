@@ -8,7 +8,7 @@ for collecting sports data from various sources.
 import asyncio
 import logging
 from typing import List, Dict, Any
-from .base_crawler import CrawlerManager, TheOddsAPICrawler, SportEvent, create_the_odds_api_crawler
+from .base_crawler import CrawlerManager, TheOddsAPICrawler, SportsDataIOCrawler, SportEvent, create_the_odds_api_crawler, create_sportsdata_io_crawler
 from .config import CrawlerConfigManager
 from .reddit_crawler import RedditCrawler
 from .referee_crawler import RefereeCrawler, RefereeStats
@@ -31,7 +31,10 @@ class SportsCrawlerService:
         enabled_configs = self.config_manager.get_enabled_crawlers()
         
         for name, config in enabled_configs.items():
-            if name == 'the_odds_api':
+            if name == 'sportsdata_io':
+                crawler = SportsDataIOCrawler(config)
+                self.crawler_manager.add_crawler(crawler)
+            elif name == 'the_odds_api':
                 crawler = TheOddsAPICrawler(config)
                 self.crawler_manager.add_crawler(crawler)
             # Add other crawler types here as they're implemented

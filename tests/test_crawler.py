@@ -7,6 +7,221 @@ from datetime import datetime
 
 from backend.crawler.reddit_crawler import RedditCrawler, RedditPost, BettingInsight
 from backend.crawler.scheduler import DataCollectionExecutor
+from backend.crawler.base_crawler import SportEvent, TeamStats, PlayerInfo, WeatherConditions
+
+
+class TestEnhancedDataStructures:
+    """Test enhanced data structures for ML features."""
+    
+    def test_team_stats_creation(self):
+        """Test TeamStats dataclass."""
+        stats = TeamStats(
+            team_id="team_001",
+            wins=10,
+            losses=5,
+            win_percentage=0.667,
+            points_per_game=110.5,
+            points_allowed_per_game=105.2,
+            home_record="6-2",
+            away_record="4-3",
+            last_5_games="W-W-L-W-W",
+            injuries_count=2
+        )
+        
+        assert stats.team_id == "team_001"
+        assert stats.wins == 10
+        assert stats.win_percentage == 0.667
+        assert stats.injuries_count == 2
+    
+    def test_player_info_creation(self):
+        """Test PlayerInfo dataclass."""
+        player = PlayerInfo(
+            player_id="player_001",
+            name="Test Player",
+            position="PG",
+            injury_status="questionable",
+            season_stats={"points": 25.5, "assists": 8.2}
+        )
+        
+        assert player.name == "Test Player"
+        assert player.injury_status == "questionable"
+        assert player.season_stats["points"] == 25.5
+    
+    def test_weather_conditions_creation(self):
+        """Test WeatherConditions dataclass."""
+        weather = WeatherConditions(
+            temperature=72.0,
+            humidity=65.0,
+            wind_speed=8.5,
+            precipitation="none",
+            conditions="clear"
+        )
+        
+        assert weather.temperature == 72.0
+        assert weather.conditions == "clear"
+    
+    def test_enhanced_sport_event_creation(self):
+        """Test enhanced SportEvent with all ML features."""
+        home_stats = TeamStats(
+            team_id="home_001", wins=12, losses=3, win_percentage=0.8,
+            points_per_game=115.0, points_allowed_per_game=108.0,
+            home_record="7-1", away_record="5-2", last_5_games="W-W-W-L-W",
+            injuries_count=1
+        )
+        
+        away_stats = TeamStats(
+            team_id="away_001", wins=8, losses=7, win_percentage=0.533,
+            points_per_game=108.5, points_allowed_per_game=112.0,
+            home_record="5-3", away_record="3-4", last_5_games="L-W-L-W-L",
+            injuries_count=3
+        )
+        
+        key_player = PlayerInfo(
+            player_id="star_001", name="Star Player", position="SF",
+            injury_status="healthy", season_stats={"points": 28.5}
+        )
+        
+        weather = WeatherConditions(
+            temperature=68.0, humidity=70.0, wind_speed=5.0,
+            precipitation="none", conditions="partly_cloudy"
+        )
+        
+        event = SportEvent(
+            event_id="enhanced_game_001",
+            sport="basketball",
+            home_team="Lakers",
+            away_team="Warriors",
+            commence_time=datetime(2024, 1, 15, 20, 0),
+            bookmaker_odds=[{"bookmaker": "test", "markets": {}}],
+            source="sportsdata_io",
+            home_team_stats=home_stats,
+            away_team_stats=away_stats,
+            key_players=[key_player],
+            weather=weather,
+            referee_id="ref_001",
+            venue="Crypto.com Arena"
+        )
+        
+        assert event.home_team_stats.wins == 12
+        assert event.away_team_stats.injuries_count == 3
+        assert len(event.key_players) == 1
+        assert event.weather.temperature == 68.0
+        assert event.referee_id == "ref_001"
+        assert event.venue == "Crypto.com Arena"
+
+
+class TestSportsDataIOCrawler:
+    """Test SportsData.io crawler functionality."""
+    
+    @pytest.fixture
+    def mock_sportsdata_client(self):
+        """Mock SportsData.io client."""
+        with patch('backend.crawler.sportsdata_client.SportsDataClient') as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+            
+            # Mock enhanced game data response
+            mock_client.get_enhanced_game_data.return_value = {
+                'sport': 'nba',
+                'odds': [{
+                    'GameID': 'game_001',
+                    'HomeTeam': 'Lakers',
+                    'AwayTeam': 'Warriors',
+                    'DateTime': '2024-01-15T20:00:00',
+                    'Odds': [{
+                        'Sportsbook': 'DraftKings',
+                        'HomeMoneyLine': -150,
+                        'AwayMoneyLine': 130
+                    }],
+                    'StadiumDetails': {'Name': 'Crypto.com Arena'}
+                }],
+                'teams': [{
+                    'TeamID': 'lakers_001',
+                    'Name': 'Lakers',
+                    'Wins': 25,
+                    'Losses': 10,
+                    'Percentage': 0.714,
+                    'PointsPerGameFor': 118.5,
+                    'PointsPerGameAgainst': 112.0
+                }],
+                'injuries': [{
+                    'PlayerID': 'player_001',
+                    'Name': 'Test Player',
+                    'Team': 'Lakers',
+                    'Position': 'PG',
+                    'Status': 'Questionable'
+                }],
+                'collected_at': '2024-01-15T18:00:00'
+            }
+            
+            yield mock_client
+    
+    @pytest.mark.asyncio
+    async def test_sportsdata_crawler_fetch(self, mock_sportsdata_client):
+        """Test SportsData.io crawler data fetching."""
+        from backend.crawler.base_crawler import SportsDataIOCrawler, CrawlerConfig, DataSourceType
+        
+        config = CrawlerConfig(
+            name="sportsdata_io",
+            source_type=DataSourceType.API,
+            base_url="https://api.sportsdata.io",
+            api_key="test_key",
+            enabled=True
+        )
+        
+        crawler = SportsDataIOCrawler(config)
+        
+        events = await crawler.fetch_sports_data("nba")
+        
+        assert len(events) == 1
+        event = events[0]
+        
+        assert event.sport == "nba"
+        assert event.home_team == "Lakers"
+        assert event.away_team == "Warriors"
+        assert event.source == "sportsdata_io"
+        assert event.venue == "Crypto.com Arena"
+        
+        # Check enhanced data is populated
+        assert len(event.key_players) == 1
+        assert event.key_players[0].name == "Test Player"
+        assert event.key_players[0].injury_status == "questionable"
+    
+    def test_odds_extraction(self):
+        """Test odds extraction from SportsData.io format."""
+        from backend.crawler.base_crawler import SportsDataIOCrawler, CrawlerConfig, DataSourceType
+        
+        config = CrawlerConfig(
+            name="sportsdata_io",
+            source_type=DataSourceType.API,
+            base_url="https://api.sportsdata.io",
+            api_key="test_key"
+        )
+        
+        crawler = SportsDataIOCrawler(config)
+        
+        game_data = {
+            'Odds': [{
+                'Sportsbook': 'DraftKings',
+                'HomeMoneyLine': -150,
+                'AwayMoneyLine': 130,
+                'HomePointSpread': -3.5,
+                'AwayPointSpread': 3.5,
+                'OverUnder': 225.5,
+                'OverPayout': -110,
+                'UnderPayout': -110
+            }]
+        }
+        
+        odds = crawler._extract_odds(game_data)
+        
+        assert len(odds) == 1
+        bookmaker_odds = odds[0]
+        
+        assert bookmaker_odds['bookmaker'] == 'DraftKings'
+        assert bookmaker_odds['markets']['h2h'] == [-150, 130]
+        assert bookmaker_odds['markets']['spreads'][0]['point'] == -3.5
+        assert bookmaker_odds['markets']['totals']['over']['point'] == 225.5
 
 
 class TestRedditCrawler:

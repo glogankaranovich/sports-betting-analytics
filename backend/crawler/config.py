@@ -35,6 +35,20 @@ def get_odds_api_key() -> Optional[str]:
         return get_secret_value(secret_arn)
     
     return None
+
+
+def get_sportsdata_api_key() -> Optional[str]:
+    """Get SportsData.io API key from environment or Secrets Manager."""
+    # First try direct environment variable (for local development)
+    if os.getenv('SPORTSDATA_API_KEY'):
+        return os.getenv('SPORTSDATA_API_KEY')
+    
+    # Then try Secrets Manager (for Lambda)
+    secret_arn = os.getenv('SPORTSDATA_API_SECRET_ARN')
+    if secret_arn:
+        return get_secret_value(secret_arn)
+    
+    return None
 from .base_crawler import CrawlerConfig, DataSourceType
 
 
@@ -88,17 +102,18 @@ class CrawlerConfigManager:
                 enabled=os.getenv('THE_ODDS_API_ENABLED', 'true').lower() == 'true'
             )
         
-        # SportsData.io configuration (if API key provided)
-        if os.getenv('SPORTSDATA_IO_API_KEY'):
+        # SportsData.io configuration
+        sportsdata_api_key = get_sportsdata_api_key()
+        if sportsdata_api_key:
             configs['sportsdata_io'] = CrawlerConfig(
                 name='sportsdata_io',
                 source_type=DataSourceType.API,
-                base_url='https://api.sportsdata.io/v3',
-                api_key=os.getenv('SPORTSDATA_IO_API_KEY'),
+                base_url='https://api.sportsdata.io',
+                api_key=sportsdata_api_key,
                 rate_limit_per_minute=int(os.getenv('SPORTSDATA_IO_RATE_LIMIT', '60')),
                 timeout_seconds=int(os.getenv('SPORTSDATA_IO_TIMEOUT', '30')),
                 retry_attempts=int(os.getenv('SPORTSDATA_IO_RETRIES', '3')),
-                enabled=os.getenv('SPORTSDATA_IO_ENABLED', 'false').lower() == 'true'
+                enabled=os.getenv('SPORTSDATA_IO_ENABLED', 'true').lower() == 'true'
             )
         
         return configs

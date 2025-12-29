@@ -39,8 +39,43 @@ class CrawlerConfig:
 
 
 @dataclass
+class TeamStats:
+    """Team performance statistics."""
+    team_id: str
+    wins: int
+    losses: int
+    win_percentage: float
+    points_per_game: float
+    points_allowed_per_game: float
+    home_record: str
+    away_record: str
+    last_5_games: str
+    injuries_count: int
+
+
+@dataclass
+class PlayerInfo:
+    """Key player information."""
+    player_id: str
+    name: str
+    position: str
+    injury_status: str  # "healthy", "questionable", "doubtful", "out"
+    season_stats: Dict[str, float]
+
+
+@dataclass
+class WeatherConditions:
+    """Weather conditions for outdoor games."""
+    temperature: Optional[float]
+    humidity: Optional[float]
+    wind_speed: Optional[float]
+    precipitation: Optional[str]
+    conditions: Optional[str]
+
+
+@dataclass
 class SportEvent:
-    """Standardized sports event data structure."""
+    """Enhanced sports event data structure with ML context."""
     event_id: str
     sport: str
     home_team: str
@@ -48,7 +83,18 @@ class SportEvent:
     commence_time: datetime
     bookmaker_odds: List[Dict[str, Any]]
     source: str
-    collected_at: datetime
+    
+    # Enhanced context data (all optional with defaults)
+    home_team_stats: Optional[TeamStats] = None
+    away_team_stats: Optional[TeamStats] = None
+    key_players: Optional[List[PlayerInfo]] = None
+    weather: Optional[WeatherConditions] = None
+    referee_id: Optional[str] = None
+    venue: Optional[str] = None
+    
+    def __post_init__(self):
+        if self.key_players is None:
+            self.key_players = []
 
 
 class BaseCrawler(ABC):
@@ -155,8 +201,7 @@ class TheOddsAPICrawler(BaseCrawler):
                     away_team=game['away_team'],
                     commence_time=datetime.fromisoformat(game['commence_time'].replace('Z', '+00:00')),
                     bookmaker_odds=game.get('bookmakers', []),
-                    source=self.config.name,
-                    collected_at=datetime.utcnow()
+                    source=self.config.name
                 )
                 events.append(event)
             except Exception as e:
@@ -164,6 +209,196 @@ class TheOddsAPICrawler(BaseCrawler):
                 continue
         
         return events
+
+
+class SportsDataIOCrawler(BaseCrawler):
+    """Crawler for SportsData.io unified API."""
+    
+    from .sportsdata_client import SPORT_MAPPING
+    
+    async def fetch_sports_data(self, sport: str, **kwargs) -> List[SportEvent]:
+        """Fetch enhanced sports data from SportsData.io."""
+        if not self.config.enabled:
+            return []
+        
+        from .sportsdata_client import SportsDataClient
+        
+        try:
+            async with SportsDataClient() as client:
+                data = await client.get_enhanced_game_data(sport)
+                return self._parse_enhanced_data(data, sport)
+        except Exception as e:
+            logger.error(f"Failed to fetch data for {sport}: {e}")
+            return []
+    
+    async def get_available_sports(self) -> List[str]:
+        """Get available sports from SportsData.io."""
+        from .sportsdata_client import SPORT_MAPPING
+        return list(SPORT_MAPPING.keys())
+    
+    def _parse_enhanced_data(self, data: Dict, sport: str) -> List[SportEvent]:
+        """Parse SportsData.io response into enhanced SportEvent objects."""
+        events = []
+        
+        # Extract and organize data
+        odds_data = data.get('odds', [])
+        teams_data = {team.get('TeamID'): team for team in data.get('teams', [])}
+        injuries_data = data.get('injuries', [])
+        
+        for game in odds_data:
+            try:
+                # Basic event info
+                home_team = game.get('HomeTeam', '')
+                away_team = game.get('AwayTeam', '')
+                
+                # Enhanced team stats
+                home_stats = self._build_team_stats(home_team, teams_data, injuries_data)
+                away_stats = self._build_team_stats(away_team, teams_data, injuries_data)
+                
+                # Key players with injury status
+                key_players = self._extract_key_players(game, injuries_data)
+                
+                # Weather for outdoor sports
+                weather = self._extract_weather(game, sport)
+                
+                event = SportEvent(
+                    event_id=f"sportsdata_{game.get('GameID', 'unknown')}",
+                    sport=sport,
+                    home_team=home_team,
+                    away_team=away_team,
+                    commence_time=datetime.fromisoformat(game.get('DateTime', '')),
+                    bookmaker_odds=self._extract_odds(game),
+                    source='sportsdata_io',
+                    home_team_stats=home_stats,
+                    away_team_stats=away_stats,
+                    key_players=key_players,
+                    weather=weather,
+                    venue=game.get('StadiumDetails', {}).get('Name')
+                )
+                events.append(event)
+            except Exception as e:
+                logger.warning(f"Failed to parse game data: {e}")
+                continue
+        
+        return events
+    
+    def _build_team_stats(self, team_name: str, teams_data: Dict, injuries_data: List) -> Optional[TeamStats]:
+        """Build team statistics from available data."""
+        team_info = None
+        for team in teams_data.values():
+            if team.get('Name') == team_name or team.get('Key') == team_name:
+                team_info = team
+                break
+        
+        if not team_info:
+            return None
+        
+        # Count injuries for this team
+        injury_count = sum(1 for injury in injuries_data 
+                          if injury.get('Team') == team_name)
+        
+        return TeamStats(
+            team_id=team_info.get('TeamID', ''),
+            wins=team_info.get('Wins', 0),
+            losses=team_info.get('Losses', 0),
+            win_percentage=team_info.get('Percentage', 0.0),
+            points_per_game=team_info.get('PointsPerGameFor', 0.0),
+            points_allowed_per_game=team_info.get('PointsPerGameAgainst', 0.0),
+            home_record=f"{team_info.get('HomeWins', 0)}-{team_info.get('HomeLosses', 0)}",
+            away_record=f"{team_info.get('AwayWins', 0)}-{team_info.get('AwayLosses', 0)}",
+            last_5_games=team_info.get('Streak', ''),
+            injuries_count=injury_count
+        )
+    
+    def _extract_key_players(self, game: Dict, injuries_data: List) -> List[PlayerInfo]:
+        """Extract key players with injury status."""
+        players = []
+        
+        # Get injured players for this game's teams
+        home_team = game.get('HomeTeam', '')
+        away_team = game.get('AwayTeam', '')
+        
+        for injury in injuries_data:
+            if injury.get('Team') in [home_team, away_team]:
+                player = PlayerInfo(
+                    player_id=injury.get('PlayerID', ''),
+                    name=injury.get('Name', ''),
+                    position=injury.get('Position', ''),
+                    injury_status=injury.get('Status', 'unknown').lower(),
+                    season_stats={}  # Would need separate API call for detailed stats
+                )
+                players.append(player)
+        
+        return players
+    
+    def _extract_weather(self, game: Dict, sport: str) -> Optional[WeatherConditions]:
+        """Extract weather conditions for outdoor sports."""
+        if sport not in ['nfl', 'mlb', 'mls']:  # Only outdoor sports
+            return None
+        
+        weather_data = game.get('Weather')
+        if not weather_data:
+            return None
+        
+        return WeatherConditions(
+            temperature=weather_data.get('Temperature'),
+            humidity=weather_data.get('Humidity'),
+            wind_speed=weather_data.get('WindSpeed'),
+            precipitation=weather_data.get('Precipitation'),
+            conditions=weather_data.get('Conditions')
+        )
+    
+    async def get_available_sports(self) -> List[str]:
+        """Get available sports from SportsData.io."""
+        # Return supported sports based on our mapping
+        from .sportsdata_client import SPORT_MAPPING
+        return list(SPORT_MAPPING.keys())
+        """Extract weather conditions for outdoor sports."""
+        if sport not in ['nfl', 'mlb', 'mls']:  # Only outdoor sports
+            return None
+        
+        weather_data = game.get('Weather')
+        if not weather_data:
+            return None
+        
+    def _extract_odds(self, game: Dict) -> List[Dict[str, Any]]:
+        """Extract betting odds from SportsData.io game data."""
+        odds = []
+        
+        # SportsData.io provides odds in different format
+        if 'Odds' in game:
+            for bookmaker_odds in game['Odds']:
+                odds.append({
+                    'bookmaker': bookmaker_odds.get('Sportsbook', 'unknown'),
+                    'markets': {
+                        'h2h': [
+                            bookmaker_odds.get('HomeMoneyLine'),
+                            bookmaker_odds.get('AwayMoneyLine')
+                        ],
+                        'spreads': [
+                            {
+                                'point': bookmaker_odds.get('HomePointSpread'),
+                                'price': bookmaker_odds.get('HomePointSpreadPayout')
+                            },
+                            {
+                                'point': bookmaker_odds.get('AwayPointSpread'), 
+                                'price': bookmaker_odds.get('AwayPointSpreadPayout')
+                            }
+                        ],
+                        'totals': {
+                            'over': {
+                                'point': bookmaker_odds.get('OverUnder'),
+                                'price': bookmaker_odds.get('OverPayout')
+                            },
+                            'under': {
+                                'point': bookmaker_odds.get('OverUnder'),
+                                'price': bookmaker_odds.get('UnderPayout')
+                            }
+                        }
+                    }
+                })
+        
+        return odds
 
 
 class CrawlerManager:
@@ -232,7 +467,7 @@ class CrawlerManager:
         return status
 
 
-# Factory function for creating pre-configured crawlers
+# Factory functions for creating pre-configured crawlers
 def create_the_odds_api_crawler(api_key: str) -> TheOddsAPICrawler:
     """Create a pre-configured The Odds API crawler."""
     config = CrawlerConfig(
@@ -246,3 +481,18 @@ def create_the_odds_api_crawler(api_key: str) -> TheOddsAPICrawler:
         enabled=True
     )
     return TheOddsAPICrawler(config)
+
+
+def create_sportsdata_io_crawler(api_key: str) -> SportsDataIOCrawler:
+    """Create a pre-configured SportsData.io crawler."""
+    config = CrawlerConfig(
+        name="sportsdata_io",
+        source_type=DataSourceType.API,
+        base_url="https://api.sportsdata.io",
+        api_key=api_key,
+        rate_limit_per_minute=60,  # Higher rate limit
+        timeout_seconds=30,
+        retry_attempts=3,
+        enabled=True
+    )
+    return SportsDataIOCrawler(config)
