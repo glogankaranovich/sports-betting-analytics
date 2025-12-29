@@ -53,9 +53,14 @@ export class SportsBettingPipelineStack extends cdk.Stack {
     stagingStage.addPost(new CodeBuildStep('IntegrationTests', {
       commands: [
         'echo "🧪 Running integration tests against Staging environment..."',
-        'cd backend && npm ci',
+        'cd backend',
+        'python3 -m venv venv',
+        'source venv/bin/activate',
+        'pip install -r requirements.txt',
+        'pip install -r requirements-test.txt',
+        'cd ..',
         'echo "Running API tests..."',
-        'npm test',
+        'python -m pytest tests/ -v',
         'echo "✅ Integration tests passed!"',
       ],
       buildEnvironment: {
