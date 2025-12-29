@@ -65,6 +65,14 @@ export class SportsBettingPipelineStack extends cdk.Stack {
       buildEnvironment: {
         buildImage: LinuxBuildImage.STANDARD_7_0,
       },
+      // Add permissions to assume cross-account role
+      rolePolicyStatements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['sts:AssumeRole'],
+          resources: ['arn:aws:iam::352312075009:role/CrossAccountIntegrationTestRole-staging']
+        })
+      ]
     }));
 
     // Production stage (only deploys if staging tests pass)

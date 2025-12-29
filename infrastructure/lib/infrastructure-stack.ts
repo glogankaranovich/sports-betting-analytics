@@ -17,6 +17,13 @@ export class InfrastructureStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: InfrastructureStackProps) {
     super(scope, id, props);
 
+    // Cross-account integration test role
+    const integrationTestRole = new iam.Role(this, 'CrossAccountIntegrationTestRole', {
+      roleName: `CrossAccountIntegrationTestRole-${props.stage}`,
+      assumedBy: new iam.AccountPrincipal('083314012659'), // Pipeline account
+      description: 'Role for pipeline account to run integration tests against resources',
+    });
+
     // DynamoDB Tables
     const betsTable = new dynamodb.Table(this, 'BetsTable', {
       tableName: `sports-betting-bets-${props.stage}`,
@@ -124,6 +131,15 @@ export class InfrastructureStack extends cdk.Stack {
     rawDataBucket.grantReadWrite(dataCollectorFunction);
     modelsBucket.grantReadWrite(dataCollectorFunction);
     oddsApiSecret.grantRead(dataCollectorFunction);
+
+    // Grant integration test role read access to resources
+    betsTable.grantReadData(integrationTestRole);
+    predictionsTable.grantReadData(integrationTestRole);
+    sportsDataTable.grantReadData(integrationTestRole);
+    refereeDataTable.grantReadData(integrationTestRole);
+    modelsTable.grantReadData(integrationTestRole);
+    rawDataBucket.grantRead(integrationTestRole);
+    modelsBucket.grantRead(integrationTestRole);
 
     // CloudWatch Events for scheduling
     const sportsCollectionRule = new events.Rule(this, 'SportsCollectionRule', {
