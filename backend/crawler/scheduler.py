@@ -15,6 +15,7 @@ import json
 from .__init__ import SportsCrawlerService
 from .data_processor import create_data_processor
 from .reddit_crawler import RedditCrawler
+from .referee_crawler import RefereeCrawler
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class DataCollectionExecutor:
         self.crawler_service = SportsCrawlerService()
         self.data_processor = create_data_processor()
         self.reddit_crawler = RedditCrawler()
+        self.referee_crawler = RefereeCrawler()
     
     async def collect_all_sports(self) -> Dict[str, Any]:
         """Collect data for all default sports."""
@@ -190,6 +192,102 @@ class DataCollectionExecutor:
             logger.error(f"Reddit collection failed after {execution_time:.1f}s: {e}")
             return error_summary
 
+    async def collect_referee_data(self) -> Dict[str, Any]:
+        """Collect and store referee statistics and bias metrics."""
+        start_time = datetime.utcnow()
+        logger.info("Starting referee data collection")
+        
+        try:
+            # Collect referee data
+            async with self.referee_crawler as crawler:
+                referees = await crawler.collect_all_referees()
+            
+            # Convert to events for storage
+            referee_events = []
+            for referee in referees:
+                event_data = {
+                    "referee_id": referee.referee_id,
+                    "name": referee.name,
+                    "sport": referee.sport,
+                    "games_officiated": referee.games_officiated,
+                    "home_team_win_rate": referee.home_team_win_rate,
+                    "total_fouls_per_game": referee.total_fouls_per_game,
+                    "technical_fouls_per_game": referee.technical_fouls_per_game,
+                    "ejections_per_game": referee.ejections_per_game,
+                    "overtime_games_rate": referee.overtime_games_rate,
+                    "close_game_call_tendency": referee.close_game_call_tendency,
+                    "experience_years": referee.experience_years,
+                    "season": referee.season,
+                    "source_url": referee.source_url,
+                    "collected_at": referee.last_updated.isoformat()
+                }
+                referee_events.append(event_data)
+            
+            # Store using data processor
+            if referee_events:
+                # Store referee data directly to DynamoDB
+                import boto3
+                from boto3.dynamodb.types import TypeDeserializer, TypeSerializer
+                from decimal import Decimal
+                from datetime import timezone
+                
+                dynamodb = boto3.resource('dynamodb')
+                table_name = os.getenv('REFEREE_DATA_TABLE_NAME', 'sports-betting-referees-dev')
+                table = dynamodb.Table(table_name)
+                
+                stored_count = 0
+                for referee_data in referee_events:
+                    try:
+                        # Convert floats to Decimal for DynamoDB
+                        item = {}
+                        for key, value in referee_data.items():
+                            if isinstance(value, float):
+                                item[key] = Decimal(str(value))
+                            else:
+                                item[key] = value
+                        
+                        # Add DynamoDB required fields
+                        item.update({
+                            'game_date': datetime.utcnow().strftime('%Y-%m-%d'),  # Sort key
+                            'ttl': int((datetime.utcnow().timestamp() + (365 * 24 * 3600)))  # 1 year TTL
+                        })
+                        
+                        table.put_item(Item=item)
+                        stored_count += 1
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to store referee {referee_data.get('name', 'unknown')}: {e}")
+                        
+            else:
+                stored_count = 0
+            
+            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            
+            summary = {
+                "success": True,
+                "execution_time_seconds": round(execution_time, 2),
+                "referees_collected": len(referees),
+                "referees_stored": stored_count,
+                "executed_at": start_time.isoformat(),
+                "completed_at": datetime.utcnow().isoformat()
+            }
+            
+            logger.info(f"Referee collection completed: {stored_count} referees stored in {execution_time:.1f}s")
+            return summary
+            
+        except Exception as e:
+            execution_time = (datetime.utcnow() - start_time).total_seconds()
+            error_summary = {
+                "success": False,
+                "error": str(e),
+                "execution_time_seconds": round(execution_time, 2),
+                "executed_at": start_time.isoformat(),
+                "failed_at": datetime.utcnow().isoformat()
+            }
+            
+            logger.error(f"Referee collection failed after {execution_time:.1f}s: {e}")
+            return error_summary
+
 
 # Lambda handler function
 async def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -198,7 +296,7 @@ async def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     Event structure:
     {
-        "collection_type": "sports" | "reddit",  # Type of collection
+        "collection_type": "sports" | "reddit" | "referees",  # Type of collection
         "sports": ["nfl", "nba"],  # Optional for sports collection
         "source": "cloudwatch-event"  # Optional, for tracking trigger source
     }
@@ -210,6 +308,8 @@ async def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     if collection_type == 'reddit':
         result = await executor.collect_reddit_insights()
+    elif collection_type == 'referees':
+        result = await executor.collect_referee_data()
     elif collection_type == 'sports':
         # Extract sports from event, or use defaults
         sports = event.get('sports')
@@ -221,7 +321,7 @@ async def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         result = {
             "success": False,
             "error": f"Unknown collection type: {collection_type}",
-            "supported_types": ["sports", "reddit"]
+            "supported_types": ["sports", "reddit", "referees"]
         }
     
     # Add event context to result

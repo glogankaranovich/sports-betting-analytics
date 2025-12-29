@@ -146,6 +146,146 @@ class TestDataCollectionExecutor:
         assert result["insights_collected"] >= 0
         assert "execution_time_seconds" in result
 
+    @pytest.mark.asyncio
+    async def test_referee_collection(self, executor):
+        """Test referee data collection."""
+        result = await executor.collect_referee_data()
+        
+        assert result["success"] is True
+        assert result["referees_collected"] >= 0
+        assert "execution_time_seconds" in result
+
+
+class TestRefereeCrawler:
+    """Test referee data crawler functionality."""
+    
+    @pytest.fixture
+    def referee_crawler(self):
+        from backend.crawler.referee_crawler import RefereeCrawler
+        return RefereeCrawler()
+    
+    @pytest.mark.asyncio
+    async def test_nfl_referee_scraping(self, referee_crawler):
+        """Test NFL referee data scraping."""
+        async with referee_crawler as crawler:
+            referees = await crawler.scrape_nfl_penalties_referees()
+            
+            # Should collect some referees (may vary based on website)
+            assert isinstance(referees, list)
+            
+            if referees:  # If we got data
+                ref = referees[0]
+                assert hasattr(ref, 'name')
+                assert hasattr(ref, 'sport')
+                assert ref.sport == 'football'
+                assert hasattr(ref, 'games_officiated')
+                assert hasattr(ref, 'total_fouls_per_game')
+    
+    @pytest.mark.asyncio 
+    async def test_nba_referee_scraping(self, referee_crawler):
+        """Test NBA referee data scraping."""
+        async with referee_crawler as crawler:
+            referees = await crawler.scrape_basketball_reference_referees()
+            
+            # Should return a list (may be empty if site is down)
+            assert isinstance(referees, list)
+            
+            if referees:  # If we got data
+                ref = referees[0]
+                assert hasattr(ref, 'name')
+                assert hasattr(ref, 'sport')
+                assert ref.sport == 'basketball'
+    
+    @pytest.mark.asyncio
+    async def test_collect_all_referees(self, referee_crawler):
+        """Test collecting referees from all sources."""
+        async with referee_crawler as crawler:
+            all_referees = await crawler.collect_all_referees()
+            
+            assert isinstance(all_referees, list)
+            
+            # Check we have multiple sports represented (if data available)
+            sports = {ref.sport for ref in all_referees}
+            
+            # Should have at least one sport
+            if all_referees:
+                assert len(sports) >= 1
+                expected_sports = ['basketball', 'football', 'baseball', 'soccer', 'hockey']
+                assert all(sport in expected_sports for sport in sports)
+                
+                # Should have NBA and NFL at minimum (our most reliable sources)
+                assert 'basketball' in sports or 'football' in sports
+    
+    @pytest.mark.asyncio
+    async def test_nhl_referee_scraping(self, referee_crawler):
+        """Test NHL referee data scraping from ScoutingTheRefs."""
+        async with referee_crawler as crawler:
+            refs = await crawler.scrape_scouting_the_refs_nhl()
+            
+            assert isinstance(refs, list)
+            
+            if refs:  # If we got data
+                ref = refs[0]
+                assert hasattr(ref, 'name')
+                assert hasattr(ref, 'sport')
+                assert ref.sport == 'hockey'
+                assert ref.source_url == 'https://scoutingtherefs.com/2018-19-nhl-referee-stats/'
+    
+    @pytest.mark.asyncio
+    async def test_mlb_umpire_scraping(self, referee_crawler):
+        """Test MLB umpire data scraping."""
+        async with referee_crawler as crawler:
+            umps = await crawler.scrape_mlb_umpires()
+            
+            assert isinstance(umps, list)
+            
+            if umps:  # If we got data
+                ump = umps[0]
+                assert hasattr(ump, 'name')
+                assert hasattr(ump, 'sport')
+                assert ump.sport == 'baseball'
+    
+    @pytest.mark.asyncio
+    async def test_soccer_referee_scraping(self, referee_crawler):
+        """Test soccer referee data scraping from FootyStats."""
+        async with referee_crawler as crawler:
+            refs = await crawler.scrape_footystats_referees()
+            
+            assert isinstance(refs, list)
+            
+            if refs:  # If we got data
+                ref = refs[0]
+                assert hasattr(ref, 'name')
+                assert hasattr(ref, 'sport')
+                assert ref.sport == 'soccer'
+    
+    def test_referee_stats_dataclass(self):
+        """Test RefereeStats dataclass structure."""
+        from backend.crawler.referee_crawler import RefereeStats
+        from datetime import datetime
+        
+        referee = RefereeStats(
+            referee_id="test_ref_001",
+            name="Test Referee",
+            sport="basketball",
+            games_officiated=100,
+            home_team_win_rate=0.52,
+            total_fouls_per_game=20.5,
+            technical_fouls_per_game=0.8,
+            ejections_per_game=0.1,
+            overtime_games_rate=0.08,
+            close_game_call_tendency="neutral",
+            experience_years=10,
+            season="2023-24",
+            last_updated=datetime.utcnow(),
+            source_url="https://test.com"
+        )
+        
+        assert referee.name == "Test Referee"
+        assert referee.sport == "basketball"
+        assert referee.home_team_win_rate == 0.52
+        assert referee.close_game_call_tendency == "neutral"
+
 
 @pytest.mark.asyncio
 async def test_lambda_handler():
@@ -175,6 +315,20 @@ async def test_lambda_handler():
         
         assert result["success"] is True
         assert result["collection_type"] == "reddit"
+        
+        # Test referee collection
+        mock_executor.collect_referee_data = AsyncMock(return_value={"success": True})
+        
+        result = await lambda_handler({"collection_type": "referees"}, context)
+        
+        assert result["success"] is True
+        assert result["collection_type"] == "referees"
+        
+        # Test invalid collection type
+        result = await lambda_handler({"collection_type": "invalid"}, context)
+        
+        assert result["success"] is False
+        assert "invalid" in result["error"].lower()
         
         # Test unknown collection type
         result = await lambda_handler({"collection_type": "unknown"}, context)
