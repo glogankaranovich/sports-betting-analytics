@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { CodePipeline, CodePipelineSource, CodeBuildStep } from 'aws-cdk-lib/pipelines';
 import { LinuxBuildImage } from 'aws-cdk-lib/aws-codebuild';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { SportsBettingStage } from './sports-betting-stage';
 import { ENVIRONMENTS } from '../lib/config/environments';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
