@@ -99,9 +99,9 @@ export class SportsBettingPipelineStack extends cdk.Stack {
       alarmDescription: 'Alert when Sports Betting pipeline fails',
       metric: new cloudwatch.Metric({
         namespace: 'AWS/CodePipeline',
-        metricName: 'PipelineExecutionFailure',
+        metricName: 'FailedPipelineExecutions',
         dimensionsMap: {
-          PipelineName: this.pipelineName,
+          Pipeline: this.pipelineName,
         },
         statistic: 'Sum',
         period: cdk.Duration.minutes(5),
