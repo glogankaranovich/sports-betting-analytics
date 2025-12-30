@@ -110,7 +110,130 @@ class TestEnhancedDataStructures:
         assert event.venue == "Crypto.com Arena"
 
 
-class TestSportsDataIOCrawler:
+class TestAPISportsClient:
+    """Test API-SPORTS client functionality."""
+    
+    @pytest.fixture
+    def mock_api_sports_client(self):
+        """Mock API-SPORTS client."""
+        with patch('backend.crawler.api_sports_client.get_api_sports_key') as mock_key:
+            mock_key.return_value = 'test_api_key'
+            
+            with patch('backend.crawler.api_sports_client.aiohttp.ClientSession') as mock_session_class:
+                mock_session = AsyncMock()
+                mock_session_class.return_value = mock_session
+                
+                # Mock successful API response
+                mock_response = AsyncMock()
+                mock_response.raise_for_status.return_value = None
+                mock_response.json.return_value = {
+                    'response': [
+                        {
+                            'team': {'name': 'Manchester United', 'id': 33},
+                            'league': {'id': 39, 'name': 'Premier League'}
+                        },
+                        {
+                            'team': {'name': 'Arsenal', 'id': 42},
+                            'league': {'id': 39, 'name': 'Premier League'}
+                        }
+                    ]
+                }
+                
+                # Fix the async context manager mock
+                mock_context_manager = AsyncMock()
+                mock_context_manager.__aenter__.return_value = mock_response
+                mock_context_manager.__aexit__.return_value = None
+                mock_session.get.return_value = mock_context_manager
+                
+                yield mock_session
+    
+    @pytest.mark.asyncio
+    async def test_api_sports_football_teams(self, mock_api_sports_client):
+        """Test API-SPORTS football teams endpoint."""
+        from backend.crawler.api_sports_client import APISportsClient
+        
+        with patch.object(APISportsClient, '_make_request') as mock_request:
+            mock_request.return_value = [
+                {
+                    'team': {'name': 'Manchester United', 'id': 33},
+                    'league': {'id': 39, 'name': 'Premier League'}
+                },
+                {
+                    'team': {'name': 'Arsenal', 'id': 42},
+                    'league': {'id': 39, 'name': 'Premier League'}
+                }
+            ]
+            
+            async with APISportsClient() as client:
+                teams = await client.get_football_teams(39, 2024)
+                
+                assert len(teams) == 2
+                assert teams[0]['team']['name'] == 'Manchester United'
+                assert teams[1]['team']['name'] == 'Arsenal'
+    
+    @pytest.mark.asyncio
+    async def test_api_sports_basketball_teams(self, mock_api_sports_client):
+        """Test API-SPORTS basketball teams endpoint."""
+        from backend.crawler.api_sports_client import APISportsClient
+        
+        with patch.object(APISportsClient, '_make_request') as mock_request:
+            mock_request.return_value = [
+                {
+                    'name': 'Los Angeles Lakers',
+                    'id': 145,
+                    'league': {'id': 12, 'name': 'NBA'}
+                }
+            ]
+            
+            async with APISportsClient() as client:
+                teams = await client.get_basketball_teams(12)
+                
+                assert len(teams) == 1
+                assert teams[0]['name'] == 'Los Angeles Lakers'
+    
+    def test_api_sports_league_mappings(self):
+        """Test API-SPORTS league ID mappings."""
+        from backend.crawler.api_sports_client import LEAGUE_IDS
+        
+        assert LEAGUE_IDS['premier_league'] == 39
+        assert LEAGUE_IDS['nba'] == 12
+        assert LEAGUE_IDS['mls'] == 253
+        assert LEAGUE_IDS['champions_league'] == 2
+    
+    @pytest.mark.asyncio
+    async def test_api_sports_unified_method(self, mock_api_sports_client):
+        """Test API-SPORTS unified sport data method."""
+        from backend.crawler.api_sports_client import APISportsClient
+        
+        with patch.object(APISportsClient, '_make_request') as mock_request:
+            mock_request.return_value = [
+                {
+                    'team': {'name': 'Manchester United', 'id': 33},
+                    'league': {'id': 39, 'name': 'Premier League'}
+                },
+                {
+                    'team': {'name': 'Arsenal', 'id': 42},
+                    'league': {'id': 39, 'name': 'Premier League'}
+                }
+            ]
+            
+            async with APISportsClient() as client:
+                data = await client.get_sport_data('football', 'teams', league=39, season=2024)
+                
+                assert len(data) == 2
+                assert data[0]['team']['name'] == 'Manchester United'
+    
+    @pytest.mark.asyncio
+    async def test_api_sports_error_handling(self):
+        """Test API-SPORTS error handling."""
+        from backend.crawler.api_sports_client import APISportsClient
+        
+        with patch('backend.crawler.api_sports_client.get_api_sports_key') as mock_key:
+            mock_key.return_value = None  # No API key
+            
+            with pytest.raises(ValueError, match="API-SPORTS API key not found"):
+                async with APISportsClient() as client:
+                    await client.get_football_teams(39, 2024)
     """Test SportsData.io crawler functionality."""
     
     @pytest.fixture

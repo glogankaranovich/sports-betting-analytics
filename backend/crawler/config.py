@@ -49,6 +49,20 @@ def get_sportsdata_api_key() -> Optional[str]:
         return get_secret_value(secret_arn)
     
     return None
+
+
+def get_api_sports_key() -> Optional[str]:
+    """Get API-SPORTS API key from environment or Secrets Manager."""
+    # First try direct environment variable (for local development)
+    if os.getenv('API_SPORTS_KEY'):
+        return os.getenv('API_SPORTS_KEY')
+    
+    # Then try Secrets Manager (for Lambda)
+    secret_arn = os.getenv('API_SPORTS_SECRET_ARN')
+    if secret_arn:
+        return get_secret_value(secret_arn)
+    
+    return None
 from .base_crawler import CrawlerConfig, DataSourceType
 
 
