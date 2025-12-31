@@ -18,24 +18,24 @@ export class CarpoolBetsStage extends cdk.Stage {
     super(scope, id, props);
 
     // DynamoDB Stack
-    const dynamoStack = new DynamoDBStack(this, StackNames.forEnvironment(props.stage, 'DynamoDB'), {
+    const dynamoStack = new DynamoDBStack(this, 'DynamoDB', {
       environment: props.stage,
     });
 
     // Odds collector Lambda stack
-    new OddsCollectorStack(this, StackNames.forEnvironment(props.stage, 'OddsCollector'), {
+    new OddsCollectorStack(this, 'OddsCollector', {
       environment: props.stage,
       betsTableName: `carpool-bets-${props.stage}`,
     });
 
     // Bet collector API stack
-    const betCollectorApiStack = new BetCollectorApiStack(this, StackNames.forEnvironment(props.stage, 'BetCollectorApi'), {
+    const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
       environment: props.stage,
       betsTableName: `carpool-bets-${props.stage}`,
     });
 
     // Integration test role for pipeline access
-    new IntegrationTestRoleStack(this, StackNames.forEnvironment(props.stage, 'IntegrationTestRole'), {
+    new IntegrationTestRoleStack(this, 'IntegrationTestRole', {
       pipelineAccountId: '083314012659', // Pipeline account ID
     });
 
