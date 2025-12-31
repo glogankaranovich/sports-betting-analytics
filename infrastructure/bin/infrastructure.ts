@@ -6,23 +6,21 @@ import { ENVIRONMENTS } from '../lib/config/environments';
 
 const app = new cdk.App();
 
-// Check if we're deploying the pipeline or individual stacks
-const deployPipeline = app.node.tryGetContext('pipeline') === 'true';
+// Simple logic: if environment=dev, deploy dev stacks, otherwise deploy pipeline
+const environment = app.node.tryGetContext('environment');
 
-if (deployPipeline) {
-  // Deploy pipeline stack (runs in pipeline account)
+if (environment === 'dev') {
+  // Manual dev deployment
+  new DynamoDBStack(app, 'CarpoolBetsDynamoDBStack-dev', {
+    environment: 'dev',
+    env: ENVIRONMENTS.dev,
+  });
+} else {
+  // Deploy pipeline stack (for pipeline account and self-mutation)
   new CarpoolBetsPipelineStack(app, 'CarpoolBetsPipelineStack', {
     env: {
       account: '083314012659', // Pipeline account
       region: 'us-east-1',
     },
-  });
-} else {
-  // Manual deployment for dev environment
-  const environment = app.node.tryGetContext('environment') || 'dev';
-  
-  new DynamoDBStack(app, `CarpoolBetsDynamoDBStack-${environment}`, {
-    environment: environment,
-    env: ENVIRONMENTS[environment as keyof typeof ENVIRONMENTS],
   });
 }
