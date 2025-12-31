@@ -49,15 +49,28 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
     betaStage.addPost(new CodeBuildStep('IntegrationTests', {
       commands: [
         'echo "🧪 Running integration tests against Beta..."',
-        'echo "Testing with table: $BETS_TABLE_NAME"',
-        'echo "✅ Integration tests passed! (Backend tests will be added later)"',
+        'cd backend',
+        'python3 -m pip install -r requirements.txt',
+        'python3 test_integration.py'
       ],
       buildEnvironment: {
         buildImage: LinuxBuildImage.STANDARD_7_0,
       },
-      envFromCfnOutputs: {
-        BETS_TABLE_NAME: betaStageConstruct.betsTableName,
+      env: {
+        ENVIRONMENT: 'beta'
       },
+      rolePolicyStatements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['lambda:InvokeFunction', 'lambda:ListFunctions'],
+          resources: ['*']
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['dynamodb:Scan', 'dynamodb:Query'],
+          resources: ['*']
+        })
+      ]
     }));
 
     // Prod stage
