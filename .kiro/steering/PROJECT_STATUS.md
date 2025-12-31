@@ -33,9 +33,17 @@
 
 ## 📋 Current TODO List
 
+### ✅ Infrastructure Complete (NEW)
+- [x] **Multi-environment CDK setup**: Dev, beta (staging), prod accounts with proper separation
+- [x] **DynamoDB stack**: `carpool-bets-{env}` table with game_id/bookmaker keys  
+- [x] **Pipeline stack**: Automated beta/prod deployment with GitHub integration
+- [x] **Unit tests**: 5 tests passing for DynamoDB stack validation
+- [x] **Makefile commands**: Easy deployment, testing, and monitoring
+- [x] **Account cleanup**: Removed old stacks, clean slate achieved
+
 ### Phase 1: AI Prediction Models Service (CURRENT FOCUS)
 - [ ] **Set up minimal project structure**
-  - Clean backend/frontend/infrastructure directories
+  - Clean backend/frontend/infrastructure directories ✅
   - Create simple FastAPI app for AI predictions
   - Basic React frontend for testing predictions
 
