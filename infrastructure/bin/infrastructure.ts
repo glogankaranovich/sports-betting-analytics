@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
+import { OddsCollectorStack } from '../lib/odds-collector-stack';
 import { CarpoolBetsPipelineStack } from '../lib/pipeline-stack';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -10,9 +11,15 @@ const app = new cdk.App();
 const environment = app.node.tryGetContext('environment');
 
 if (environment === 'dev') {
-  // Manual dev deployment
+  // Manual dev deployment - deploy both DynamoDB and odds collector
   new DynamoDBStack(app, 'CarpoolBetsDynamoDBStack-dev', {
     environment: 'dev',
+    env: ENVIRONMENTS.dev,
+  });
+  
+  new OddsCollectorStack(app, 'CarpoolBetsOddsCollectorStack-dev', {
+    environment: 'dev',
+    betsTableName: 'carpool-bets-dev',
     env: ENVIRONMENTS.dev,
   });
 } else {
