@@ -43,18 +43,17 @@ test: build
 # Deploy to dev environment (manual)
 deploy-dev: build test
 	@echo "🚀 Deploying to dev environment..."
-	AWS_PROFILE=sports-betting-dev cdk deploy --context environment=dev --require-approval never
+	AWS_PROFILE=sports-betting-dev cdk deploy --context environment=dev --require-approval never --all
+
+# Run integration tests against dev environment
+verify-dev: 
+	@echo "🧪 Running integration tests..."
+	cd ../backend && AWS_PROFILE=sports-betting-dev ENVIRONMENT=dev python3 test_integration.py
 
 # Deploy pipeline (for beta/prod automation)
 deploy-pipeline: build test
 	@echo "🚀 Deploying pipeline..."
 	AWS_PROFILE=sports-betting-pipeline cdk deploy --context pipeline=true --require-approval never
-
-# Verify dev resources exist
-verify-dev:
-	@echo "🔍 Verifying dev resources..."
-	AWS_PROFILE=sports-betting-dev aws dynamodb describe-table --table-name carpool-bets-dev --region us-east-1 || echo "❌ Table not found"
-	@echo "✅ Dev verification complete"
 
 # Clean build artifacts
 clean:
