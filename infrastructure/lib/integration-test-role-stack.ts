@@ -36,6 +36,14 @@ export class IntegrationTestRoleStack extends cdk.Stack {
                 'dynamodb:GetItem'
               ],
               resources: ['*']
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'cloudformation:DescribeStacks',
+                'cloudformation:ListStacks'
+              ],
+              resources: ['*']
             })
           ]
         })

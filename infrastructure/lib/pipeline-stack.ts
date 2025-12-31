@@ -57,7 +57,10 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
         'export AWS_SESSION_TOKEN=$(cat /tmp/creds.json | jq -r .Credentials.SessionToken)',
         'cd backend',
         'python3 -m pip install -r requirements.txt',
-        'python3 test_integration.py'
+        'echo "Testing Lambda and DynamoDB integration..."',
+        'python3 test_integration.py',
+        'echo "Testing API endpoints..."',
+        'python3 test_api_integration.py'
       ],
       buildEnvironment: {
         buildImage: LinuxBuildImage.STANDARD_7_0,
