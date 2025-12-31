@@ -1,192 +1,112 @@
-# Sports Betting Analytics - Project Status
+# Carpool Bets - Project Status
 
-**Last Updated**: December 30, 2025  
-**Progress**: 6/9 tasks completed (67%)
+**Last Updated**: December 31, 2025  
+**Progress**: Fresh Start - Two Service Architecture
 
 ## 🎯 Project Overview
 
-Building a comprehensive sports betting analytics system with automated data collection, ML-powered predictions, and a web interface for bet management.
+**Carpool Bets** is being rebuilt as two distinct services:
 
-## ✅ Completed Tasks
+### Service 1: Bet Information System
+- **Data Collection**: Pull odds from The Odds API into DynamoDB
+- **Rich Context**: Aggregate public opinion, weather, player stats, etc.
+- **Data API**: Serve comprehensive bet information to frontend
+- **Frontend**: Bet list + detailed bet view with all contextual data
 
-### 1. ✅ Project Foundation (Phase 1)
-- **Status**: Complete
-- **Completed**: December 27, 2025
-- **Details**:
-  - Created organized directory structure (backend, frontend, infrastructure, docs, tests)
-  - Initialized git repository
-  - Set up proper Python package structure with `__init__.py` files
+### Service 2: AI Prediction Models (STARTING HERE)
+- **ML Models**: Generate predictions (Model v1: odds-only, Model v2: +Reddit, etc.)
+- **Recommendations**: AI-powered bet suggestions with confidence scores
+- **Performance Tracking**: Historical backtesting with user bet amounts
+- **Model Evolution**: Compare and improve model versions
 
-### 2. ✅ System Architecture & Documentation (Phase 1)
-- **Status**: Complete  
-- **Completed**: December 27, 2025
-- **Details**:
-  - Comprehensive PROJECT_PLAN.md with 6-phase implementation strategy
-  - System architecture documentation with component interactions
-  - API documentation with endpoint specifications
-  - Database schema for DynamoDB tables and S3 buckets
-  - Development setup guide and troubleshooting docs
+## 🔄 Fresh Start Status
 
-### 3. ✅ Backend API Implementation (Phase 2)
-- **Status**: Complete
-- **Completed**: December 28, 2025
-- **Details**:
-  - FastAPI application with complete endpoint structure
-  - Endpoints: `/api/v1/bets`, `/api/v1/predictions`, `/api/v1/sports-data`
-  - Proper data models and Pydantic schemas
-  - Health checks and CORS configuration
-  - Fixed Python import paths and module structure
+### What We Kept
+- ✅ **Documentation**: All planning docs, research, and knowledge base
+- ✅ **Repository Structure**: Clean directory organization
+- ✅ **Vision**: Enhanced with two-service architecture and historical performance calculator
 
-### 4. ✅ GitHub Repository & Version Control (Phase 6)
-- **Status**: Complete
-- **Completed**: December 27, 2025
-- **Details**:
-  - Created public GitHub repository: `sports-betting-analytics`
-  - Comprehensive README with project overview
-  - Proper .gitignore for Python, Node.js, and AWS artifacts
-  - All documentation and code pushed to main branch
+### What We Reset
+- 🔄 **Backend**: Starting fresh with minimal FastAPI structure
+- 🔄 **Frontend**: Clean React implementation focused on bet information
+- 🔄 **Infrastructure**: Simplified AWS setup (DynamoDB + API Gateway, no Lambda complexity)
 
-### 5. ✅ AWS Infrastructure Deployment (Phase 3)
-- **Status**: Complete
-- **Completed**: December 30, 2025
-- **Details**:
-  - Successfully deployed all AWS resources (DynamoDB tables, S3 buckets, Lambda functions, API Gateway)
-  - Resolved Lambda size limits by creating separate functions for lightweight and heavy dependencies
-  - Infrastructure tests passing (6 tests)
-  - CI/CD pipeline operational with automated deployments
+## 📋 Current TODO List
 
-### 6. ✅ Data Crawler Implementation (Phase 2)
-- **Status**: Complete
-- **Completed**: December 30, 2025
-- **Details**:
-  - Comprehensive data crawler with API Sports, SportsData.io, and Reddit integrations
-  - Separate Lambda functions: DataCollectorFunction (lightweight) and RefereeCrawlerFunction (heavy dependencies)
-  - Enhanced data structures with team stats, player info, weather conditions
-  - Robust error handling and timeout protection
-  - Full test coverage: 22 crawler tests passing, 7 appropriately skipped
+### Phase 1: AI Prediction Models Service (CURRENT FOCUS)
+- [ ] **Set up minimal project structure**
+  - Clean backend/frontend/infrastructure directories
+  - Create simple FastAPI app for AI predictions
+  - Basic React frontend for testing predictions
 
-## 🧪 Testing & Quality Assurance
+- [ ] **Build AI prediction models**
+  - Model v1: Odds-only predictions using simple probability calculations
+  - Model v2: Add Reddit sentiment analysis
+  - Model v3: Progressive enhancement with additional data sources
+  - Focus on generating predictions and recommendations
 
-### Test Suite Status (35 Total Tests)
-- **Crawler Tests**: 22 passed, 7 skipped (referee functionality moved to separate Lambda)
-- **Integration Tests**: 1 passed, 1 skipped (AWS resources test)
-- **Referee Crawler Tests**: 6 passed (separate Lambda function validation)
-- **Infrastructure Tests**: 6 passed (CDK stack validation)
-- **Overall**: 29 passing, 6 appropriately skipped
+- [ ] **Historical performance tracking**
+  - Track all AI recommendations with timestamps and outcomes
+  - Calculate backtesting returns: "If you bet $X per recommendation, you would have made $Y"
+  - Compare performance across model versions
 
-### Development Workflow
-- ✅ Comprehensive Makefile with `make workflow-check`
-- ✅ Automated linting, testing, and build verification
-- ✅ Proper test structure with unit, integration, and component tests
-- ✅ Development workflow documentation complete
+### Phase 2: Bet Information System (FUTURE)
+- [ ] **Odds API data collection**
+- [ ] **Bet information API**
+- [ ] **Rich context frontend**
 
-## 📋 Remaining Tasks
+## 🎯 Immediate Next Steps
 
-### 7. 🤖 ML Prediction Engine (Phase 4)
-- **Status**: Basic structure exists
-- **Priority**: High (Next Task)
-- **Estimated Time**: 2-3 weeks
-- **Requirements**:
-  - Feature engineering from sports data
-  - Model training pipeline with RandomForest and Logistic Regression
-  - Probability calculations for win/spread/total predictions
-  - Kelly criterion for bet sizing
-  - Feedback loop for model improvement
-  - Model versioning and deployment
+1. **Start with AI Prediction Models Service**
+   - Create minimal FastAPI backend for predictions
+   - Implement Model v1 (odds-only predictions)
+   - Build historical tracking system
+   - Simple frontend to test predictions
 
-### 8. 🌐 React Frontend (Phase 5)
-- **Status**: Package.json created
-- **Priority**: Medium
-- **Estimated Time**: 2 weeks
-- **Requirements**:
-  - Dashboard for bet management
-  - Prediction viewing interface
-  - Real-time data updates
-  - Responsive design
-  - Integration with backend API
+2. **Focus on Core Value**
+   - Generate actual predictions users can test
+   - Track performance to build confidence
+   - Prove the AI can make profitable recommendations
 
-### 9. 🐳 Production Deployment (Phase 6)
-- **Status**: Not started
-- **Priority**: Low
-- **Estimated Time**: 1 week
-- **Requirements**:
-  - Production environment configuration
-  - Monitoring and logging setup
-  - Performance optimization
-  - Security hardening
+## 🛠️ Technical Approach
 
-## 🛠️ Technical Stack Status
+### Simplified Architecture
+```
+React Frontend → FastAPI Backend → DynamoDB
+                      ↓
+                AI Prediction Models
+```
 
-### Backend ✅
-- **FastAPI**: Implemented and tested
-- **Python 3.11**: Configured with virtual environment
-- **Pydantic**: Data models defined
-- **Dependencies**: All installed and working
+### Key Principles
+- **Start Simple**: Focus on one service at a time
+- **Prove Value**: Generate real predictions quickly
+- **Track Performance**: Historical backtesting from day one
+- **Iterate Fast**: No complex infrastructure to slow us down
 
-### Infrastructure ✅
-- **AWS CDK**: Deployed successfully with separate Lambda functions
-- **DynamoDB**: Tables deployed with proper indexes
-- **S3**: Buckets configured for data storage
-- **Lambda**: DataCollectorFunction and RefereeCrawlerFunction operational
-- **API Gateway**: Endpoints configured and tested
+## 📊 Success Metrics
 
-### Data Collection ✅
-- **API Sports**: Football and basketball team data
-- **SportsData.io**: Comprehensive sports statistics
-- **Reddit**: Betting sentiment analysis
-- **Referee Data**: Separate Lambda for web scraping heavy operations
+### Phase 1 Goals
+- [ ] **Model v1 Deployed**: Basic odds-only predictions working
+- [ ] **Historical Tracking**: All recommendations stored with outcomes
+- [ ] **Backtesting Calculator**: "You would have made $X" functionality
+- [ ] **Performance Comparison**: Model v1 vs v2 vs v3 results
 
-### Testing ✅
-- **pytest**: 29 tests passing across all components
-- **Jest**: Infrastructure tests (6 passing)
-- **Coverage**: Comprehensive test coverage with appropriate skips
+### Long-term Vision
+- **50% Weekly ROI Target**: Ambitious but trackable goal
+- **Multiple Model Versions**: Progressive enhancement approach
+- **User Confidence**: Historical performance builds trust
+- **Monetization Ready**: Premium "Carpool Model" vs custom models
 
-### Development Tools ✅
-- **Makefile**: Comprehensive automation with workflow checks
-- **Git**: Version control with proper structure
-- **Documentation**: Complete and up-to-date
+## 🚀 Why This Approach Works
 
-## 🎯 Next Immediate Steps
-
-1. **Implement ML Prediction Engine**
-   - Enhance existing predictor.py with comprehensive feature extraction
-   - Implement betting strategy with Kelly criterion
-   - Create model training pipeline
-   - Add probability calculations for different bet types
-
-2. **Create ML Model Tests**
-   - Unit tests for prediction engine
-   - Integration tests with real sports data
-   - Performance benchmarks
-
-3. **Connect ML Engine to Data Pipeline**
-   - Integrate predictions with crawler data
-   - Implement real-time prediction updates
-   - Add model performance tracking
-
-## 📊 Progress Metrics
-
-- **Code Coverage**: 35 tests (29 passing, 6 appropriately skipped)
-- **Tests Passing**: 29/35 (83% passing, 17% appropriately skipped)
-- **Documentation**: Complete and current
-- **Infrastructure**: Deployed and operational
-- **Data Collection**: Fully implemented and tested
-
-## 🚨 Blockers & Risks
-
-- **None currently** - All infrastructure deployed and operational
-- **Potential**: API rate limits for sports data (mitigated with multiple sources)
-- **ML Model**: Need historical data for training (can use simulated data initially)
-
-## 📈 Success Criteria Progress
-
-- ✅ **Data Collection**: Fully implemented with multiple sources
-- ⏳ **Prediction Accuracy**: Target >55% (ML engine in progress)
-- ✅ **User Experience**: API structure complete and tested
-- ✅ **Performance**: API response times <200ms achieved
-- ✅ **Reliability**: Infrastructure deployed with proper error handling
+1. **Focused Scope**: One service at a time, no complexity overload
+2. **Immediate Value**: Users can test AI predictions right away
+3. **Confidence Building**: Historical performance tracking from start
+4. **Scalable**: Can add Bet Information System later
+5. **Clean Architecture**: Two services can evolve independently
 
 ---
 
-**Next Review**: After ML Prediction Engine implementation  
+**Current Focus**: AI Prediction Models Service  
+**Next Milestone**: Model v1 generating real predictions  
 **Repository**: https://github.com/glogankaranovich/sports-betting-analytics

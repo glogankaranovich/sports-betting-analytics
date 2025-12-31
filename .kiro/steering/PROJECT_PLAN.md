@@ -2,7 +2,19 @@
 
 ## Project Overview
 
-**Carpool Bets** is an AI-powered sports betting analytics platform featuring "The Carpool Model" for premium predictions, multi-model architecture for custom user models, and comprehensive performance tracking with 50% weekly ROI targets.
+**Carpool Bets** is built as two distinct services working together:
+
+### Service 1: Bet Information System
+- **Data Collection**: Pull odds from The Odds API into DynamoDB
+- **Rich Context**: Aggregate public opinion, weather, player stats, etc.
+- **Data API**: Serve comprehensive bet information to frontend
+- **Frontend**: Bet list + detailed bet view with all contextual data
+
+### Service 2: AI Prediction Models  
+- **ML Models**: Generate predictions (Model v1: odds-only, Model v2: +Reddit, etc.)
+- **Recommendations**: AI-powered bet suggestions
+- **Performance Tracking**: Historical backtesting with user bet amounts
+- **Model Evolution**: Compare and improve model versions
 
 ## Goals
 
@@ -22,7 +34,8 @@
 11. **Season-Aware Intelligence**: Dynamic data collection based on sports in season with missing data alarms
 12. **Performance Tracking**: Weekly bet selection analysis, most lucrative bet identification, and pattern recognition
 13. **Monetization Platform**: Tiered access (admin model vs custom model building) based on data source complexity
-14. **Progressive Data Strategy**: Start small, incrementally add data sources based on performance impact
+14. **Historical Performance Calculator**: Backtesting engine showing returns if user followed AI recommendations since inception
+15. **Progressive Data Strategy**: Start small, incrementally add data sources based on performance impact
 
 ## Implementation Plan
 

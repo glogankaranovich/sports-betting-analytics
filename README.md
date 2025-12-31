@@ -1,78 +1,52 @@
-# Sports Betting Analytics System
+# Carpool Bets
 
-A comprehensive system for analyzing sports data and making informed betting decisions using machine learning.
-
-## 🚀 Multi-Account Pipeline Active
-
-This project uses automated deployment pipeline:
-- **Dev**: Manual deployment for development/testing
-- **Staging**: Automated deployment + integration tests  
-- **Production**: Automated deployment if staging tests pass
-
-## Features
-
-- **Data Collection**: Web crawler/scraper for sports statistics and betting data
-- **Bet Management**: Track active bets and outcomes
-- **ML Predictions**: Probability-based betting recommendations
-- **Learning System**: Feedback loop to improve predictions
-- **Web Interface**: User-friendly dashboard for managing bets and viewing analytics
+AI-powered sports betting analytics with historical performance tracking.
 
 ## Architecture
 
-- **Backend**: FastAPI with modular components
-- **Data Storage**: AWS DynamoDB for structured data, S3 for raw data
-- **ML Engine**: Custom prediction models with probability calculations
-- **Frontend**: React web application
-- **Infrastructure**: AWS multi-account setup with automated pipeline
+Two distinct services working together:
 
-## Quick Commands
+### 🤖 AI Prediction Models (Current Focus)
+- Generate predictions using multiple model versions
+- Track historical performance for backtesting
+- Calculate returns: "If you bet $X per recommendation, you would have made $Y"
 
-```bash
-# Deploy to dev environment
-make deploy-dev
-
-# Deploy pipeline (staging/prod automation)  
-make deploy-pipeline
-
-# Run all tests
-make test
-
-# Start development server
-make dev
-```
-
-## Project Structure
-
-```
-├── backend/
-│   ├── api/          # FastAPI application
-│   ├── crawler/      # Data collection modules
-│   ├── ml/           # Machine learning models
-│   ├── models/       # Data models
-│   └── utils/        # Utility functions
-├── frontend/
-│   ├── src/          # React application
-│   └── public/       # Static assets
-├── infrastructure/   # AWS CloudFormation/CDK
-├── docs/            # Documentation
-├── tests/           # Test suites
-└── scripts/         # Deployment and utility scripts
-```
+### 📊 Bet Information System (Future)
+- Collect odds data from The Odds API
+- Aggregate context: public opinion, weather, player stats
+- Rich frontend for detailed bet analysis
 
 ## Getting Started
 
-1. Clone the repository
-2. Set up backend dependencies: `cd backend && pip install -r requirements.txt`
-3. Set up frontend dependencies: `cd frontend && npm install`
-4. Configure AWS credentials
-5. Deploy infrastructure: `cd infrastructure && cdk deploy`
-6. Start development servers
+```bash
+# Clone the repository
+git clone https://github.com/glogankaranovich/sports-betting-analytics.git
+cd sports-betting-analytics
 
-## Development
+# Start with AI Prediction Models service
+cd backend
+# Setup instructions coming soon
+```
 
-- Backend API: `uvicorn backend.api.main:app --reload`
-- Frontend: `cd frontend && npm start`
+## Current Status
 
-## License
+🔄 **Fresh Start**: Building AI Prediction Models service first  
+📈 **Goal**: 50% weekly ROI through AI recommendations  
+📊 **Approach**: Start simple, prove value, iterate fast
 
-MIT License
+## Model Versions
+
+- **Model v1**: Odds-only predictions (simple probability calculations)
+- **Model v2**: Odds + Reddit sentiment analysis  
+- **Model v3**: Progressive enhancement with additional data sources
+
+## Key Features
+
+- **Historical Backtesting**: See what you would have made following AI recommendations
+- **Model Comparison**: Track performance across different model versions
+- **Performance Tracking**: All AI recommendations stored with outcomes
+- **Confidence Scoring**: AI provides confidence levels for each prediction
+
+---
+
+*Building the future of sports betting analytics, one prediction at a time.*
