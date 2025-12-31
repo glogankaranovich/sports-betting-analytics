@@ -1,11 +1,12 @@
-# Sports Betting Analytics System - Project Plan
+# Carpool Bets - Project Plan
 
 ## Project Overview
 
-A comprehensive system for analyzing sports data and making informed betting decisions using machine learning and automated data collection.
+**Carpool Bets** is an AI-powered sports betting analytics platform featuring "The Carpool Model" for premium predictions, multi-model architecture for custom user models, and comprehensive performance tracking with 50% weekly ROI targets.
 
 ## Goals
 
+### Core System Goals
 1. **Data Collection**: Develop a web crawler/scraper to retrieve sports data and statistics via APIs or web crawling
 2. **Bet Management**: Retrieve and track bet information (active bets, outcomes, historical performance)
 3. **Investment Tracking**: Monitor capital invested, bankroll management, and profit/loss analysis
@@ -13,6 +14,15 @@ A comprehensive system for analyzing sports data and making informed betting dec
 5. **Decision Engine**: Make betting decisions based on data analysis with probability calculations and risk management
 6. **Learning System**: Feedback mechanism to improve predictions based on bet outcomes and historical success patterns
 7. **User Interface**: Web application for easy interaction, bet tracking, and goal management
+
+### Enhanced Carpool Bets Features
+8. **The Carpool Model**: Premium AI model with 50% weekly ROI targets and retrospective pattern analysis
+9. **Multi-Model Architecture**: Support admin model + custom user models with A/B testing and version control
+10. **Enhanced Data Integration**: Core sports data + social sentiment (Discord/Slack) + weighted data sources
+11. **Season-Aware Intelligence**: Dynamic data collection based on sports in season with missing data alarms
+12. **Performance Tracking**: Weekly bet selection analysis, most lucrative bet identification, and pattern recognition
+13. **Monetization Platform**: Tiered access (admin model vs custom model building) based on data source complexity
+14. **Progressive Data Strategy**: Start small, incrementally add data sources based on performance impact
 
 ## Implementation Plan
 
@@ -43,28 +53,49 @@ A comprehensive system for analyzing sports data and making informed betting dec
   - Set up S3 buckets for raw data and file storage
   - Implement data access layers
 
-### Phase 4: Machine Learning & Analytics
-- [ ] **Task 6**: Create ML prediction engine
+### Phase 4: Machine Learning & Analytics (Enhanced)
+- [ ] **Task 6**: Create ML prediction engine → Transform into "The Carpool Model"
   - Implement basic prediction model with probability calculations
   - Create feedback loop for model improvement based on bet outcomes
   - Set up training data pipeline with historical performance data
+  - **NEW**: Add 50% weekly ROI target tracking and retrospective analysis
 
 - [ ] **Task 6.1**: Implement outcome tracking and analysis
   - Extend bet model to track win/loss/push outcomes
   - Calculate ROI and success rates by various dimensions
   - Build historical performance analytics
+  - **NEW**: Identify most lucrative bet patterns for future recommendations
 
 - [ ] **Task 6.2**: Develop goal-based recommendation engine
   - Create weekly profit target setting functionality
   - Implement AI-powered bet recommendations to reach goals
   - Add risk-adjusted bet sizing using Kelly Criterion
   - Build portfolio optimization for risk management
+  - **NEW**: Weekly AI bet selection with performance pattern recognition
 
 - [ ] **Task 6.3**: Investment and bankroll management
   - Track total capital invested and current bankroll
   - Implement cash flow monitoring (deposits, withdrawals)
   - Add risk assessment and drawdown protection
   - Create profit/loss reporting by time periods
+
+- [ ] **Task 6.4**: Multi-Model Architecture (NEW)
+  - Design model versioning system with A/B testing
+  - Implement sport-specific model support
+  - Build model performance comparison tools
+  - Create gradual migration framework between model versions
+
+- [ ] **Task 6.5**: Enhanced Data Integration (NEW)
+  - Integrate Discord/Slack sentiment analysis
+  - Implement weighted data source system
+  - Build retrospective weight adjustment tools
+  - Add manual override capabilities for data weights
+
+- [ ] **Task 6.6**: Season-Aware Intelligence (NEW)
+  - Build season-aware data crawler
+  - Implement missing data alarm system
+  - Create bet availability checking ("Do we support this sport? Is data available?")
+  - Add sport support diagnostics
 
 ### Phase 5: Frontend Development
 - [ ] **Task 7**: Build web frontend with React
@@ -82,6 +113,12 @@ A comprehensive system for analyzing sports data and making informed betting dec
   - Display recommendation engine suggestions
   - Add progress tracking toward goals
   - Create risk management controls and alerts
+
+- [ ] **Task 7.3**: Carpool Bets Monetization Interface (NEW)
+  - Build tiered access controls (Admin model vs Custom models)
+  - Create model building interface for custom user models
+  - Implement pricing and billing system
+  - Add model marketplace and performance comparison tools
 
 ### Phase 6: Deployment
 - [ ] **Task 8**: Create deployment configuration

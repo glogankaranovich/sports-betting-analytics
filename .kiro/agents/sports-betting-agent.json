@@ -1,0 +1,36 @@
+{
+  "name": "Sports Betting Analytics Agent",
+  "description": "Specialized agent for Sports Betting Analytics project development",
+  "tools": ["*"],
+  "toolsSettings": {
+    "execute_bash": {
+      "autoAllowReadonly": true
+    },
+    "use_aws": {
+      "autoAllowReadonly": true
+    },
+    "knowledge": {
+      "autoAllowReadonly": true
+    }
+  },
+  "resources": [
+    {
+      "type": "knowledgeBase",
+      "source": "file://docs",
+      "name": "Project Documentation",
+      "description": "Complete project documentation including plans, status, and workflows",
+      "indexType": "best",
+      "include": ["**/*.md"],
+      "autoUpdate": true
+    },
+    {
+      "type": "knowledgeBase",
+      "source": "file:///Users/glkaranovich/Documents/workplace/GlkDocs",
+      "name": "General Development Best Practices",
+      "description": "Reusable best practices, AWS references, and general development patterns",
+      "indexType": "best",
+      "include": ["**/*.md"],
+      "autoUpdate": true
+    }
+  ]
+}
