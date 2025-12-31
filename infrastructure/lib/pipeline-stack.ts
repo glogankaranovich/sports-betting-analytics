@@ -50,7 +50,10 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
     betaStage.addPost(new CodeBuildStep('IntegrationTests', {
       commands: [
         'echo "🧪 Running integration tests against Beta..."',
+        'ls -la',
+        'ls -la backend/',
         'cd backend',
+        'ls -la',
         'python3 -m pip install -r requirements.txt',
         'python3 test_integration.py'
       ],
