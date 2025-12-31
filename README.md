@@ -1,52 +1,73 @@
 # Carpool Bets
 
-AI-powered sports betting analytics with historical performance tracking.
+AI-powered sports betting analytics with React frontend and AWS backend.
 
 ## Architecture
 
-Two distinct services working together:
+### 🎯 Current MVP (Phase 2 Complete!)
+- **Backend API**: Lambda + API Gateway + DynamoDB
+- **Frontend**: React TypeScript dashboard with Amplify hosting
+- **Data Collection**: Automated odds collection from The Odds API
+- **CI/CD**: Full pipeline with dev/beta/prod environments
 
-### 🤖 AI Prediction Models (Current Focus)
-- Generate predictions using multiple model versions
-- Track historical performance for backtesting
-- Calculate returns: "If you bet $X per recommendation, you would have made $Y"
-
-### 📊 Bet Information System (Future)
-- Collect odds data from The Odds API
-- Aggregate context: public opinion, weather, player stats
-- Rich frontend for detailed bet analysis
+### 📊 Live Betting Dashboard
+- Real-time odds from multiple bookmakers (BetMGM, FanDuel, DraftKings, etc.)
+- NFL and NBA games with moneyline, spreads, and totals
+- Environment-specific deployments (dev/beta/prod)
 
 ## Getting Started
 
+### Frontend Development
 ```bash
-# Clone the repository
-git clone https://github.com/glogankaranovich/sports-betting-analytics.git
-cd sports-betting-analytics
-
-# Start with AI Prediction Models service
-cd backend
-# Setup instructions coming soon
+cd frontend
+npm install
+npm start  # Runs on http://localhost:3000
 ```
+
+### Backend API
+- **Dev**: https://pylcs4ypld.execute-api.us-east-1.amazonaws.com/prod
+- **Beta**: https://fgguxgxr4b.execute-api.us-east-1.amazonaws.com/prod  
+- **Prod**: https://rk6h0zryz5.execute-api.us-east-1.amazonaws.com/prod
+
+### Infrastructure
+```bash
+cd infrastructure
+make deploy-dev     # Deploy to dev environment
+cdk deploy          # Deploy pipeline to all environments
+```
+
+## Deployment
+
+### Branch Strategy
+- **main**: Local development
+- **beta**: Beta environment deployment
+- **prod**: Production environment deployment
+
+### Amplify Hosting
+- Beta: https://beta.{amplify-domain}
+- Prod: https://prod.{amplify-domain}
 
 ## Current Status
 
-🔄 **Fresh Start**: Building AI Prediction Models service first  
-📈 **Goal**: 50% weekly ROI through AI recommendations  
-📊 **Approach**: Start simple, prove value, iterate fast
+✅ **Phase 1**: Automated odds collection (Complete)  
+✅ **Phase 2**: React frontend + API backend (Complete)  
+🔄 **Phase 3**: AI prediction models (Next)
 
-## Model Versions
+## API Endpoints
 
-- **Model v1**: Odds-only predictions (simple probability calculations)
-- **Model v2**: Odds + Reddit sentiment analysis  
-- **Model v3**: Progressive enhancement with additional data sources
+- `GET /health` - Health check
+- `GET /games` - Get all games with odds
+- `GET /sports` - Get available sports
+- `GET /bookmakers` - Get available bookmakers
 
-## Key Features
+## Tech Stack
 
-- **Historical Backtesting**: See what you would have made following AI recommendations
-- **Model Comparison**: Track performance across different model versions
-- **Performance Tracking**: All AI recommendations stored with outcomes
-- **Confidence Scoring**: AI provides confidence levels for each prediction
+- **Frontend**: React TypeScript, Axios
+- **Backend**: Python Lambda, API Gateway, DynamoDB
+- **Infrastructure**: AWS CDK, CodePipeline
+- **Hosting**: AWS Amplify
+- **Data**: The Odds API
 
 ---
 
-*Building the future of sports betting analytics, one prediction at a time.*
+*Building the future of sports betting analytics, one bet at a time.*

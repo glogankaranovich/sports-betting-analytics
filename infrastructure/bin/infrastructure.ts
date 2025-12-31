@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { OddsCollectorStack } from '../lib/odds-collector-stack';
 import { BetCollectorApiStack } from '../lib/bet-collector-api-stack';
+import { AmplifyStack } from '../lib/amplify-stack';
 import { CarpoolBetsPipelineStack } from '../lib/pipeline-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
@@ -31,8 +32,16 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 } else {
-  // Deploy pipeline stack (for pipeline account and self-mutation)
+  // Deploy pipeline stack and Amplify in pipeline account
   new CarpoolBetsPipelineStack(app, 'CarpoolBetsPipelineStack', {
+    env: {
+      account: '083314012659', // Pipeline account
+      region: 'us-east-1',
+    },
+  });
+
+  // Deploy Amplify for frontend hosting (handles all branches)
+  new AmplifyStack(app, 'CarpoolBetsAmplifyStack', {
     env: {
       account: '083314012659', // Pipeline account
       region: 'us-east-1',
