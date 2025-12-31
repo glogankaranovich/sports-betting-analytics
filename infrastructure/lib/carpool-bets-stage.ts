@@ -4,6 +4,7 @@ import { DynamoDBStack } from './dynamodb-stack';
 import { OddsCollectorStack } from './odds-collector-stack';
 import { BetCollectorApiStack } from './bet-collector-api-stack';
 import { IntegrationTestRoleStack } from './integration-test-role-stack';
+import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
   stage: string;
@@ -17,24 +18,24 @@ export class CarpoolBetsStage extends cdk.Stage {
     super(scope, id, props);
 
     // DynamoDB Stack
-    const dynamoStack = new DynamoDBStack(this, 'DynamoDB', {
+    const dynamoStack = new DynamoDBStack(this, StackNames.forEnvironment(props.stage, 'DynamoDB'), {
       environment: props.stage,
     });
 
     // Odds collector Lambda stack
-    new OddsCollectorStack(this, 'OddsCollector', {
+    new OddsCollectorStack(this, StackNames.forEnvironment(props.stage, 'OddsCollector'), {
       environment: props.stage,
       betsTableName: `carpool-bets-${props.stage}`,
     });
 
     // Bet collector API stack
-    const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
+    const betCollectorApiStack = new BetCollectorApiStack(this, StackNames.forEnvironment(props.stage, 'BetCollectorApi'), {
       environment: props.stage,
       betsTableName: `carpool-bets-${props.stage}`,
     });
 
     // Integration test role for pipeline access
-    new IntegrationTestRoleStack(this, 'IntegrationTestRole', {
+    new IntegrationTestRoleStack(this, StackNames.forEnvironment(props.stage, 'IntegrationTestRole'), {
       pipelineAccountId: '083314012659', // Pipeline account ID
     });
 

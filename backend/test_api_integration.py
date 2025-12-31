@@ -15,7 +15,7 @@ def test_api_integration():
     
     try:
         # Get the API URL from stack outputs
-        stack_name = f'CarpoolBetsBetCollectorApiStack-{environment}'
+        stack_name = f'{environment.title()}-BetCollectorApi'
         response = cloudformation.describe_stacks(StackName=stack_name)
         
         api_url = None
