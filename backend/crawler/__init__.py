@@ -11,7 +11,6 @@ from typing import List, Dict, Any
 from .base_crawler import CrawlerManager, TheOddsAPICrawler, SportsDataIOCrawler, SportEvent, create_the_odds_api_crawler, create_sportsdata_io_crawler
 from .config import CrawlerConfigManager
 from .reddit_crawler import RedditCrawler
-from .referee_crawler import RefereeCrawler, RefereeStats
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

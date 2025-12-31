@@ -1,0 +1,11 @@
+# Heavy Dependencies - For crawlers that need data processing
+
+# Web scraping
+beautifulsoup4>=4.12.0
+
+# Data processing (only for referee crawler)
+pandas>=2.1.0
+numpy>=1.24.0,<2.0.0
+
+# Additional scraping tools
+requests>=2.31.0

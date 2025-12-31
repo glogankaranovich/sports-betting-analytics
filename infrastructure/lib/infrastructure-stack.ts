@@ -101,26 +101,20 @@ export class InfrastructureStack extends cdk.Stack {
       `sports-betting/odds-api-key-${props.stage}`
     );
 
-    // Reference SportsData.io API secret
-    const sportsDataSecret = secretsmanager.Secret.fromSecretNameV2(
-      this,
-      'SportsDataSecret',
-      'sports-betting/sportsdata-api-key'
-    );
-
-    // Reference API-SPORTS API secret
-    const apiSportsSecret = secretsmanager.Secret.fromSecretNameV2(
-      this,
-      'ApiSportsSecret',
-      'sports-betting/api-sports-key'
-    );
-
-    // Lambda function for data collection
+    // Lambda function for lightweight data collection (API-based crawlers)
     const dataCollectorFunction = new lambda.Function(this, 'DataCollectorFunction', {
       functionName: `sports-betting-data-collector-${props.stage}`,
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'lambda_handler.lambda_handler',
-      code: lambda.Code.fromAsset('../backend/crawler'),
+      code: lambda.Code.fromAsset('../backend/crawler', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements-lambda.txt -t /asset-output && cp -au . /asset-output'
+          ],
+        },
+      }),
       timeout: cdk.Duration.minutes(15),
       memorySize: 512,
       environment: {
@@ -133,8 +127,6 @@ export class InfrastructureStack extends cdk.Stack {
         MODELS_BUCKET_NAME: modelsBucket.bucketName,
         STAGE: props.stage,
         ODDS_API_SECRET_ARN: oddsApiSecret.secretArn,
-        SPORTSDATA_API_SECRET_ARN: sportsDataSecret.secretArn,
-        API_SPORTS_SECRET_ARN: apiSportsSecret.secretArn,
       },
     });
 
@@ -146,9 +138,34 @@ export class InfrastructureStack extends cdk.Stack {
     modelsTable.grantReadWriteData(dataCollectorFunction);
     rawDataBucket.grantReadWrite(dataCollectorFunction);
     modelsBucket.grantReadWrite(dataCollectorFunction);
+
+    // Separate Lambda function for referee data collection (heavy dependencies)
+    const refereeCrawlerFunction = new lambda.Function(this, 'RefereeCrawlerFunction', {
+      functionName: `sports-betting-referee-crawler-${props.stage}`,
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'lambda_handler.lambda_handler',
+      code: lambda.Code.fromAsset('../backend/referee-crawler', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ],
+        },
+      }),
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1024, // More memory for data processing
+      environment: {
+        REFEREE_DATA_TABLE_NAME: refereeDataTable.tableName,
+        RAW_DATA_BUCKET_NAME: rawDataBucket.bucketName,
+        STAGE: props.stage,
+      },
+    });
+
+    // Grant permissions to referee crawler
+    refereeDataTable.grantReadWriteData(refereeCrawlerFunction);
+    rawDataBucket.grantReadWrite(refereeCrawlerFunction);
     oddsApiSecret.grantRead(dataCollectorFunction);
-    sportsDataSecret.grantRead(dataCollectorFunction);
-    apiSportsSecret.grantRead(dataCollectorFunction);
 
     // Grant integration test role read access to resources
     betsTable.grantReadData(integrationTestRole);

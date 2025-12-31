@@ -1,76 +1,101 @@
 # Sports Betting Analytics - Development Workflow
 
-## 🎯 Development Principles
+## 🎯 Daily Development Process
 
-### Value-Driven Development
-- **Add tangible value** to the end user or development process
-- **Be independently deployable** and testable
-- **Move the project forward** toward the next milestone
-- **Be completely finished** - no half-implemented features
-- **Generate learnings** that benefit future development
+### Step-by-Step Workflow
+1. **Identify Task**: Review PROJECT_STATUS.md and select next task
+2. **Update Status**: Mark task as "In Progress" in PROJECT_STATUS.md
+3. **Implement**: Write code for the task
+4. **Test**: Create unit tests and integration tests as needed
+5. **Build Check**: Run `make workflow-check` to verify everything works
+6. **Fix Issues**: Address any linting, test, or build failures
+7. **Deploy Dev** (if CDK changes): Deploy to dev stack and verify
+8. **Update Docs**: Mark task complete in PROJECT_STATUS.md
+9. **Log Learnings**: Add insights to TROUBLESHOOTING_AND_LESSONS.md
+10. **Commit & Push**: Commit changes and push to trigger pipeline
+11. **Monitor Pipeline**: Check deployment status asynchronously
 
-### Commit Strategy
-- **Atomic commits** with descriptive messages
-- **Push immediately** after completion
-- **Include phase context** in commit messages
-- **Test before commit** - all tests must pass
+### Quality Gates
+- **All tests pass** before committing
+- **High test coverage** maintained
+- **Code automatically linted** and fixed
+- **Build succeeds** on all components
+- **Dev deployment works** (for infrastructure changes)
 
-## 📝 Documentation Standards
+## 📝 Task Management
 
-### Session Structure
-Always maintain clear answers to:
-- **Where are we?** Current phase and specific task
-- **What works?** Deployed and tested features
-- **What's next?** Immediate next step with clear definition
-- **How to resume?** Instructions for picking up development
-- **What did we learn?** Key insights from recent work
+### PROJECT_STATUS.md Format
+Tasks should be tracked with these statuses:
+- **⏳ Not Started** - Task identified but not begun
+- **🚧 In Progress** - Currently working on this task
+- **✅ Complete** - Task finished and tested
+- **🔄 Testing** - Implementation done, testing in progress
+- **🚀 Deploying** - Deployed to dev, verifying functionality
 
-### Documentation Updates
-After each commit, update:
-- Project status document
-- Lessons learned document
-- Architecture decisions (if applicable)
-- API documentation (as features are built)
-- Deployment notes
+### Status Update Commands
+```bash
+# Quick status check
+make status-check
 
-### Knowledge Base Updates (GlkDocs)
-When encountering solutions that would benefit future projects:
-1. **Identify Universal Value**: Ask "Would this help other Python/FastAPI/ML projects?"
-2. **Create GlkDocs Entry**: Add comprehensive guide with examples and context
-3. **Reference in Project**: Link to GlkDocs from project-specific documentation
-4. **Update Workflow**: Add patterns to development workflow if frequently used
+# Update task status (interactive)
+make update-task-status
+```
 
-**Examples of GlkDocs-worthy content:**
-- FastAPI testing patterns
-- ML model deployment strategies
-- Python data pipeline architectures
-- Sports data API integration patterns
-- Database schema design for analytics
+## 🧪 Testing & Quality Assurance
 
-## 🧪 Testing Requirements
+### Automated Quality Checks
+```bash
+# Run full workflow check (linting, tests, build)
+make workflow-check
 
-### Unit Test Standards
-- **100% pass rate** before any commit
-- **Comprehensive coverage** of all code paths
-- **Mock external dependencies** (APIs, databases)
-- **Test edge cases** and error conditions
-- **Fast execution** - tests should run quickly
+# Individual components
+make lint-fix      # Auto-fix linting issues
+make test         # Run all tests
+make build        # Build all components
+```
 
-### Integration Test Standards
-- **Test against real APIs** in development environment
-- **Validate data pipeline** end-to-end
-- **Test ML model predictions** with sample data
-- **Verify database operations** with test data
+### Test Coverage Requirements
+- **Unit tests** for all new code
+- **Integration tests** for API endpoints and data flows
+- **High coverage** maintained (aim for >90%)
+- **All tests pass** before any commit
 
-## 🚀 Deployment Verification
+### Code Quality Standards
+- **Automatic linting** with auto-fix enabled
+- **Python**: black + flake8 + isort
+- **TypeScript**: ESLint + Prettier
+- **Consistent formatting** across all files
 
-### After Each Change
-1. **Local tests pass**: All unit tests green
-2. **Build succeeds**: `python -m pytest` completes without errors
-3. **Deploy to Dev**: Infrastructure deployment successful
-4. **Smoke test**: Basic functionality works in Dev environment
-5. **Document deployment**: Note any infrastructure changes
-6. **Capture learnings**: What worked, what was tricky
+## 🚀 Deployment & Pipeline Monitoring
+
+### Development Environment
+```bash
+# Deploy to dev (manual only)
+make deploy-dev
+
+# Verify dev deployment
+make verify-dev
+
+# Check dev resources
+make check-dev-status
+```
+
+### Pipeline Monitoring
+```bash
+# Check pipeline status
+make check-pipeline
+
+# Get pipeline logs (if failed)
+make pipeline-logs
+
+# Monitor deployment progress
+make monitor-deployment
+```
+
+### Environment Strategy
+- **Dev**: Manual deployment for testing with real AWS resources
+- **Staging/Prod**: Automatic deployment through pipeline only
+- **Pipeline**: Triggers on push to main branch
 
 ## 🔄 Example Development Session
 

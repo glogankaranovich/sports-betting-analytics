@@ -44,16 +44,39 @@ install-infra:
 	cd infrastructure && npm install
 
 # Testing targets
-test: test-api test-infra
+test: test-crawler test-integration test-referee test-infra
 	@echo "✅ All tests passed!"
 
-test-api:
-	@echo "🧪 Running API tests..."
-	cd backend && source venv/bin/activate && cd .. && python -m pytest tests/ -v
+test-unit:
+	@echo "🧪 Running unit tests..."
+	@if [ -n "$$(find tests/unit -name '*.py' 2>/dev/null)" ]; then \
+		cd backend && source venv/bin/activate && cd .. && python -m pytest tests/unit/ -v; \
+	else \
+		echo "No unit tests found in tests/unit/ - using main test file instead"; \
+		cd backend && source venv/bin/activate && cd .. && python -m pytest tests/test_crawler.py -v; \
+	fi
+
+test-integration:
+	@echo "🧪 Running integration tests..."
+	cd backend && source venv/bin/activate && cd .. && python -m pytest tests/integration/ -v
+
+test-crawler:
+	@echo "🧪 Running crawler tests..."
+	cd backend && source venv/bin/activate && cd .. && python -m pytest tests/test_crawler.py -v
+
+test-referee:
+	@echo "🧪 Running referee crawler tests..."
+	cd backend && source venv/bin/activate && cd .. && python -m pytest tests/test_referee_crawler.py -v
+
+test-api: test-crawler test-integration test-referee
+	@echo "✅ API tests completed!"
 
 test-infra:
 	@echo "🧪 Running infrastructure tests..."
-	cd infrastructure && npm test
+	cd infrastructure && npx jest --forceExit
+
+workflow-check: test build
+	@echo "✅ Workflow check completed successfully!"
 
 # Development targets
 dev:

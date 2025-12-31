@@ -486,16 +486,22 @@ class TestDataCollectionExecutor:
 
     @pytest.mark.asyncio
     async def test_referee_collection(self, executor):
-        """Test referee data collection."""
+        """Test referee data collection (now deprecated)."""
         result = await executor.collect_referee_data()
         
-        assert result["success"] is True
-        assert result["referees_collected"] >= 0
-        assert "execution_time_seconds" in result
+        # Since referee collection is now deprecated, check for deprecation response
+        assert result["status"] == "deprecated"
+        assert "execution_time" in result
+        assert result["referee_events"] == 0
 
 
+@pytest.mark.skip(reason="RefereeCrawler moved to separate Lambda function")
 class TestRefereeCrawler:
-    """Test referee data crawler functionality."""
+    """Test referee data crawler functionality.
+    
+    Note: These tests are skipped because RefereeCrawler has been moved
+    to a separate Lambda function (RefereeCrawlerFunction).
+    """
     
     @pytest.fixture
     def referee_crawler(self):
