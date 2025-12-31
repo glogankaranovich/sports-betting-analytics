@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { DynamoDBStack } from './dynamodb-stack';
 import { OddsCollectorStack } from './odds-collector-stack';
+import { IntegrationTestRoleStack } from './integration-test-role-stack';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
   stage: string;
@@ -22,6 +23,11 @@ export class CarpoolBetsStage extends cdk.Stage {
     new OddsCollectorStack(this, 'OddsCollector', {
       environment: props.stage,
       betsTableName: `carpool-bets-${props.stage}`,
+    });
+
+    // Integration test role for pipeline access
+    new IntegrationTestRoleStack(this, 'IntegrationTestRole', {
+      pipelineAccountId: '083314012659', // Pipeline account ID
     });
 
     // Export outputs for integration tests

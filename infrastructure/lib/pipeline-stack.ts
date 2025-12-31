@@ -50,6 +50,11 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
     betaStage.addPost(new CodeBuildStep('IntegrationTests', {
       commands: [
         'echo "🧪 Running integration tests against Beta..."',
+        // Assume the integration test role in the beta account
+        `aws sts assume-role --role-arn arn:aws:iam::${ENVIRONMENTS.beta.account}:role/PipelineIntegrationTestRole --role-session-name integration-test > /tmp/creds.json`,
+        'export AWS_ACCESS_KEY_ID=$(cat /tmp/creds.json | jq -r .Credentials.AccessKeyId)',
+        'export AWS_SECRET_ACCESS_KEY=$(cat /tmp/creds.json | jq -r .Credentials.SecretAccessKey)',
+        'export AWS_SESSION_TOKEN=$(cat /tmp/creds.json | jq -r .Credentials.SessionToken)',
         'cd backend',
         'python3 -m pip install -r requirements.txt',
         'python3 test_integration.py'
@@ -63,13 +68,8 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
       rolePolicyStatements: [
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
-          actions: ['lambda:InvokeFunction', 'lambda:ListFunctions'],
-          resources: ['*']
-        }),
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ['dynamodb:Scan', 'dynamodb:Query'],
-          resources: ['*']
+          actions: ['sts:AssumeRole'],
+          resources: [`arn:aws:iam::${ENVIRONMENTS.beta.account}:role/PipelineIntegrationTestRole`]
         })
       ]
     }));

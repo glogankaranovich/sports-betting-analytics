@@ -118,9 +118,8 @@ def test_lambda_integration():
     return True
 
 if __name__ == "__main__":
-    # Set AWS profile for testing
-    profile = os.getenv('AWS_PROFILE', 'sports-betting-dev')
-    os.environ['AWS_PROFILE'] = profile
+    # Use default AWS credentials (IAM role or assumed role)
+    print("Using default AWS credentials")
     
     try:
         test_lambda_integration()
