@@ -11,6 +11,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sportFilter, setSportFilter] = useState<string>('all');
+  const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchGames();
@@ -49,12 +51,23 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     return acc;
   }, {} as Record<string, Game & { bookmakers: Array<{ name: string; markets: Game['markets'] }> }>);
 
-  const uniqueGames = Object.values(groupedGames);
+  let filteredGames = Object.values(groupedGames);
 
-  // Debug: log the first game to see structure
-  if (uniqueGames.length > 0) {
-    console.log('First grouped game:', uniqueGames[0]);
+  // Apply sport filter
+  if (sportFilter !== 'all') {
+    filteredGames = filteredGames.filter(game => game.sport === sportFilter);
   }
+
+  // Apply bookmaker filter
+  if (bookmakerFilter !== 'all') {
+    filteredGames = filteredGames.filter(game => 
+      game.bookmakers.some(bookmaker => bookmaker.name === bookmakerFilter)
+    );
+  }
+
+  // Get unique sports and bookmakers for filter options
+  const uniqueSports = Array.from(new Set(games.map(game => game.sport)));
+  const uniqueBookmakers = Array.from(new Set(games.map(game => game.bookmaker)));
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -101,11 +114,43 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       <main>
         <div className="games-header">
           <h2>Available Games</h2>
-          <span className="games-count">{uniqueGames.length} games</span>
+          <div className="filters">
+            <select 
+              className="filter-select"
+              value={sportFilter} 
+              onChange={(e) => setSportFilter(e.target.value)}
+            >
+              <option value="all">All Sports</option>
+              {uniqueSports.map(sport => (
+                <option key={sport} value={sport}>
+                  {formatSport(sport)}
+                </option>
+              ))}
+            </select>
+            <select 
+              className="filter-select"
+              value={bookmakerFilter} 
+              onChange={(e) => setBookmakerFilter(e.target.value)}
+            >
+              <option value="all">All Bookmakers</option>
+              {uniqueBookmakers.map(bookmaker => (
+                <option key={bookmaker} value={bookmaker}>
+                  {bookmaker}
+                </option>
+              ))}
+            </select>
+          </div>
+          <span className="games-count">{filteredGames.length} games</span>
         </div>
         
         <div className="games-grid">
-          {uniqueGames.map((game) => (
+          {filteredGames.map((game) => {
+            // Filter bookmakers within each game based on bookmaker filter
+            const displayBookmakers = bookmakerFilter === 'all' 
+              ? game.bookmakers 
+              : game.bookmakers.filter(bookmaker => bookmaker.name === bookmakerFilter);
+            
+            return (
             <div key={game.game_id} className="game-card">
               <div className="game-header">
                 <div className="teams">
@@ -114,7 +159,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </div>
                 <div className="game-meta">
                   <div>{formatDate(game.commence_time)}</div>
-                  <div className="bookmaker-count">{game.bookmakers.length} bookmakers</div>
+                  <div className="bookmaker-count">{displayBookmakers.length} bookmaker{displayBookmakers.length !== 1 ? 's' : ''}</div>
                 </div>
               </div>
               
@@ -123,7 +168,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   <span className="odds-label">Moneyline Odds</span>
                 </div>
                 <div className="bookmaker-odds">
-                  {game.bookmakers.map((bookmaker, idx) => {
+                  {displayBookmakers.map((bookmaker, idx) => {
                     // Find the h2h market in the markets array
                     const h2hMarket = Array.isArray(bookmaker.markets) 
                       ? bookmaker.markets.find(market => market.key === 'h2h')
@@ -154,7 +199,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </main>
     </div>
