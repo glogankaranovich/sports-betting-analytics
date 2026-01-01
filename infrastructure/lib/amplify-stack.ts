@@ -18,10 +18,16 @@ frontend:
     preBuild:
       commands:
         - cd frontend
+        - echo "🔍 Installing dependencies..."
         - npm ci
     build:
       commands:
+        - echo "🧪 Running frontend tests..."
+        - npm run test:ci
+        - echo "✅ Frontend tests passed!"
+        - echo "🏗️ Building React app..."
         - npm run build
+        - echo "✅ Build completed!"
   artifacts:
     baseDirectory: frontend/build
     files:
