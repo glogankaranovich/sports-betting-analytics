@@ -71,8 +71,8 @@ class OddsCollector:
                 # Use update_item for upsert behavior
                 self.table.update_item(
                     Key={
-                        'game_id': game_id,
-                        'bookmaker': bookmaker['key']
+                        'pk': game_id,
+                        'sk': bookmaker['key']
                     },
                     UpdateExpression='SET sport = :sport, home_team = :home_team, away_team = :away_team, commence_time = :commence_time, markets = :markets, updated_at = :updated_at',
                     ExpressionAttributeValues={

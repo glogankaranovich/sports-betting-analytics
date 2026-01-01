@@ -17,25 +17,25 @@ describe('DynamoDBStack', () => {
 
   test('creates DynamoDB table with correct properties', () => {
     template.hasResourceProperties('AWS::DynamoDB::Table', {
-      TableName: 'carpool-bets-test',
+      TableName: 'carpool-bets-v2-test',
       BillingMode: 'PAY_PER_REQUEST',
       KeySchema: [
         {
-          AttributeName: 'game_id',
+          AttributeName: 'pk',
           KeyType: 'HASH'
         },
         {
-          AttributeName: 'bookmaker',
+          AttributeName: 'sk',
           KeyType: 'RANGE'
         }
       ],
       AttributeDefinitions: [
         {
-          AttributeName: 'game_id',
+          AttributeName: 'pk',
           AttributeType: 'S'
         },
         {
-          AttributeName: 'bookmaker',
+          AttributeName: 'sk',
           AttributeType: 'S'
         }
       ]

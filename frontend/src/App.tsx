@@ -9,13 +9,16 @@ import './App.css';
 
 function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
+  const [predictions, setPredictions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<'games' | 'predictions'>('games');
 
   useEffect(() => {
     fetchGames();
+    fetchPredictions();
   }, []);
 
   const fetchGames = async () => {
@@ -36,18 +39,47 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     }
   };
 
+  const fetchPredictions = async () => {
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (token) {
+        const data = await bettingApi.getStoredPredictions(token, 25);
+        setPredictions(data.predictions || []);
+      }
+    } catch (err) {
+      console.error('Error fetching predictions:', err);
+    }
+  };
+
   // Group games by game_id and aggregate bookmaker odds
   const groupedGames = games.reduce((acc, game) => {
-    if (!acc[game.game_id]) {
-      acc[game.game_id] = {
-        ...game,
+    const gameKey = `${game.home_team}_vs_${game.away_team}`;
+    if (!acc[gameKey]) {
+      acc[gameKey] = {
+        game_id: game.pk || game.game_id || '',
+        home_team: game.home_team,
+        away_team: game.away_team,
+        sport: game.sport,
+        commence_time: game.commence_time,
+        bookmaker: '', // Not used in grouped structure
+        markets: {}, // Not used in grouped structure
         bookmakers: []
       };
     }
-    acc[game.game_id].bookmakers.push({
-      name: game.bookmaker,
-      markets: game.markets
-    });
+    
+    // Add this bookmaker's odds to the game
+    if (game.markets && Array.isArray(game.markets)) {
+      const h2hMarket = game.markets.find(market => market && market.key === 'h2h');
+      if (h2hMarket && h2hMarket.outcomes && Array.isArray(h2hMarket.outcomes)) {
+        acc[gameKey].bookmakers.push({
+          name: game.sk || game.bookmaker || 'unknown',
+          markets: game.markets
+        });
+      }
+    }
+    
     return acc;
   }, {} as Record<string, Game & { bookmakers: Array<{ name: string; markets: Game['markets'] }> }>);
 
@@ -102,7 +134,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn btn-secondary" onClick={fetchGames}>
+          <button className="btn btn-secondary" onClick={() => {
+            fetchGames();
+            fetchPredictions();
+          }}>
             Refresh Data
           </button>
           <button className="btn btn-primary" onClick={signOut}>
@@ -112,25 +147,42 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       </header>
       
       <main>
-        <div className="games-header">
-          <h2>Available Games</h2>
-          <div className="filters">
-            <select 
-              className="filter-select"
-              value={sportFilter} 
-              onChange={(e) => setSportFilter(e.target.value)}
-            >
-              <option value="all">All Sports</option>
-              {uniqueSports.map(sport => (
-                <option key={sport} value={sport}>
-                  {formatSport(sport)}
-                </option>
-              ))}
-            </select>
-            <select 
-              className="filter-select"
-              value={bookmakerFilter} 
-              onChange={(e) => setBookmakerFilter(e.target.value)}
+        <div className="tab-navigation">
+          <button 
+            className={`tab-button ${activeTab === 'games' ? 'active' : ''}`}
+            onClick={() => setActiveTab('games')}
+          >
+            Games ({filteredGames.length})
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'predictions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('predictions')}
+          >
+            AI Predictions ({predictions.length})
+          </button>
+        </div>
+
+        {activeTab === 'games' && (
+          <>
+            <div className="games-header">
+              <h2>Available Games</h2>
+              <div className="filters">
+                <select 
+                  className="filter-select"
+                  value={sportFilter} 
+                  onChange={(e) => setSportFilter(e.target.value)}
+                >
+                  <option value="all">All Sports</option>
+                  {uniqueSports.map(sport => (
+                    <option key={sport} value={sport}>
+                      {formatSport(sport)}
+                    </option>
+                  ))}
+                </select>
+                <select 
+                  className="filter-select"
+                  value={bookmakerFilter} 
+                  onChange={(e) => setBookmakerFilter(e.target.value)}
             >
               <option value="all">All Bookmakers</option>
               {uniqueBookmakers.map(bookmaker => (
@@ -171,19 +223,18 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   {displayBookmakers.map((bookmaker, idx) => {
                     // Find the h2h market in the markets array
                     const h2hMarket = Array.isArray(bookmaker.markets) 
-                      ? bookmaker.markets.find(market => market.key === 'h2h')
-                      : bookmaker.markets.h2h ? { outcomes: [
-                          { name: game.away_team, price: bookmaker.markets.h2h.away },
-                          { name: game.home_team, price: bookmaker.markets.h2h.home }
-                        ]} : null;
+                      ? bookmaker.markets.find(market => market && market.key === 'h2h')
+                      : null;
                     
-                    if (!h2hMarket || !h2hMarket.outcomes) return null;
+                    if (!h2hMarket || !h2hMarket.outcomes || !Array.isArray(h2hMarket.outcomes)) return null;
                     
-                    const awayOdds = h2hMarket.outcomes.find((o: any) => o.name === game.away_team)?.price;
-                    const homeOdds = h2hMarket.outcomes.find((o: any) => o.name === game.home_team)?.price;
+                    const awayOdds = h2hMarket.outcomes.find((o: any) => o && o.name === game.away_team)?.price;
+                    const homeOdds = h2hMarket.outcomes.find((o: any) => o && o.name === game.home_team)?.price;
+                    
+                    if (!awayOdds || !homeOdds) return null;
                     
                     return (
-                      <div key={idx} className="bookmaker-row">
+                      <div key={`${game.game_id}-${bookmaker.name}`} className="bookmaker-row">
                         <div className="bookmaker-name">{bookmaker.name}</div>
                         <div className="odds-values">
                           <span className="odds-value away">
@@ -195,13 +246,62 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                         </div>
                       </div>
                     );
-                  })}
+                  }).filter(Boolean)}
                 </div>
               </div>
             </div>
             );
           })}
         </div>
+          </>
+        )}
+
+        {activeTab === 'predictions' && (
+          <div className="predictions-section">
+            <div className="games-header">
+              <h2>AI Predictions</h2>
+              <p className="predictions-subtitle">Consensus-based predictions from multiple bookmakers</p>
+            </div>
+            <div className="games-grid">
+              {predictions.map((prediction, index) => (
+                <div key={index} className="game-card prediction-card">
+                  <div className="game-info">
+                    <div className="teams">
+                      <span className="away-team">{prediction.away_team}</span>
+                      <span className="vs">@</span>
+                      <span className="home-team">{prediction.home_team}</span>
+                    </div>
+                    <div className="game-meta">
+                      <span className="sport">{formatSport(prediction.sport)}</span>
+                      <span className="model">Model: {prediction.model_version}</span>
+                    </div>
+                  </div>
+                  <div className="prediction-info">
+                    <div className="probabilities">
+                      <div className="prob-item">
+                        <span className="prob-label">Home Win</span>
+                        <span className="prob-value home">{(prediction.home_win_probability * 100).toFixed(1)}%</span>
+                      </div>
+                      <div className="prob-item">
+                        <span className="prob-label">Away Win</span>
+                        <span className="prob-value away">{(prediction.away_win_probability * 100).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div className="confidence">
+                      <span className="confidence-label">Confidence</span>
+                      <span className="confidence-value">{(prediction.confidence_score * 100).toFixed(0)}%</span>
+                    </div>
+                    {prediction.value_bets && prediction.value_bets.length > 0 && (
+                      <div className="value-bets">
+                        <span className="value-label">Value Bets: {prediction.value_bets.length}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

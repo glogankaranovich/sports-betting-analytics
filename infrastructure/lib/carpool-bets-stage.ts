@@ -31,13 +31,14 @@ export class CarpoolBetsStage extends cdk.Stage {
     // Odds collector Lambda stack
     new OddsCollectorStack(this, 'OddsCollector', {
       environment: props.stage,
-      betsTableName: `carpool-bets-${props.stage}`,
+      betsTableName: `carpool-bets-v2-${props.stage}`,
     });
 
     // Bet collector API stack
     const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
       environment: props.stage,
-      betsTableName: `carpool-bets-${props.stage}`,
+      betsTableName: `carpool-bets-v2-${props.stage}`,
+      betsTable: dynamoStack.betsTable,
       userPool: authStack.userPool,
     });
 

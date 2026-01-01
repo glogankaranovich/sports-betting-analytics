@@ -13,15 +13,15 @@ export class DynamoDBStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: DynamoDBStackProps) {
     super(scope, id, props);
 
-    // Table for storing betting odds data
+    // Table for storing betting odds data and predictions
     this.betsTable = new dynamodb.Table(this, 'BetsTable', {
-      tableName: `carpool-bets-${props.environment}`,
+      tableName: `carpool-bets-v2-${props.environment}`,
       partitionKey: { 
-        name: 'game_id', 
+        name: 'pk', 
         type: dynamodb.AttributeType.STRING 
       },
       sortKey: { 
-        name: 'bookmaker', 
+        name: 'sk', 
         type: dynamodb.AttributeType.STRING 
       },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,

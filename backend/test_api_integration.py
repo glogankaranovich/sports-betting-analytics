@@ -121,6 +121,31 @@ def test_api_integration():
         assert 'bookmakers' in bookmakers_data, "Bookmakers data missing"
         print(f"✅ Authenticated bookmakers endpoint passed: Found {bookmakers_data['count']} bookmakers")
         
+        # Test predictions endpoint
+        print("Testing /predictions endpoint with auth...")
+        auth_predictions_response = requests.get(f"{api_url}/predictions?limit=5", headers=headers, timeout=10)
+        assert auth_predictions_response.status_code == 200, f"Authenticated predictions request failed: {auth_predictions_response.status_code}"
+        
+        predictions_data = auth_predictions_response.json()
+        assert 'predictions' in predictions_data, "Predictions data missing"
+        print(f"✅ Authenticated predictions endpoint passed: Found {predictions_data['count']} predictions")
+        
+        if predictions_data['count'] > 0:
+            sample = predictions_data['predictions'][0]
+            print(f"   Sample: {sample['home_team']} vs {sample['away_team']}")
+            print(f"   Home win probability: {sample['home_win_probability']}")
+            print(f"   Confidence: {sample['confidence_score']}")
+        # Test stored predictions endpoint
+        print("Testing /stored-predictions endpoint with auth...")
+        stored_predictions_response = requests.get(f"{api_url}/stored-predictions?limit=5", headers=headers)
+        if stored_predictions_response.status_code == 200:
+            stored_data = stored_predictions_response.json()
+            print(f"✅ Authenticated stored predictions endpoint passed: Found {stored_data['count']} stored predictions")
+        else:
+            raise Exception(f"Stored predictions endpoint failed: {stored_predictions_response.status_code}")
+        assert 'bookmakers' in bookmakers_data, "Bookmakers data missing"
+        print(f"✅ Authenticated bookmakers endpoint passed: Found {bookmakers_data['count']} bookmakers")
+        
         print("✅ All API integration tests passed!")
         return True
         

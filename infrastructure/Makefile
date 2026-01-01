@@ -31,7 +31,7 @@ install:
 	npm ci
 
 # Build TypeScript
-build:
+build: clean
 	@echo "🔨 Building TypeScript..."
 	npm run build
 
@@ -41,7 +41,7 @@ test: build
 	npm test
 
 # Deploy to dev environment (manual)
-deploy-dev: build test
+deploy-dev: clean build test
 	@echo "🚀 Deploying to dev environment..."
 	AWS_PROFILE=sports-betting-dev cdk deploy --context environment=dev --require-approval never --all
 
@@ -51,7 +51,7 @@ verify-dev:
 	cd ../backend && AWS_PROFILE=sports-betting-dev ENVIRONMENT=dev python3 test_integration.py
 
 # Deploy pipeline (for beta/prod automation)
-deploy-pipeline: build test
+deploy-pipeline: clean build test
 	@echo "🚀 Deploying pipeline..."
 	AWS_PROFILE=sports-betting-pipeline cdk deploy --context pipeline=true --require-approval never
 

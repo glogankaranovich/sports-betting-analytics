@@ -1,0 +1,10 @@
+{
+  "httpMethod": "GET",
+  "path": "/games",
+  "headers": {
+    "Authorization": "Bearer test"
+  },
+  "queryStringParameters": null,
+  "body": null,
+  "isBase64Encoded": false
+}

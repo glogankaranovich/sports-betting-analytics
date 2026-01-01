@@ -3,11 +3,15 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 
 export interface BetCollectorApiStackProps extends cdk.StackProps {
   environment: string;
   betsTableName: string;
+  betsTable: dynamodb.Table;
   userPool?: cognito.UserPool;
 }
 
@@ -43,7 +47,8 @@ export class BetCollectorApiStack extends cdk.Stack {
       actions: [
         'dynamodb:Scan',
         'dynamodb:Query',
-        'dynamodb:GetItem'
+        'dynamodb:GetItem',
+        'dynamodb:PutItem'
       ],
       resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}`]
     }));
@@ -102,7 +107,35 @@ export class BetCollectorApiStack extends cdk.Stack {
     const bookmakers = betCollectorApi.root.addResource('bookmakers');
     bookmakers.addMethod('GET', lambdaIntegration, methodOptions);
 
-    // Output the API URL
+    // Predictions endpoint (protected)
+    const predictions = betCollectorApi.root.addResource('predictions');
+    predictions.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // Stored predictions endpoint (protected)
+    const storedPredictions = betCollectorApi.root.addResource('stored-predictions');
+    storedPredictions.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // Prediction Generator Lambda (scheduled)
+    const predictionGeneratorFunction = new lambda.Function(this, 'PredictionGeneratorFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'prediction_generator.lambda_handler',
+      code: lambda.Code.fromAsset('../backend'),
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+      },
+      timeout: cdk.Duration.minutes(5),
+    });
+
+    // Grant DynamoDB permissions
+    props.betsTable.grantReadWriteData(predictionGeneratorFunction);
+
+    // Schedule to run every 6 hours
+    const predictionSchedule = new events.Rule(this, 'PredictionSchedule', {
+      schedule: events.Schedule.rate(cdk.Duration.hours(6)),
+    });
+    
+    predictionSchedule.addTarget(new targets.LambdaFunction(predictionGeneratorFunction));
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {
       value: betCollectorApi.url,
       description: 'Bet Collector API Gateway URL'

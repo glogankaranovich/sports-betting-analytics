@@ -3,8 +3,8 @@ import { Amplify } from 'aws-amplify';
 const amplifyConfig = {
   Auth: {
     Cognito: {
-      userPoolId: 'us-east-1_w5USY1BCN',
-      userPoolClientId: '69tqcedjqmee1jr07e6uj17qum',
+      userPoolId: 'us-east-1_UT5jyAP5L',
+      userPoolClientId: '4qs12vau007oineekjldjkn6v0',
       loginWith: {
         email: true,
       },

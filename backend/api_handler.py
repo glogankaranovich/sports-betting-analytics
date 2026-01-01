@@ -3,6 +3,7 @@ import boto3
 import os
 from decimal import Decimal
 from typing import Dict, Any, Optional
+from ml.models import OddsAnalyzer
 
 # DynamoDB setup
 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
@@ -51,6 +52,10 @@ def lambda_handler(event, context):
         elif path.startswith('/games/'):
             game_id = path.split('/')[-1]
             return handle_get_game(game_id)
+        elif path == '/predictions':
+            return handle_get_predictions(query_params)
+        elif path == '/stored-predictions':
+            return handle_get_stored_predictions(query_params)
         elif path == '/sports':
             return handle_get_sports()
         elif path == '/bookmakers':
@@ -75,15 +80,32 @@ def handle_get_games(query_params: Dict[str, str]):
     limit = int(query_params.get('limit', '100'))
     
     try:
-        if sport:
-            response = table.scan(
-                FilterExpression=boto3.dynamodb.conditions.Attr('sport').eq(sport),
-                Limit=limit
-            )
-        else:
-            response = table.scan(Limit=limit)
+        # Filter out prediction records (pk doesn't start with PRED#)
+        base_filter = boto3.dynamodb.conditions.Attr('pk').not_exists() | ~boto3.dynamodb.conditions.Attr('pk').begins_with('PRED#')
         
-        games = response.get('Items', [])
+        if sport:
+            filter_expression = base_filter & boto3.dynamodb.conditions.Attr('sport').eq(sport)
+        else:
+            filter_expression = base_filter
+        
+        games = []
+        last_evaluated_key = None
+        
+        while True:
+            scan_kwargs = {
+                'FilterExpression': filter_expression,
+                'Limit': limit
+            }
+            if last_evaluated_key:
+                scan_kwargs['ExclusiveStartKey'] = last_evaluated_key
+                
+            response = table.scan(**scan_kwargs)
+            games.extend(response.get('Items', []))
+            
+            last_evaluated_key = response.get('LastEvaluatedKey')
+            if not last_evaluated_key:
+                break
+        
         games = decimal_to_float(games)
         
         return create_response(200, {
@@ -98,7 +120,7 @@ def handle_get_game(game_id: str):
     """Get all betting data for a specific game"""
     try:
         response = table.query(
-            KeyConditionExpression=boto3.dynamodb.conditions.Key('game_id').eq(game_id)
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('pk').eq(game_id)
         )
         
         game_data = response.get('Items', [])
@@ -149,3 +171,82 @@ def handle_get_bookmakers():
         })
     except Exception as e:
         return create_response(500, {'error': f'Error fetching bookmakers: {str(e)}'})
+
+def handle_get_predictions(query_params: Dict[str, str]):
+    """Get ML predictions for games"""
+    sport = query_params.get('sport')
+    limit = int(query_params.get('limit', '50'))
+    
+    try:
+        # Get games data
+        if sport:
+            response = table.scan(
+                FilterExpression=boto3.dynamodb.conditions.Attr('sport').eq(sport),
+                Limit=limit
+            )
+        else:
+            response = table.scan(Limit=limit)
+        
+        # Group by game_id and generate predictions
+        games_by_id = {}
+        for item in response.get('Items', []):
+            game_id = item.get('pk')  # Use pk instead of game_id
+            if game_id not in games_by_id:
+                games_by_id[game_id] = {
+                    'game_id': game_id,
+                    'sport': item.get('sport'),
+                    'home_team': item.get('home_team'),
+                    'away_team': item.get('away_team'),
+                    'commence_time': item.get('commence_time'),
+                    'odds': []
+                }
+            
+            games_by_id[game_id]['odds'].append({
+                'bookmaker': item.get('sk'),  # Use sk instead of bookmaker
+                'markets': item.get('markets', [])
+            })
+        
+        # Generate predictions
+        analyzer = OddsAnalyzer()
+        predictions = []
+        
+        for game_data in games_by_id.values():
+            try:
+                prediction = analyzer.analyze_game(game_data)
+                predictions.append({
+                    'game_id': game_data['game_id'],
+                    'sport': game_data['sport'],
+                    'home_team': game_data['home_team'],
+                    'away_team': game_data['away_team'],
+                    'commence_time': game_data['commence_time'],
+                    'home_win_probability': prediction.home_win_probability,
+                    'away_win_probability': prediction.away_win_probability,
+                    'confidence_score': prediction.confidence_score,
+                    'value_bets': prediction.value_bets
+                })
+            except Exception as e:
+                # Skip games with prediction errors
+                continue
+        
+        return create_response(200, {
+            'predictions': predictions,
+            'count': len(predictions)
+        })
+    except Exception as e:
+        return create_response(500, {'error': f'Error generating predictions: {str(e)}'})
+
+def handle_get_stored_predictions(query_params: Dict[str, str]):
+    """Get stored predictions from database"""
+    limit = int(query_params.get('limit', '50'))
+    
+    try:
+        from prediction_tracker import PredictionTracker
+        tracker = PredictionTracker(table_name)
+        predictions = tracker.get_predictions(limit)
+        
+        return create_response(200, {
+            'predictions': predictions,
+            'count': len(predictions)
+        })
+    except Exception as e:
+        return create_response(500, {'error': f'Error fetching stored predictions: {str(e)}'})

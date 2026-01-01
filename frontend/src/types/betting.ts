@@ -1,10 +1,12 @@
 export interface Game {
-  game_id: string;
+  game_id?: string;
+  pk?: string;  // DynamoDB partition key (game_id)
+  sk?: string;  // DynamoDB sort key (bookmaker)
   sport: string;
   commence_time: string;
   home_team: string;
   away_team: string;
-  bookmaker: string;
+  bookmaker?: string;
   markets: {
     h2h?: {
       home: number;

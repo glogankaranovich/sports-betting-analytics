@@ -3,8 +3,8 @@
 ## Development Environment
 - **Email**: testuser@example.com
 - **Password**: TestPass123!
-- **User Pool ID**: us-east-1_w5USY1BCN
-- **Client ID**: 69tqcedjqmee1jr07e6uj17qum
+- **User Pool ID**: us-east-1_UT5jyAP5L
+- **Client ID**: 4qs12vau007oineekjldjkn6v0
 
 ## Beta Environment
 - **Email**: testuser@example.com

@@ -16,7 +16,7 @@ const environment = app.node.tryGetContext('environment');
 
 if (environment === 'dev') {
   // Manual dev deployment - deploy DynamoDB, auth, odds collector, and API
-  new DynamoDBStack(app, StackNames.forEnvironment('dev', 'DynamoDB'), {
+  const dynamoStack = new DynamoDBStack(app, StackNames.forEnvironment('dev', 'DynamoDB'), {
     environment: 'dev',
     env: ENVIRONMENTS.dev,
   });
@@ -28,13 +28,14 @@ if (environment === 'dev') {
   
   new OddsCollectorStack(app, StackNames.forEnvironment('dev', 'OddsCollector'), {
     environment: 'dev',
-    betsTableName: 'carpool-bets-dev',
+    betsTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
   });
 
   new BetCollectorApiStack(app, StackNames.forEnvironment('dev', 'BetCollectorApi'), {
     environment: 'dev',
-    betsTableName: 'carpool-bets-dev',
+    betsTableName: 'carpool-bets-v2-dev',
+    betsTable: dynamoStack.betsTable,
     userPool: authStack.userPool,
     env: ENVIRONMENTS.dev,
   });

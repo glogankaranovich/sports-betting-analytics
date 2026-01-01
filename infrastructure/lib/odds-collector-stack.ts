@@ -40,7 +40,8 @@ export class OddsCollectorStack extends cdk.Stack {
       timeout: cdk.Duration.minutes(5),
       environment: {
         DYNAMODB_TABLE: props.betsTableName,
-        ODDS_API_SECRET_ARN: oddsApiSecret.secretArn
+        ODDS_API_SECRET_ARN: oddsApiSecret.secretArn,
+        FORCE_UPDATE: '2025-01-01'
       }
     });
 
