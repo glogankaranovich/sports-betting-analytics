@@ -78,9 +78,28 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
     }));
 
     // Prod stage
-    pipeline.addStage(new CarpoolBetsStage(this, 'Prod', {
+    const prodStage = pipeline.addStage(new CarpoolBetsStage(this, 'Prod', {
       env: ENVIRONMENTS.prod,
       stage: 'prod',
+    }));
+
+    // Integration tests for Prod (Python)
+    prodStage.addPost(new CodeBuildStep('ProdIntegrationTests', {
+      commands: [
+        'echo "🧪 Running integration tests against Prod..."',
+        'cd backend',
+        'pip3 install -r requirements.txt',
+        'python3 test_api_integration.py'
+      ],
+      env: {
+        ENVIRONMENT: 'prod'
+      },
+      rolePolicyStatements: [
+        new iam.PolicyStatement({
+          actions: ['sts:AssumeRole'],
+          resources: [`arn:aws:iam::${ENVIRONMENTS.prod.account}:role/PipelineIntegrationTestRole`]
+        })
+      ]
     }));
   }
 }
