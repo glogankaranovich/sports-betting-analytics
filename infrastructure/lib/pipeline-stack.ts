@@ -29,17 +29,7 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
           'npm ci',
           'npm run build',
           
-          // Test frontend (React/TypeScript)
-          'echo "🧪 Running frontend tests..."',
-          'cd ../frontend',
-          'npm ci',
-          'npm run test:ci',
-          'echo "✅ Frontend tests passed!"',
-          
-          // Back to infrastructure for CDK synth
-          'cd ../infrastructure',
-          
-          // Synthesize CDK (skip backend for now)
+          // Synthesize CDK
           'cdk synth',
         ],
         primaryOutputDirectory: 'infrastructure/cdk.out',

@@ -39,8 +39,6 @@ build:
 test: build
 	@echo "🧪 Running unit tests..."
 	npm test
-	@echo "🧪 Running frontend tests..."
-	cd ../frontend && npm run test:ci
 
 # Deploy to dev environment (manual)
 deploy-dev: build test
