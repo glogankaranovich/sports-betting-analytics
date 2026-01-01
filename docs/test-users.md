@@ -15,8 +15,8 @@
 ## Production Environment
 - **Email**: testuser@example.com
 - **Password**: TestPass123!
-- **User Pool ID**: (Will be created when pipeline deploys)
-- **Client ID**: (Will be created when pipeline deploys)
+- **User Pool ID**: us-east-1_zv3tZRTEo
+- **Client ID**: 1j3hlk1pjl8bbr4kib889u1du9
 
 ## Usage
 These test users can be used to:
