@@ -9,8 +9,8 @@
 ## Beta Environment
 - **Email**: testuser@example.com
 - **Password**: TestPass123!
-- **User Pool ID**: (Will be created when pipeline deploys)
-- **Client ID**: (Will be created when pipeline deploys)
+- **User Pool ID**: us-east-1_eXhfQ3HC3
+- **Client ID**: 62nen1ftj2rk34t10eosvmimfc
 
 ## Production Environment
 - **Email**: testuser@example.com

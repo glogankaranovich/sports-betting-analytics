@@ -29,13 +29,14 @@ def test_api_integration():
     
     # Get environment-specific resources
     environment = os.getenv('ENVIRONMENT', 'dev')
+    environment_title = environment.title()
     
     # Get API URL and Cognito details from CloudFormation stack outputs
     cloudformation = boto3.client('cloudformation', region_name='us-east-1')
     
     try:
         # Get the API URL from BetCollectorApi stack
-        api_stack_name = f'Dev-BetCollectorApi'
+        api_stack_name = f'{environment_title}-BetCollectorApi'
         api_response = cloudformation.describe_stacks(StackName=api_stack_name)
         
         api_url = None
@@ -45,7 +46,7 @@ def test_api_integration():
                 break
         
         # Get Cognito details from Auth stack
-        auth_stack_name = f'Dev-Auth'
+        auth_stack_name = f'{environment_title}-Auth'
         auth_response = cloudformation.describe_stacks(StackName=auth_stack_name)
         
         user_pool_id = None
