@@ -1,12 +1,14 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
 export interface BetCollectorApiStackProps extends cdk.StackProps {
   environment: string;
   betsTableName: string;
+  userPool?: cognito.UserPool;
 }
 
 export class BetCollectorApiStack extends cdk.Stack {
@@ -51,11 +53,21 @@ export class BetCollectorApiStack extends cdk.Stack {
       restApiName: `Bet Collector API - ${props.environment}`,
       description: `API for accessing collected betting data in ${props.environment} environment`,
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowOrigins: ['http://localhost:3000', 'https://*.amplifyapp.com'],
         allowMethods: apigateway.Cors.ALL_METHODS,
-        allowHeaders: ['Content-Type', 'Authorization']
+        allowHeaders: ['Content-Type', 'Authorization'],
+        allowCredentials: true,
       }
     });
+
+    // Cognito authorizer (if user pool provided)
+    let authorizer: apigateway.CognitoUserPoolsAuthorizer | undefined;
+    if (props.userPool) {
+      authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'CognitoAuthorizer', {
+        cognitoUserPools: [props.userPool],
+        authorizerName: `carpool-bets-authorizer-${props.environment}`,
+      });
+    }
 
     // Lambda integration
     const lambdaIntegration = new apigateway.LambdaIntegration(betCollectorApiFunction, {
@@ -65,24 +77,30 @@ export class BetCollectorApiStack extends cdk.Stack {
     // API routes
     betCollectorApi.root.addMethod('ANY', lambdaIntegration);
     
-    // Health endpoint
+    // Health endpoint (public)
     const health = betCollectorApi.root.addResource('health');
     health.addMethod('GET', lambdaIntegration);
 
-    // Games endpoints
+    // Protected endpoints (require auth if user pool exists)
+    const methodOptions = authorizer ? {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    } : undefined;
+
+    // Games endpoints (protected)
     const games = betCollectorApi.root.addResource('games');
-    games.addMethod('GET', lambdaIntegration);
+    games.addMethod('GET', lambdaIntegration, methodOptions);
     
     const gameById = games.addResource('{game_id}');
-    gameById.addMethod('GET', lambdaIntegration);
+    gameById.addMethod('GET', lambdaIntegration, methodOptions);
 
-    // Sports endpoint
+    // Sports endpoint (protected)
     const sports = betCollectorApi.root.addResource('sports');
-    sports.addMethod('GET', lambdaIntegration);
+    sports.addMethod('GET', lambdaIntegration, methodOptions);
 
-    // Bookmakers endpoint
+    // Bookmakers endpoint (protected)
     const bookmakers = betCollectorApi.root.addResource('bookmakers');
-    bookmakers.addMethod('GET', lambdaIntegration);
+    bookmakers.addMethod('GET', lambdaIntegration, methodOptions);
 
     // Output the API URL
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {

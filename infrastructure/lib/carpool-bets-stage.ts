@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import { DynamoDBStack } from './dynamodb-stack';
 import { OddsCollectorStack } from './odds-collector-stack';
 import { BetCollectorApiStack } from './bet-collector-api-stack';
+import { AuthStack } from './auth-stack';
 import { IntegrationTestRoleStack } from './integration-test-role-stack';
 import { StackNames } from './utils/stack-names';
 
@@ -22,6 +23,11 @@ export class CarpoolBetsStage extends cdk.Stage {
       environment: props.stage,
     });
 
+    // Auth Stack
+    const authStack = new AuthStack(this, 'Auth', {
+      environment: props.stage,
+    });
+
     // Odds collector Lambda stack
     new OddsCollectorStack(this, 'OddsCollector', {
       environment: props.stage,
@@ -32,6 +38,7 @@ export class CarpoolBetsStage extends cdk.Stage {
     const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
       environment: props.stage,
       betsTableName: `carpool-bets-${props.stage}`,
+      userPool: authStack.userPool,
     });
 
     // Integration test role for pipeline access

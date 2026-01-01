@@ -24,12 +24,14 @@ export const bettingApi = {
     return response.data;
   },
 
-  async getGames(sport?: string, bookmaker?: string): Promise<ApiResponse> {
+  async getGames(token?: string, sport?: string, bookmaker?: string): Promise<ApiResponse> {
     const params = new URLSearchParams();
     if (sport) params.append('sport', sport);
     if (bookmaker) params.append('bookmaker', bookmaker);
     
-    const response = await api.get(`/games?${params.toString()}`);
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    
+    const response = await api.get(`/games?${params.toString()}`, { headers });
     return response.data;
   },
 

@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib/core';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { OddsCollectorStack } from '../lib/odds-collector-stack';
 import { BetCollectorApiStack } from '../lib/bet-collector-api-stack';
+import { AuthStack } from '../lib/auth-stack';
 import { AmplifyStack } from '../lib/amplify-stack';
 import { CarpoolBetsPipelineStack } from '../lib/pipeline-stack';
 import { StackNames } from '../lib/utils/stack-names';
@@ -14,8 +15,13 @@ const app = new cdk.App();
 const environment = app.node.tryGetContext('environment');
 
 if (environment === 'dev') {
-  // Manual dev deployment - deploy DynamoDB, odds collector, and API
+  // Manual dev deployment - deploy DynamoDB, auth, odds collector, and API
   new DynamoDBStack(app, StackNames.forEnvironment('dev', 'DynamoDB'), {
+    environment: 'dev',
+    env: ENVIRONMENTS.dev,
+  });
+
+  const authStack = new AuthStack(app, StackNames.forEnvironment('dev', 'Auth'), {
     environment: 'dev',
     env: ENVIRONMENTS.dev,
   });
@@ -29,6 +35,7 @@ if (environment === 'dev') {
   new BetCollectorApiStack(app, StackNames.forEnvironment('dev', 'BetCollectorApi'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-dev',
+    userPool: authStack.userPool,
     env: ENVIRONMENTS.dev,
   });
 } else {

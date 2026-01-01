@@ -27,7 +27,7 @@ def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
         },
         'body': json.dumps(body, default=str)
     }
