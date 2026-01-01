@@ -39,6 +39,8 @@ build:
 test: build
 	@echo "🧪 Running unit tests..."
 	npm test
+	@echo "🧪 Running frontend tests..."
+	cd ../frontend && npm run test:ci
 
 # Deploy to dev environment (manual)
 deploy-dev: build test
@@ -78,7 +80,10 @@ list-stacks:
 # Check pipeline status
 pipeline-status:
 	@echo "🔍 Checking pipeline status..."
-	@AWS_PROFILE=sports-betting-pipeline aws codepipeline get-pipeline-state --name CarpoolBetsPipeline --query 'stageStates[].{Stage:stageName,Status:latestExecution.status,LastUpdate:latestExecution.lastStatusChange}' --output table
+	@AWS_PROFILE=sports-betting-pipeline aws codepipeline get-pipeline-state --name CarpoolBetsPipeline --query 'stageStates[].{Stage:stageName,Status:latestExecution.status}' --output table
+	@echo ""
+	@echo "📊 Current execution details:"
+	@AWS_PROFILE=sports-betting-pipeline aws codepipeline list-pipeline-executions --pipeline-name CarpoolBetsPipeline --max-items 1 --query 'pipelineExecutionSummaries[0].{Status:status,StartTime:startTime,LastUpdate:lastUpdateTime}' --output table
 
 # Get pipeline execution history
 pipeline-history:
