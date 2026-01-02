@@ -48,7 +48,7 @@ class OddsCollector:
         active = [sport['key'] for sport in sports if sport['active'] and sport['key'] in ['americanfootball_nfl', 'basketball_nba', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl', 'soccer_usa_mls', 'mma_mixed_martial_arts', 'boxing_boxing']]
         return active
     
-    def get_odds(self, sport: str) -> List[Dict[str, Any]]:
+    def get_odds(self, sport: str, limit: int = None) -> List[Dict[str, Any]]:
         """Get odds for a specific sport"""
         url = f"{self.base_url}/sports/{sport}/odds"
         params = {
@@ -61,7 +61,14 @@ class OddsCollector:
         response = requests.get(url, params=params)
         response.raise_for_status()
         
-        return response.json()
+        odds = response.json()
+        
+        # Apply limit if specified
+        if limit and limit > 0:
+            odds = odds[:limit]
+            print(f"Limited to {len(odds)} games for testing")
+        
+        return odds
     
     def get_player_props(self, sport: str, event_id: str) -> List[Dict[str, Any]]:
         """Get player props for a specific event"""
@@ -183,9 +190,16 @@ class OddsCollector:
                             # Store historical snapshot with new timestamp
                             sk_historical = f"{bookmaker['key']}#{market['key']}#{timestamp}"
                             self.table.put_item(Item={**item_data, 'sk': sk_historical})
-                        
-                        # Always update latest pointer with fresh timestamp
-                        self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                            
+                            # Update latest pointer with new data and timestamp
+                            self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                        else:
+                            # Data unchanged, just update timestamp on existing LATEST record
+                            self.table.update_item(
+                                Key={'pk': pk, 'sk': sk_latest},
+                                UpdateExpression='SET updated_at = :timestamp',
+                                ExpressionAttributeValues={':timestamp': timestamp}
+                            )
                         
                     except Exception as e:
                         print(f"Error processing odds for {game_id}: {str(e)}")
@@ -222,7 +236,7 @@ class OddsCollector:
             print(f"Error getting game IDs from BetType GSI for {sport}: {str(e)}")
             return []
 
-    def collect_props_for_sport(self, sport: str) -> int:
+    def collect_props_for_sport(self, sport: str, limit: int = None) -> int:
         """Collect player props for a sport using existing game data with parallel processing"""
         if sport not in ['basketball_nba', 'americanfootball_nfl']:
             print(f"Player props not supported for {sport}")
@@ -232,6 +246,11 @@ class OddsCollector:
         if not game_ids:
             print(f"No games found in DB for {sport}")
             return 0
+        
+        # Apply limit if specified
+        if limit and limit > 0:
+            game_ids = game_ids[:limit]
+            print(f"Limited to {len(game_ids)} games for testing")
             
         print(f"Found {len(game_ids)} games for {sport}, collecting props in parallel...")
         total_props = 0
@@ -265,11 +284,11 @@ class OddsCollector:
         print(f"Collected {total_props} player prop bookmakers for {sport}")
         return total_props
 
-    def collect_odds_for_sport(self, sport: str) -> int:
+    def collect_odds_for_sport(self, sport: str, limit: int = None) -> int:
         """Collect odds for a specific sport (odds only, no props)"""
         try:
             print(f"Collecting odds for {sport}...")
-            odds = self.get_odds(sport)
+            odds = self.get_odds(sport, limit=limit)
             if odds:
                 self.store_odds(sport, odds)
                 print(f"Stored {len(odds)} games for {sport}")
@@ -296,6 +315,7 @@ def lambda_handler(event, context):
     """AWS Lambda handler - supports multiple execution modes:
     - {"sport": "basketball_nba"} - collect odds only for NBA
     - {"sport": "basketball_nba", "props_only": true} - collect NBA props with parallel processing
+    - {"limit": 5} - limit number of games/props for testing
     - {} - collect odds for all sports (no props)
     """
     try:
@@ -304,10 +324,11 @@ def lambda_handler(event, context):
         # Parse event parameters
         sport = event.get('sport') if event else None
         props_only = event.get('props_only', False) if event else False
+        limit = event.get('limit') if event else None
         
         if sport and props_only:
-            print(f"Processing props only for: {sport}")
-            total_props = collector.collect_props_for_sport(sport)
+            print(f"Processing props only for: {sport} (limit: {limit})")
+            total_props = collector.collect_props_for_sport(sport, limit=limit)
             message = f'Successfully collected props for {total_props} bookmakers in {sport}'
             return {
                 'statusCode': 200,
@@ -316,12 +337,13 @@ def lambda_handler(event, context):
                     'sport': sport,
                     'props_only': True,
                     'props_collected': total_props,
+                    'limit': limit,
                     'timestamp': datetime.utcnow().isoformat()
                 })
             }
         elif sport:
-            print(f"Processing odds only for: {sport}")
-            total_games = collector.collect_odds_for_sport(sport)
+            print(f"Processing odds only for: {sport} (limit: {limit})")
+            total_games = collector.collect_odds_for_sport(sport, limit=limit)
             message = f'Successfully collected odds for {total_games} games in {sport}'
         else:
             print("Processing all active sports (odds only)")
