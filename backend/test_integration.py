@@ -8,7 +8,7 @@ def test_lambda_integration():
     
     # Get environment-specific resources
     environment = os.getenv('ENVIRONMENT', 'dev')
-    table_name = f'carpool-bets-{environment}'
+    table_name = f'carpool-bets-v2-{environment}'
     
     # Initialize AWS clients
     lambda_client = boto3.client('lambda', region_name='us-east-1')
@@ -38,8 +38,9 @@ def test_lambda_integration():
     existing_response = table.scan(Limit=5)
     existing_timestamps = {}
     for item in existing_response.get('Items', []):
-        key = f"{item['game_id']}#{item['bookmaker']}"
-        existing_timestamps[key] = item.get('updated_at', '1970-01-01T00:00:00')
+        # Use pk as the key since schema has changed
+        key = item.get('pk', 'unknown')
+        existing_timestamps[key] = item.get('updated_at', item.get('predicted_at', '1970-01-01T00:00:00'))
     
     print(f"Found {len(existing_timestamps)} existing items to track")
     
@@ -68,7 +69,8 @@ def test_lambda_integration():
     
     # Check for items updated after test start
     updated_items_response = table.scan(
-        FilterExpression=boto3.dynamodb.conditions.Attr('updated_at').gt(test_start_iso),
+        FilterExpression=boto3.dynamodb.conditions.Attr('updated_at').gt(test_start_iso) | 
+                        boto3.dynamodb.conditions.Attr('predicted_at').gt(test_start_iso),
         Limit=20
     )
     
@@ -80,10 +82,10 @@ def test_lambda_integration():
     # Verify timestamps are actually newer for existing items
     updated_count = 0
     for item in updated_items:
-        key = f"{item['game_id']}#{item['bookmaker']}"
+        key = item.get('pk', 'unknown')
         if key in existing_timestamps:
             old_timestamp = existing_timestamps[key]
-            new_timestamp = item['updated_at']
+            new_timestamp = item.get('updated_at', item.get('predicted_at', ''))
             if new_timestamp > old_timestamp:
                 updated_count += 1
     
@@ -91,26 +93,43 @@ def test_lambda_integration():
     
     # Verify data structure and content
     for item in updated_items[:3]:
-        # Verify required fields
-        required_fields = ['game_id', 'bookmaker', 'sport', 'home_team', 'away_team', 'commence_time', 'markets', 'updated_at']
-        for field in required_fields:
-            assert field in item, f"Missing required field '{field}' in DynamoDB item"
+        # Verify required fields based on item type
+        if item.get('bet_type') == 'PROP' or 'PROP' in item.get('pk', ''):
+            # Player prop item
+            required_fields = ['pk', 'sk', 'sport', 'bookmaker', 'updated_at', 'event_id']
+            for field in required_fields:
+                assert field in item, f"Missing required field '{field}' in prop item"
+        elif item.get('prediction_type') in ['GAME', 'PROP']:
+            # Prediction item
+            required_fields = ['pk', 'sk', 'prediction_type', 'predicted_at']
+            for field in required_fields:
+                assert field in item, f"Missing required field '{field}' in prediction item"
+        else:
+            # Game item (if any)
+            required_fields = ['pk', 'sk', 'sport', 'updated_at']
+            for field in required_fields:
+                assert field in item, f"Missing required field '{field}' in game item"
         
-        # Verify data types and values
-        expected_sports = [
-            'americanfootball_nfl', 'basketball_nba', 'baseball_mlb', 'icehockey_nhl',
-            'soccer_epl', 'soccer_usa_mls', 'mma_mixed_martial_arts', 'boxing_boxing'
-        ]
-        assert item['sport'] in expected_sports, f"Unexpected sport: {item['sport']}"
-        assert isinstance(item['markets'], list), "Markets should be a list"
-        assert len(item['markets']) > 0, "Markets list should not be empty"
+        # Verify sport values
+        if 'sport' in item:
+            expected_sports = [
+                'americanfootball_nfl', 'basketball_nba', 'baseball_mlb', 'icehockey_nhl',
+                'soccer_epl', 'soccer_usa_mls', 'mma_mixed_martial_arts', 'boxing_boxing'
+            ]
+            assert item['sport'] in expected_sports, f"Unexpected sport: {item['sport']}"
         
         # Verify timestamp is from this test run
-        updated_time = datetime.fromisoformat(item['updated_at'])
-        assert updated_time >= test_start_time, f"Item timestamp {item['updated_at']} is not from this test run"
+        timestamp_field = item.get('updated_at', item.get('predicted_at', ''))
+        if timestamp_field:
+            updated_time = datetime.fromisoformat(timestamp_field)
+            assert updated_time >= test_start_time, f"Item timestamp {timestamp_field} is not from this test run"
     
     # Verify we have data for expected sports
-    sports_found = set(item['sport'] for item in updated_items)
+    sports_found = set()
+    for item in updated_items:
+        if 'sport' in item:
+            sports_found.add(item['sport'])
+    
     print(f"Sports with updated data: {list(sports_found)}")
     
     print(f"✅ Integration test passed!")

@@ -120,9 +120,6 @@ class OddsCollector:
                     
                     # Store/update latest pointer for frontend
                     self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
-                            ':ttl': ttl
-                        }
-                    )
     
     def store_odds(self, sport: str, odds_data: List[Dict[str, Any]]):
         """Store odds in DynamoDB with normalized schema (one item per bookmaker per market)"""

@@ -10,7 +10,9 @@ help:
 	@echo "  make build       - Build TypeScript"
 	@echo ""
 	@echo "🧪 Testing:"
-	@echo "  make test        - Run unit tests"
+	@echo "  make test        - Run infrastructure unit tests"
+	@echo "  make test-backend - Run backend unit tests"
+	@echo "  make test-all    - Run all tests (infrastructure + backend)"
 	@echo ""
 	@echo "🚀 Deployment:"
 	@echo "  make deploy-dev  - Deploy to dev environment (manual)"
@@ -37,7 +39,17 @@ build:
 
 # Run unit tests
 test: build
-	@echo "🧪 Running unit tests..."
+	@echo "🧪 Running infrastructure unit tests..."
+	npm test
+
+# Run backend unit tests
+test-backend:
+	@echo "🧪 Running backend unit tests..."
+	cd ../backend && DYNAMODB_TABLE=test-table python3 -m unittest test_api_handler test_ml_models test_prediction_tracker test_odds_collector -v
+
+# Run all tests (infrastructure + backend)
+test-all: build test-backend
+	@echo "🧪 Running infrastructure unit tests..."
 	npm test
 
 # Deploy to dev environment (manual)
