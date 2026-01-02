@@ -2,16 +2,28 @@
 
 ## Overview
 
-The Sports Betting Analytics API provides endpoints for managing bets, retrieving predictions, and accessing sports data.
+The Sports Betting Analytics API provides endpoints for managing bets, retrieving predictions, and accessing sports data. The API includes ML-powered prediction endpoints and real-time odds data.
 
-## Base URL
+## Base URLs
+
+### Production
 ```
-http://localhost:8000
+https://rk6h0zryz5.execute-api.us-east-1.amazonaws.com/prod
+```
+
+### Beta
+```
+https://fgguxgxr4b.execute-api.us-east-1.amazonaws.com/prod
+```
+
+### Development
+```
+https://pylcs4ypld.execute-api.us-east-1.amazonaws.com/prod
 ```
 
 ## Authentication
 
-All endpoints require JWT authentication except for health checks.
+All endpoints require JWT authentication except for health checks. Use AWS Cognito tokens.
 
 ```http
 Authorization: Bearer <jwt_token>
@@ -25,9 +37,100 @@ GET /health
 ```
 Returns system health status.
 
-### Bets Management
+**Response:**
+```json
+{
+  "status": "healthy",
+  "table": "carpool-bets-v2-prod",
+  "environment": "prod"
+}
+```
 
-#### Get All Bets
+### Games & Odds
+
+#### Get All Games
+```http
+GET /games?sport=americanfootball_nfl&limit=100
+```
+Returns games with odds from multiple bookmakers.
+
+#### Get Single Game
+```http
+GET /games/{game_id}
+```
+Returns detailed odds for a specific game.
+
+### ML Predictions
+
+#### Get Game Predictions
+```http
+GET /game-predictions?limit=50
+```
+Returns AI-generated game outcome predictions.
+
+**Response:**
+```json
+{
+  "predictions": [
+    {
+      "game_id": "abc123",
+      "home_team": "Kansas City Chiefs",
+      "away_team": "Buffalo Bills",
+      "home_win_probability": 0.65,
+      "away_win_probability": 0.35,
+      "confidence_score": 0.82,
+      "value_bets": ["home_moneyline"],
+      "predicted_at": "2026-01-02T12:00:00Z"
+    }
+  ],
+  "count": 25
+}
+```
+
+#### Get Prop Predictions
+```http
+GET /prop-predictions?limit=100
+```
+Returns AI-generated player prop predictions.
+
+**Response:**
+```json
+{
+  "predictions": [
+    {
+      "player_name": "Patrick Mahomes",
+      "prop_type": "player_pass_yds",
+      "predicted_value": 285.5,
+      "over_probability": 0.58,
+      "under_probability": 0.42,
+      "confidence_score": 0.75
+    }
+  ],
+  "count": 50
+}
+```
+
+### Player Props
+
+#### Get Player Props
+```http
+GET /player-props?sport=americanfootball_nfl&prop_type=player_pass_yds
+```
+Returns raw player prop data from bookmakers.
+
+### Utility Endpoints
+
+#### Get Sports
+```http
+GET /sports
+```
+Returns available sports.
+
+#### Get Bookmakers
+```http
+GET /bookmakers
+```
+Returns available bookmakers.
 ```http
 GET /api/v1/bets
 ```
