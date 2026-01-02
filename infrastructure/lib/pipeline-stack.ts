@@ -46,9 +46,7 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
     });
     const betaStage = pipeline.addStage(betaStageConstruct);
 
-    // Integration tests (Python) - TEMPORARILY DISABLED
-    // TODO: Re-enable after fixing integration test schema issues
-    /*
+    // Integration tests (Python) - Re-enabled after fixing schema issues
     betaStage.addPost(new CodeBuildStep('IntegrationTests', {
       commands: [
         'echo "🧪 Running integration tests against Beta..."',
@@ -78,7 +76,6 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
         })
       ]
     }));
-    */
 
     // Prod stage
     const prodStage = pipeline.addStage(new CarpoolBetsStage(this, 'Prod', {
