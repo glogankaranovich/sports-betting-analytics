@@ -35,7 +35,6 @@ if (environment === 'dev') {
   new BetCollectorApiStack(app, StackNames.forEnvironment('dev', 'BetCollectorApi'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
-    betsTable: dynamoStack.betsTable,
     userPool: authStack.userPool,
     env: ENVIRONMENTS.dev,
   });

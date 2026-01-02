@@ -3,6 +3,7 @@ import { Construct } from 'constructs';
 import { DynamoDBStack } from './dynamodb-stack';
 import { OddsCollectorStack } from './odds-collector-stack';
 import { BetCollectorApiStack } from './bet-collector-api-stack';
+import { PredictionGeneratorStack } from './prediction-generator-stack';
 import { AuthStack } from './auth-stack';
 import { IntegrationTestRoleStack } from './integration-test-role-stack';
 import { StackNames } from './utils/stack-names';
@@ -38,9 +39,14 @@ export class CarpoolBetsStage extends cdk.Stage {
     const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
       environment: props.stage,
       betsTableName: `carpool-bets-v2-${props.stage}`,
-      betsTable: dynamoStack.betsTable,
       userPool: authStack.userPool,
     });
+
+    // Prediction generator stack - TODO: Add in Stage 2
+    // new PredictionGeneratorStack(this, 'PredictionGenerator', {
+    //   environment: props.stage,
+    //   betsTable: dynamoStack.betsTable,
+    // });
 
     // Integration test role for pipeline access
     new IntegrationTestRoleStack(this, 'IntegrationTestRole', {

@@ -11,7 +11,6 @@ import { Construct } from 'constructs';
 export interface BetCollectorApiStackProps extends cdk.StackProps {
   environment: string;
   betsTableName: string;
-  betsTable: dynamodb.Table;
   userPool?: cognito.UserPool;
 }
 
@@ -130,27 +129,6 @@ export class BetCollectorApiStack extends cdk.Stack {
     const playerProps = betCollectorApi.root.addResource('player-props');
     playerProps.addMethod('GET', lambdaIntegration, methodOptions);
 
-    // Prediction Generator Lambda (scheduled)
-    const predictionGeneratorFunction = new lambda.Function(this, 'PredictionGeneratorFunction', {
-      runtime: lambda.Runtime.PYTHON_3_11,
-      handler: 'prediction_generator.lambda_handler',
-      code: lambda.Code.fromAsset('../backend'),
-      environment: {
-        DYNAMODB_TABLE: props.betsTableName,
-        ENVIRONMENT: props.environment,
-      },
-      timeout: cdk.Duration.minutes(5),
-    });
-
-    // Grant DynamoDB permissions
-    props.betsTable.grantReadWriteData(predictionGeneratorFunction);
-
-    // Schedule to run every 6 hours
-    const predictionSchedule = new events.Rule(this, 'PredictionSchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.hours(6)),
-    });
-    
-    predictionSchedule.addTarget(new targets.LambdaFunction(predictionGeneratorFunction));
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {
       value: betCollectorApi.url,
       description: 'Bet Collector API Gateway URL'

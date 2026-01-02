@@ -18,7 +18,7 @@ describe('OddsCollectorStack', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Runtime: 'python3.11',
       Handler: 'odds_collector.lambda_handler',
-      Timeout: 300,
+      Timeout: 900,  // Updated to 15 minutes
       Environment: {
         Variables: {
           DYNAMODB_TABLE: 'carpool-bets-test'
@@ -27,9 +27,25 @@ describe('OddsCollectorStack', () => {
     });
   });
 
-  test('creates EventBridge rule for scheduling', () => {
+  test('creates EventBridge rules for granular scheduling', () => {
+    // NBA odds collection
     template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'rate(4 hours)'
+      ScheduleExpression: 'cron(0 8,20 * * ? *)'
+    });
+    
+    // NFL odds collection  
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(0 9,21 * * ? *)'
+    });
+    
+    // NBA props collection
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(0 10,22 * * ? *)'
+    });
+    
+    // NFL props collection
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(0 11,23 * * ? *)'
     });
   });
 
@@ -41,7 +57,7 @@ describe('OddsCollectorStack', () => {
     template.resourceCountIs('AWS::Lambda::Function', 1);
   });
 
-  test('creates exactly one EventBridge rule', () => {
-    template.resourceCountIs('AWS::Events::Rule', 1);
+  test('creates four EventBridge rules for granular scheduling', () => {
+    template.resourceCountIs('AWS::Events::Rule', 4);
   });
 });
