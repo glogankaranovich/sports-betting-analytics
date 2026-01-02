@@ -43,17 +43,18 @@ export class DynamoDBStack extends cdk.Stack {
     });
 
     // Add GSI for bet type querying
-    this.betsTable.addGlobalSecondaryIndex({
-      indexName: 'ActiveBetsIndex',
-      partitionKey: {
-        name: 'bet_type',
-        type: dynamodb.AttributeType.STRING
-      },
-      sortKey: {
-        name: 'commence_time',
-        type: dynamodb.AttributeType.STRING
-      }
-    });
+    // TODO: Temporarily commented out - DynamoDB only allows one GSI creation per update
+    // this.betsTable.addGlobalSecondaryIndex({
+    //   indexName: 'ActiveBetsIndex',
+    //   partitionKey: {
+    //     name: 'bet_type',
+    //     type: dynamodb.AttributeType.STRING
+    //   },
+    //   sortKey: {
+    //     name: 'commence_time',
+    //     type: dynamodb.AttributeType.STRING
+    //   }
+    // });
 
     // Output the table name
     this.betsTableName = new cdk.CfnOutput(this, 'BetsTableName', {
