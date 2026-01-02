@@ -43,8 +43,8 @@ class OddsCollector:
         response.raise_for_status()
         
         sports = response.json()
-        # Filter for active sports (NFL, NBA for winter season)
-        active = [sport['key'] for sport in sports if sport['active'] and sport['key'] in ['americanfootball_nfl', 'basketball_nba']]
+        # Filter for active sports (NFL, NBA, MLB, NHL)
+        active = [sport['key'] for sport in sports if sport['active'] and sport['key'] in ['americanfootball_nfl', 'basketball_nba', 'baseball_mlb', 'icehockey_nhl']]
         return active
     
     def get_odds(self, sport: str) -> List[Dict[str, Any]]:
