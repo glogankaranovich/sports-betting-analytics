@@ -42,11 +42,14 @@ export class CarpoolBetsStage extends cdk.Stage {
       userPool: authStack.userPool,
     });
 
-    // Prediction generator stack - TODO: Add in Stage 2
-    // new PredictionGeneratorStack(this, 'PredictionGenerator', {
-    //   environment: props.stage,
-    //   betsTable: dynamoStack.betsTable,
-    // });
+    // Add explicit dependency to ensure DynamoDB deploys before BetCollectorApi
+    betCollectorApiStack.addDependency(dynamoStack);
+
+    // Prediction generator stack
+    new PredictionGeneratorStack(this, 'PredictionGenerator', {
+      environment: props.stage,
+      betsTable: dynamoStack.betsTable,
+    });
 
     // Integration test role for pipeline access
     new IntegrationTestRoleStack(this, 'IntegrationTestRole', {
