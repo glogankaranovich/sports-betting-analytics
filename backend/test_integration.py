@@ -97,7 +97,11 @@ def test_lambda_integration():
             assert field in item, f"Missing required field '{field}' in DynamoDB item"
         
         # Verify data types and values
-        assert item['sport'] in ['americanfootball_nfl', 'basketball_nba'], f"Unexpected sport: {item['sport']}"
+        expected_sports = [
+            'americanfootball_nfl', 'basketball_nba', 'baseball_mlb', 'icehockey_nhl',
+            'soccer_epl', 'soccer_usa_mls', 'mma_mixed_martial_arts', 'boxing_boxing'
+        ]
+        assert item['sport'] in expected_sports, f"Unexpected sport: {item['sport']}"
         assert isinstance(item['markets'], list), "Markets should be a list"
         assert len(item['markets']) > 0, "Markets list should not be empty"
         

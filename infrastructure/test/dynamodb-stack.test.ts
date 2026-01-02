@@ -45,10 +45,6 @@ describe('DynamoDBStack', () => {
         {
           AttributeName: 'commence_time',
           AttributeType: 'S'
-        },
-        {
-          AttributeName: 'bet_type',
-          AttributeType: 'S'
         }
       ],
       GlobalSecondaryIndexes: [
@@ -57,22 +53,6 @@ describe('DynamoDBStack', () => {
           KeySchema: [
             {
               AttributeName: 'prediction_type',
-              KeyType: 'HASH'
-            },
-            {
-              AttributeName: 'commence_time',
-              KeyType: 'RANGE'
-            }
-          ],
-          Projection: {
-            ProjectionType: 'ALL'
-          }
-        },
-        {
-          IndexName: 'ActiveBetsIndex',
-          KeySchema: [
-            {
-              AttributeName: 'bet_type',
               KeyType: 'HASH'
             },
             {
