@@ -136,9 +136,16 @@ class OddsCollector:
                             # Store historical snapshot with new timestamp
                             sk_historical = f"{bookmaker['key']}#{market['key']}#{outcome['name']}#{timestamp}"
                             self.table.put_item(Item={**item_data, 'sk': sk_historical})
-                        
-                        # Always update latest pointer with fresh timestamp
-                        self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                            
+                            # Update latest pointer with new data and timestamp
+                            self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                        else:
+                            # Data unchanged, just update timestamp on existing LATEST record
+                            self.table.update_item(
+                                Key={'pk': pk, 'sk': sk_latest},
+                                UpdateExpression='SET updated_at = :timestamp',
+                                ExpressionAttributeValues={':timestamp': timestamp}
+                            )
                         
                     except Exception as e:
                         print(f"Error processing props for {event_id}: {str(e)}")
