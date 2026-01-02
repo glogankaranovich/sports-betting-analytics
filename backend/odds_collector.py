@@ -79,13 +79,10 @@ class OddsCollector:
     
     def store_player_props(self, sport: str, event_id: str, props_data: Dict[str, Any]):
         """Store player props in DynamoDB"""
-        # Filter to only include specific bookmakers
-        allowed_bookmakers = {'fanatics', 'fanduel', 'draftkings', 'betmgm'}
+        # Collect from ALL bookmakers for better prediction accuracy
+        # Frontend will filter to display only specific bookmakers
         
         for bookmaker in props_data.get('bookmakers', []):
-            # Skip bookmakers not in our allowed list
-            if bookmaker['key'] not in allowed_bookmakers:
-                continue
                 
             for market in bookmaker.get('markets', []):
                 for outcome in market.get('outcomes', []):
@@ -129,16 +126,13 @@ class OddsCollector:
     
     def store_odds(self, sport: str, odds_data: List[Dict[str, Any]]):
         """Store odds in DynamoDB with normalized schema (one item per bookmaker per market)"""
-        # Filter to only include specific bookmakers
-        allowed_bookmakers = {'fanatics', 'fanduel', 'draftkings', 'betmgm'}
+        # Collect from ALL bookmakers for better prediction accuracy
+        # Frontend will filter to display only specific bookmakers
         
         for game in odds_data:
             game_id = game['id']
             
             for bookmaker in game['bookmakers']:
-                # Skip bookmakers not in our allowed list
-                if bookmaker['key'] not in allowed_bookmakers:
-                    continue
                     
                 for market in bookmaker['markets']:
                     # Create timestamped sort key for historical tracking

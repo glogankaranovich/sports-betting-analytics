@@ -91,6 +91,9 @@ def handle_get_games(query_params: Dict[str, str]):
     sport = query_params.get('sport')
     limit = int(query_params.get('limit', '500'))
     
+    # Frontend display bookmakers (backend collects from all bookmakers)
+    display_bookmakers = {'fanatics', 'fanduel', 'draftkings', 'betmgm'}
+    
     try:
         # Use GSI to query for latest game odds only
         response = table.query(
@@ -126,12 +129,14 @@ def handle_get_games(query_params: Dict[str, str]):
             if '#' in item['sk']:
                 bookmaker, market = item['sk'].split('#', 1)
                 
-                if bookmaker not in games_dict[game_id]['odds']:
-                    games_dict[game_id]['odds'][bookmaker] = {}
-                
-                games_dict[game_id]['odds'][bookmaker][market] = {
-                    'outcomes': item['outcomes']
-                }
+                # Only include display bookmakers in frontend response
+                if bookmaker in display_bookmakers:
+                    if bookmaker not in games_dict[game_id]['odds']:
+                        games_dict[game_id]['odds'][bookmaker] = {}
+                    
+                    games_dict[game_id]['odds'][bookmaker][market] = {
+                        'outcomes': item['outcomes']
+                    }
         
         games = list(games_dict.values())[:limit]
         games = decimal_to_float(games)
@@ -339,6 +344,9 @@ def handle_get_player_props(query_params: Dict[str, str]):
     prop_type = query_params.get('prop_type')  # Filter by market_key
     limit = int(query_params.get('limit', '500'))
     
+    # Frontend display bookmakers (backend collects from all bookmakers)
+    display_bookmakers = {'fanatics', 'fanduel', 'draftkings', 'betmgm'}
+    
     try:
         # Use ActiveBetsIndex GSI to query for PROP bet types efficiently
         props = []
@@ -372,7 +380,10 @@ def handle_get_player_props(query_params: Dict[str, str]):
                 
             response = table.query(**query_kwargs)
             batch_props = response.get('Items', [])
-            props.extend(batch_props)
+            
+            # Filter to only display bookmakers for frontend
+            filtered_props = [prop for prop in batch_props if prop.get('bookmaker') in display_bookmakers]
+            props.extend(filtered_props)
             
             last_evaluated_key = response.get('LastEvaluatedKey')
             if not last_evaluated_key or len(batch_props) == 0:
