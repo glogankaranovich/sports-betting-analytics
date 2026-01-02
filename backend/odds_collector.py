@@ -2,7 +2,7 @@ import os
 import boto3
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from decimal import Decimal
 
@@ -96,12 +96,16 @@ class OddsCollector:
                     pk = f"PROP#{event_id}#{player_name}"
                     sk = f"{bookmaker['key']}#{market['key']}#{outcome['name']}"
                     
+                    # Calculate TTL (2 days after game commence time)
+                    commence_dt = datetime.fromisoformat(props_data['commence_time'].replace('Z', '+00:00'))
+                    ttl = int((commence_dt + timedelta(days=2)).timestamp())
+                    
                     self.table.update_item(
                         Key={
                             'pk': pk,
                             'sk': sk
                         },
-                        UpdateExpression='SET sport = :sport, event_id = :event_id, bookmaker = :bookmaker, market_key = :market_key, player_name = :player_name, outcome = :outcome, point = :point, price = :price, commence_time = :commence_time, bet_type = :bet_type, updated_at = :updated_at',
+                        UpdateExpression='SET sport = :sport, event_id = :event_id, bookmaker = :bookmaker, market_key = :market_key, player_name = :player_name, outcome = :outcome, point = :point, price = :price, commence_time = :commence_time, bet_type = :bet_type, updated_at = :updated_at, ttl = :ttl',
                         ExpressionAttributeValues={
                             ':sport': sport,
                             ':event_id': event_id,
@@ -113,7 +117,8 @@ class OddsCollector:
                             ':price': convert_floats_to_decimal(outcome['price']),
                             ':commence_time': props_data['commence_time'],  # Add commence_time from props_data
                             ':bet_type': 'PROP',
-                            ':updated_at': datetime.utcnow().isoformat()
+                            ':updated_at': datetime.utcnow().isoformat(),
+                            ':ttl': ttl
                         }
                     )
     
@@ -136,12 +141,16 @@ class OddsCollector:
                     # Add GAME# prefix to partition key
                     pk = f"GAME#{game_id}"
                     
+                    # Calculate TTL (2 days after game commence time)
+                    commence_dt = datetime.fromisoformat(game['commence_time'].replace('Z', '+00:00'))
+                    ttl = int((commence_dt + timedelta(days=2)).timestamp())
+                    
                     self.table.update_item(
                         Key={
                             'pk': pk,
                             'sk': sk
                         },
-                        UpdateExpression='SET sport = :sport, home_team = :home_team, away_team = :away_team, commence_time = :commence_time, market_key = :market_key, bookmaker = :bookmaker, outcomes = :outcomes, bet_type = :bet_type, updated_at = :updated_at',
+                        UpdateExpression='SET sport = :sport, home_team = :home_team, away_team = :away_team, commence_time = :commence_time, market_key = :market_key, bookmaker = :bookmaker, outcomes = :outcomes, bet_type = :bet_type, updated_at = :updated_at, ttl = :ttl',
                         ExpressionAttributeValues={
                             ':sport': sport,
                             ':home_team': game['home_team'],
@@ -151,7 +160,8 @@ class OddsCollector:
                             ':bookmaker': bookmaker['key'],
                             ':outcomes': convert_floats_to_decimal(market['outcomes']),
                             ':bet_type': 'GAME',
-                            ':updated_at': datetime.utcnow().isoformat()
+                            ':updated_at': datetime.utcnow().isoformat(),
+                            ':ttl': ttl
                         }
                     )
     
