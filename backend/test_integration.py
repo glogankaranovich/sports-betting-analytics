@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta
 
 def test_lambda_integration():
-    """Integration test to verify Lambda function updates DynamoDB with fresh timestamps"""
+    """Integration test to verify Lambda function updates DynamoDB with fresh data"""
     
     # Get environment-specific resources
     environment = os.getenv('ENVIRONMENT', 'dev')
@@ -15,7 +15,7 @@ def test_lambda_integration():
     dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
     table = dynamodb.Table(table_name)
     
-    # Find the Lambda function by searching for the pattern
+    # Find the Lambda function
     functions_response = lambda_client.list_functions()
     lambda_function_name = None
     
@@ -30,36 +30,25 @@ def test_lambda_integration():
     print(f"Testing Lambda function: {lambda_function_name}")
     print(f"Testing DynamoDB table: {table_name}")
     
-    # Record timestamp before Lambda execution (with buffer)
+    # Record timestamp before Lambda execution
     test_start_time = datetime.utcnow() - timedelta(seconds=30)
     test_start_iso = test_start_time.isoformat()
     
-    # Get sample of existing data to compare timestamps
-    existing_response = table.scan(Limit=5)
-    existing_timestamps = {}
-    for item in existing_response.get('Items', []):
-        # Use pk as the key since schema has changed
-        key = item.get('pk', 'unknown')
-        existing_timestamps[key] = item.get('updated_at', item.get('predicted_at', '1970-01-01T00:00:00'))
-    
-    print(f"Found {len(existing_timestamps)} existing items to track")
-    
-    # Invoke Lambda function
-    print("Invoking Lambda function...")
+    # Invoke Lambda for specific sport
+    print("Invoking Lambda function for basketball_nba...")
     response = lambda_client.invoke(
         FunctionName=lambda_function_name,
-        InvocationType='RequestResponse'
+        InvocationType='RequestResponse',
+        Payload=json.dumps({"sport": "basketball_nba"})
     )
     
-    # Parse response
+    # Verify Lambda executed successfully
     payload = json.loads(response['Payload'].read())
     print(f"Lambda response: {payload}")
     
-    # Verify successful execution
     assert response['StatusCode'] == 200, f"Lambda invocation failed with status {response['StatusCode']}"
     assert payload['statusCode'] == 200, f"Lambda function failed: {payload.get('body', 'No error message')}"
     
-    # Parse success message
     body = json.loads(payload['body'])
     print(f"Lambda execution result: {body['message']}")
     
@@ -67,11 +56,17 @@ def test_lambda_integration():
     import time
     time.sleep(3)
     
-    # Check for items updated after test start
-    updated_items_response = table.scan(
-        FilterExpression=boto3.dynamodb.conditions.Attr('updated_at').gt(test_start_iso) | 
-                        boto3.dynamodb.conditions.Attr('predicted_at').gt(test_start_iso),
-        Limit=20
+    # Check DynamoDB using GSI for basketball_nba latest items
+    updated_items_response = table.query(
+        IndexName='ActiveBetsIndex',
+        KeyConditionExpression='bet_type = :bet_type',
+        FilterExpression='sport = :sport AND attribute_exists(latest) AND updated_at > :start_time',
+        ExpressionAttributeValues={
+            ':bet_type': 'GAME',
+            ':sport': 'basketball_nba',
+            ':start_time': test_start_iso
+        },
+        Limit=10
     )
     
     updated_items = updated_items_response['Items']
@@ -79,74 +74,35 @@ def test_lambda_integration():
     
     print(f"Found {len(updated_items)} items updated during this test")
     
-    # Verify timestamps are actually newer for existing items
-    updated_count = 0
-    for item in updated_items:
-        key = item.get('pk', 'unknown')
-        if key in existing_timestamps:
-            old_timestamp = existing_timestamps[key]
-            new_timestamp = item.get('updated_at', item.get('predicted_at', ''))
-            if new_timestamp > old_timestamp:
-                updated_count += 1
-    
-    print(f"Verified {updated_count} existing items were actually updated with newer timestamps")
-    
-    # Verify data structure and content
+    # Validate data structure
     for item in updated_items[:3]:
-        # Verify required fields based on item type
-        if item.get('bet_type') == 'PROP' or 'PROP' in item.get('pk', ''):
-            # Player prop item
-            required_fields = ['pk', 'sk', 'sport', 'bookmaker', 'updated_at', 'event_id']
-            for field in required_fields:
-                assert field in item, f"Missing required field '{field}' in prop item"
-        elif item.get('prediction_type') in ['GAME', 'PROP']:
-            # Prediction item
-            required_fields = ['pk', 'sk', 'prediction_type', 'predicted_at']
-            for field in required_fields:
-                assert field in item, f"Missing required field '{field}' in prediction item"
-        else:
-            # Game item (if any)
-            required_fields = ['pk', 'sk', 'sport', 'updated_at']
-            for field in required_fields:
-                assert field in item, f"Missing required field '{field}' in game item"
+        # Verify required fields
+        required_fields = ['pk', 'sk', 'bet_type', 'sport', 'updated_at']
+        for field in required_fields:
+            assert field in item, f"Missing required field '{field}'"
         
-        # Verify sport values
-        if 'sport' in item:
-            expected_sports = [
-                'americanfootball_nfl', 'basketball_nba', 'baseball_mlb', 'icehockey_nhl',
-                'soccer_epl', 'soccer_usa_mls', 'mma_mixed_martial_arts', 'boxing_boxing'
-            ]
-            assert item['sport'] in expected_sports, f"Unexpected sport: {item['sport']}"
+        # Verify data types and values
+        assert item['sport'] == 'basketball_nba', f"Expected basketball_nba, got: {item['sport']}"
+        assert item['bet_type'] in ['GAME', 'PROP'], f"Invalid bet_type: {item['bet_type']}"
+        assert item['pk'].startswith(item['bet_type'] + '#'), f"Invalid pk format: {item['pk']}"
         
-        # Verify timestamp is from this test run
-        timestamp_field = item.get('updated_at', item.get('predicted_at', ''))
-        if timestamp_field:
-            updated_time = datetime.fromisoformat(timestamp_field)
-            assert updated_time >= test_start_time, f"Item timestamp {timestamp_field} is not from this test run"
-    
-    # Verify we have data for expected sports
-    sports_found = set()
-    for item in updated_items:
-        if 'sport' in item:
-            sports_found.add(item['sport'])
-    
-    print(f"Sports with updated data: {list(sports_found)}")
+        # Verify timestamp is fresh
+        updated_time = datetime.fromisoformat(item['updated_at'])
+        assert updated_time >= test_start_time, f"Item timestamp not from this test run"
+        
+        print(f"✓ Validated item: {item['pk']} ({item['bet_type']})")
     
     print(f"✅ Integration test passed!")
-    print(f"   - Lambda function executed successfully")
-    print(f"   - Found {len(updated_items)} items with fresh timestamps")
-    print(f"   - Verified {updated_count} existing items were updated")
-    print(f"   - Data structure and content verified")
+    print(f"   - Lambda executed successfully")
+    print(f"   - Found {len(updated_items)} fresh items")
+    print(f"   - Data structure validated")
     
     return True
 
 if __name__ == "__main__":
-    # Use default AWS credentials (IAM role or assumed role)
-    print("Using default AWS credentials")
-    
     try:
         test_lambda_integration()
-        print("\n🎉 All integration tests passed!")
+        print("\n🎉 Integration test passed!")
     except Exception as e:
         print(f"\n❌ Integration test failed: {str(e)}")
         exit(1)

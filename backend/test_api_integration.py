@@ -135,16 +135,33 @@ def test_api_integration():
             print(f"   Sample: {sample['home_team']} vs {sample['away_team']}")
             print(f"   Home win probability: {sample['home_win_probability']}")
             print(f"   Confidence: {sample['confidence_score']}")
-        # Test stored predictions endpoint
-        print("Testing /stored-predictions endpoint with auth...")
-        stored_predictions_response = requests.get(f"{api_url}/stored-predictions?limit=5", headers=headers)
-        if stored_predictions_response.status_code == 200:
-            stored_data = stored_predictions_response.json()
-            print(f"✅ Authenticated stored predictions endpoint passed: Found {stored_data['count']} stored predictions")
-        else:
-            raise Exception(f"Stored predictions endpoint failed: {stored_predictions_response.status_code}")
-        assert 'bookmakers' in bookmakers_data, "Bookmakers data missing"
-        print(f"✅ Authenticated bookmakers endpoint passed: Found {bookmakers_data['count']} bookmakers")
+        
+        # Test game predictions endpoint
+        print("Testing /game-predictions endpoint with auth...")
+        game_predictions_response = requests.get(f"{api_url}/game-predictions?limit=5", headers=headers, timeout=10)
+        assert game_predictions_response.status_code == 200, f"Game predictions request failed: {game_predictions_response.status_code}"
+        
+        game_predictions_data = game_predictions_response.json()
+        assert 'predictions' in game_predictions_data, "Game predictions data missing"
+        print(f"✅ Game predictions endpoint passed: Found {game_predictions_data['count']} game predictions")
+        
+        # Test prop predictions endpoint
+        print("Testing /prop-predictions endpoint with auth...")
+        prop_predictions_response = requests.get(f"{api_url}/prop-predictions?limit=5", headers=headers, timeout=10)
+        assert prop_predictions_response.status_code == 200, f"Prop predictions request failed: {prop_predictions_response.status_code}"
+        
+        prop_predictions_data = prop_predictions_response.json()
+        assert 'predictions' in prop_predictions_data, "Prop predictions data missing"
+        print(f"✅ Prop predictions endpoint passed: Found {prop_predictions_data['count']} prop predictions")
+        
+        # Test player props endpoint
+        print("Testing /player-props endpoint with auth...")
+        player_props_response = requests.get(f"{api_url}/player-props?limit=5", headers=headers, timeout=10)
+        assert player_props_response.status_code == 200, f"Player props request failed: {player_props_response.status_code}"
+        
+        player_props_data = player_props_response.json()
+        assert 'props' in player_props_data, "Player props data missing"
+        print(f"✅ Player props endpoint passed: Found {player_props_data['count']} player props")
         
         print("✅ All API integration tests passed!")
         return True

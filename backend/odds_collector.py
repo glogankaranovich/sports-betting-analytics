@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from decimal import Decimal
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def get_secret(secret_arn: str) -> str:
     """Retrieve secret from AWS Secrets Manager"""
@@ -78,127 +79,262 @@ class OddsCollector:
         return response.json()
     
     def store_player_props(self, sport: str, event_id: str, props_data: Dict[str, Any]):
-        """Store player props in DynamoDB"""
-        # Collect from ALL bookmakers for better prediction accuracy
-        # Frontend will filter to display only specific bookmakers
+        """Store player props in DynamoDB with smart updating - only create new records if data changed"""
         
         for bookmaker in props_data.get('bookmakers', []):
-                
             for market in bookmaker.get('markets', []):
                 for outcome in market.get('outcomes', []):
                     # Extract player name from outcome description
                     player_name = outcome.get('description', 'Unknown')
                     
-                    # Create timestamped sort key for historical tracking
-                    timestamp = datetime.utcnow().isoformat()
                     pk = f"PROP#{event_id}#{player_name}"
-                    sk_historical = f"{bookmaker['key']}#{market['key']}#{outcome['name']}#{timestamp}"
                     sk_latest = f"{bookmaker['key']}#{market['key']}#{outcome['name']}#LATEST"
                     
-                    # Calculate TTL (2 days after game commence time)
-                    commence_dt = datetime.fromisoformat(props_data['commence_time'].replace('Z', '+00:00'))
-                    ttl = int((commence_dt + timedelta(days=2)).timestamp())
-                    
-                    item_data = {
-                        'pk': pk,
-                        'sport': sport,
-                        'event_id': event_id,
-                        'bookmaker': bookmaker['key'],
-                        'market_key': market['key'],
-                        'player_name': player_name,
-                        'outcome': outcome['name'],  # "Over" or "Under"
-                        'point': convert_floats_to_decimal(outcome.get('point')),
-                        'price': convert_floats_to_decimal(outcome['price']),
-                        'commence_time': props_data['commence_time'],
-                        'bet_type': 'PROP',
-                        'updated_at': timestamp,
-                        'ttl': ttl
-                    }
-                    
-                    # Store historical snapshot
-                    self.table.put_item(Item={**item_data, 'sk': sk_historical})
-                    
-                    # Store/update latest pointer for frontend
-                    self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                    # Check if latest record exists and if data has changed
+                    try:
+                        existing_response = self.table.get_item(Key={'pk': pk, 'sk': sk_latest})
+                        existing_item = existing_response.get('Item')
+                        
+                        # Compare key prop data to see if it changed
+                        new_point = convert_floats_to_decimal(outcome.get('point'))
+                        new_price = convert_floats_to_decimal(outcome['price'])
+                        data_changed = True
+                        
+                        if existing_item:
+                            existing_point = existing_item.get('point')
+                            existing_price = existing_item.get('price')
+                            data_changed = (new_point != existing_point) or (new_price != existing_price)
+                        
+                        timestamp = datetime.utcnow().isoformat()
+                        commence_dt = datetime.fromisoformat(props_data['commence_time'].replace('Z', '+00:00'))
+                        ttl = int((commence_dt + timedelta(days=2)).timestamp())
+                        
+                        item_data = {
+                            'pk': pk,
+                            'sport': sport,
+                            'event_id': event_id,
+                            'bookmaker': bookmaker['key'],
+                            'market_key': market['key'],
+                            'player_name': player_name,
+                            'outcome': outcome['name'],  # "Over" or "Under"
+                            'point': new_point,
+                            'price': new_price,
+                            'commence_time': props_data['commence_time'],
+                            'bet_type': 'PROP',
+                            'updated_at': timestamp,
+                            'ttl': ttl
+                        }
+                        
+                        if data_changed:
+                            # Store historical snapshot with new timestamp
+                            sk_historical = f"{bookmaker['key']}#{market['key']}#{outcome['name']}#{timestamp}"
+                            self.table.put_item(Item={**item_data, 'sk': sk_historical})
+                        
+                        # Always update latest pointer with fresh timestamp
+                        self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                        
+                    except Exception as e:
+                        print(f"Error processing props for {event_id}: {str(e)}")
+                        continue
     
     def store_odds(self, sport: str, odds_data: List[Dict[str, Any]]):
-        """Store odds in DynamoDB with normalized schema (one item per bookmaker per market)"""
-        # Collect from ALL bookmakers for better prediction accuracy
-        # Frontend will filter to display only specific bookmakers
+        """Store odds in DynamoDB with smart updating - only create new records if data changed"""
         
         for game in odds_data:
             game_id = game['id']
             
             for bookmaker in game['bookmakers']:
-                    
                 for market in bookmaker['markets']:
-                    # Create timestamped sort key for historical tracking
-                    timestamp = datetime.utcnow().isoformat()
-                    sk_historical = f"{bookmaker['key']}#{market['key']}#{timestamp}"
-                    sk_latest = f"{bookmaker['key']}#{market['key']}#LATEST"
                     pk = f"GAME#{game_id}"
+                    sk_latest = f"{bookmaker['key']}#{market['key']}#LATEST"
                     
-                    # Calculate TTL (2 days after game commence time)
-                    commence_dt = datetime.fromisoformat(game['commence_time'].replace('Z', '+00:00'))
-                    ttl = int((commence_dt + timedelta(days=2)).timestamp())
-                    
-                    item_data = {
-                        'pk': pk,
-                        'sport': sport,
-                        'home_team': game['home_team'],
-                        'away_team': game['away_team'],
-                        'commence_time': game['commence_time'],
-                        'market_key': market['key'],
-                        'bookmaker': bookmaker['key'],
-                        'outcomes': convert_floats_to_decimal(market['outcomes']),
-                        'bet_type': 'GAME',
-                        'updated_at': timestamp,
-                        'ttl': ttl
-                    }
-                    
-                    # Store historical snapshot
-                    self.table.put_item(Item={**item_data, 'sk': sk_historical})
-                    
-                    # Store/update latest pointer for frontend
-                    self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                    # Check if latest record exists and if data has changed
+                    try:
+                        existing_response = self.table.get_item(Key={'pk': pk, 'sk': sk_latest})
+                        existing_item = existing_response.get('Item')
+                        
+                        # Compare outcomes to see if odds changed
+                        new_outcomes = convert_floats_to_decimal(market['outcomes'])
+                        data_changed = True
+                        
+                        if existing_item:
+                            existing_outcomes = existing_item.get('outcomes', [])
+                            data_changed = new_outcomes != existing_outcomes
+                        
+                        timestamp = datetime.utcnow().isoformat()
+                        commence_dt = datetime.fromisoformat(game['commence_time'].replace('Z', '+00:00'))
+                        ttl = int((commence_dt + timedelta(days=2)).timestamp())
+                        
+                        item_data = {
+                            'pk': pk,
+                            'sport': sport,
+                            'home_team': game['home_team'],
+                            'away_team': game['away_team'],
+                            'commence_time': game['commence_time'],
+                            'market_key': market['key'],
+                            'bookmaker': bookmaker['key'],
+                            'outcomes': new_outcomes,
+                            'bet_type': 'GAME',
+                            'updated_at': timestamp,
+                            'ttl': ttl
+                        }
+                        
+                        if data_changed:
+                            # Store historical snapshot with new timestamp
+                            sk_historical = f"{bookmaker['key']}#{market['key']}#{timestamp}"
+                            self.table.put_item(Item={**item_data, 'sk': sk_historical})
+                        
+                        # Always update latest pointer with fresh timestamp
+                        self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                        
+                    except Exception as e:
+                        print(f"Error processing odds for {game_id}: {str(e)}")
+                        continue
     
+    def get_game_ids_from_db(self, sport: str) -> List[str]:
+        """Get unique game IDs for a sport (next 7 days, latest odds only)"""
+        try:
+            # Get current time and 7 days from now
+            now = datetime.utcnow()
+            week_from_now = now + timedelta(days=7)
+            
+            response = self.table.query(
+                IndexName='ActiveBetsIndex',
+                KeyConditionExpression='bet_type = :bet_type AND commence_time BETWEEN :start_time AND :end_time',
+                FilterExpression='sport = :sport AND attribute_exists(latest)',
+                ExpressionAttributeValues={
+                    ':bet_type': 'GAME',
+                    ':sport': sport,
+                    ':start_time': now.isoformat() + 'Z',
+                    ':end_time': week_from_now.isoformat() + 'Z'
+                },
+                ProjectionExpression='pk'
+            )
+            
+            # Extract unique game IDs from pk (format: GAME#{game_id})
+            game_ids = set()
+            for item in response['Items']:
+                game_id = item['pk'].split('#')[1]
+                game_ids.add(game_id)
+            
+            return list(game_ids)
+        except Exception as e:
+            print(f"Error getting game IDs from BetType GSI for {sport}: {str(e)}")
+            return []
+
+    def collect_props_for_sport(self, sport: str) -> int:
+        """Collect player props for a sport using existing game data with parallel processing"""
+        if sport not in ['basketball_nba', 'americanfootball_nfl']:
+            print(f"Player props not supported for {sport}")
+            return 0
+            
+        game_ids = self.get_game_ids_from_db(sport)
+        if not game_ids:
+            print(f"No games found in DB for {sport}")
+            return 0
+            
+        print(f"Found {len(game_ids)} games for {sport}, collecting props in parallel...")
+        total_props = 0
+        
+        def collect_props_for_game(game_id):
+            """Helper function to collect props for a single game"""
+            try:
+                props = self.get_player_props(sport, game_id)
+                if props.get('bookmakers'):
+                    self.store_player_props(sport, game_id, props)
+                    return len(props.get('bookmakers', []))
+                return 0
+            except Exception as e:
+                print(f"Error collecting props for game {game_id}: {str(e)}")
+                return 0
+        
+        # Use ThreadPoolExecutor for parallel API calls
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_game = {executor.submit(collect_props_for_game, game_id): game_id 
+                             for game_id in game_ids}
+            
+            for future in as_completed(future_to_game):
+                game_id = future_to_game[future]
+                try:
+                    props_count = future.result()
+                    total_props += props_count
+                    print(f"Completed props collection for game {game_id}: {props_count} bookmakers")
+                except Exception as e:
+                    print(f"Game {game_id} generated an exception: {str(e)}")
+        
+        print(f"Collected {total_props} player prop bookmakers for {sport}")
+        return total_props
+
+    def collect_odds_for_sport(self, sport: str) -> int:
+        """Collect odds for a specific sport (odds only, no props)"""
+        try:
+            print(f"Collecting odds for {sport}...")
+            odds = self.get_odds(sport)
+            if odds:
+                self.store_odds(sport, odds)
+                print(f"Stored {len(odds)} games for {sport}")
+                return len(odds)
+            else:
+                print(f"No odds available for {sport}")
+                return 0
+        except Exception as e:
+            print(f"Error collecting odds for {sport}: {str(e)}")
+            return 0
+
     def collect_all_odds(self):
         """Main method to collect odds for all active sports"""
         active_sports = self.get_active_sports()
         print(f"Active sports: {active_sports}")
         
         total_games = 0
-        total_props = 0
         for sport in active_sports:
-            print(f"Collecting odds for {sport}...")
-            odds = self.get_odds(sport)
-            self.store_odds(sport, odds)
-            total_games += len(odds)
-            print(f"Stored {len(odds)} games for {sport}")
-            
-            # Collect player props for each game
-            for game in odds:
-                try:
-                    props = self.get_player_props(sport, game['id'])
-                    if props.get('bookmakers'):
-                        self.store_player_props(sport, game['id'], props)
-                        total_props += len(props.get('bookmakers', []))
-                except Exception as e:
-                    print(f"Error collecting props for game {game['id']}: {str(e)}")
+            total_games += self.collect_odds_for_sport(sport)
         
-        print(f"Collected {total_props} player prop bookmakers")
         return total_games
 
 def lambda_handler(event, context):
-    """AWS Lambda handler"""
+    """AWS Lambda handler - supports multiple execution modes:
+    - {"sport": "basketball_nba"} - collect odds only for NBA
+    - {"sport": "basketball_nba", "props_only": true} - collect NBA props with parallel processing
+    - {} - collect odds for all sports (no props)
+    """
     try:
         collector = OddsCollector()
-        total_games = collector.collect_all_odds()
+        
+        # Parse event parameters
+        sport = event.get('sport') if event else None
+        props_only = event.get('props_only', False) if event else False
+        
+        if sport and props_only:
+            print(f"Processing props only for: {sport}")
+            total_props = collector.collect_props_for_sport(sport)
+            message = f'Successfully collected props for {total_props} bookmakers in {sport}'
+            return {
+                'statusCode': 200,
+                'body': json.dumps({
+                    'message': message,
+                    'sport': sport,
+                    'props_only': True,
+                    'props_collected': total_props,
+                    'timestamp': datetime.utcnow().isoformat()
+                })
+            }
+        elif sport:
+            print(f"Processing odds only for: {sport}")
+            total_games = collector.collect_odds_for_sport(sport)
+            message = f'Successfully collected odds for {total_games} games in {sport}'
+        else:
+            print("Processing all active sports (odds only)")
+            total_games = collector.collect_all_odds()
+            message = f'Successfully collected odds for {total_games} total games'
         
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': f'Successfully collected odds for {total_games} games',
+                'message': message,
+                'sport': sport,
+                'props_only': False,
+                'games_collected': total_games,
                 'timestamp': datetime.utcnow().isoformat()
             })
         }
@@ -208,6 +344,7 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': json.dumps({
                 'error': str(e),
+                'sport': sport if 'sport' in locals() else None,
                 'timestamp': datetime.utcnow().isoformat()
             })
         }
