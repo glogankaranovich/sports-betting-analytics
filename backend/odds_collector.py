@@ -62,28 +62,98 @@ class OddsCollector:
         
         return response.json()
     
+    def get_player_props(self, sport: str, event_id: str) -> List[Dict[str, Any]]:
+        """Get player props for a specific event"""
+        url = f"{self.base_url}/sports/{sport}/events/{event_id}/odds"
+        params = {
+            'api_key': self.api_key,
+            'regions': 'us',
+            'markets': 'player_pass_tds,player_pass_yds,player_rush_yds,player_receptions,player_reception_yds,player_points,player_rebounds,player_assists',
+            'oddsFormat': 'american'
+        }
+        
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        
+        return response.json()
+    
+    def store_player_props(self, sport: str, event_id: str, props_data: Dict[str, Any]):
+        """Store player props in DynamoDB"""
+        # Filter to only include specific bookmakers
+        allowed_bookmakers = {'fanatics', 'fanduel', 'draftkings', 'betmgm'}
+        
+        for bookmaker in props_data.get('bookmakers', []):
+            # Skip bookmakers not in our allowed list
+            if bookmaker['key'] not in allowed_bookmakers:
+                continue
+                
+            for market in bookmaker.get('markets', []):
+                for outcome in market.get('outcomes', []):
+                    # Extract player name from outcome description
+                    player_name = outcome.get('description', 'Unknown')
+                    
+                    # New schema: pk = PROP#{event_id}#{player_name}, sk = {bookmaker}#{market_key}#{outcome}
+                    pk = f"PROP#{event_id}#{player_name}"
+                    sk = f"{bookmaker['key']}#{market['key']}#{outcome['name']}"
+                    
+                    self.table.update_item(
+                        Key={
+                            'pk': pk,
+                            'sk': sk
+                        },
+                        UpdateExpression='SET sport = :sport, event_id = :event_id, bookmaker = :bookmaker, market_key = :market_key, player_name = :player_name, outcome = :outcome, point = :point, price = :price, commence_time = :commence_time, bet_type = :bet_type, updated_at = :updated_at',
+                        ExpressionAttributeValues={
+                            ':sport': sport,
+                            ':event_id': event_id,
+                            ':bookmaker': bookmaker['key'],
+                            ':market_key': market['key'],
+                            ':player_name': player_name,
+                            ':outcome': outcome['name'],  # "Over" or "Under"
+                            ':point': convert_floats_to_decimal(outcome.get('point')),
+                            ':price': convert_floats_to_decimal(outcome['price']),
+                            ':commence_time': props_data['commence_time'],  # Add commence_time from props_data
+                            ':bet_type': 'PROP',
+                            ':updated_at': datetime.utcnow().isoformat()
+                        }
+                    )
+    
     def store_odds(self, sport: str, odds_data: List[Dict[str, Any]]):
-        """Store odds in DynamoDB with upsert logic"""
+        """Store odds in DynamoDB with normalized schema (one item per bookmaker per market)"""
+        # Filter to only include specific bookmakers
+        allowed_bookmakers = {'fanatics', 'fanduel', 'draftkings', 'betmgm'}
+        
         for game in odds_data:
             game_id = game['id']
             
             for bookmaker in game['bookmakers']:
-                # Use update_item for upsert behavior
-                self.table.update_item(
-                    Key={
-                        'pk': game_id,
-                        'sk': bookmaker['key']
-                    },
-                    UpdateExpression='SET sport = :sport, home_team = :home_team, away_team = :away_team, commence_time = :commence_time, markets = :markets, updated_at = :updated_at',
-                    ExpressionAttributeValues={
-                        ':sport': sport,
-                        ':home_team': game['home_team'],
-                        ':away_team': game['away_team'],
-                        ':commence_time': game['commence_time'],
-                        ':markets': convert_floats_to_decimal(bookmaker['markets']),
-                        ':updated_at': datetime.utcnow().isoformat()
-                    }
-                )
+                # Skip bookmakers not in our allowed list
+                if bookmaker['key'] not in allowed_bookmakers:
+                    continue
+                    
+                for market in bookmaker['markets']:
+                    # Create composite sort key: bookmaker#market
+                    sk = f"{bookmaker['key']}#{market['key']}"
+                    # Add GAME# prefix to partition key
+                    pk = f"GAME#{game_id}"
+                    
+                    self.table.update_item(
+                        Key={
+                            'pk': pk,
+                            'sk': sk
+                        },
+                        UpdateExpression='SET sport = :sport, home_team = :home_team, away_team = :away_team, commence_time = :commence_time, market_key = :market_key, bookmaker = :bookmaker, outcomes = :outcomes, bet_type = :bet_type, updated_at = :updated_at',
+                        ExpressionAttributeValues={
+                            ':sport': sport,
+                            ':home_team': game['home_team'],
+                            ':away_team': game['away_team'],
+                            ':commence_time': game['commence_time'],
+                            ':market_key': market['key'],
+                            ':bookmaker': bookmaker['key'],
+                            ':outcomes': convert_floats_to_decimal(market['outcomes']),
+                            ':bet_type': 'GAME',
+                            ':updated_at': datetime.utcnow().isoformat()
+                        }
+                    )
     
     def collect_all_odds(self):
         """Main method to collect odds for all active sports"""
@@ -91,13 +161,25 @@ class OddsCollector:
         print(f"Active sports: {active_sports}")
         
         total_games = 0
+        total_props = 0
         for sport in active_sports:
             print(f"Collecting odds for {sport}...")
             odds = self.get_odds(sport)
             self.store_odds(sport, odds)
             total_games += len(odds)
             print(f"Stored {len(odds)} games for {sport}")
+            
+            # Collect player props for each game
+            for game in odds:
+                try:
+                    props = self.get_player_props(sport, game['id'])
+                    if props.get('bookmakers'):
+                        self.store_player_props(sport, game['id'], props)
+                        total_props += len(props.get('bookmakers', []))
+                except Exception as e:
+                    print(f"Error collecting props for game {game['id']}: {str(e)}")
         
+        print(f"Collected {total_props} player prop bookmakers")
         return total_games
 
 def lambda_handler(event, context):

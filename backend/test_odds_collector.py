@@ -102,8 +102,8 @@ class TestOddsCollector(unittest.TestCase):
         
         self.mock_table.update_item.assert_called_once()
         call_args = self.mock_table.update_item.call_args[1]
-        self.assertEqual(call_args['Key']['game_id'], 'game1')
-        self.assertEqual(call_args['Key']['bookmaker'], 'betmgm')
+        self.assertEqual(call_args['Key']['pk'], 'GAME#game1')
+        self.assertEqual(call_args['Key']['sk'], 'betmgm#h2h')
         self.assertIn(':sport', call_args['ExpressionAttributeValues'])
         self.assertEqual(call_args['ExpressionAttributeValues'][':sport'], 'americanfootball_nfl')
 

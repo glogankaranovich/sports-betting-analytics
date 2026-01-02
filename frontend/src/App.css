@@ -178,6 +178,22 @@ main {
   flex: 1;
 }
 
+.home-team {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.away-team {
+  background-color: #fce4ec;
+  color: #c2185b;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
 .teams h3 {
   font-size: 1.1rem;
   font-weight: 600;
@@ -463,4 +479,219 @@ main {
   .game-meta {
     text-align: left;
   }
+}
+/* Player Props Styles */
+.player-props {
+  margin: 20px 0;
+}
+
+.filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filters select,
+.filters input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.props-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+}
+
+.prop-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.prop-card h3 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.prop-type {
+  color: #666;
+  font-size: 14px;
+  margin: 0 0 8px 0;
+}
+
+.line {
+  font-weight: bold;
+  color: #007bff;
+  margin: 0 0 12px 0;
+}
+
+.bookmaker-odds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.odds-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.bookmaker {
+  font-size: 12px;
+  color: #666;
+  text-transform: capitalize;
+}
+
+.price {
+  font-weight: bold;
+  color: #28a745;
+}
+
+.no-data {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 40px;
+}
+/* Pagination Styles */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.pagination button {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 14px;
+  color: #666;
+}
+/* Odds Color Coding */
+.odds.positive {
+  color: #28a745 !important; /* Green for positive odds */
+}
+
+.odds.negative {
+  color: #dc3545 !important; /* Red for negative odds */
+}
+/* Bookmaker sections */
+.bookmaker-section {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fafafa;
+}
+
+.bookmaker-header {
+  margin-bottom: 8px;
+}
+
+.bookmaker-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  text-transform: capitalize;
+}
+
+.market-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  padding: 4px 0;
+}
+
+.market-label {
+  font-weight: 500;
+  min-width: 80px;
+  color: #666;
+  font-size: 14px;
+}
+
+.odds-values {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.odds-value {
+  background: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 13px;
+  font-weight: 500;
+}
+/* Empty state styling */
+.no-games-message {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+  background: #f9f9f9;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.no-games-message p {
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.no-games-message p:first-child {
+  font-weight: 600;
+  color: #333;
+}
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.pagination button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f5f5f5;
 }

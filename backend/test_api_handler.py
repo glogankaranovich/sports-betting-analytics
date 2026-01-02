@@ -81,12 +81,15 @@ class TestApiHandler(unittest.TestCase):
         mock_table.scan.return_value = {
             'Items': [
                 {
-                    'game_id': 'game1',
+                    'pk': 'GAME#game1',
+                    'sk': 'betmgm#h2h',
                     'sport': 'americanfootball_nfl',
                     'home_team': 'Team A',
                     'away_team': 'Team B',
                     'bookmaker': 'betmgm',
-                    'odds': Decimal('1.5')
+                    'market_key': 'h2h',
+                    'outcomes': [{'name': 'Team A', 'price': -150}],
+                    'updated_at': '2026-01-01T12:00:00'
                 }
             ]
         }

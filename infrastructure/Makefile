@@ -31,7 +31,7 @@ install:
 	npm ci
 
 # Build TypeScript
-build: clean
+build:
 	@echo "🔨 Building TypeScript..."
 	npm run build
 
@@ -41,7 +41,7 @@ test: build
 	npm test
 
 # Deploy to dev environment (manual)
-deploy-dev: clean build test
+deploy-dev: build test
 	@echo "🚀 Deploying to dev environment..."
 	AWS_PROFILE=sports-betting-dev cdk deploy --context environment=dev --require-approval never --all
 

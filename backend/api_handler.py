@@ -36,9 +36,13 @@ def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
 def lambda_handler(event, context):
     """Main Lambda handler for API requests"""
     try:
+        print(f"Lambda handler called with event: {event}")
+        
         http_method = event.get('httpMethod', '')
         path = event.get('path', '')
         query_params = event.get('queryStringParameters') or {}
+        
+        print(f"Processing request: {http_method} {path}")
         
         # Handle CORS preflight
         if http_method == 'OPTIONS':
@@ -56,6 +60,14 @@ def lambda_handler(event, context):
             return handle_get_predictions(query_params)
         elif path == '/stored-predictions':
             return handle_get_stored_predictions(query_params)
+        elif path == '/game-predictions':
+            print(f"Handling game-predictions request")
+            return handle_get_game_predictions(query_params)
+        elif path == '/prop-predictions':
+            print(f"Handling prop-predictions request")
+            return handle_get_prop_predictions(query_params)
+        elif path == '/player-props':
+            return handle_get_player_props(query_params)
         elif path == '/sports':
             return handle_get_sports()
         elif path == '/bookmakers':
@@ -77,35 +89,63 @@ def handle_health():
 def handle_get_games(query_params: Dict[str, str]):
     """Get all games, optionally filtered by sport"""
     sport = query_params.get('sport')
-    limit = int(query_params.get('limit', '100'))
+    limit = int(query_params.get('limit', '500'))
     
     try:
-        # Filter out prediction records (pk doesn't start with PRED#)
-        base_filter = boto3.dynamodb.conditions.Attr('pk').not_exists() | ~boto3.dynamodb.conditions.Attr('pk').begins_with('PRED#')
+        # Filter for game odds (GAME# prefix only)
+        base_filter = boto3.dynamodb.conditions.Attr('pk').begins_with('GAME#')
         
         if sport:
             filter_expression = base_filter & boto3.dynamodb.conditions.Attr('sport').eq(sport)
         else:
             filter_expression = base_filter
         
-        games = []
+        odds_items = []
         last_evaluated_key = None
         
         while True:
             scan_kwargs = {
                 'FilterExpression': filter_expression,
-                'Limit': limit
+                'Limit': limit * 10  # Get more items since we'll group them
             }
             if last_evaluated_key:
                 scan_kwargs['ExclusiveStartKey'] = last_evaluated_key
                 
             response = table.scan(**scan_kwargs)
-            games.extend(response.get('Items', []))
+            odds_items.extend(response.get('Items', []))
             
             last_evaluated_key = response.get('LastEvaluatedKey')
             if not last_evaluated_key:
                 break
         
+        # Group odds by game_id
+        games_dict = {}
+        for item in odds_items:
+            # Extract game_id from GAME# prefix
+            game_id = item['pk'][5:]  # Remove 'GAME#' prefix
+            if game_id not in games_dict:
+                games_dict[game_id] = {
+                    'game_id': game_id,
+                    'sport': item['sport'],
+                    'home_team': item['home_team'],
+                    'away_team': item['away_team'],
+                    'commence_time': item['commence_time'],
+                    'updated_at': item['updated_at'],
+                    'odds': {}
+                }
+            
+            # Parse bookmaker and market from sk (format: bookmaker#market)
+            if '#' in item['sk']:
+                bookmaker, market = item['sk'].split('#', 1)
+                
+                if bookmaker not in games_dict[game_id]['odds']:
+                    games_dict[game_id]['odds'][bookmaker] = {}
+                
+                games_dict[game_id]['odds'][bookmaker][market] = {
+                    'outcomes': item['outcomes']
+                }
+        
+        games = list(games_dict.values())[:limit]
         games = decimal_to_float(games)
         
         return create_response(200, {
@@ -178,19 +218,21 @@ def handle_get_predictions(query_params: Dict[str, str]):
     limit = int(query_params.get('limit', '50'))
     
     try:
-        # Get games data
+        # Get games data using new schema
+        filter_expression = boto3.dynamodb.conditions.Attr('pk').begins_with('GAME#')
         if sport:
-            response = table.scan(
-                FilterExpression=boto3.dynamodb.conditions.Attr('sport').eq(sport),
-                Limit=limit
-            )
-        else:
-            response = table.scan(Limit=limit)
+            filter_expression = filter_expression & boto3.dynamodb.conditions.Attr('sport').eq(sport)
         
-        # Group by game_id and generate predictions
+        response = table.scan(FilterExpression=filter_expression, Limit=1000)
+        
+        # Group by game_id and reconstruct game structure
         games_by_id = {}
         for item in response.get('Items', []):
-            game_id = item.get('pk')  # Use pk instead of game_id
+            # Extract game_id from pk (GAME#game_id)
+            game_id = item.get('pk', '').replace('GAME#', '')
+            if not game_id:
+                continue
+                
             if game_id not in games_by_id:
                 games_by_id[game_id] = {
                     'game_id': game_id,
@@ -198,15 +240,24 @@ def handle_get_predictions(query_params: Dict[str, str]):
                     'home_team': item.get('home_team'),
                     'away_team': item.get('away_team'),
                     'commence_time': item.get('commence_time'),
-                    'odds': []
+                    'odds': {}
                 }
             
-            games_by_id[game_id]['odds'].append({
-                'bookmaker': item.get('sk'),  # Use sk instead of bookmaker
-                'markets': item.get('markets', [])
-            })
+            # Parse sk to get bookmaker and market (bookmaker#market)
+            sk_parts = item.get('sk', '').split('#')
+            if len(sk_parts) >= 2:
+                bookmaker = sk_parts[0]
+                market = sk_parts[1]
+                
+                if bookmaker not in games_by_id[game_id]['odds']:
+                    games_by_id[game_id]['odds'][bookmaker] = {}
+                
+                games_by_id[game_id]['odds'][bookmaker][market] = {
+                    'outcomes': item.get('outcomes', [])
+                }
         
         # Generate predictions
+        from ml.models import OddsAnalyzer
         analyzer = OddsAnalyzer()
         predictions = []
         
@@ -250,3 +301,101 @@ def handle_get_stored_predictions(query_params: Dict[str, str]):
         })
     except Exception as e:
         return create_response(500, {'error': f'Error fetching stored predictions: {str(e)}'})
+
+def handle_get_game_predictions(query_params: Dict[str, str]):
+    """Get game predictions only"""
+    limit = int(query_params.get('limit', '1000'))  # Default to high limit if not specified
+    
+    try:
+        print(f"Getting game predictions with limit: {limit}")
+        from prediction_tracker import PredictionTracker
+        tracker = PredictionTracker(table_name)
+        predictions = tracker.get_game_predictions(limit)
+        print(f"Found {len(predictions)} game predictions")
+        
+        return create_response(200, {
+            'predictions': predictions,
+            'count': len(predictions)
+        })
+    except Exception as e:
+        print(f"Error in handle_get_game_predictions: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return create_response(500, {'error': f'Error fetching game predictions: {str(e)}'})
+
+def handle_get_prop_predictions(query_params: Dict[str, str]):
+    """Get prop predictions only"""
+    limit = int(query_params.get('limit', '1000'))  # Default to high limit if not specified
+    
+    try:
+        print(f"Getting prop predictions with limit: {limit}")
+        from prediction_tracker import PredictionTracker
+        tracker = PredictionTracker(table_name)
+        predictions = tracker.get_prop_predictions(limit)
+        print(f"Found {len(predictions)} prop predictions")
+        
+        return create_response(200, {
+            'predictions': predictions,
+            'count': len(predictions)
+        })
+    except Exception as e:
+        print(f"Error in handle_get_prop_predictions: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return create_response(500, {'error': f'Error fetching prop predictions: {str(e)}'})
+
+def handle_get_player_props(query_params: Dict[str, str]):
+    """Get player props with optional filtering using GSI"""
+    sport = query_params.get('sport')
+    bookmaker = query_params.get('bookmaker')
+    prop_type = query_params.get('prop_type')  # Filter by market_key
+    limit = int(query_params.get('limit', '500'))
+    
+    try:
+        # Use ActiveBetsIndex GSI to query for PROP bet types efficiently
+        props = []
+        last_evaluated_key = None
+        
+        while len(props) < limit:
+            remaining_limit = limit - len(props)
+            query_kwargs = {
+                'IndexName': 'ActiveBetsIndex',
+                'KeyConditionExpression': boto3.dynamodb.conditions.Key('bet_type').eq('PROP'),
+                'Limit': remaining_limit
+            }
+            
+            # Add filters as FilterExpression if provided
+            filter_expressions = []
+            if sport:
+                filter_expressions.append(boto3.dynamodb.conditions.Attr('sport').eq(sport))
+            if bookmaker:
+                filter_expressions.append(boto3.dynamodb.conditions.Attr('bookmaker').eq(bookmaker))
+            if prop_type:
+                filter_expressions.append(boto3.dynamodb.conditions.Attr('market_key').eq(prop_type))
+            
+            if filter_expressions:
+                filter_expression = filter_expressions[0]
+                for expr in filter_expressions[1:]:
+                    filter_expression = filter_expression & expr
+                query_kwargs['FilterExpression'] = filter_expression
+            
+            if last_evaluated_key:
+                query_kwargs['ExclusiveStartKey'] = last_evaluated_key
+                
+            response = table.query(**query_kwargs)
+            batch_props = response.get('Items', [])
+            props.extend(batch_props)
+            
+            last_evaluated_key = response.get('LastEvaluatedKey')
+            if not last_evaluated_key or len(batch_props) == 0:
+                break
+        
+        props = decimal_to_float(props)
+        
+        return create_response(200, {
+            'props': props,
+            'count': len(props),
+            'filters': {'sport': sport, 'bookmaker': bookmaker, 'prop_type': prop_type}
+        })
+    except Exception as e:
+        return create_response(500, {'error': f'Error fetching player props: {str(e)}'})

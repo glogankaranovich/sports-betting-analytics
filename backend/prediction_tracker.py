@@ -1,5 +1,5 @@
 """
-Prediction storage and tracking system
+Prediction storage and tracking system - Clean separation of game and prop predictions
 """
 
 import boto3
@@ -17,35 +17,53 @@ class PredictionTracker:
         self.analyzer = OddsAnalyzer()
     
     def generate_and_store_predictions(self) -> int:
-        """Generate predictions for all games and store them"""
-        
-        # Get all games
-        response = self.table.scan()
+        """Generate both game and prop predictions"""
+        game_predictions = self.generate_game_predictions()
+        prop_predictions = self.generate_prop_predictions()
+        return game_predictions + prop_predictions
+    
+    def generate_game_predictions(self) -> int:
+        """Generate and store game predictions only"""
+        # Get all games using new schema
+        response = self.table.scan(
+            FilterExpression=boto3.dynamodb.conditions.Attr('pk').begins_with('GAME#')
+        )
         games_by_id = {}
         
-        print(f"Found {len(response.get('Items', []))} total items")
-        
         for item in response.get('Items', []):
-            game_id = item.get('pk')  # Use pk instead of game_id
-            if game_id and not game_id.startswith('PRED#'):  # Skip existing predictions
-                if game_id not in games_by_id:
-                    games_by_id[game_id] = {
-                        'game_id': game_id,
-                        'sport': item.get('sport'),
-                        'home_team': item.get('home_team'),
-                        'away_team': item.get('away_team'),
-                        'commence_time': item.get('commence_time'),
-                        'odds': []
-                    }
+            pk = item.get('pk', '')
+            sk = item.get('sk', '')
+            
+            game_id = pk.replace('GAME#', '')
+            if not game_id:
+                continue
                 
-                games_by_id[game_id]['odds'].append({
-                    'bookmaker': item.get('sk'),  # Use sk for bookmaker
-                    'markets': item.get('markets', [])
-                })
+            if game_id not in games_by_id:
+                games_by_id[game_id] = {
+                    'game_id': game_id,
+                    'sport': item.get('sport'),
+                    'home_team': item.get('home_team'),
+                    'away_team': item.get('away_team'),
+                    'commence_time': item.get('commence_time'),
+                    'odds': {}
+                }
+            
+            # Parse sk to get bookmaker and market
+            sk_parts = sk.split('#')
+            if len(sk_parts) >= 2:
+                bookmaker = sk_parts[0]
+                market = sk_parts[1]
+                
+                if bookmaker not in games_by_id[game_id]['odds']:
+                    games_by_id[game_id]['odds'][bookmaker] = {}
+                
+                games_by_id[game_id]['odds'][bookmaker][market] = {
+                    'outcomes': item.get('outcomes', [])
+                }
         
         print(f"Found {len(games_by_id)} unique games")
         
-        # Generate and store predictions
+        # Generate and store game predictions
         predictions_stored = 0
         timestamp = datetime.utcnow().isoformat()
         
@@ -54,28 +72,26 @@ class PredictionTracker:
                 print(f"Processing game: {game_data['home_team']} vs {game_data['away_team']}")
                 prediction = self.analyzer.analyze_game(game_data)
                 
-                # Store prediction
                 self.table.put_item(Item={
-                    'pk': f"PRED#{game_data['game_id']}",
+                    'pk': f"PRED#GAME#{game_data['game_id']}",
                     'sk': 'PREDICTION',
+                    'prediction_type': 'GAME',  # GSI partition key
                     'game_id': game_data['game_id'],
-                    'bookmaker': 'PREDICTION',
-                    'prediction_id': f"{game_data['game_id']}#{timestamp}",
                     'sport': game_data['sport'],
                     'home_team': game_data['home_team'],
                     'away_team': game_data['away_team'],
-                    'commence_time': game_data['commence_time'],
+                    'commence_time': game_data['commence_time'],  # GSI sort key
                     'model_version': 'consensus_v1',
                     'home_win_probability': Decimal(str(prediction.home_win_probability)),
                     'away_win_probability': Decimal(str(prediction.away_win_probability)),
                     'confidence_score': Decimal(str(prediction.confidence_score)),
                     'value_bets': prediction.value_bets,
                     'predicted_at': timestamp,
-                    'status': 'pending'  # pending, won, lost
+                    'status': 'pending'
                 })
                 
                 predictions_stored += 1
-                print(f"Stored prediction: Home {prediction.home_win_probability}, Away {prediction.away_win_probability}")
+                print(f"Stored game prediction: Home {prediction.home_win_probability}, Away {prediction.away_win_probability}")
                 
             except Exception as e:
                 print(f"Error processing game: {e}")
@@ -83,40 +99,209 @@ class PredictionTracker:
         
         return predictions_stored
     
+    def generate_prop_predictions(self) -> int:
+        """Generate and store prop predictions only"""
+        # Get all player props
+        response = self.table.scan(
+            FilterExpression=boto3.dynamodb.conditions.Attr('pk').begins_with('PROP#')
+        )
+        
+        player_props = response.get('Items', [])
+        print(f"Found {len(player_props)} player props")
+        
+        if not player_props:
+            return 0
+        
+        predictions_stored = 0
+        timestamp = datetime.utcnow().isoformat()
+        
+        try:
+            prop_predictions = self.analyzer.analyze_player_props(player_props)
+            
+            for prop_pred in prop_predictions:
+                # Find the event_id for this prop prediction
+                event_id = 'unknown'
+                for prop in player_props:
+                    if (prop.get('player_name') == prop_pred.player_name and 
+                        prop.get('market_key') == prop_pred.prop_type):
+                        pk_parts = prop.get('pk', '').split('#')
+                        if len(pk_parts) >= 2:
+                            event_id = pk_parts[1]
+                        break
+                
+                # Find commence_time for this prop prediction
+                commence_time = None
+                for prop in player_props:
+                    if (prop.get('player_name') == prop_pred.player_name and 
+                        prop.get('market_key') == prop_pred.prop_type):
+                        commence_time = prop.get('commence_time')
+                        break
+                
+                self.table.put_item(Item={
+                    'pk': f"PRED#PROP#{event_id}#{prop_pred.prop_type}#{prop_pred.player_name}",
+                    'sk': 'PROP_PREDICTION',
+                    'prediction_type': 'PROP',  # GSI partition key
+                    'event_id': event_id,
+                    'player_name': prop_pred.player_name,
+                    'prop_type': prop_pred.prop_type,
+                    'commence_time': commence_time,  # GSI sort key
+                    'predicted_value': Decimal(str(prop_pred.predicted_value)),
+                    'over_probability': Decimal(str(prop_pred.over_probability)),
+                    'under_probability': Decimal(str(prop_pred.under_probability)),
+                    'confidence_score': Decimal(str(prop_pred.confidence_score)),
+                    'value_bets': prop_pred.value_bets,
+                    'model_version': 'consensus_v1',
+                    'predicted_at': timestamp,
+                    'status': 'pending'
+                })
+                predictions_stored += 1
+            
+            print(f"Stored {predictions_stored} prop predictions")
+            
+        except Exception as e:
+            print(f"Error generating prop predictions: {e}")
+        
+        return predictions_stored
+    
     def get_predictions(self, limit: int = 50) -> List[Dict]:
-        """Get stored predictions"""
+        """Get active predictions using GSI with time filtering"""
+        from datetime import datetime, timedelta
+        
+        predictions = []
+        current_time = datetime.utcnow().isoformat()
+        
+        # Get game predictions for upcoming games only
+        game_response = self.table.query(
+            IndexName='ActivePredictionsIndex',
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('prediction_type').eq('GAME') & 
+                                 boto3.dynamodb.conditions.Key('commence_time').gte(current_time),
+            Limit=limit//2
+        )
+        
+        # Get prop predictions for upcoming games only
+        prop_response = self.table.query(
+            IndexName='ActivePredictionsIndex',
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('prediction_type').eq('PROP') & 
+                                 boto3.dynamodb.conditions.Key('commence_time').gte(current_time),
+            Limit=limit//2
+        )
+        
+        # Process game predictions
+        for item in game_response.get('Items', []):
+            predictions.append({
+                'pk': item.get('pk'),
+                'sk': item.get('sk'),
+                'game_id': item.get('game_id', ''),
+                'sport': item.get('sport'),
+                'home_team': item.get('home_team'),
+                'away_team': item.get('away_team'),
+                'commence_time': item.get('commence_time'),
+                'model_version': item.get('model_version'),
+                'home_win_probability': float(item.get('home_win_probability', 0)),
+                'away_win_probability': float(item.get('away_win_probability', 0)),
+                'confidence_score': float(item.get('confidence_score', 0)),
+                'value_bets': item.get('value_bets', []),
+                'predicted_at': item.get('predicted_at'),
+                'status': item.get('status', 'pending')
+            })
+        
+        # Process prop predictions
+        for item in prop_response.get('Items', []):
+            predictions.append({
+                'pk': item.get('pk'),
+                'sk': item.get('sk'),
+                'event_id': item.get('event_id', ''),
+                'player_name': item.get('player_name'),
+                'prop_type': item.get('prop_type'),
+                'commence_time': item.get('commence_time'),
+                'predicted_value': float(item.get('predicted_value', 0)),
+                'over_probability': float(item.get('over_probability', 0)),
+                'under_probability': float(item.get('under_probability', 0)),
+                'confidence_score': float(item.get('confidence_score', 0)),
+                'value_bets': item.get('value_bets', []),
+                'model_version': item.get('model_version'),
+                'predicted_at': item.get('predicted_at'),
+                'status': item.get('status', 'pending')
+            })
+        
+        return predictions[:limit]
+    
+    def get_game_predictions(self, limit: int = 25) -> List[Dict]:
+        """Get only game predictions"""
+        from datetime import datetime
+        
+        current_time = datetime.utcnow().isoformat()
+        
+        response = self.table.query(
+            IndexName='ActivePredictionsIndex',
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('prediction_type').eq('GAME') & 
+                                 boto3.dynamodb.conditions.Key('commence_time').gte(current_time),
+            Limit=limit
+        )
+        
+        predictions = []
+        for item in response.get('Items', []):
+            predictions.append({
+                'pk': item.get('pk'),
+                'sk': item.get('sk'),
+                'game_id': item.get('game_id', ''),
+                'sport': item.get('sport'),
+                'home_team': item.get('home_team'),
+                'away_team': item.get('away_team'),
+                'commence_time': item.get('commence_time'),
+                'model_version': item.get('model_version'),
+                'home_win_probability': float(item.get('home_win_probability', 0)),
+                'away_win_probability': float(item.get('away_win_probability', 0)),
+                'confidence_score': float(item.get('confidence_score', 0)),
+                'value_bets': item.get('value_bets', []),
+                'predicted_at': item.get('predicted_at'),
+                'status': item.get('status', 'pending')
+            })
+        
+        return predictions
+    
+    def get_prop_predictions(self, limit: int = 25) -> List[Dict]:
+        """Get prop predictions with proper pagination handling"""
+        from datetime import datetime
+        
+        current_time = datetime.utcnow().isoformat()
+        
         predictions = []
         last_evaluated_key = None
         
         while len(predictions) < limit:
-            scan_params = {
-                'FilterExpression': boto3.dynamodb.conditions.Attr('pk').begins_with('PRED#'),
-                'Limit': min(limit - len(predictions), 100)  # Scan in chunks
+            query_params = {
+                'IndexName': 'ActivePredictionsIndex',
+                'KeyConditionExpression': boto3.dynamodb.conditions.Key('prediction_type').eq('PROP') & 
+                                        boto3.dynamodb.conditions.Key('commence_time').gte(current_time),
+                'Limit': min(1000, limit - len(predictions))  # Query in chunks
             }
             
             if last_evaluated_key:
-                scan_params['ExclusiveStartKey'] = last_evaluated_key
+                query_params['ExclusiveStartKey'] = last_evaluated_key
                 
-            response = self.table.scan(**scan_params)
+            response = self.table.query(**query_params)
             
             for item in response.get('Items', []):
                 predictions.append({
-                    'game_id': item.get('game_id', ''),
-                    'sport': item.get('sport'),
-                    'home_team': item.get('home_team'),
-                    'away_team': item.get('away_team'),
+                    'pk': item.get('pk'),
+                    'sk': item.get('sk'),
+                    'event_id': item.get('event_id', ''),
+                    'player_name': item.get('player_name'),
+                    'prop_type': item.get('prop_type'),
                     'commence_time': item.get('commence_time'),
-                    'model_version': item.get('model_version'),
-                    'home_win_probability': float(item.get('home_win_probability', 0)),
-                    'away_win_probability': float(item.get('away_win_probability', 0)),
+                    'predicted_value': float(item.get('predicted_value', 0)),
+                    'over_probability': float(item.get('over_probability', 0)),
+                    'under_probability': float(item.get('under_probability', 0)),
                     'confidence_score': float(item.get('confidence_score', 0)),
                     'value_bets': item.get('value_bets', []),
+                    'model_version': item.get('model_version'),
                     'predicted_at': item.get('predicted_at'),
                     'status': item.get('status', 'pending')
                 })
             
             last_evaluated_key = response.get('LastEvaluatedKey')
-            if not last_evaluated_key:
+            if not last_evaluated_key:  # No more results
                 break
         
-        return predictions
+        return predictions[:limit]  # Ensure we don't exceed the requested limit

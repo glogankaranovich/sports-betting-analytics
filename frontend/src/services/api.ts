@@ -1,11 +1,8 @@
 import axios from 'axios';
-import { Game, Sport, Bookmaker, ApiResponse } from '../types/betting';
+import { Sport, Bookmaker, ApiResponse, PlayerPropsResponse } from '../types/betting';
 
 // Get API URL based on environment
 const getApiUrl = (): string => {
-  // Amplify sets REACT_APP_STAGE based on branch
-  const stage = process.env.REACT_APP_STAGE || 'dev';
-  
   // Default to dev URL, will be overridden by environment variables in Amplify
   const defaultUrl = 'https://lpykx3ka6a.execute-api.us-east-1.amazonaws.com/prod';
   
@@ -48,6 +45,40 @@ export const bettingApi = {
   async getStoredPredictions(token: string, limit = 50): Promise<any> {
     const response = await api.get(`/stored-predictions?limit=${limit}`, {
       headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  async getGamePredictions(token: string, limit?: number): Promise<any> {
+    const url = limit ? `/game-predictions?limit=${limit}` : '/game-predictions';
+    const response = await api.get(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  async getPropPredictions(token: string, limit?: number): Promise<any> {
+    const url = limit ? `/prop-predictions?limit=${limit}` : '/prop-predictions';
+    const response = await api.get(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  async getPlayerProps(token: string, filters?: {
+    sport?: string;
+    player?: string;
+    prop_type?: string;
+    limit?: number;
+  }): Promise<PlayerPropsResponse> {
+    const params = new URLSearchParams();
+    if (filters?.sport) params.append('sport', filters.sport);
+    if (filters?.player) params.append('player', filters.player);
+    if (filters?.prop_type) params.append('prop_type', filters.prop_type);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    
+    const response = await api.get(`/player-props?${params.toString()}`, {
+      headers: { Authorization: token }
     });
     return response.data;
   },

@@ -50,7 +50,10 @@ export class BetCollectorApiStack extends cdk.Stack {
         'dynamodb:GetItem',
         'dynamodb:PutItem'
       ],
-      resources: [`arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}`]
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}/index/*`
+      ]
     }));
 
     // API Gateway for bet collector
@@ -114,6 +117,18 @@ export class BetCollectorApiStack extends cdk.Stack {
     // Stored predictions endpoint (protected)
     const storedPredictions = betCollectorApi.root.addResource('stored-predictions');
     storedPredictions.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // Game predictions endpoint (protected)
+    const gamePredictions = betCollectorApi.root.addResource('game-predictions');
+    gamePredictions.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // Prop predictions endpoint (protected)
+    const propPredictions = betCollectorApi.root.addResource('prop-predictions');
+    propPredictions.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // Player props endpoint (protected)
+    const playerProps = betCollectorApi.root.addResource('player-props');
+    playerProps.addMethod('GET', lambdaIntegration, methodOptions);
 
     // Prediction Generator Lambda (scheduled)
     const predictionGeneratorFunction = new lambda.Function(this, 'PredictionGeneratorFunction', {

@@ -28,6 +28,32 @@ export class DynamoDBStack extends cdk.Stack {
       removalPolicy: props.environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
+    // Add GSI for efficient prediction querying
+    this.betsTable.addGlobalSecondaryIndex({
+      indexName: 'ActivePredictionsIndex',
+      partitionKey: {
+        name: 'prediction_type',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'commence_time',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
+    // Add GSI for bet type querying
+    this.betsTable.addGlobalSecondaryIndex({
+      indexName: 'ActiveBetsIndex',
+      partitionKey: {
+        name: 'bet_type',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'commence_time',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
     // Output the table name
     this.betsTableName = new cdk.CfnOutput(this, 'BetsTableName', {
       value: this.betsTable.tableName,

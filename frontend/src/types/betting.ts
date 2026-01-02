@@ -1,29 +1,39 @@
+export interface Outcome {
+  name: string;
+  price: number;
+  point?: number;
+}
+
+export interface Market {
+  outcomes: Outcome[];
+}
+
 export interface Game {
-  game_id?: string;
-  pk?: string;  // DynamoDB partition key (game_id)
-  sk?: string;  // DynamoDB sort key (bookmaker)
+  game_id: string;
   sport: string;
   commence_time: string;
   home_team: string;
   away_team: string;
-  bookmaker?: string;
-  markets: {
-    h2h?: {
-      home: number;
-      away: number;
-    };
-    spreads?: {
-      home: number;
-      away: number;
-      home_point: number;
-      away_point: number;
-    };
-    totals?: {
-      over: number;
-      under: number;
-      point: number;
+  updated_at: string;
+  odds: {
+    [bookmaker: string]: {
+      [market: string]: Market;
     };
   };
+}
+
+export interface PlayerProp {
+  pk: string;
+  sk: string;
+  sport: string;
+  event_id: string;
+  bookmaker: string;
+  market_key: string;
+  player_name: string;
+  outcome: string;
+  point: number;
+  price: number;
+  updated_at: string;
 }
 
 export interface Sport {
@@ -43,4 +53,14 @@ export interface ApiResponse {
   games: Game[];
   count: number;
   sport_filter: string | null;
+}
+
+export interface PlayerPropsResponse {
+  props: PlayerProp[];
+  count: number;
+  filters: {
+    sport?: string;
+    player?: string;
+    prop_type?: string;
+  };
 }
