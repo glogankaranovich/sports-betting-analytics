@@ -11,12 +11,16 @@ class OddsAPIClient:
         self.api_key = os.getenv('ODDS_API_KEY')
         self.base_url = 'https://api.the-odds-api.com/v4'
         
-        # Supported sports (NFL, NBA, MLB, NHL)
+        # Supported sports (NFL, NBA, MLB, NHL + Soccer + Fighting)
         self.supported_sports = [
             'americanfootball_nfl',
             'basketball_nba',
             'baseball_mlb',
-            'icehockey_nhl'
+            'icehockey_nhl',
+            'soccer_epl',                # English Premier League
+            'soccer_usa_mls',            # Major League Soccer
+            'mma_mixed_martial_arts',    # MMA/UFC
+            'boxing_boxing'              # Boxing
         ]
         
     def get_sports(self):
