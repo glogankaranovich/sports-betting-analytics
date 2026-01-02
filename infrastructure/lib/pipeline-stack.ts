@@ -88,47 +88,45 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
 
     // Integration tests for Prod (Python) with automatic rollback - TEMPORARILY DISABLED
     // TODO: Re-enable after fixing integration test schema issues
-    /*
-    prodStage.addPost(new CodeBuildStep('ProdIntegrationTestsWithRollback', {
-      commands: [
-        'echo "🧪 Running integration tests against Prod..."',
-        'cd backend',
-        'pip3 install -r requirements.txt',
-        // Run integration tests
-        'if python3 test_api_integration.py; then',
-        '  echo "✅ Prod integration tests passed!"',
-        'else',
-        '  echo "❌ Prod integration tests FAILED - initiating rollback..."',
-        '  # Get the stack names that were just deployed',
-        '  echo "Rolling back Prod-Auth stack..."',
-        '  aws cloudformation cancel-update-stack --stack-name Prod-Auth --region us-east-1 || true',
-        '  echo "Rolling back Prod-BetCollectorApi stack..."', 
-        '  aws cloudformation cancel-update-stack --stack-name Prod-BetCollectorApi --region us-east-1 || true',
-        '  echo "Rolling back Prod-OddsCollector stack..."',
-        '  aws cloudformation cancel-update-stack --stack-name Prod-OddsCollector --region us-east-1 || true',
-        '  echo "Rolling back Prod-DynamoDB stack..."',
-        '  aws cloudformation cancel-update-stack --stack-name Prod-DynamoDB --region us-east-1 || true',
-        '  echo "🔄 Rollback initiated - check CloudFormation console"',
-        '  exit 1',
-        'fi'
-      ],
-      env: {
-        ENVIRONMENT: 'prod'
-      },
-      rolePolicyStatements: [
-        new iam.PolicyStatement({
-          actions: [
-            'sts:AssumeRole',
-            'cloudformation:CancelUpdateStack',
-            'cloudformation:DescribeStacks'
-          ],
-          resources: [
-            `arn:aws:iam::${ENVIRONMENTS.prod.account}:role/PipelineIntegrationTestRole`,
-            `arn:aws:cloudformation:us-east-1:${ENVIRONMENTS.prod.account}:stack/Prod-*/*`
-          ]
-        })
-      ]
-    }));
-    */
+    // prodStage.addPost(new CodeBuildStep('ProdIntegrationTestsWithRollback', {
+    //   commands: [
+    //     'echo "🧪 Running integration tests against Prod..."',
+    //     'cd backend',
+    //     'pip3 install -r requirements.txt',
+    //     // Run integration tests
+    //     'if python3 test_api_integration.py; then',
+    //     '  echo "✅ Prod integration tests passed!"',
+    //     'else',
+    //     '  echo "❌ Prod integration tests FAILED - initiating rollback..."',
+    //     '  # Get the stack names that were just deployed',
+    //     '  echo "Rolling back Prod-Auth stack..."',
+    //     '  aws cloudformation cancel-update-stack --stack-name Prod-Auth --region us-east-1 || true',
+    //     '  echo "Rolling back Prod-BetCollectorApi stack..."', 
+    //     '  aws cloudformation cancel-update-stack --stack-name Prod-BetCollectorApi --region us-east-1 || true',
+    //     '  echo "Rolling back Prod-OddsCollector stack..."',
+    //     '  aws cloudformation cancel-update-stack --stack-name Prod-OddsCollector --region us-east-1 || true',
+    //     '  echo "Rolling back Prod-DynamoDB stack..."',
+    //     '  aws cloudformation cancel-update-stack --stack-name Prod-DynamoDB --region us-east-1 || true',
+    //     '  echo "🔄 Rollback initiated - check CloudFormation console"',
+    //     '  exit 1',
+    //     'fi'
+    //   ],
+    //   env: {
+    //     ENVIRONMENT: 'prod'
+    //   },
+    //   rolePolicyStatements: [
+    //     new iam.PolicyStatement({
+    //       actions: [
+    //         'sts:AssumeRole',
+    //         'cloudformation:CancelUpdateStack',
+    //         'cloudformation:DescribeStacks'
+    //       ],
+    //       resources: [
+    //         // 'arn:aws:iam::' + ENVIRONMENTS.prod.account + ':role/PipelineIntegrationTestRole',
+    //         // 'arn:aws:cloudformation:us-east-1:' + ENVIRONMENTS.prod.account + ':stack/Prod-*/*'
+    //       ]
+    //     })
+    //   ]
+    // }));
   }
 }
