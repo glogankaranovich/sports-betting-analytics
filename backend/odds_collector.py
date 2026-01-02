@@ -92,32 +92,37 @@ class OddsCollector:
                     # Extract player name from outcome description
                     player_name = outcome.get('description', 'Unknown')
                     
-                    # New schema: pk = PROP#{event_id}#{player_name}, sk = {bookmaker}#{market_key}#{outcome}
+                    # Create timestamped sort key for historical tracking
+                    timestamp = datetime.utcnow().isoformat()
                     pk = f"PROP#{event_id}#{player_name}"
-                    sk = f"{bookmaker['key']}#{market['key']}#{outcome['name']}"
+                    sk_historical = f"{bookmaker['key']}#{market['key']}#{outcome['name']}#{timestamp}"
+                    sk_latest = f"{bookmaker['key']}#{market['key']}#{outcome['name']}#LATEST"
                     
                     # Calculate TTL (2 days after game commence time)
                     commence_dt = datetime.fromisoformat(props_data['commence_time'].replace('Z', '+00:00'))
                     ttl = int((commence_dt + timedelta(days=2)).timestamp())
                     
-                    self.table.update_item(
-                        Key={
-                            'pk': pk,
-                            'sk': sk
-                        },
-                        UpdateExpression='SET sport = :sport, event_id = :event_id, bookmaker = :bookmaker, market_key = :market_key, player_name = :player_name, outcome = :outcome, point = :point, price = :price, commence_time = :commence_time, bet_type = :bet_type, updated_at = :updated_at, ttl = :ttl',
-                        ExpressionAttributeValues={
-                            ':sport': sport,
-                            ':event_id': event_id,
-                            ':bookmaker': bookmaker['key'],
-                            ':market_key': market['key'],
-                            ':player_name': player_name,
-                            ':outcome': outcome['name'],  # "Over" or "Under"
-                            ':point': convert_floats_to_decimal(outcome.get('point')),
-                            ':price': convert_floats_to_decimal(outcome['price']),
-                            ':commence_time': props_data['commence_time'],  # Add commence_time from props_data
-                            ':bet_type': 'PROP',
-                            ':updated_at': datetime.utcnow().isoformat(),
+                    item_data = {
+                        'pk': pk,
+                        'sport': sport,
+                        'event_id': event_id,
+                        'bookmaker': bookmaker['key'],
+                        'market_key': market['key'],
+                        'player_name': player_name,
+                        'outcome': outcome['name'],  # "Over" or "Under"
+                        'point': convert_floats_to_decimal(outcome.get('point')),
+                        'price': convert_floats_to_decimal(outcome['price']),
+                        'commence_time': props_data['commence_time'],
+                        'bet_type': 'PROP',
+                        'updated_at': timestamp,
+                        'ttl': ttl
+                    }
+                    
+                    # Store historical snapshot
+                    self.table.put_item(Item={**item_data, 'sk': sk_historical})
+                    
+                    # Store/update latest pointer for frontend
+                    self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
                             ':ttl': ttl
                         }
                     )
@@ -136,34 +141,35 @@ class OddsCollector:
                     continue
                     
                 for market in bookmaker['markets']:
-                    # Create composite sort key: bookmaker#market
-                    sk = f"{bookmaker['key']}#{market['key']}"
-                    # Add GAME# prefix to partition key
+                    # Create timestamped sort key for historical tracking
+                    timestamp = datetime.utcnow().isoformat()
+                    sk_historical = f"{bookmaker['key']}#{market['key']}#{timestamp}"
+                    sk_latest = f"{bookmaker['key']}#{market['key']}#LATEST"
                     pk = f"GAME#{game_id}"
                     
                     # Calculate TTL (2 days after game commence time)
                     commence_dt = datetime.fromisoformat(game['commence_time'].replace('Z', '+00:00'))
                     ttl = int((commence_dt + timedelta(days=2)).timestamp())
                     
-                    self.table.update_item(
-                        Key={
-                            'pk': pk,
-                            'sk': sk
-                        },
-                        UpdateExpression='SET sport = :sport, home_team = :home_team, away_team = :away_team, commence_time = :commence_time, market_key = :market_key, bookmaker = :bookmaker, outcomes = :outcomes, bet_type = :bet_type, updated_at = :updated_at, ttl = :ttl',
-                        ExpressionAttributeValues={
-                            ':sport': sport,
-                            ':home_team': game['home_team'],
-                            ':away_team': game['away_team'],
-                            ':commence_time': game['commence_time'],
-                            ':market_key': market['key'],
-                            ':bookmaker': bookmaker['key'],
-                            ':outcomes': convert_floats_to_decimal(market['outcomes']),
-                            ':bet_type': 'GAME',
-                            ':updated_at': datetime.utcnow().isoformat(),
-                            ':ttl': ttl
-                        }
-                    )
+                    item_data = {
+                        'pk': pk,
+                        'sport': sport,
+                        'home_team': game['home_team'],
+                        'away_team': game['away_team'],
+                        'commence_time': game['commence_time'],
+                        'market_key': market['key'],
+                        'bookmaker': bookmaker['key'],
+                        'outcomes': convert_floats_to_decimal(market['outcomes']),
+                        'bet_type': 'GAME',
+                        'updated_at': timestamp,
+                        'ttl': ttl
+                    }
+                    
+                    # Store historical snapshot
+                    self.table.put_item(Item={**item_data, 'sk': sk_historical})
+                    
+                    # Store/update latest pointer for frontend
+                    self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
     
     def collect_all_odds(self):
         """Main method to collect odds for all active sports"""

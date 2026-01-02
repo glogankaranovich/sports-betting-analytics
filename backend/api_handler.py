@@ -87,36 +87,24 @@ def handle_health():
     })
 
 def handle_get_games(query_params: Dict[str, str]):
-    """Get all games, optionally filtered by sport"""
+    """Get all games with latest odds using GSI query"""
     sport = query_params.get('sport')
     limit = int(query_params.get('limit', '500'))
     
     try:
-        # Filter for game odds (GAME# prefix only)
-        base_filter = boto3.dynamodb.conditions.Attr('pk').begins_with('GAME#')
+        # Use GSI to query for latest game odds only
+        response = table.query(
+            IndexName='ActiveBetsIndex',
+            KeyConditionExpression=boto3.dynamodb.conditions.Key('bet_type').eq('GAME'),
+            FilterExpression=boto3.dynamodb.conditions.Attr('latest').eq(True),
+            Limit=limit * 10
+        )
         
         if sport:
-            filter_expression = base_filter & boto3.dynamodb.conditions.Attr('sport').eq(sport)
+            # Additional filter for sport if specified
+            odds_items = [item for item in response.get('Items', []) if item.get('sport') == sport]
         else:
-            filter_expression = base_filter
-        
-        odds_items = []
-        last_evaluated_key = None
-        
-        while True:
-            scan_kwargs = {
-                'FilterExpression': filter_expression,
-                'Limit': limit * 10  # Get more items since we'll group them
-            }
-            if last_evaluated_key:
-                scan_kwargs['ExclusiveStartKey'] = last_evaluated_key
-                
-            response = table.scan(**scan_kwargs)
-            odds_items.extend(response.get('Items', []))
-            
-            last_evaluated_key = response.get('LastEvaluatedKey')
-            if not last_evaluated_key:
-                break
+            odds_items = response.get('Items', [])
         
         # Group odds by game_id
         games_dict = {}
@@ -365,7 +353,7 @@ def handle_get_player_props(query_params: Dict[str, str]):
             }
             
             # Add filters as FilterExpression if provided
-            filter_expressions = []
+            filter_expressions = [boto3.dynamodb.conditions.Attr('latest').eq(True)]  # Always filter for latest
             if sport:
                 filter_expressions.append(boto3.dynamodb.conditions.Attr('sport').eq(sport))
             if bookmaker:
