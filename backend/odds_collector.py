@@ -133,18 +133,22 @@ class OddsCollector:
                         }
                         
                         if data_changed:
-                            # Store historical snapshot with new timestamp
+                            # Store historical snapshot with new timestamp (no active_bet_pk)
                             sk_historical = f"{bookmaker['key']}#{market['key']}#{outcome['name']}#{timestamp}"
                             self.table.put_item(Item={**item_data, 'sk': sk_historical})
                             
-                            # Update latest pointer with new data and timestamp
-                            self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                            # Update latest pointer with new data, timestamp, and sparse index key
+                            latest_item = {**item_data, 'sk': sk_latest, 'latest': True, 'active_bet_pk': f"PROP#{sport}"}
+                            self.table.put_item(Item=latest_item)
                         else:
                             # Data unchanged, just update timestamp on existing LATEST record
                             self.table.update_item(
                                 Key={'pk': pk, 'sk': sk_latest},
-                                UpdateExpression='SET updated_at = :timestamp',
-                                ExpressionAttributeValues={':timestamp': timestamp}
+                                UpdateExpression='SET updated_at = :timestamp, active_bet_pk = :active_pk',
+                                ExpressionAttributeValues={
+                                    ':timestamp': timestamp,
+                                    ':active_pk': f"PROP#{sport}"
+                                }
                             )
                         
                     except Exception as e:
@@ -188,25 +192,34 @@ class OddsCollector:
                             'market_key': market['key'],
                             'bookmaker': bookmaker['key'],
                             'outcomes': new_outcomes,
-                            'bet_type': 'GAME',
+                            'bet_type': 'GAME',  # Keep for old GSI
                             'updated_at': timestamp,
                             'ttl': ttl
                         }
                         
                         if data_changed:
-                            # Store historical snapshot with new timestamp
+                            print(f"Data changed for {pk} {sk_latest} - creating new records")
+                            # Store historical snapshot with new timestamp (no active_bet_pk)
                             sk_historical = f"{bookmaker['key']}#{market['key']}#{timestamp}"
                             self.table.put_item(Item={**item_data, 'sk': sk_historical})
                             
-                            # Update latest pointer with new data and timestamp
-                            self.table.put_item(Item={**item_data, 'sk': sk_latest, 'latest': True})
+                            # Update latest pointer with new data, timestamp, and sparse index key
+                            latest_item = {**item_data, 'sk': sk_latest, 'latest': True, 'active_bet_pk': f"GAME#{sport}"}
+                            self.table.put_item(Item=latest_item)
+                            print(f"Created historical record {sk_historical} and updated LATEST")
                         else:
+                            print(f"Data unchanged for {pk} {sk_latest} - updating timestamp to {timestamp}")
                             # Data unchanged, just update timestamp on existing LATEST record
-                            self.table.update_item(
+                            response = self.table.update_item(
                                 Key={'pk': pk, 'sk': sk_latest},
-                                UpdateExpression='SET updated_at = :timestamp',
-                                ExpressionAttributeValues={':timestamp': timestamp}
+                                UpdateExpression='SET updated_at = :timestamp, active_bet_pk = :active_pk',
+                                ExpressionAttributeValues={
+                                    ':timestamp': timestamp,
+                                    ':active_pk': f"GAME#{sport}"
+                                },
+                                ReturnValues='ALL_NEW'
                             )
+                            print(f"Updated timestamp: {response.get('Attributes', {}).get('updated_at', 'FAILED')}")
                         
                     except Exception as e:
                         print(f"Error processing odds for {game_id}: {str(e)}")
@@ -221,11 +234,10 @@ class OddsCollector:
             
             response = self.table.query(
                 IndexName='ActiveBetsIndex',
-                KeyConditionExpression='bet_type = :bet_type AND commence_time BETWEEN :start_time AND :end_time',
-                FilterExpression='sport = :sport AND attribute_exists(latest)',
+                KeyConditionExpression='active_bet_pk = :active_bet_pk AND commence_time BETWEEN :start_time AND :end_time',
+                FilterExpression='attribute_exists(latest)',
                 ExpressionAttributeValues={
-                    ':bet_type': 'GAME',
-                    ':sport': sport,
+                    ':active_bet_pk': f'GAME#{sport}',
                     ':start_time': now.isoformat() + 'Z',
                     ':end_time': week_from_now.isoformat() + 'Z'
                 },

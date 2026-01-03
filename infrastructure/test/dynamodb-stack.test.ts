@@ -47,6 +47,10 @@ describe('DynamoDBStack', () => {
           AttributeType: 'S'
         },
         {
+          AttributeName: 'active_bet_pk',
+          AttributeType: 'S'
+        },
+        {
           AttributeName: 'bet_type',
           AttributeType: 'S'
         }
@@ -57,6 +61,22 @@ describe('DynamoDBStack', () => {
           KeySchema: [
             {
               AttributeName: 'prediction_type',
+              KeyType: 'HASH'
+            },
+            {
+              AttributeName: 'commence_time',
+              KeyType: 'RANGE'
+            }
+          ],
+          Projection: {
+            ProjectionType: 'ALL'
+          },
+        },
+        {
+          IndexName: 'ActiveBetsIndexV2',
+          KeySchema: [
+            {
+              AttributeName: 'active_bet_pk',
               KeyType: 'HASH'
             },
             {

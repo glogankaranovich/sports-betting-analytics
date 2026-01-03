@@ -45,31 +45,41 @@ def test_odds_collector_integration():
     body = json.loads(payload['body'])
     print(f"✓ Odds collection result: {body['message']}")
     
-    # Verify data in DynamoDB
+    # Verify data in DynamoDB with retry logic
     import time
-    print("⏳ Waiting 10 seconds for GSI eventual consistency...")
-    time.sleep(10)
+    print("🔍 Checking for updated records with retry...")
     
-    print(f"🔍 Querying for records updated after: {test_start_iso}")
-    updated_items_response = table.query(
-        IndexName='ActiveBetsIndex',
-        KeyConditionExpression='bet_type = :bet_type',
-        FilterExpression='sport = :sport AND updated_at > :start_time',
-        ExpressionAttributeValues={
-            ':bet_type': 'GAME',
-            ':sport': 'basketball_nba',
-            ':start_time': test_start_iso
-        },
-        Limit=5
-    )
+    max_retries = 5
+    base_delay = 5
     
-    updated_items = updated_items_response['Items']
-    print(f"📊 Query returned {len(updated_items)} items")
-    if len(updated_items) > 0:
-        print(f"📅 First item timestamp: {updated_items[0].get('updated_at')}")
-    
-    assert len(updated_items) > 0, "No odds data found"
-    print(f"✓ Found {len(updated_items)} odds records")
+    for attempt in range(max_retries):
+        print(f"🔍 Attempt {attempt + 1}: Querying for records updated after: {test_start_iso}")
+        updated_items_response = table.query(
+            IndexName='ActiveBetsIndexV2',
+            KeyConditionExpression='active_bet_pk = :active_bet_pk',
+            FilterExpression='updated_at > :start_time AND latest = :latest',
+            ExpressionAttributeValues={
+                ':active_bet_pk': 'GAME#basketball_nba',
+                ':start_time': test_start_iso,
+                ':latest': True
+            },
+            Limit=5
+        )
+        
+        updated_items = updated_items_response['Items']
+        print(f"📊 Query returned {len(updated_items)} items")
+        
+        if len(updated_items) > 0:
+            print(f"✓ Found {len(updated_items)} odds records")
+            break
+            
+        if attempt < max_retries - 1:
+            delay = base_delay * (2 ** attempt)  # Exponential backoff
+            print(f"⏳ No records found, waiting {delay} seconds before retry...")
+            time.sleep(delay)
+    else:
+        # If we exhausted all retries
+        assert len(updated_items) > 0, "No odds data found after all retries"
     
     return True
 

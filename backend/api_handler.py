@@ -94,20 +94,26 @@ def handle_get_games(query_params: Dict[str, str]):
     # Frontend display bookmakers (backend collects from all bookmakers)
     display_bookmakers = {'fanatics', 'fanduel', 'draftkings', 'betmgm'}
     
+    # Supported sports for querying
+    SUPPORTED_SPORTS = ['basketball_nba', 'americanfootball_nfl', 'soccer_epl']
+    
+    # Determine which sports to query
+    sports_to_query = [sport] if sport else SUPPORTED_SPORTS
+    
     try:
-        # Use GSI to query for latest game odds only
-        response = table.query(
-            IndexName='ActiveBetsIndex',
-            KeyConditionExpression=boto3.dynamodb.conditions.Key('bet_type').eq('GAME'),
-            FilterExpression=boto3.dynamodb.conditions.Attr('latest').eq(True),
-            Limit=limit * 10
-        )
+        all_odds_items = []
         
-        if sport:
-            # Additional filter for sport if specified
-            odds_items = [item for item in response.get('Items', []) if item.get('sport') == sport]
-        else:
-            odds_items = response.get('Items', [])
+        # Query each sport partition separately
+        for query_sport in sports_to_query:
+            response = table.query(
+                IndexName='ActiveBetsIndexV2',
+                KeyConditionExpression=boto3.dynamodb.conditions.Key('active_bet_pk').eq(f'GAME#{query_sport}'),
+                FilterExpression=boto3.dynamodb.conditions.Attr('latest').eq(True),
+                Limit=limit * 10
+            )
+            all_odds_items.extend(response.get('Items', []))
+        
+        odds_items = all_odds_items
         
         # Group odds by game_id
         games_dict = {}
@@ -347,26 +353,32 @@ def handle_get_player_props(query_params: Dict[str, str]):
     # Frontend display bookmakers (backend collects from all bookmakers)
     display_bookmakers = {'fanatics', 'fanduel', 'draftkings', 'betmgm'}
     
+    # Supported sports for querying
+    SUPPORTED_SPORTS = ['basketball_nba', 'americanfootball_nfl', 'soccer_epl']
+    
+    # Determine which sports to query
+    sports_to_query = [sport] if sport else SUPPORTED_SPORTS
+    
     try:
         # Use ActiveBetsIndex GSI to query for PROP bet types efficiently
         props = []
-        last_evaluated_key = None
         
-        while len(props) < limit:
-            remaining_limit = limit - len(props)
-            query_kwargs = {
-                'IndexName': 'ActiveBetsIndex',
-                'KeyConditionExpression': boto3.dynamodb.conditions.Key('bet_type').eq('PROP'),
-                'Limit': remaining_limit
-            }
+        for query_sport in sports_to_query:
+            last_evaluated_key = None
             
-            # Add filters as FilterExpression if provided
-            filter_expressions = [boto3.dynamodb.conditions.Attr('latest').eq(True)]  # Always filter for latest
-            if sport:
-                filter_expressions.append(boto3.dynamodb.conditions.Attr('sport').eq(sport))
-            if bookmaker:
-                filter_expressions.append(boto3.dynamodb.conditions.Attr('bookmaker').eq(bookmaker))
-            if prop_type:
+            while len(props) < limit:
+                remaining_limit = limit - len(props)
+                query_kwargs = {
+                    'IndexName': 'ActiveBetsIndexV2',
+                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('active_bet_pk').eq(f'PROP#{query_sport}'),
+                    'Limit': remaining_limit
+                }
+                
+                # Add filters as FilterExpression if provided
+                filter_expressions = [boto3.dynamodb.conditions.Attr('latest').eq(True)]  # Always filter for latest
+                if bookmaker:
+                    filter_expressions.append(boto3.dynamodb.conditions.Attr('bookmaker').eq(bookmaker))
+                if prop_type:
                 filter_expressions.append(boto3.dynamodb.conditions.Attr('market_key').eq(prop_type))
             
             if filter_expressions:
