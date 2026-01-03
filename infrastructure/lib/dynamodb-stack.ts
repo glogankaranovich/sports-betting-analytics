@@ -42,24 +42,11 @@ export class DynamoDBStack extends cdk.Stack {
       }
     });
 
-    // Add GSI for bet type + sport querying (new sparse index)
+    // Add GSI for bet type + sport querying (sparse index)
     this.betsTable.addGlobalSecondaryIndex({
       indexName: 'ActiveBetsIndexV2',
       partitionKey: {
         name: 'active_bet_pk',
-        type: dynamodb.AttributeType.STRING
-      },
-      sortKey: {
-        name: 'commence_time',
-        type: dynamodb.AttributeType.STRING
-      }
-    });
-
-    // Keep old GSI temporarily for migration
-    this.betsTable.addGlobalSecondaryIndex({
-      indexName: 'ActiveBetsIndex',
-      partitionKey: {
-        name: 'bet_type',
         type: dynamodb.AttributeType.STRING
       },
       sortKey: {
