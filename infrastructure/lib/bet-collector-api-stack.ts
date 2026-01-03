@@ -129,6 +129,13 @@ export class BetCollectorApiStack extends cdk.Stack {
     const playerProps = betCollectorApi.root.addResource('player-props');
     playerProps.addMethod('GET', lambdaIntegration, methodOptions);
 
+    // Recommendations endpoints (protected)
+    const recommendations = betCollectorApi.root.addResource('recommendations');
+    recommendations.addMethod('GET', lambdaIntegration, methodOptions);
+    
+    const topRecommendation = betCollectorApi.root.addResource('top-recommendation');
+    topRecommendation.addMethod('GET', lambdaIntegration, methodOptions);
+
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {
       value: betCollectorApi.url,
       description: 'Bet Collector API Gateway URL'

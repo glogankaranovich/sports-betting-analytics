@@ -3,6 +3,7 @@ import boto3
 import os
 from decimal import Decimal
 from typing import Dict, Any
+from bet_recommendations import BetRecommendationEngine, RiskLevel
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -68,6 +69,12 @@ def lambda_handler(event, context):
         elif path == "/prop-predictions":
             print("Handling prop-predictions request")
             return handle_get_prop_predictions(query_params)
+        elif path == "/recommendations":
+            print("Handling recommendations request")
+            return handle_get_recommendations(query_params)
+        elif path == "/top-recommendation":
+            print("Handling top-recommendation request")
+            return handle_get_top_recommendation(query_params)
         elif path == "/player-props":
             return handle_get_player_props(query_params)
         elif path == "/sports":
@@ -457,3 +464,134 @@ def handle_get_player_props(query_params: Dict[str, str]):
         )
     except Exception as e:
         return create_response(500, {"error": f"Error fetching player props: {str(e)}"})
+
+
+def handle_get_recommendations(query_params: Dict[str, str]):
+    """Get bet recommendations for all games and props"""
+    risk_level = query_params.get("risk_level", "moderate")
+    sport = query_params.get("sport")
+    limit = int(query_params.get("limit", "10"))
+
+    try:
+        engine = BetRecommendationEngine()
+        all_recommendations = []
+
+        # Get game predictions and generate recommendations
+        game_predictions = _get_recent_game_predictions(sport, limit)
+        for pred_data in game_predictions:
+            game_recs = engine.generate_game_recommendations(
+                pred_data["prediction"], pred_data["odds"]
+            )
+            all_recommendations.extend(game_recs)
+
+        # Filter by risk level if specified
+        if risk_level != "all":
+            risk_enum = RiskLevel(risk_level)
+            all_recommendations = [
+                r for r in all_recommendations if r.risk_level == risk_enum
+            ]
+
+        # Sort by risk-adjusted expected value
+        all_recommendations.sort(
+            key=lambda r: r.expected_value * r.confidence_score, reverse=True
+        )
+
+        # Convert to JSON-serializable format
+        recommendations_json = []
+        for rec in all_recommendations[:limit]:
+            recommendations_json.append(
+                {
+                    "game_id": rec.game_id,
+                    "sport": rec.sport,
+                    "bet_type": rec.bet_type,
+                    "team_or_player": rec.team_or_player,
+                    "market": rec.market,
+                    "predicted_probability": rec.predicted_probability,
+                    "confidence_score": rec.confidence_score,
+                    "expected_value": rec.expected_value,
+                    "risk_level": rec.risk_level.value,
+                    "recommended_bet_amount": rec.recommended_bet_amount,
+                    "potential_payout": rec.potential_payout,
+                    "bookmaker": rec.bookmaker,
+                    "odds": rec.odds,
+                    "reasoning": rec.reasoning,
+                }
+            )
+
+        return create_response(
+            200,
+            {
+                "recommendations": recommendations_json,
+                "count": len(recommendations_json),
+                "risk_level": risk_level,
+            },
+        )
+
+    except Exception as e:
+        print(f"Error getting recommendations: {str(e)}")
+        return create_response(500, {"error": str(e)})
+
+
+def handle_get_top_recommendation(query_params: Dict[str, str]):
+    """Get the single top recommendation"""
+    risk_level = query_params.get("risk_level", "moderate")
+
+    try:
+        engine = BetRecommendationEngine()
+        all_recommendations = []
+
+        # Get all game predictions and generate recommendations
+        game_predictions = _get_recent_game_predictions(
+            None, 50
+        )  # Get more for better selection
+        for pred_data in game_predictions:
+            game_recs = engine.generate_game_recommendations(
+                pred_data["prediction"], pred_data["odds"]
+            )
+            all_recommendations.extend(game_recs)
+
+        # Get top recommendation for risk level
+        risk_enum = RiskLevel(risk_level)
+        top_rec = engine.get_top_recommendation(all_recommendations, risk_enum)
+
+        if not top_rec:
+            return create_response(
+                200,
+                {
+                    "recommendation": None,
+                    "message": f"No recommendations available for {risk_level} risk level",
+                },
+            )
+
+        # Convert to JSON-serializable format
+        recommendation_json = {
+            "game_id": top_rec.game_id,
+            "sport": top_rec.sport,
+            "bet_type": top_rec.bet_type,
+            "team_or_player": top_rec.team_or_player,
+            "market": top_rec.market,
+            "predicted_probability": top_rec.predicted_probability,
+            "confidence_score": top_rec.confidence_score,
+            "expected_value": top_rec.expected_value,
+            "risk_level": top_rec.risk_level.value,
+            "recommended_bet_amount": top_rec.recommended_bet_amount,
+            "potential_payout": top_rec.potential_payout,
+            "bookmaker": top_rec.bookmaker,
+            "odds": top_rec.odds,
+            "reasoning": top_rec.reasoning,
+        }
+
+        return create_response(
+            200, {"recommendation": recommendation_json, "risk_level": risk_level}
+        )
+
+    except Exception as e:
+        print(f"Error getting top recommendation: {str(e)}")
+        return create_response(500, {"error": str(e)})
+
+
+def _get_recent_game_predictions(sport, limit):
+    """Helper to get recent game predictions with odds data"""
+    # TODO: Implement actual data fetching from DynamoDB
+    # For now, return empty list until we integrate with real data
+    return []
