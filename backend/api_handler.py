@@ -379,7 +379,7 @@ def handle_get_player_props(query_params: Dict[str, str]):
                 if bookmaker:
                     filter_expressions.append(boto3.dynamodb.conditions.Attr('bookmaker').eq(bookmaker))
                 if prop_type:
-                filter_expressions.append(boto3.dynamodb.conditions.Attr('market_key').eq(prop_type))
+                    filter_expressions.append(boto3.dynamodb.conditions.Attr('market_key').eq(prop_type))
             
             if filter_expressions:
                 filter_expression = filter_expressions[0]
