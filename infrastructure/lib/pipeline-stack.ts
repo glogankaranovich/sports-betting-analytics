@@ -28,8 +28,15 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
           'cd infrastructure',
           'npm ci',
           'npm run build',
+          'npm test',  // Run infrastructure unit tests
+          
+          // Run backend unit tests
+          'cd ../backend',
+          'python3 -m pip install -r requirements.txt',
+          'DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/ -v',
           
           // Synthesize CDK
+          'cd ../infrastructure',
           'cdk synth',
         ],
         primaryOutputDirectory: 'infrastructure/cdk.out',
@@ -58,9 +65,9 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
         'cd backend',
         'python3 -m pip install -r requirements.txt',
         'echo "Testing Lambda and DynamoDB integration..."',
-        'python3 test_integration.py',
+        'python3 tests/integration/test_integration.py',
         'echo "Testing API endpoints..."',
-        'python3 test_api_integration.py'
+        'python3 tests/integration/test_api_integration.py'
       ],
       buildEnvironment: {
         buildImage: LinuxBuildImage.STANDARD_7_0,
@@ -91,7 +98,7 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
     //     'cd backend',
     //     'pip3 install -r requirements.txt',
     //     // Run integration tests
-    //     'if python3 test_api_integration.py; then',
+    //     'if python3 tests/integration/test_api_integration.py; then',
     //     '  echo "✅ Prod integration tests passed!"',
     //     'else',
     //     '  echo "❌ Prod integration tests FAILED - initiating rollback..."',

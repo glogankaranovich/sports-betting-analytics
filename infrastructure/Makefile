@@ -45,7 +45,12 @@ test: build
 # Run backend unit tests
 test-backend:
 	@echo "🧪 Running backend unit tests..."
-	cd ../backend && DYNAMODB_TABLE=test-table python3 -m unittest test_api_handler test_ml_models test_prediction_tracker test_odds_collector -v
+	cd ../backend && DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/ -v
+
+# Run backend integration tests (requires AWS credentials and network access)
+test-backend-integration:
+	@echo "🧪 Running backend integration tests..."
+	cd ../backend && python3 -m pytest tests/integration/ -v
 
 # Run all tests (infrastructure + backend)
 test-all: build test-backend
@@ -60,7 +65,7 @@ deploy-dev: build test
 # Run integration tests against dev environment
 verify-dev: 
 	@echo "🧪 Running integration tests..."
-	cd ../backend && AWS_PROFILE=sports-betting-dev ENVIRONMENT=dev python3 test_integration.py
+	cd ../backend && AWS_PROFILE=sports-betting-dev ENVIRONMENT=dev python3 tests/integration/test_integration.py
 
 # Deploy pipeline (for beta/prod automation)
 deploy-pipeline: clean build test
