@@ -47,6 +47,10 @@ describe('DynamoDBStack', () => {
           AttributeType: 'S'
         },
         {
+          AttributeName: 'active_prediction_pk',
+          AttributeType: 'S'
+        },
+        {
           AttributeName: 'active_bet_pk',
           AttributeType: 'S'
         }
@@ -67,6 +71,22 @@ describe('DynamoDBStack', () => {
           Projection: {
             ProjectionType: 'ALL'
           },
+        },
+        {
+          IndexName: 'ActivePredictionsIndexV2',
+          KeySchema: [
+            {
+              AttributeName: 'active_prediction_pk',
+              KeyType: 'HASH'
+            },
+            {
+              AttributeName: 'commence_time',
+              KeyType: 'RANGE'
+            }
+          ],
+          Projection: {
+            ProjectionType: 'ALL'
+          }
         },
         {
           IndexName: 'ActiveBetsIndexV2',
