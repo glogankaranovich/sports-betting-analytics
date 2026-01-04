@@ -341,16 +341,15 @@ def handle_get_stored_predictions(query_params: Dict[str, str]):
 
 def handle_get_game_predictions(query_params: Dict[str, str]):
     """Get game predictions only"""
-    limit = int(
-        query_params.get("limit", "1000")
-    )  # Default to high limit if not specified
+    sport = query_params.get("sport", "basketball_nba")  # Default sport
+    limit = int(query_params.get("limit", "20"))  # Default limit
 
     try:
-        print(f"Getting game predictions with limit: {limit}")
-        from prediction_tracker import PredictionTracker
+        print(f"Getting game predictions for {sport} with limit: {limit}")
+        from dao import BettingDAO
 
-        tracker = PredictionTracker(table_name)
-        predictions = tracker.get_game_predictions(limit)
+        dao = BettingDAO()
+        predictions = dao.get_game_predictions(sport, limit)
         print(f"Found {len(predictions)} game predictions")
 
         return create_response(
@@ -358,6 +357,7 @@ def handle_get_game_predictions(query_params: Dict[str, str]):
         )
     except Exception as e:
         print(f"Error in handle_get_game_predictions: {str(e)}")
+        return create_response(500, {"error": str(e)})
         import traceback
 
         traceback.print_exc()
@@ -368,21 +368,23 @@ def handle_get_game_predictions(query_params: Dict[str, str]):
 
 def handle_get_prop_predictions(query_params: Dict[str, str]):
     """Get prop predictions only"""
-    limit = int(
-        query_params.get("limit", "1000")
-    )  # Default to high limit if not specified
+    sport = query_params.get("sport", "basketball_nba")  # Default sport
+    limit = int(query_params.get("limit", "20"))  # Default limit
 
     try:
-        print(f"Getting prop predictions with limit: {limit}")
-        from prediction_tracker import PredictionTracker
+        print(f"Getting prop predictions for {sport} with limit: {limit}")
+        from dao import BettingDAO
 
-        tracker = PredictionTracker(table_name)
-        predictions = tracker.get_prop_predictions(limit)
+        dao = BettingDAO()
+        predictions = dao.get_prop_predictions(sport, limit)
         print(f"Found {len(predictions)} prop predictions")
 
         return create_response(
             200, {"predictions": predictions, "count": len(predictions)}
         )
+    except Exception as e:
+        print(f"Error in handle_get_prop_predictions: {str(e)}")
+        return create_response(500, {"error": str(e)})
     except Exception as e:
         print(f"Error in handle_get_prop_predictions: {str(e)}")
         import traceback

@@ -78,7 +78,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const data = await bettingApi.getGamePredictions(token);
+        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const data = await bettingApi.getGamePredictions(token, sport);
         setGamePredictions(data.predictions || []);
       }
     } catch (err) {
@@ -92,7 +93,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const data = await bettingApi.getPropPredictions(token, 1000);
+        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const data = await bettingApi.getPropPredictions(token, sport);
         setPropPredictions(data.predictions || []);
       }
     } catch (err) {
@@ -282,10 +284,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             <div className="games-grid">
               {(() => {
                 const allGameCards = generateGameCards();
-                if (allGameCards.length === 0) {
-                  return <div className="no-data">No games found for current filters</div>;
-                }
-                
                 return paginateItems(allGameCards, currentPage).map((cardData: any) => {
                   const { game, markets, key } = cardData;
                   const marketLabels: Record<string, string> = { h2h: 'Moneyline', spreads: 'Spread', totals: 'Total' };
@@ -346,6 +344,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </div>
               );
             })()}
+            
+            {filteredGames.length === 0 && (
+              <div className="no-data">No games found for current filters</div>
+            )}
           </>
         )}
 
@@ -383,13 +385,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                       </div>
                     </div>
                     <div className="game-meta">
-                      <span className="model">Model: {prediction.model_version}</span>
+                      <span className="model">Model: {prediction.model}</span>
                     </div>
                   </div>
                 ))
-              ) : (
-                <div className="no-data">No game predictions found for current filters</div>
-              )}
+              ) : null
+              }
             </div>
             {filteredGamePredictions.length > itemsPerPage && (
               <div className="pagination">
@@ -407,6 +408,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   Next
                 </button>
               </div>
+            )}
+            
+            {filteredGamePredictions.length === 0 && (
+              <div className="no-data">No game predictions found for current filters</div>
             )}
           </div>
         )}
@@ -445,13 +450,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                       </div>
                     </div>
                     <div className="game-meta">
-                      <span className="model">Model: {prediction.model_version}</span>
+                      <span className="model">Model: {prediction.model}</span>
                     </div>
                   </div>
                 ))
-              ) : (
-                <div className="no-data">No prop predictions found for current filters</div>
-              )}
+              ) : null
+              }
             </div>
             {filteredPropPredictions.length > itemsPerPage && (
               <div className="pagination">
@@ -469,6 +473,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   Next
                 </button>
               </div>
+            )}
+            
+            {filteredPropPredictions.length === 0 && (
+              <div className="no-data">No prop predictions found for current filters</div>
             )}
           </div>
         )}

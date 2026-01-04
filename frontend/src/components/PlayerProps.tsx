@@ -51,7 +51,7 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
         sport: settings.sport,
         bookmaker: settings.bookmaker,
         prop_type: filters.prop_type || undefined,
-        limit: 1000 // Get more props for better pagination
+        limit: 500 // Get more props for better pagination
       };
       
       const response = await bettingApi.getPlayerProps(token, filterParams);

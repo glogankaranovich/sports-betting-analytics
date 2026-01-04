@@ -179,3 +179,88 @@ class BettingDAO:
         except Exception as e:
             print(f"Error getting game data for {game_id}: {str(e)}")
             return None
+
+    def get_game_predictions(self, sport: str, limit: int = 20) -> List[Dict]:
+        """Get active game predictions for a specific sport using sparse index"""
+        try:
+            current_time = datetime.utcnow().isoformat()
+
+            response = self.table.query(
+                IndexName="ActivePredictionsIndexV2",
+                KeyConditionExpression="active_prediction_pk = :active_prediction_pk AND commence_time >= :current_time",
+                ExpressionAttributeValues={
+                    ":active_prediction_pk": f"GAME#{sport}",
+                    ":current_time": current_time,
+                },
+                Limit=limit,
+            )
+
+            predictions = []
+            for item in response.get("Items", []):
+                predictions.append(
+                    {
+                        "pk": item.get("pk"),
+                        "sk": item.get("sk"),
+                        "game_id": item.get("game_id", ""),
+                        "sport": item.get("sport", ""),
+                        "home_team": item.get("home_team", ""),
+                        "away_team": item.get("away_team", ""),
+                        "commence_time": item.get("commence_time", ""),
+                        "home_win_probability": float(
+                            item.get("home_win_probability", 0)
+                        ),
+                        "away_win_probability": float(
+                            item.get("away_win_probability", 0)
+                        ),
+                        "confidence_score": float(item.get("confidence_score", 0)),
+                        "model": item.get("model", ""),
+                        "status": item.get("status", ""),
+                        "value_bets": item.get("value_bets", []),
+                    }
+                )
+
+            return predictions
+
+        except Exception as e:
+            print(f"Error getting game predictions for {sport}: {str(e)}")
+            return []
+
+    def get_prop_predictions(self, sport: str, limit: int = 20) -> List[Dict]:
+        """Get active prop predictions for a specific sport using sparse index"""
+        try:
+            current_time = datetime.utcnow().isoformat()
+
+            response = self.table.query(
+                IndexName="ActivePredictionsIndexV2",
+                KeyConditionExpression="active_prediction_pk = :active_prediction_pk AND commence_time >= :current_time",
+                ExpressionAttributeValues={
+                    ":active_prediction_pk": f"PROP#{sport}",
+                    ":current_time": current_time,
+                },
+                Limit=limit,
+            )
+
+            predictions = []
+            for item in response.get("Items", []):
+                predictions.append(
+                    {
+                        "pk": item.get("pk"),
+                        "sk": item.get("sk"),
+                        "event_id": item.get("event_id", ""),
+                        "player_name": item.get("player_name", ""),
+                        "prop_type": item.get("prop_type", ""),
+                        "sport": item.get("sport", ""),
+                        "commence_time": item.get("commence_time", ""),
+                        "predicted_value": float(item.get("predicted_value", 0)),
+                        "over_probability": float(item.get("over_probability", 0)),
+                        "under_probability": float(item.get("under_probability", 0)),
+                        "confidence_score": float(item.get("confidence_score", 0)),
+                        "model": item.get("model", ""),
+                    }
+                )
+
+            return predictions
+
+        except Exception as e:
+            print(f"Error getting prop predictions for {sport}: {str(e)}")
+            return []

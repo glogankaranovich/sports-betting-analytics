@@ -121,10 +121,7 @@ const Recommendations: React.FC<RecommendationsProps> = ({ token, settings }) =>
 
       {/* All Recommendations */}
       <div className="games-grid">
-        {recommendations.length === 0 ? (
-          <div className="no-data">No recommendations available for the selected filters.</div>
-        ) : (
-          recommendations.map((rec, index) => (
+        {recommendations.map((rec, index) => (
             <div key={`${rec.game_id}-${index}`} className="game-card">
               <div className="game-info">
                 <div className="teams">
@@ -158,8 +155,12 @@ const Recommendations: React.FC<RecommendationsProps> = ({ token, settings }) =>
               )}
             </div>
           ))
-        )}
+        }
       </div>
+      
+      {recommendations.length === 0 && (
+        <div className="no-data">No recommendations available for the selected filters.</div>
+      )}
     </div>
   );
 };

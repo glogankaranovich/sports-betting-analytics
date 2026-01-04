@@ -62,6 +62,7 @@ class PredictionTracker:
                         "pk": f"PRED#GAME#{game_data['game_id']}",
                         "sk": f"PREDICTION#{model}",
                         "prediction_type": "GAME",  # GSI partition key
+                        "active_prediction_pk": f"GAME#{game_data['sport']}",  # New sparse GSI partition key
                         "game_id": game_data["game_id"],
                         "sport": game_data["sport"],
                         "home_team": game_data["home_team"],
@@ -141,6 +142,7 @@ class PredictionTracker:
                         "pk": f"PRED#GAME#{game_data['game_id']}",
                         "sk": f"PREDICTION#{model}",
                         "prediction_type": "GAME",
+                        "active_prediction_pk": f"GAME#{game_data['sport']}",  # New sparse GSI partition key
                         "game_id": game_data["game_id"],
                         "sport": game_data["sport"],
                         "home_team": game_data["home_team"],
@@ -221,12 +223,14 @@ class PredictionTracker:
 
                 # Find commence_time for this prop prediction
                 commence_time = None
+                sport = None
                 for prop in player_props:
                     if (
                         prop.get("player_name") == prop_pred.player_name
                         and prop.get("market_key") == prop_pred.prop_type
                     ):
                         commence_time = prop.get("commence_time")
+                        sport = prop.get("sport")
                         break
 
                 # Determine if prediction is active (game hasn't started)
@@ -238,6 +242,7 @@ class PredictionTracker:
                         "pk": f"PRED#PROP#{event_id}#{prop_pred.prop_type}#{prop_pred.player_name}",
                         "sk": f"PROP_PREDICTION#{model}",
                         "prediction_type": "PROP",
+                        "active_prediction_pk": f"PROP#{sport}",  # New sparse GSI partition key
                         "event_id": event_id,
                         "player_name": prop_pred.player_name,
                         "prop_type": prop_pred.prop_type,
@@ -299,12 +304,14 @@ class PredictionTracker:
 
                 # Find commence_time for this prop prediction
                 commence_time = None
+                sport = None
                 for prop in player_props:
                     if (
                         prop.get("player_name") == prop_pred.player_name
                         and prop.get("market_key") == prop_pred.prop_type
                     ):
                         commence_time = prop.get("commence_time")
+                        sport = prop.get("sport")
                         break
 
                 # Determine if prediction is active (game hasn't started)
@@ -316,6 +323,7 @@ class PredictionTracker:
                         "pk": f"PRED#PROP#{event_id}#{prop_pred.prop_type}#{prop_pred.player_name}",
                         "sk": f"PROP_PREDICTION#{model}",
                         "prediction_type": "PROP",  # GSI partition key
+                        "active_prediction_pk": f"PROP#{sport}",  # New sparse GSI partition key
                         "event_id": event_id,
                         "player_name": prop_pred.player_name,
                         "prop_type": prop_pred.prop_type,
