@@ -62,8 +62,6 @@ def lambda_handler(event, context):
             return handle_get_game(game_id)
         elif path == "/predictions":
             return handle_get_predictions(query_params)
-        elif path == "/stored-predictions":
-            return handle_get_stored_predictions(query_params)
         elif path == "/game-predictions":
             print("Handling game-predictions request")
             return handle_get_game_predictions(query_params)
@@ -317,25 +315,6 @@ def handle_get_predictions(query_params: Dict[str, str]):
     except Exception as e:
         return create_response(
             500, {"error": f"Error generating predictions: {str(e)}"}
-        )
-
-
-def handle_get_stored_predictions(query_params: Dict[str, str]):
-    """Get stored predictions from database"""
-    limit = int(query_params.get("limit", "50"))
-
-    try:
-        from prediction_tracker import PredictionTracker
-
-        tracker = PredictionTracker(table_name)
-        predictions = tracker.get_predictions(limit)
-
-        return create_response(
-            200, {"predictions": predictions, "count": len(predictions)}
-        )
-    except Exception as e:
-        return create_response(
-            500, {"error": f"Error fetching stored predictions: {str(e)}"}
         )
 
 

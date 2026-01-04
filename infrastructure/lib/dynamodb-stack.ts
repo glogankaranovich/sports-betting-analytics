@@ -29,19 +29,6 @@ export class DynamoDBStack extends cdk.Stack {
       timeToLiveAttribute: 'ttl',
     });
 
-    // Add GSI for efficient prediction querying
-    this.betsTable.addGlobalSecondaryIndex({
-      indexName: 'ActivePredictionsIndex',
-      partitionKey: {
-        name: 'prediction_type',
-        type: dynamodb.AttributeType.STRING
-      },
-      sortKey: {
-        name: 'commence_time',
-        type: dynamodb.AttributeType.STRING
-      }
-    });
-
     // Add GSI for efficient prediction querying (sparse index)
     this.betsTable.addGlobalSecondaryIndex({
       indexName: 'ActivePredictionsIndexV2',

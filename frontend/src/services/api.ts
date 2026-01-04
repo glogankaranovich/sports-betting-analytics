@@ -43,12 +43,6 @@ export const bettingApi = {
     return response.data;
   },
 
-  async getStoredPredictions(token: string, limit = 50): Promise<any> {
-    const response = await api.get(`/stored-predictions?limit=${limit}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data;
-  },
 
   async getRecommendations(token: string, filters: { sport?: string; model?: string; risk_level?: string; limit?: number } = {}): Promise<any> {
     const params = new URLSearchParams();
