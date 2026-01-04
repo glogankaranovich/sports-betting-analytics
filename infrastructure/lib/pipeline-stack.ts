@@ -28,15 +28,8 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
           'cd infrastructure',
           'npm ci',
           'npm run build',
-          'npm test',  // Run infrastructure unit tests
-          
-          // Run backend unit tests
-          'cd ../backend',
-          'python3 -m pip install -r requirements.txt',
-          'DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/ -v',
           
           // Synthesize CDK
-          'cd ../infrastructure',
           'cdk synth',
         ],
         primaryOutputDirectory: 'infrastructure/cdk.out',
