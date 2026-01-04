@@ -33,7 +33,7 @@ export class OddsCollectorStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_11.bundlingImage,
           command: [
             'bash', '-c',
-            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+            'pip install -r requirements.txt -t /asset-output && cp *.py /asset-output/ && cp -r ml /asset-output/ 2>/dev/null || true'
           ]
         }
       }),
