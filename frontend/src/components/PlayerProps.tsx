@@ -8,6 +8,12 @@ interface PlayerPropsProps {
   currentPage: number;
   itemsPerPage: number;
   onPageChange: (page: number) => void;
+  settings: {
+    sport: string;
+    bookmaker: string;
+    model: string;
+    riskTolerance: string;
+  };
 }
 
 const PlayerProps: React.FC<PlayerPropsProps> = ({ 
@@ -15,7 +21,8 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
   games = [], 
   currentPage, 
   itemsPerPage, 
-  onPageChange 
+  onPageChange,
+  settings
 }) => {
   const [props, setProps] = useState<PlayerProp[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,8 +48,8 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
     try {
       setLoading(true);
       const filterParams = {
-        sport: filters.sport || undefined,
-        bookmaker: filters.bookmaker || undefined,
+        sport: settings.sport,
+        bookmaker: settings.bookmaker,
         prop_type: filters.prop_type || undefined,
         limit: 1000 // Get more props for better pagination
       };
@@ -57,7 +64,7 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [token, filters]);
+  }, [token, settings.sport, settings.bookmaker, filters]);
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -99,28 +106,6 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
         <div className="filters">
           <select 
             className="filter-select"
-            value={filters.sport} 
-            onChange={(e) => setFilters({...filters, sport: e.target.value})}
-          >
-            <option key="all-sports" value="">All Sports</option>
-            <option key="nfl" value="americanfootball_nfl">NFL</option>
-            <option key="nba" value="basketball_nba">NBA</option>
-          </select>
-          
-          <select 
-            className="filter-select"
-            value={filters.bookmaker} 
-            onChange={(e) => setFilters({...filters, bookmaker: e.target.value})}
-          >
-            <option key="all-bookmakers" value="">All Bookmakers</option>
-            <option key="fanduel" value="fanduel">FanDuel</option>
-            <option key="draftkings" value="draftkings">DraftKings</option>
-            <option key="betmgm" value="betmgm">BetMGM</option>
-            <option key="fanatics" value="fanatics">Fanatics</option>
-          </select>
-          
-          <select 
-            className="filter-select"
             value={filters.prop_type} 
             onChange={(e) => setFilters({...filters, prop_type: e.target.value})}
           >
@@ -151,9 +136,6 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
                   <div className="sport-tag">{gameMatchup}</div>
                   <p className="game-time">{new Date(firstProp.commence_time).toLocaleString()}</p>
                 </div>
-                <div className="game-meta">
-                  <div className="bookmaker-count">{new Set(propGroup.map(prop => prop.bookmaker)).size} bookmaker{new Set(propGroup.map(prop => prop.bookmaker)).size !== 1 ? 's' : ''}</div>
-                </div>
               </div>
               
               <div className="odds-section">
@@ -169,7 +151,6 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
                     }, {} as Record<string, Record<string, any>>)
                   ).map(([bookmaker, outcomes]) => (
                     <div key={bookmaker} className="bookmaker-row">
-                      <div className="bookmaker-name">{bookmaker}</div>
                       <div className="odds-values">
                         {outcomes.Over && (
                           <span className="odds-value home">

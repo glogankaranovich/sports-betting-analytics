@@ -92,12 +92,14 @@ export const bettingApi = {
 
   async getPlayerProps(token: string, filters?: {
     sport?: string;
+    bookmaker?: string;
     player?: string;
     prop_type?: string;
     limit?: number;
   }): Promise<PlayerPropsResponse> {
     const params = new URLSearchParams();
     if (filters?.sport) params.append('sport', filters.sport);
+    if (filters?.bookmaker) params.append('bookmaker', filters.bookmaker);
     if (filters?.player) params.append('player', filters.player);
     if (filters?.prop_type) params.append('prop_type', filters.prop_type);
     if (filters?.limit) params.append('limit', filters.limit.toString());

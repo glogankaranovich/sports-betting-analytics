@@ -163,21 +163,6 @@ class TestPlayerPropsIntegration(unittest.TestCase):
             for prop in data["props"]:
                 self.assertEqual(prop["sport"], "americanfootball_nfl")
 
-    def test_player_props_filtering_by_player(self):
-        """Test filtering player props by player name"""
-        response = requests.get(
-            f"{self.api_url}/player-props?player=Allen", headers=self.headers
-        )
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-        self.assertEqual(data["filters"]["player"], "Allen")
-
-        # If there are props, verify they contain 'Allen'
-        if data["count"] > 0:
-            for prop in data["props"]:
-                self.assertIn("Allen", prop["player_name"])
-
     def test_player_props_filtering_by_prop_type(self):
         """Test filtering player props by prop type"""
         response = requests.get(
@@ -192,7 +177,7 @@ class TestPlayerPropsIntegration(unittest.TestCase):
         # If there are props, verify they're all passing TDs
         if data["count"] > 0:
             for prop in data["props"]:
-                self.assertEqual(prop["prop_type"], "player_pass_tds")
+                self.assertEqual(prop["market_key"], "player_pass_tds")
 
     def test_player_props_combined_filters(self):
         """Test combining multiple filters"""

@@ -95,7 +95,7 @@ class TestRecommendationStorage(unittest.TestCase):
         # Verify query was called correctly
         mock_table.query.assert_called_once()
         call_args = mock_table.query.call_args[1]
-        self.assertEqual(call_args["KeyConditionExpression"], "PK = :pk")
+        self.assertEqual(call_args["KeyConditionExpression"], "pk = :pk")
         self.assertEqual(
             call_args["ExpressionAttributeValues"][":pk"],
             "RECOMMENDATIONS#NBA#consensus#moderate",

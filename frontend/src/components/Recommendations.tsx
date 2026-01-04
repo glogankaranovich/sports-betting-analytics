@@ -20,28 +20,29 @@ interface Recommendation {
 
 interface RecommendationsProps {
   token: string;
+  settings: {
+    sport: string;
+    bookmaker: string;
+    model: string;
+    riskTolerance: string;
+  };
 }
 
-const Recommendations: React.FC<RecommendationsProps> = ({ token }) => {
+const Recommendations: React.FC<RecommendationsProps> = ({ token, settings }) => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [topRecommendation, setTopRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState({
-    sport: 'NBA',
-    model: 'consensus',
-    risk_level: 'moderate'
-  });
 
   useEffect(() => {
     fetchRecommendations();
     fetchTopRecommendation();
-  }, [filters]);
+  }, [settings]);
 
   const fetchRecommendations = async () => {
     try {
       setLoading(true);
-      const data = await apiService.getRecommendations(token, filters);
+      const data = await apiService.getRecommendations(token, settings);
       setRecommendations(data.recommendations || []);
     } catch (err) {
       setError('Failed to fetch recommendations');
@@ -53,7 +54,7 @@ const Recommendations: React.FC<RecommendationsProps> = ({ token }) => {
 
   const fetchTopRecommendation = async () => {
     try {
-      const data = await apiService.getTopRecommendation(token, filters);
+      const data = await apiService.getTopRecommendation(token, settings);
       setTopRecommendation(data.recommendation);
     } catch (err) {
       console.error('Error fetching top recommendation:', err);
@@ -64,14 +65,14 @@ const Recommendations: React.FC<RecommendationsProps> = ({ token }) => {
   const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
   const formatOdds = (odds: number) => odds > 0 ? `+${odds}` : `${odds}`;
 
-  const getRiskColor = (riskLevel: string) => {
-    switch (riskLevel) {
-      case 'conservative': return 'text-green-600';
-      case 'moderate': return 'text-yellow-600';
-      case 'aggressive': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
+  // const getRiskColor = (riskLevel: string) => {
+  //   switch (riskLevel) {
+  //     case 'conservative': return 'text-green-600';
+  //     case 'moderate': return 'text-yellow-600';
+  //     case 'aggressive': return 'text-red-600';
+  //     default: return 'text-gray-600';
+  //   }
+  // };
 
   if (loading) return <div className="no-data">Loading recommendations...</div>;
   if (error) return <div className="no-data">{error}</div>;
@@ -80,34 +81,6 @@ const Recommendations: React.FC<RecommendationsProps> = ({ token }) => {
     <div className="predictions-section">
       <div className="games-header">
         <h2>Recommendations</h2>
-        <p className="predictions-subtitle">Smart betting recommendations based on AI analysis</p>
-      </div>
-      
-      <div className="filters">
-        <select 
-          className="filter-select"
-          value={filters.sport}
-          onChange={(e) => setFilters({...filters, sport: e.target.value})}
-        >
-          <option value="NBA">NBA</option>
-          <option value="NFL">NFL</option>
-        </select>
-        <select 
-          className="filter-select"
-          value={filters.model}
-          onChange={(e) => setFilters({...filters, model: e.target.value})}
-        >
-          <option value="consensus">Consensus</option>
-        </select>
-        <select 
-          className="filter-select"
-          value={filters.risk_level}
-          onChange={(e) => setFilters({...filters, risk_level: e.target.value})}
-        >
-          <option value="conservative">Conservative</option>
-          <option value="moderate">Moderate</option>
-          <option value="aggressive">Aggressive</option>
-        </select>
       </div>
 
       {/* Top Recommendation */}

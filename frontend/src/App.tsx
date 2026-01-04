@@ -5,6 +5,7 @@ import { bettingApi } from './services/api';
 import { Game } from './types/betting';
 import PlayerProps from './components/PlayerProps';
 import Recommendations from './components/Recommendations';
+import Settings from './components/Settings';
 import './amplifyConfig'; // Initialize Amplify
 import '@aws-amplify/ui-react/styles.css';
 import './App.css';
@@ -15,13 +16,17 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [propPredictions, setPropPredictions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sportFilter, setSportFilter] = useState<string>('all');
-  const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'games' | 'game-predictions' | 'prop-predictions' | 'player-props' | 'recommendations'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
   const [token, setToken] = useState<string>('');
+  const [settings, setSettings] = useState({
+    sport: 'basketball_nba',
+    bookmaker: 'fanduel',
+    model: 'consensus',
+    riskTolerance: 'moderate'
+  });
 
   useEffect(() => {
     const getToken = async () => {
@@ -38,6 +43,15 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     fetchPropPredictions();
   }, []);
 
+  // Refetch data when settings change
+  useEffect(() => {
+    if (token) {
+      fetchGames();
+      fetchGamePredictions();
+      fetchPropPredictions();
+    }
+  }, [settings, token]);
+
   const fetchGames = async () => {
     try {
       setLoading(true);
@@ -45,7 +59,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const data = await bettingApi.getGames(token);
+        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const data = await bettingApi.getGames(token, sport, bookmaker);
         setGames(data.games || []);
       }
     } catch (err) {
@@ -76,7 +92,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const data = await bettingApi.getPropPredictions(token, 1000); // Fetch up to 1000 prop predictions
+        const data = await bettingApi.getPropPredictions(token, 1000);
         setPropPredictions(data.predictions || []);
       }
     } catch (err) {
@@ -93,28 +109,23 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     return true;
   });
 
-  console.log('Debug - Total games:', games.length);
-  console.log('Debug - Filtered games:', filteredGames.length);
-  console.log('Debug - Sample game:', games[0]);
-
-  // Apply sport filter
-  if (sportFilter !== 'all') {
-    filteredGames = filteredGames.filter(game => game.sport === sportFilter);
-    console.log('Debug - After sport filter:', filteredGames.length);
+  // Apply sport filter using settings
+  if (settings.sport !== 'all') {
+    filteredGames = filteredGames.filter(game => game.sport === settings.sport);
   }
 
-  // Apply bookmaker filter
-  if (bookmakerFilter !== 'all') {
+  // Apply bookmaker filter using settings
+  if (settings.bookmaker !== 'all') {
     filteredGames = filteredGames.filter(game => 
-      Object.keys(game.odds || {}).includes(bookmakerFilter)
+      Object.keys(game.odds || {}).includes(settings.bookmaker)
     );
   }
 
-  // Get unique sports and bookmakers for filter options
-  const uniqueSports = Array.from(new Set(games.map(game => game.sport).filter(Boolean)));
-  const uniqueBookmakers = Array.from(new Set(
-    games.flatMap(game => Object.keys(game.odds || {}))
-  ));
+  // Get unique sports and bookmakers for filter options (keeping for potential future use)
+  // const uniqueSports = Array.from(new Set(games.map(game => game.sport).filter(Boolean)));
+  // const uniqueBookmakers = Array.from(new Set(
+  //   games.flatMap(game => Object.keys(game.odds || {}))
+  // ));
 
 
   const formatSport = (sport: string) => {
@@ -149,18 +160,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     const result = filteredGames.map((game) => {
       const availableBookmakers = Object.keys(game.odds || {});
       
-      const displayBookmakers = bookmakerFilter === 'all' 
-        ? availableBookmakers 
-        : availableBookmakers.filter(bookmaker => bookmaker === bookmakerFilter);
+      const displayBookmakers = availableBookmakers.filter(bookmaker => bookmaker === settings.bookmaker);
       
       if (displayBookmakers.length === 0) return null;
 
-      // Collect all markets data for this game
-      const markets = ['h2h', 'spreads', 'totals'] as const;
-      const marketLabels: Record<string, string> = { h2h: 'Moneyline', spreads: 'Spread', totals: 'Total' };
+      // Collect all bet types data for this game
+      const allMarkets = ['h2h', 'spreads', 'totals'] as const;
+      const marketsToShow = marketFilter === 'all' ? allMarkets : [marketFilter as any];
       
       const gameMarkets: any = {};
-      markets.forEach(market => {
+      marketsToShow.forEach(market => {
         const bookmakerOdds = displayBookmakers
           .map(bookmaker => ({ name: bookmaker, odds: game.odds[bookmaker]?.[market] }))
           .filter(item => item.odds);
@@ -176,7 +185,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       return { game, markets: gameMarkets, key: game.game_id };
     }).filter(Boolean);
     
-    console.log('Debug - Generated cards:', result.length);
     return result;
   };
 
@@ -211,6 +219,13 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </button>
         </div>
       </header>
+      
+      <Settings 
+        settings={settings}
+        onSettingsChange={setSettings}
+        availableSports={['basketball_nba', 'americanfootball_nfl']}
+        availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+      />
       
       <main>
         <div className="tab-navigation">
@@ -253,35 +268,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               <div className="filters">
                 <select 
                   className="filter-select"
-                  value={sportFilter} 
-                  onChange={(e) => setSportFilter(e.target.value)}
-                >
-                  <option key="all-sports" value="all">All Sports</option>
-                  {uniqueSports.map((sport, index) => (
-                    <option key={`sport-${sport}-${index}`} value={sport}>
-                      {formatSport(sport)}
-                    </option>
-                  ))}
-                </select>
-                <select 
-                  className="filter-select"
-                  value={bookmakerFilter} 
-                  onChange={(e) => setBookmakerFilter(e.target.value)}
-                >
-                  <option key="all-bookmakers" value="all">All Bookmakers</option>
-                  {uniqueBookmakers.map((bookmaker, index) => (
-                    <option key={`bookmaker-${bookmaker}-${index}`} value={bookmaker}>
-                      {bookmaker}
-                    </option>
-                  ))}
-                </select>
-                
-                <select 
-                  className="filter-select"
                   value={marketFilter} 
                   onChange={(e) => setMarketFilter(e.target.value)}
                 >
-                  <option key="all-markets" value="all">All Markets</option>
+                  <option key="all-markets" value="all">All Bet Types</option>
                   <option key="h2h" value="h2h">Moneyline</option>
                   <option key="spreads" value="spreads">Spread</option>
                   <option key="totals" value="totals">Total</option>
@@ -308,9 +298,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                           <div className="sport-tag">{formatSport(game.sport)}</div>
                           <p className="game-time">{new Date(game.commence_time).toLocaleString()}</p>
                         </div>
-                        <div className="game-meta">
-                          <div className="bookmaker-count">{Object.keys(markets).length} market{Object.keys(markets).length !== 1 ? 's' : ''}</div>
-                        </div>
                       </div>
                       
                       {Object.entries(markets).map(([market, bookmakerOdds]: [string, any]) => (
@@ -321,7 +308,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                           <div className="bookmaker-odds">
                             {bookmakerOdds.map((bookmaker: any) => (
                               <div key={`${game.game_id}-${bookmaker.name}-${market}`} className="bookmaker-row">
-                                <div className="bookmaker-name">{bookmaker.name}</div>
                                 <div className="odds-values">
                                   {bookmaker.odds?.map((outcome: any) => (
                                     <span key={outcome.name} className={`odds-value ${outcome.name === game.home_team ? 'home' : 'away'}`}>
@@ -367,7 +353,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <div className="predictions-section">
             <div className="games-header">
               <h2>Game Predictions</h2>
-              <p className="predictions-subtitle">AI-powered predictions for game outcomes</p>
+
             </div>
             <div className="games-grid">
               {filteredGamePredictions.length > 0 ? (
@@ -429,7 +415,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <div className="predictions-section">
             <div className="games-header">
               <h2>Player Prop Predictions</h2>
-              <p className="predictions-subtitle">AI-powered predictions for player performance props</p>
+
             </div>
             <div className="games-grid">
               {filteredPropPredictions.length > 0 ? (
@@ -494,11 +480,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             currentPage={currentPage}
             itemsPerPage={itemsPerPage}
             onPageChange={setCurrentPage}
+            settings={settings}
           />
         )}
 
         {activeTab === 'recommendations' && (
-          <Recommendations token={token} />
+          <Recommendations token={token} settings={settings} />
         )}
       </main>
     </div>

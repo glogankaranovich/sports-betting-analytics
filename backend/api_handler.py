@@ -104,6 +104,7 @@ def handle_health():
 def handle_get_games(query_params: Dict[str, str]):
     """Get all games with latest odds using GSI query"""
     sport = query_params.get("sport")
+    bookmaker = query_params.get("bookmaker")
     limit = int(query_params.get("limit", "500"))
 
     # Frontend display bookmakers (backend collects from all bookmakers)
@@ -124,13 +125,20 @@ def handle_get_games(query_params: Dict[str, str]):
         day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
         for query_sport in sports_to_query:
+            # Build filter expression
+            filter_expr = boto3.dynamodb.conditions.Attr("latest").eq(True)
+            if bookmaker:
+                filter_expr = filter_expr & boto3.dynamodb.conditions.Attr(
+                    "sk"
+                ).begins_with(f"{bookmaker}#")
+
             response = table.query(
                 IndexName="ActiveBetsIndexV2",
                 KeyConditionExpression=boto3.dynamodb.conditions.Key(
                     "active_bet_pk"
                 ).eq(f"GAME#{query_sport}")
                 & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
-                FilterExpression=boto3.dynamodb.conditions.Attr("latest").eq(True),
+                FilterExpression=filter_expr,
                 Limit=limit * 10,
             )
             all_odds_items.extend(response.get("Items", []))
@@ -159,8 +167,9 @@ def handle_get_games(query_params: Dict[str, str]):
                 bookmaker = parts[0]
                 market = parts[1]  # Extract just the market name, ignore #LATEST
 
-                # Only include display bookmakers in frontend response
-                if bookmaker in display_bookmakers:
+                # Filter by specific bookmaker if provided, otherwise use all display bookmakers
+                allowed_bookmakers = {bookmaker} if bookmaker else display_bookmakers
+                if bookmaker in allowed_bookmakers:
                     if bookmaker not in games_dict[game_id]["odds"]:
                         games_dict[game_id]["odds"][bookmaker] = {}
 
@@ -423,7 +432,9 @@ def handle_get_player_props(query_params: Dict[str, str]):
                 ]  # Always filter for latest
                 if bookmaker:
                     filter_expressions.append(
-                        boto3.dynamodb.conditions.Attr("bookmaker").eq(bookmaker)
+                        boto3.dynamodb.conditions.Attr("sk").begins_with(
+                            f"{bookmaker}#"
+                        )
                     )
                 if prop_type:
                     filter_expressions.append(

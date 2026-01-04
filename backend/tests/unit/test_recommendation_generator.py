@@ -32,29 +32,13 @@ class TestRecommendationGenerator(unittest.TestCase):
 
     @patch("recommendation_generator.boto3")
     def test_get_active_sports(self, mock_boto3):
-        """Test getting active sports from predictions"""
-        mock_table = Mock()
-        mock_boto3.resource.return_value.Table.return_value = mock_table
-
-        # Mock scan response
-        mock_table.scan.return_value = {
-            "Items": [
-                {"sport": "NBA"},
-                {"sport": "NFL"},
-                {"sport": "NBA"},  # Duplicate should be deduplicated
-            ]
-        }
-
+        """Test getting active sports from supported sports list"""
         generator = RecommendationGenerator(self.table_name)
         sports = generator._get_active_sports()
 
-        # Verify scan was called
-        mock_table.scan.assert_called_once()
-
-        # Verify results
+        # Should return supported sports
+        self.assertEqual(sports, ["basketball_nba", "americanfootball_nfl"])
         self.assertEqual(len(sports), 2)
-        self.assertIn("NBA", sports)
-        self.assertIn("NFL", sports)
 
     @patch("recommendation_generator.boto3")
     def test_get_active_sports_fallback(self, mock_boto3):
@@ -69,7 +53,7 @@ class TestRecommendationGenerator(unittest.TestCase):
         sports = generator._get_active_sports()
 
         # Should return default fallback
-        self.assertEqual(sports, ["NBA", "NFL"])
+        self.assertEqual(sports, ["basketball_nba", "americanfootball_nfl"])
 
     @patch("recommendation_generator.boto3")
     def test_get_recent_predictions(self, mock_boto3):

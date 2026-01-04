@@ -28,10 +28,6 @@ def test_odds_collector_integration():
 
     print(f"Testing odds collector: {lambda_function_name}")
 
-    # Test with limit for faster execution
-    test_start_time = datetime.utcnow() - timedelta(seconds=30)
-    test_start_iso = test_start_time.isoformat()
-
     print("Testing odds collection with limit=2...")
     response = lambda_client.invoke(
         FunctionName=lambda_function_name,
@@ -46,44 +42,48 @@ def test_odds_collector_integration():
     body = json.loads(payload["body"])
     print(f"✓ Odds collection result: {body['message']}")
 
-    # Verify data in DynamoDB with retry logic
-    import time
+    # Get the game IDs that were processed
+    game_ids = body.get("game_ids", [])
+    print(f"📋 Game IDs processed: {game_ids}")
 
-    print("🔍 Checking for updated records with retry...")
+    # Verify Lambda returned game IDs (proves it's working)
+    assert len(game_ids) > 0, "Lambda should return game IDs of processed games"
+    print(f"✓ Lambda successfully returned {len(game_ids)} game IDs")
 
-    max_retries = 5
-    base_delay = 5
-
-    for attempt in range(max_retries):
-        print(
-            f"🔍 Attempt {attempt + 1}: Querying for records updated after: {test_start_iso}"
+    # Verify the specific games exist in the main table
+    print(f"🔍 Verifying {len(game_ids)} specific games exist in database...")
+    for game_id in game_ids[:2]:  # Check first 2 games
+        # Try to get the game directly from main table
+        game_response = table.get_item(
+            Key={
+                "pk": f"GAME#{game_id}",
+                "sk": "fanduel#h2h#LATEST",  # Try the most common market/bookmaker combo
+            }
         )
-        updated_items_response = table.query(
-            IndexName="ActiveBetsIndexV2",
-            KeyConditionExpression="active_bet_pk = :active_bet_pk",
-            FilterExpression="updated_at > :start_time AND latest = :latest",
-            ExpressionAttributeValues={
-                ":active_bet_pk": "GAME#basketball_nba",
-                ":start_time": test_start_iso,
-                ":latest": True,
-            },
-            Limit=5,
-        )
+        if "Item" not in game_response:
+            # Try other combinations if fanduel#h2h doesn't exist
+            for bookmaker in ["draftkings", "betmgm", "caesars"]:
+                game_response = table.get_item(
+                    Key={"pk": f"GAME#{game_id}", "sk": f"{bookmaker}#h2h#LATEST"}
+                )
+                if "Item" in game_response:
+                    break
 
-        updated_items = updated_items_response["Items"]
-        print(f"📊 Query returned {len(updated_items)} items")
+        assert "Item" in game_response, f"Game {game_id} not found in database"
 
-        if len(updated_items) > 0:
-            print(f"✓ Found {len(updated_items)} odds records")
-            break
+        # Verify the record was updated recently (within last 5 minutes)
+        item = game_response["Item"]
+        updated_at = item.get("updated_at")
+        if updated_at:
+            updated_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+            time_diff = datetime.now(updated_time.tzinfo) - updated_time
+            assert time_diff < timedelta(
+                minutes=5
+            ), f"Game {game_id} was not updated recently (updated {time_diff} ago)"
 
-        if attempt < max_retries - 1:
-            delay = base_delay * (2**attempt)  # Exponential backoff
-            print(f"⏳ No records found, waiting {delay} seconds before retry...")
-            time.sleep(delay)
-    else:
-        # If we exhausted all retries
-        assert len(updated_items) > 0, "No odds data found after all retries"
+    print(
+        f"✓ Verified {min(len(game_ids), 2)} processed games exist and were updated recently"
+    )
 
     return True
 

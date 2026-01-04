@@ -330,21 +330,22 @@ class OddsCollector:
         print(f"Collected {total_props} player prop bookmakers for {sport}")
         return total_props
 
-    def collect_odds_for_sport(self, sport: str, limit: int = None) -> int:
+    def collect_odds_for_sport(self, sport: str, limit: int = None) -> List[str]:
         """Collect odds for a specific sport (odds only, no props)"""
         try:
             print(f"Collecting odds for {sport}...")
             odds = self.get_odds(sport, limit=limit)
             if odds:
                 self.store_odds(sport, odds)
+                game_ids = [game["id"] for game in odds]
                 print(f"Stored {len(odds)} games for {sport}")
-                return len(odds)
+                return game_ids
             else:
                 print(f"No odds available for {sport}")
-                return 0
+                return []
         except Exception as e:
             print(f"Error collecting odds for {sport}: {str(e)}")
-            return 0
+            return []
 
     def collect_all_odds(self):
         """Main method to collect odds for all active sports"""
@@ -394,11 +395,14 @@ def lambda_handler(event, context):
             }
         elif sport:
             print(f"Processing odds only for: {sport} (limit: {limit})")
-            total_games = collector.collect_odds_for_sport(sport, limit=limit)
-            message = f"Successfully collected odds for {total_games} games in {sport}"
+            game_ids = collector.collect_odds_for_sport(sport, limit=limit)
+            message = (
+                f"Successfully collected odds for {len(game_ids)} games in {sport}"
+            )
         else:
             print("Processing all active sports (odds only)")
             total_games = collector.collect_all_odds()
+            game_ids = []  # collect_all_odds still returns int for now
             message = f"Successfully collected odds for {total_games} total games"
 
         return {
@@ -408,7 +412,10 @@ def lambda_handler(event, context):
                     "message": message,
                     "sport": sport,
                     "props_only": False,
-                    "games_collected": total_games,
+                    "games_collected": len(game_ids)
+                    if isinstance(game_ids, list)
+                    else total_games,
+                    "game_ids": game_ids if isinstance(game_ids, list) else [],
                     "timestamp": datetime.utcnow().isoformat(),
                 }
             ),
