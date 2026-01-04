@@ -128,16 +128,16 @@ def test_boxing_analysis():
         "home_team": "Boxer A",
         "away_team": "Boxer B",
         "commence_time": "2026-01-03T20:00:00Z",
-        "odds": {
-            "test_bookmaker": {
-                "h2h": {
-                    "outcomes": [
-                        {"name": "Boxer A", "price": -200},
-                        {"name": "Boxer B", "price": 170},
-                    ]
-                }
+        "bookmakers": [
+            {
+                "bookmaker": "test_bookmaker",
+                "market_key": "h2h",
+                "outcomes": [
+                    {"name": "Boxer A", "price": -200},
+                    {"name": "Boxer B", "price": 170},
+                ],
             }
-        },
+        ],
     }
 
     prediction = analyzer.analyze_game(boxing_data)

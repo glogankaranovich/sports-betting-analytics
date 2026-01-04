@@ -4,6 +4,8 @@ import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { OddsCollectorStack } from '../lib/odds-collector-stack';
 import { BetCollectorApiStack } from '../lib/bet-collector-api-stack';
 import { PredictionGeneratorStack } from '../lib/prediction-generator-stack';
+import { RecommendationGeneratorStack } from '../lib/recommendation-generator-stack';
+import { OutcomeCollectorStack } from '../lib/outcome-collector-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { AmplifyStack } from '../lib/amplify-stack';
 import { CarpoolBetsPipelineStack } from '../lib/pipeline-stack';
@@ -43,6 +45,21 @@ if (environment === 'dev') {
   new PredictionGeneratorStack(app, StackNames.forEnvironment('dev', 'PredictionGenerator'), {
     environment: 'dev',
     betsTable: dynamoStack.betsTable,
+    env: ENVIRONMENTS.dev,
+  });
+
+  new RecommendationGeneratorStack(app, StackNames.forEnvironment('dev', 'RecommendationGenerator'), {
+    environment: 'dev',
+    dynamoDbTableName: 'carpool-bets-v2-dev',
+    dynamoDbTableArn: dynamoStack.betsTable.tableArn,
+    env: ENVIRONMENTS.dev,
+  });
+
+  new OutcomeCollectorStack(app, StackNames.forEnvironment('dev', 'OutcomeCollector'), {
+    environment: 'dev',
+    dynamoDbTableName: 'carpool-bets-v2-dev',
+    dynamoDbTableArn: dynamoStack.betsTable.tableArn,
+    oddsApiSecretArn: 'arn:aws:secretsmanager:us-east-1:952070844012:secret:odds-api-key-dev-abc123',
     env: ENVIRONMENTS.dev,
   });
 } else {

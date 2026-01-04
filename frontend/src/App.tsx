@@ -4,6 +4,7 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 import { bettingApi } from './services/api';
 import { Game } from './types/betting';
 import PlayerProps from './components/PlayerProps';
+import Recommendations from './components/Recommendations';
 import './amplifyConfig'; // Initialize Amplify
 import '@aws-amplify/ui-react/styles.css';
 import './App.css';
@@ -16,7 +17,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [sportFilter, setSportFilter] = useState<string>('all');
   const [bookmakerFilter, setBookmakerFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'games' | 'game-predictions' | 'prop-predictions' | 'player-props'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-predictions' | 'prop-predictions' | 'player-props' | 'recommendations'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
@@ -92,9 +93,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     return true;
   });
 
+  console.log('Debug - Total games:', games.length);
+  console.log('Debug - Filtered games:', filteredGames.length);
+  console.log('Debug - Sample game:', games[0]);
+
   // Apply sport filter
   if (sportFilter !== 'all') {
     filteredGames = filteredGames.filter(game => game.sport === sportFilter);
+    console.log('Debug - After sport filter:', filteredGames.length);
   }
 
   // Apply bookmaker filter
@@ -140,26 +146,38 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   // Generate all game cards for pagination
   const generateGameCards = () => {
-    return filteredGames.flatMap((game) => {
+    const result = filteredGames.map((game) => {
       const availableBookmakers = Object.keys(game.odds || {});
+      
       const displayBookmakers = bookmakerFilter === 'all' 
         ? availableBookmakers 
         : availableBookmakers.filter(bookmaker => bookmaker === bookmakerFilter);
       
+      if (displayBookmakers.length === 0) return null;
+
+      // Collect all markets data for this game
       const markets = ['h2h', 'spreads', 'totals'] as const;
       const marketLabels: Record<string, string> = { h2h: 'Moneyline', spreads: 'Spread', totals: 'Total' };
-      const filteredMarkets = marketFilter === 'all' ? markets : markets.filter(market => market === marketFilter);
       
-      return filteredMarkets.map(market => {
+      const gameMarkets: any = {};
+      markets.forEach(market => {
         const bookmakerOdds = displayBookmakers
           .map(bookmaker => ({ name: bookmaker, odds: game.odds[bookmaker]?.[market] }))
           .filter(item => item.odds);
         
-        if (bookmakerOdds.length === 0) return null;
-        
-        return { game, market, bookmakerOdds, key: `${game.game_id}-${market}` };
-      }).filter(Boolean);
+        if (bookmakerOdds.length > 0) {
+          gameMarkets[market] = bookmakerOdds;
+        }
+      });
+
+      // Only return if we have at least one market with data
+      if (Object.keys(gameMarkets).length === 0) return null;
+
+      return { game, markets: gameMarkets, key: game.game_id };
     }).filter(Boolean);
+    
+    console.log('Debug - Generated cards:', result.length);
+    return result;
   };
 
   const formatOdds = (odds: number) => {
@@ -212,13 +230,19 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             className={`tab-button ${activeTab === 'game-predictions' ? 'active' : ''}`}
             onClick={() => handleTabChange('game-predictions')}
           >
-            Game Predictions ({filteredGamePredictions.length})
+            Game Predictions
           </button>
           <button 
             className={`tab-button ${activeTab === 'prop-predictions' ? 'active' : ''}`}
             onClick={() => handleTabChange('prop-predictions')}
           >
-            Prop Predictions ({filteredPropPredictions.length})
+            Prop Predictions
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'recommendations' ? 'active' : ''}`}
+            onClick={() => handleTabChange('recommendations')}
+          >
+            Recommendations
           </button>
         </div>
 
@@ -273,7 +297,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 }
                 
                 return paginateItems(allGameCards, currentPage).map((cardData: any) => {
-                  const { game, market, bookmakerOdds, key } = cardData;
+                  const { game, markets, key } = cardData;
                   const marketLabels: Record<string, string> = { h2h: 'Moneyline', spreads: 'Spread', totals: 'Total' };
                   
                   return (
@@ -282,32 +306,35 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                         <div className="teams">
                           <h3>{game.away_team} @ {game.home_team}</h3>
                           <div className="sport-tag">{formatSport(game.sport)}</div>
+                          <p className="game-time">{new Date(game.commence_time).toLocaleString()}</p>
                         </div>
                         <div className="game-meta">
-                          <div className="bookmaker-count">{bookmakerOdds.length} bookmaker{bookmakerOdds.length !== 1 ? 's' : ''}</div>
+                          <div className="bookmaker-count">{Object.keys(markets).length} market{Object.keys(markets).length !== 1 ? 's' : ''}</div>
                         </div>
                       </div>
                       
-                      <div className="odds-section">
-                        <div className="odds-header">
-                          <span className="odds-label">{marketLabels[market]} Odds</span>
-                        </div>
-                        <div className="bookmaker-odds">
-                          {bookmakerOdds.map((bookmaker: any) => (
-                            <div key={`${game.game_id}-${bookmaker.name}`} className="bookmaker-row">
-                              <div className="bookmaker-name">{bookmaker.name}</div>
-                              <div className="odds-values">
-                                {bookmaker.odds.outcomes?.map((outcome: any) => (
-                                  <span key={outcome.name} className={`odds-value ${outcome.name === game.home_team ? 'home' : 'away'}`}>
-                                    {outcome.name}: {formatOdds(outcome.price)}
-                                    {outcome.point && ` (${outcome.point > 0 ? '+' : ''}${outcome.point})`}
-                                  </span>
-                                ))}
+                      {Object.entries(markets).map(([market, bookmakerOdds]: [string, any]) => (
+                        <div key={market} className="odds-section">
+                          <div className="odds-header">
+                            <span className="odds-label">{marketLabels[market]} Odds</span>
+                          </div>
+                          <div className="bookmaker-odds">
+                            {bookmakerOdds.map((bookmaker: any) => (
+                              <div key={`${game.game_id}-${bookmaker.name}-${market}`} className="bookmaker-row">
+                                <div className="bookmaker-name">{bookmaker.name}</div>
+                                <div className="odds-values">
+                                  {bookmaker.odds?.map((outcome: any) => (
+                                    <span key={outcome.name} className={`odds-value ${outcome.name === game.home_team ? 'home' : 'away'}`}>
+                                      {outcome.name}: {formatOdds(outcome.price)}
+                                      {outcome.point && ` (${outcome.point > 0 ? '+' : ''}${outcome.point})`}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
                   );
                 });
@@ -349,6 +376,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     <div className="game-info">
                       <div className="teams">
                         <h3>{prediction.away_team} @ {prediction.home_team}</h3>
+                        <div className="sport-tag">{formatSport(prediction.sport)}</div>
+                        <p className="game-time">{new Date(prediction.commence_time).toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="prediction-info">
@@ -368,7 +397,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                       </div>
                     </div>
                     <div className="game-meta">
-                      <span className="sport">{formatSport(prediction.sport)}</span>
                       <span className="model">Model: {prediction.model_version}</span>
                     </div>
                   </div>
@@ -410,6 +438,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     <div className="game-info">
                       <div className="teams">
                         <h3>{prediction.player_name} - {prediction.prop_type}</h3>
+                        <div className="sport-tag">{prediction.gameMatchup || formatSport(prediction.sport)}</div>
+                        <p className="game-time">{new Date(prediction.commence_time).toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="prediction-info">
@@ -460,11 +490,15 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         {activeTab === 'player-props' && (
           <PlayerProps 
             token={token} 
-            games={games} 
+            games={games}
             currentPage={currentPage}
             itemsPerPage={itemsPerPage}
             onPageChange={setCurrentPage}
           />
+        )}
+
+        {activeTab === 'recommendations' && (
+          <Recommendations token={token} />
         )}
       </main>
     </div>

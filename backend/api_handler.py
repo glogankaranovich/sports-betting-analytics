@@ -118,13 +118,18 @@ def handle_get_games(query_params: Dict[str, str]):
     try:
         all_odds_items = []
 
-        # Query each sport partition separately
+        # Query each sport partition separately with time filtering
+        from datetime import datetime, timedelta
+
+        day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
+
         for query_sport in sports_to_query:
             response = table.query(
                 IndexName="ActiveBetsIndexV2",
                 KeyConditionExpression=boto3.dynamodb.conditions.Key(
                     "active_bet_pk"
-                ).eq(f"GAME#{query_sport}"),
+                ).eq(f"GAME#{query_sport}")
+                & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
                 FilterExpression=boto3.dynamodb.conditions.Attr("latest").eq(True),
                 Limit=limit * 10,
             )
@@ -148,18 +153,18 @@ def handle_get_games(query_params: Dict[str, str]):
                     "odds": {},
                 }
 
-            # Parse bookmaker and market from sk (format: bookmaker#market)
+            # Parse bookmaker and market from sk (format: bookmaker#market#LATEST)
             if "#" in item["sk"]:
-                bookmaker, market = item["sk"].split("#", 1)
+                parts = item["sk"].split("#")
+                bookmaker = parts[0]
+                market = parts[1]  # Extract just the market name, ignore #LATEST
 
                 # Only include display bookmakers in frontend response
                 if bookmaker in display_bookmakers:
                     if bookmaker not in games_dict[game_id]["odds"]:
                         games_dict[game_id]["odds"][bookmaker] = {}
 
-                    games_dict[game_id]["odds"][bookmaker][market] = {
-                        "outcomes": item["outcomes"]
-                    }
+                    games_dict[game_id]["odds"][bookmaker][market] = item["outcomes"]
 
         games = list(games_dict.values())[:limit]
         games = decimal_to_float(games)
@@ -425,29 +430,29 @@ def handle_get_player_props(query_params: Dict[str, str]):
                         boto3.dynamodb.conditions.Attr("market_key").eq(prop_type)
                     )
 
-            if filter_expressions:
-                filter_expression = filter_expressions[0]
-                for expr in filter_expressions[1:]:
-                    filter_expression = filter_expression & expr
-                query_kwargs["FilterExpression"] = filter_expression
+                if filter_expressions:
+                    filter_expression = filter_expressions[0]
+                    for expr in filter_expressions[1:]:
+                        filter_expression = filter_expression & expr
+                    query_kwargs["FilterExpression"] = filter_expression
 
-            if last_evaluated_key:
-                query_kwargs["ExclusiveStartKey"] = last_evaluated_key
+                if last_evaluated_key:
+                    query_kwargs["ExclusiveStartKey"] = last_evaluated_key
 
-            response = table.query(**query_kwargs)
-            batch_props = response.get("Items", [])
+                response = table.query(**query_kwargs)
+                batch_props = response.get("Items", [])
 
-            # Filter to only display bookmakers for frontend
-            filtered_props = [
-                prop
-                for prop in batch_props
-                if prop.get("bookmaker") in display_bookmakers
-            ]
-            props.extend(filtered_props)
+                # Filter to only display bookmakers for frontend
+                filtered_props = [
+                    prop
+                    for prop in batch_props
+                    if prop.get("bookmaker") in display_bookmakers
+                ]
+                props.extend(filtered_props)
 
-            last_evaluated_key = response.get("LastEvaluatedKey")
-            if not last_evaluated_key or len(batch_props) == 0:
-                break
+                last_evaluated_key = response.get("LastEvaluatedKey")
+                if not last_evaluated_key or len(batch_props) == 0:
+                    break
 
         props = decimal_to_float(props)
 

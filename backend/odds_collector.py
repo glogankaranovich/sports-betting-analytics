@@ -28,6 +28,8 @@ def convert_floats_to_decimal(obj):
 
 class OddsCollector:
     def __init__(self):
+        from dao import BettingDAO
+
         secret_arn = os.getenv("ODDS_API_SECRET_ARN")
         if secret_arn:
             self.api_key = get_secret(secret_arn)
@@ -37,6 +39,7 @@ class OddsCollector:
         self.base_url = "https://api.the-odds-api.com/v4"
         self.dynamodb = boto3.resource("dynamodb")
         self.table = self.dynamodb.Table(os.getenv("DYNAMODB_TABLE"))
+        self.dao = BettingDAO()
 
     def get_active_sports(self) -> List[str]:
         """Get sports currently in season"""
@@ -273,43 +276,13 @@ class OddsCollector:
                         print(f"Error processing odds for {game_id}: {str(e)}")
                         continue
 
-    def get_game_ids_from_db(self, sport: str) -> List[str]:
-        """Get unique game IDs for a sport (next 7 days, latest odds only)"""
-        try:
-            # Get current time and 7 days from now
-            now = datetime.utcnow()
-            week_from_now = now + timedelta(days=7)
-
-            response = self.table.query(
-                IndexName="ActiveBetsIndex",
-                KeyConditionExpression="active_bet_pk = :active_bet_pk AND commence_time BETWEEN :start_time AND :end_time",
-                FilterExpression="attribute_exists(latest)",
-                ExpressionAttributeValues={
-                    ":active_bet_pk": f"GAME#{sport}",
-                    ":start_time": now.isoformat() + "Z",
-                    ":end_time": week_from_now.isoformat() + "Z",
-                },
-                ProjectionExpression="pk",
-            )
-
-            # Extract unique game IDs from pk (format: GAME#{game_id})
-            game_ids = set()
-            for item in response["Items"]:
-                game_id = item["pk"].split("#")[1]
-                game_ids.add(game_id)
-
-            return list(game_ids)
-        except Exception as e:
-            print(f"Error getting game IDs from BetType GSI for {sport}: {str(e)}")
-            return []
-
     def collect_props_for_sport(self, sport: str, limit: int = None) -> int:
         """Collect player props for a sport using existing game data with parallel processing"""
         if sport not in ["basketball_nba", "americanfootball_nfl"]:
             print(f"Player props not supported for {sport}")
             return 0
 
-        game_ids = self.get_game_ids_from_db(sport)
+        game_ids = self.dao.get_game_ids_from_db(sport)
         if not game_ids:
             print(f"No games found in DB for {sport}")
             return 0

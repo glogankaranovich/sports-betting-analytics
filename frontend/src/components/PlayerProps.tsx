@@ -149,6 +149,7 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
                 <div className="teams">
                   <h3>{playerName} - {propTypeLabels[marketKey] || marketKey}</h3>
                   <div className="sport-tag">{gameMatchup}</div>
+                  <p className="game-time">{new Date(firstProp.commence_time).toLocaleString()}</p>
                 </div>
                 <div className="game-meta">
                   <div className="bookmaker-count">{new Set(propGroup.map(prop => prop.bookmaker)).size} bookmaker{new Set(propGroup.map(prop => prop.bookmaker)).size !== 1 ? 's' : ''}</div>

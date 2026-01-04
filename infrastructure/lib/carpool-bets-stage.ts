@@ -4,6 +4,8 @@ import { DynamoDBStack } from './dynamodb-stack';
 import { OddsCollectorStack } from './odds-collector-stack';
 import { BetCollectorApiStack } from './bet-collector-api-stack';
 import { PredictionGeneratorStack } from './prediction-generator-stack';
+import { RecommendationGeneratorStack } from './recommendation-generator-stack';
+import { OutcomeCollectorStack } from './outcome-collector-stack';
 import { AuthStack } from './auth-stack';
 import { IntegrationTestRoleStack } from './integration-test-role-stack';
 import { StackNames } from './utils/stack-names';
@@ -49,6 +51,21 @@ export class CarpoolBetsStage extends cdk.Stage {
     new PredictionGeneratorStack(this, 'PredictionGenerator', {
       environment: props.stage,
       betsTable: dynamoStack.betsTable,
+    });
+
+    // Recommendation generator stack
+    new RecommendationGeneratorStack(this, 'RecommendationGenerator', {
+      environment: props.stage,
+      dynamoDbTableName: `carpool-bets-v2-${props.stage}`,
+      dynamoDbTableArn: dynamoStack.betsTable.tableArn,
+    });
+
+    // Outcome collector stack
+    new OutcomeCollectorStack(this, 'OutcomeCollector', {
+      environment: props.stage,
+      dynamoDbTableName: `carpool-bets-v2-${props.stage}`,
+      dynamoDbTableArn: dynamoStack.betsTable.tableArn,
+      oddsApiSecretArn: `arn:aws:secretsmanager:us-east-1:${this.account}:secret:odds-api-key-${props.stage}-abc123`,
     });
 
     // Integration test role for pipeline access

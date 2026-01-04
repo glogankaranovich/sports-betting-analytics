@@ -67,7 +67,7 @@ class RecommendationStorage:
         pk = f"RECOMMENDATIONS#{sport}#{model}#{risk_level.value}"
 
         response = self.table.query(
-            KeyConditionExpression="PK = :pk",
+            KeyConditionExpression="pk = :pk",
             ExpressionAttributeValues={":pk": pk},
             Limit=limit,
             ScanIndexForward=True,
@@ -78,13 +78,13 @@ class RecommendationStorage:
     def _clear_existing_recommendations(self, pk: str) -> None:
         """Clear existing recommendations for a PK"""
         response = self.table.query(
-            KeyConditionExpression="PK = :pk",
+            KeyConditionExpression="pk = :pk",
             ExpressionAttributeValues={":pk": pk},
-            ProjectionExpression="PK, SK",
+            ProjectionExpression="pk, sk",
         )
 
         for item in response.get("Items", []):
-            self.table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+            self.table.delete_item(Key={"pk": item["pk"], "sk": item["sk"]})
 
     def update_recommendation_outcome(
         self, pk: str, sk: str, outcome: bool, roi: float

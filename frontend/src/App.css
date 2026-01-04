@@ -200,6 +200,12 @@ main {
   margin-bottom: 0.25rem;
 }
 
+.game-time {
+  font-size: 0.85rem;
+  color: #a0aec0;
+  margin-top: 0.25rem;
+}
+
 .game-meta {
   display: flex;
   flex-direction: column;
@@ -694,4 +700,72 @@ main {
 
 .pagination button:hover:not(:disabled) {
   background: #f5f5f5;
+}
+/* Filters Section */
+.filters-section {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.filter-group select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  font-size: 0.875rem;
+}
+
+/* Featured Recommendation */
+.featured-recommendation {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  margin-bottom: 1.5rem;
+}
+
+.featured-recommendation .sport-tag {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.featured-recommendation .prob-value.home,
+.featured-recommendation .prob-value.away {
+  color: #fbbf24;
+  font-weight: bold;
+}
+
+.featured-recommendation .confidence-value {
+  color: #34d399;
+}
+
+/* Reasoning */
+.reasoning {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  font-style: italic;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.featured-recommendation .reasoning {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }

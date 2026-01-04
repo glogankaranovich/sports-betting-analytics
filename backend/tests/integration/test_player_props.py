@@ -35,6 +35,7 @@ class TestPlayerPropsUnit(unittest.TestCase):
 
         # Test data
         props_data = {
+            "commence_time": "2026-01-04T20:00:00Z",
             "bookmakers": [
                 {
                     "key": "draftkings",
@@ -42,30 +43,35 @@ class TestPlayerPropsUnit(unittest.TestCase):
                         {
                             "key": "player_pass_tds",
                             "outcomes": [
-                                {"name": "Josh Allen", "point": 1.5, "price": 120}
+                                {
+                                    "name": "Over",
+                                    "description": "Josh Allen",
+                                    "point": 1.5,
+                                    "price": 120,
+                                }
                             ],
                         }
                     ],
                 }
-            ]
+            ],
         }
 
         collector.store_player_props(
             "americanfootball_nfl", "test_event_123", props_data
         )
 
-        # Verify update_item was called
-        self.mock_table.update_item.assert_called_once()
-        call_args = self.mock_table.update_item.call_args
+        # Verify put_item was called (for new data)
+        self.mock_table.put_item.assert_called()
 
-        # Check key structure
-        key = call_args[1]["Key"]
-        self.assertTrue(
-            key["pk"].startswith(
-                "PROP#test_event_123#draftkings#player_pass_tds#Josh Allen"
-            )
-        )
-        self.assertEqual(key["sk"], "PLAYER_PROP")
+        # Check that at least one call was made with correct key structure
+        calls = self.mock_table.put_item.call_args_list
+        self.assertTrue(len(calls) >= 1)
+
+        # Check the latest item call (should be the second call)
+        latest_call = calls[-1]
+        item = latest_call[1]["Item"]
+        self.assertEqual(item["pk"], "PROP#test_event_123#Josh Allen")
+        self.assertEqual(item["sk"], "draftkings#player_pass_tds#Over#LATEST")
 
     def test_api_handler_player_props_route(self):
         """Test API handler routing for player props"""
@@ -125,8 +131,9 @@ class TestPlayerPropsIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up test case"""
+        # Use mock token if real authentication fails
         if not self.token:
-            self.skipTest("No authentication token available")
+            self.token = "mock-token-for-testing"
 
         self.headers = {"Authorization": self.token}
 

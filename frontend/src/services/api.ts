@@ -12,7 +12,7 @@ const getApiUrl = (): string => {
 
 const api = axios.create({
   baseURL: getApiUrl(),
-  timeout: 10000,
+  timeout: 30000, // 30 seconds for large prop datasets
 });
 
 export const bettingApi = {
@@ -44,6 +44,31 @@ export const bettingApi = {
 
   async getStoredPredictions(token: string, limit = 50): Promise<any> {
     const response = await api.get(`/stored-predictions?limit=${limit}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  async getRecommendations(token: string, filters: { sport?: string; model?: string; risk_level?: string; limit?: number } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.sport) params.append('sport', filters.sport);
+    if (filters.model) params.append('model', filters.model);
+    if (filters.risk_level) params.append('risk_level', filters.risk_level);
+    if (filters.limit) params.append('limit', filters.limit.toString());
+    
+    const response = await api.get(`/recommendations?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  async getTopRecommendation(token: string, filters: { sport?: string; model?: string; risk_level?: string } = {}): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.sport) params.append('sport', filters.sport);
+    if (filters.model) params.append('model', filters.model);
+    if (filters.risk_level) params.append('risk_level', filters.risk_level);
+    
+    const response = await api.get(`/top-recommendation?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     return response.data;
@@ -83,3 +108,5 @@ export const bettingApi = {
     return response.data;
   },
 };
+
+export const apiService = bettingApi;

@@ -3,7 +3,7 @@ Prediction storage and tracking system - Clean separation of game and prop predi
 """
 
 import boto3
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List
 from ml.models import OddsAnalyzer
@@ -23,48 +23,27 @@ class PredictionTracker:
 
     def generate_game_predictions(self, model: str = "consensus") -> int:
         """Generate and store game predictions only"""
-        # Get all games using new schema
-        response = self.table.scan(
-            FilterExpression=boto3.dynamodb.conditions.Attr("pk").begins_with("GAME#")
-        )
+        from dao import BettingDAO
+
+        dao = BettingDAO()
+        sport = getattr(self, "sport", "basketball_nba")
+        game_ids = dao.get_game_ids_from_db(sport)
+
+        print(f"Found {len(game_ids)} unique games for {sport}")
+
         games_by_id = {}
-
-        for item in response.get("Items", []):
-            pk = item.get("pk", "")
-            sk = item.get("sk", "")
-
-            game_id = pk.replace("GAME#", "")
-            if not game_id:
-                continue
-
-            if game_id not in games_by_id:
-                games_by_id[game_id] = {
-                    "game_id": game_id,
-                    "sport": item.get("sport"),
-                    "home_team": item.get("home_team"),
-                    "away_team": item.get("away_team"),
-                    "commence_time": item.get("commence_time"),
-                    "odds": {},
-                }
-
-            # Parse sk to get bookmaker and market
-            sk_parts = sk.split("#")
-            if len(sk_parts) >= 2:
-                bookmaker = sk_parts[0]
-                market = sk_parts[1]
-
-                if bookmaker not in games_by_id[game_id]["odds"]:
-                    games_by_id[game_id]["odds"][bookmaker] = {}
-
-                games_by_id[game_id]["odds"][bookmaker][market] = {
-                    "outcomes": item.get("outcomes", [])
-                }
+        for game_id in game_ids:
+            game_data = dao.get_game_data(game_id)
+            if game_data:
+                games_by_id[game_id] = game_data
 
         print(f"Found {len(games_by_id)} unique games")
 
         # Generate and store game predictions
         predictions_stored = 0
         timestamp = datetime.utcnow().isoformat()
+        # Consider games active if they started within the last 24 hours
+        day_ago_timestamp = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
         for game_data in games_by_id.values():
             try:
@@ -73,9 +52,9 @@ class PredictionTracker:
                 )
                 prediction = self.analyzer.analyze_game(game_data)
 
-                # Determine if prediction is active (game hasn't started)
+                # Determine if prediction is active (game started within last 24 hours or in future)
                 commence_time = game_data["commence_time"]
-                is_active = commence_time > timestamp
+                is_active = commence_time > day_ago_timestamp
                 prediction_status = "ACTIVE" if is_active else "HISTORICAL"
 
                 self.table.put_item(
@@ -121,30 +100,22 @@ class PredictionTracker:
         self, sport: str, model: str = "consensus", limit: int = None
     ) -> int:
         """Generate and store game predictions for specific sport"""
-        response = self.table.scan(
-            FilterExpression=boto3.dynamodb.conditions.Attr("pk").begins_with("GAME#")
-            & boto3.dynamodb.conditions.Attr("sport").eq(sport)
-        )
+        from dao import BettingDAO
+
+        dao = BettingDAO()
+        game_ids = dao.get_game_ids_from_db(sport)
+
+        print(f"Found {len(game_ids)} unique games for {sport}")
+
         games_by_id = {}
+        for game_id in game_ids:
+            game_data = dao.get_game_data(game_id)
+            if game_data:
+                games_by_id[game_id] = game_data
 
-        for item in response.get("Items", []):
-            pk = item.get("pk", "")
-            game_id = pk.replace("GAME#", "")
-            if not game_id:
-                continue
+        print(f"Found {len(games_by_id)} unique games")
 
-            if game_id not in games_by_id:
-                games_by_id[game_id] = {
-                    "game_id": game_id,
-                    "sport": item.get("sport"),
-                    "home_team": item.get("home_team"),
-                    "away_team": item.get("away_team"),
-                    "commence_time": item.get("commence_time"),
-                    "bookmakers": [],
-                }
-
-            games_by_id[game_id]["bookmakers"].append(item)
-
+        # Generate and store game predictions
         timestamp = datetime.utcnow().isoformat()
         predictions_stored = 0
 
@@ -203,23 +174,32 @@ class PredictionTracker:
     def generate_prop_predictions_for_sport(
         self, sport: str, model: str = "consensus", limit: int = None
     ) -> int:
-        """Generate and store prop predictions for specific sport"""
-        response = self.table.scan(
-            FilterExpression=boto3.dynamodb.conditions.Attr("pk").begins_with("PROP#")
-            & boto3.dynamodb.conditions.Attr("sport").eq(sport)
-        )
-        player_props = response.get("Items", [])
+        """Generate and store prop predictions for specific sport using DAO"""
+        from dao import BettingDAO
 
-        if not player_props:
-            print(f"No player props found for {sport}")
+        dao = BettingDAO()
+        prop_ids = dao.get_prop_ids_from_db(sport)
+
+        if not prop_ids:
+            print(f"No prop IDs found for {sport}")
             return 0
 
-        # Apply limit to player props before generating predictions
+        # Apply limit to prop IDs before processing
         if limit and limit > 0:
-            player_props = player_props[:limit]
-            print(
-                f"Limited to {len(player_props)} player props for prediction generation"
-            )
+            prop_ids = prop_ids[:limit]
+            print(f"Limited to {len(prop_ids)} prop IDs for prediction generation")
+
+        # Get detailed prop data for each ID
+        player_props = []
+        for prop_id in prop_ids:
+            prop_records = dao.get_prop_data(prop_id)
+            if prop_records:
+                player_props.extend(prop_records)
+
+        print(f"Found {len(player_props)} player props for {sport}")
+
+        if not player_props:
+            return 0
 
         prop_predictions = self.analyzer.analyze_player_props(player_props)
         timestamp = datetime.utcnow().isoformat()
@@ -402,7 +382,9 @@ class PredictionTracker:
                     "home_team": item.get("home_team"),
                     "away_team": item.get("away_team"),
                     "commence_time": item.get("commence_time"),
-                    "model_version": item.get("model_version"),
+                    "model_version": item.get(
+                        "model"
+                    ),  # Map model to model_version for frontend
                     "home_win_probability": float(item.get("home_win_probability", 0)),
                     "away_win_probability": float(item.get("away_win_probability", 0)),
                     "confidence_score": float(item.get("confidence_score", 0)),
@@ -437,16 +419,17 @@ class PredictionTracker:
 
     def get_game_predictions(self, limit: int = 25) -> List[Dict]:
         """Get only game predictions"""
-        from datetime import datetime
+        from datetime import datetime, timedelta
 
-        current_time = datetime.utcnow().isoformat()
+        # Include games from past 24 hours
+        day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
         response = self.table.query(
             IndexName="ActivePredictionsIndex",
             KeyConditionExpression=boto3.dynamodb.conditions.Key("prediction_type").eq(
                 "GAME"
             )
-            & boto3.dynamodb.conditions.Key("commence_time").gte(current_time),
+            & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
             Limit=limit,
         )
 
@@ -461,7 +444,9 @@ class PredictionTracker:
                     "home_team": item.get("home_team"),
                     "away_team": item.get("away_team"),
                     "commence_time": item.get("commence_time"),
-                    "model_version": item.get("model_version"),
+                    "model_version": item.get(
+                        "model"
+                    ),  # Map model to model_version for frontend
                     "home_win_probability": float(item.get("home_win_probability", 0)),
                     "away_win_probability": float(item.get("away_win_probability", 0)),
                     "confidence_score": float(item.get("confidence_score", 0)),
@@ -475,9 +460,10 @@ class PredictionTracker:
 
     def get_prop_predictions(self, limit: int = 25) -> List[Dict]:
         """Get prop predictions with proper pagination handling"""
-        from datetime import datetime
+        from datetime import datetime, timedelta
 
-        current_time = datetime.utcnow().isoformat()
+        # Include games from past 24 hours
+        day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
         predictions = []
         last_evaluated_key = None
@@ -488,7 +474,7 @@ class PredictionTracker:
                 "KeyConditionExpression": boto3.dynamodb.conditions.Key(
                     "prediction_type"
                 ).eq("PROP")
-                & boto3.dynamodb.conditions.Key("commence_time").gte(current_time),
+                & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
                 "Limit": min(1000, limit - len(predictions)),  # Query in chunks
             }
 
@@ -505,13 +491,17 @@ class PredictionTracker:
                         "event_id": item.get("event_id", ""),
                         "player_name": item.get("player_name"),
                         "prop_type": item.get("prop_type"),
+                        "sport": item.get("sport"),
+                        "gameMatchup": item.get("gameMatchup"),
                         "commence_time": item.get("commence_time"),
                         "predicted_value": float(item.get("predicted_value", 0)),
                         "over_probability": float(item.get("over_probability", 0)),
                         "under_probability": float(item.get("under_probability", 0)),
                         "confidence_score": float(item.get("confidence_score", 0)),
                         "value_bets": item.get("value_bets", []),
-                        "model_version": item.get("model_version"),
+                        "model_version": item.get(
+                            "model"
+                        ),  # Map model to model_version for frontend
                         "predicted_at": item.get("predicted_at"),
                         "status": item.get("status", "pending"),
                     }

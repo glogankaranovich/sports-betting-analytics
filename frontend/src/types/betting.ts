@@ -34,6 +34,7 @@ export interface PlayerProp {
   point: number;
   price: number;
   updated_at: string;
+  commence_time: string;
 }
 
 export interface Sport {

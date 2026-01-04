@@ -42,23 +42,24 @@ class OddsAnalyzer:
     def analyze_game(self, game_data: Dict) -> GamePrediction:
         """Analyze a single game and return predictions"""
 
-        # Extract moneyline odds from all bookmakers using new schema
+        # Extract moneyline odds from bookmaker items (new schema)
         home_odds = []
         away_odds = []
         bookmaker_names = []
 
-        # New schema: game_data.odds is a dict with bookmaker keys
-        odds_dict = game_data.get("odds", {})
+        # New schema: game_data.bookmakers is a list of DynamoDB items
+        bookmaker_items = game_data.get("bookmakers", [])
+        home_team = game_data.get("home_team")
+        away_team = game_data.get("away_team")
 
-        for bookmaker_name, bookmaker_data in odds_dict.items():
-            h2h_market = bookmaker_data.get("h2h")
-            if h2h_market and h2h_market.get("outcomes"):
-                outcomes = h2h_market["outcomes"]
-                if len(outcomes) >= 2:
+        for item in bookmaker_items:
+            # Only process h2h (moneyline) markets
+            if item.get("market_key") == "h2h":
+                outcomes = item.get("outcomes", [])
+                bookmaker_name = item.get("bookmaker")
+
+                if len(outcomes) >= 2 and bookmaker_name:
                     # Find home and away team odds
-                    home_team = game_data.get("home_team")
-                    away_team = game_data.get("away_team")
-
                     home_outcome = next(
                         (o for o in outcomes if o["name"] == home_team), None
                     )
