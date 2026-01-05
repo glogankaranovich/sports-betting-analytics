@@ -36,8 +36,8 @@ const Footer: React.FC = () => {
       <div className="footer-bottom">
         <div className="footer-disclaimer">
           <p>
-            <strong>Disclaimer:</strong> This platform provides betting analysis for entertainment purposes only. 
-            All recommendations are informational and do not guarantee profits. Users assume all financial risk. 
+            <strong>Disclaimer:</strong> This platform provides betting analysis for entertainment/educational purposes only. 
+            All analysis items are informational and do not guarantee profits. Users assume all financial risk. 
             Gambling can be addictive - please gamble responsibly.
           </p>
         </div>

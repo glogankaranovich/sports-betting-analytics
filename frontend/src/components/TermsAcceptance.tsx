@@ -42,7 +42,7 @@ const TermsAcceptance: React.FC<TermsAcceptanceProps> = ({ onAccepted }) => {
             <div className="terms-text">
               <p><strong>IMPORTANT:</strong> This platform provides betting analysis for entertainment purposes only.</p>
               <ul>
-                <li>All recommendations are informational and do not guarantee profits</li>
+                <li>All analysis items are informational and do not guarantee profits</li>
                 <li>Gambling involves significant financial risk</li>
                 <li>You may lose all money wagered</li>
                 <li>Never bet more than you can afford to lose</li>
