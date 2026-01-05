@@ -110,3 +110,29 @@ Sports betting recommendation engines face significant legal liability and regul
 - National Council on Problem Gambling: ncpgambling.org
 - Responsible Gambling Council: responsiblegambling.org
 - International Association of Gaming Regulators: iagr.org
+
+## Social Media Integration Considerations
+
+**⚠️ LEGAL WARNING: Social Media Posting Restrictions**
+
+Posting betting recommendations on Twitter/Discord creates significant legal risks:
+
+### Major Concerns:
+- **Regulatory Compliance**: Many jurisdictions restrict gambling advertising on social media
+- **Platform Policies**: Twitter/Discord prohibit gambling content without proper licensing
+- **Increased Liability**: Public posts = more exposure to lawsuits and regulatory action
+- **Account Suspension**: Platforms may ban accounts for gambling content violations
+
+### Safer Social Media Strategy:
+- **Educational Content Only**: Post analysis methodology, not specific picks
+- **Responsible Gambling Focus**: Share addiction resources and educational content
+- **Market Analysis**: Discuss odds movements and trends without recommendations
+- **Drive Traffic**: Use social media to direct users to compliant platform
+
+### If Social Media Integration Needed:
+- Obtain gambling advertising licenses for target jurisdictions
+- Implement platform-specific compliance (Twitter Ads API, etc.)
+- Create private/gated communities with age verification
+- Consult with gambling law attorney before any public posting
+
+**Recommendation**: Keep all betting recommendations on the compliant platform only. Use social media for brand awareness and education, directing users to the legally protected site for actual recommendations.
