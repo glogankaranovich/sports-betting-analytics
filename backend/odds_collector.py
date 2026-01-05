@@ -282,18 +282,54 @@ class OddsCollector:
             print(f"Player props not supported for {sport}")
             return 0
 
-        game_ids = self.dao.get_game_ids_from_db(sport)
-        if not game_ids:
-            print(f"No games found in DB for {sport}")
+        # Get games with commence time filtering
+        now = datetime.utcnow()
+
+        # Query for future games only (commence_time > now)
+        try:
+            future_games = []
+            last_evaluated_key = None
+
+            while True:
+                query_params = {
+                    "IndexName": "ActiveBetsIndexV2",
+                    "KeyConditionExpression": "active_bet_pk = :active_bet_pk AND commence_time > :now",
+                    "FilterExpression": "attribute_exists(latest)",
+                    "ExpressionAttributeValues": {
+                        ":active_bet_pk": f"GAME#{sport}",
+                        ":now": now.isoformat() + "Z",
+                    },
+                    "ProjectionExpression": "pk, commence_time",
+                }
+
+                if last_evaluated_key:
+                    query_params["ExclusiveStartKey"] = last_evaluated_key
+
+                response = self.dao.table.query(**query_params)
+
+                for item in response["Items"]:
+                    game_id = item["pk"].split("#")[1]
+                    future_games.append(game_id)
+
+                last_evaluated_key = response.get("LastEvaluatedKey")
+                if not last_evaluated_key:
+                    break
+
+        except Exception as e:
+            print(f"Error querying future games: {e}")
+            return 0
+
+        if not future_games:
+            print(f"No future games found for {sport}")
             return 0
 
         # Apply limit if specified
         if limit and limit > 0:
-            game_ids = game_ids[:limit]
-            print(f"Limited to {len(game_ids)} games for testing")
+            future_games = future_games[:limit]
+            print(f"Limited to {len(future_games)} games for testing")
 
         print(
-            f"Found {len(game_ids)} games for {sport}, collecting props in parallel..."
+            f"Found {len(future_games)} future games for {sport}, collecting props in parallel..."
         )
         total_props = 0
 
@@ -313,7 +349,7 @@ class OddsCollector:
         with ThreadPoolExecutor(max_workers=3) as executor:
             future_to_game = {
                 executor.submit(collect_props_for_game, game_id): game_id
-                for game_id in game_ids
+                for game_id in future_games
             }
 
             for future in as_completed(future_to_game):

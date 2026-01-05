@@ -61,9 +61,12 @@ class BetRecommendationEngine:
         """Convert game prediction into bet recommendations for all risk levels"""
         recommendations = []
 
-        # Extract game info
-        game_id = game_prediction.game_id
-        sport = game_prediction.sport
+        # Extract game info from dict
+        game_id = game_prediction.get("game_id", "")
+        sport = game_prediction.get("sport", "")
+        home_win_prob = game_prediction.get("home_win_probability", 0.5)
+        away_win_prob = game_prediction.get("away_win_probability", 0.5)
+        confidence = game_prediction.get("confidence_score", 0.5)
         home_team = game_odds_data.get("home_team", "Home")
         away_team = game_odds_data.get("away_team", "Away")
 
@@ -74,8 +77,8 @@ class BetRecommendationEngine:
             bet_type="home",
             team_or_player=home_team,
             market="moneyline",
-            predicted_prob=game_prediction.home_win_probability,
-            confidence=game_prediction.confidence_score,
+            predicted_prob=home_win_prob,
+            confidence=confidence,
             odds_data=game_odds_data.get("odds", {}),
             side="home",
         )
@@ -88,8 +91,8 @@ class BetRecommendationEngine:
             bet_type="away",
             team_or_player=away_team,
             market="moneyline",
-            predicted_prob=game_prediction.away_win_probability,
-            confidence=game_prediction.confidence_score,
+            predicted_prob=away_win_prob,
+            confidence=confidence,
             odds_data=game_odds_data.get("odds", {}),
             side="away",
         )

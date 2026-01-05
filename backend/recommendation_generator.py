@@ -57,12 +57,26 @@ class RecommendationGenerator:
                 print(
                     f"Processing prediction: {pred_data.get('prediction', {}).get('game_id', 'unknown')}"
                 )
+                print(f"Prediction data: {pred_data['prediction']}")
+                print(f"Odds data: {pred_data['odds']}")
+
+                # Generate recommendations using bet recommendation engine
+                # This calculates expected value by comparing predicted probabilities to betting odds
                 game_recs = self.engine.generate_game_recommendations(
                     pred_data["prediction"], pred_data["odds"]
                 )
                 print(f"Generated {len(game_recs)} recommendations from prediction")
-                # Filter by risk level
+
+                if len(game_recs) == 0:
+                    print(
+                        "No recommendations generated - no positive expected value found"
+                    )
+
+                # Filter recommendations by risk level (conservative/moderate/aggressive)
                 filtered_recs = [r for r in game_recs if r.risk_level == risk_level]
+                print(
+                    f"After risk level filter ({risk_level.value}): {len(filtered_recs)} recommendations"
+                )
                 all_recommendations.extend(filtered_recs)
             except Exception as e:
                 print(
@@ -90,23 +104,29 @@ class RecommendationGenerator:
         return SUPPORTED_SPORTS
 
     def _get_recent_predictions(self, sport: str, model: str) -> List[Dict[str, Any]]:
-        """Get recent predictions for a sport/model combination"""
+        """Get recent predictions for a sport/model combination using GSI"""
+        from datetime import datetime
+
         try:
-            # Query for game predictions
-            response = self.table.scan(
-                FilterExpression="begins_with(sk, :sk_prefix) AND sport = :sport",
+            today = datetime.utcnow().date().isoformat()
+
+            # Query ActivePredictionsIndexV2 for game predictions from today
+            response = self.table.query(
+                IndexName="ActivePredictionsIndexV2",
+                KeyConditionExpression="active_prediction_pk = :pk AND commence_time >= :time",
                 ExpressionAttributeValues={
-                    ":sk_prefix": f"PREDICTION#{model}",
-                    ":sport": sport,
-                },
+                    ":pk": f"GAME#{sport}",
+                    ":time": f"{today}T00:00:00Z",
+                }
+                # Removed limit to get all predictions
             )
 
             predictions = []
             for item in response.get("Items", []):
-                # Convert DynamoDB item to prediction format
                 pred_data = {
-                    "game_id": item.get("pk", "").replace("PRED#GAME#", ""),
                     "prediction": {
+                        "game_id": item.get("game_id", ""),
+                        "sport": sport,
                         "home_team": item.get("home_team", ""),
                         "away_team": item.get("away_team", ""),
                         "home_win_probability": float(
@@ -128,12 +148,44 @@ class RecommendationGenerator:
             return []
 
     def _extract_odds_from_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract odds data from DynamoDB item"""
-        # This is a simplified version - adjust based on your actual odds structure
+        """
+        Extract best odds across all bookmakers for home/away teams.
+
+        Finds the most favorable odds for each team across all bookmakers
+        to maximize potential expected value in recommendations.
+        """
+        odds_data = item.get("odds_data", [])
+        home_team = item.get("home_team", "")
+        away_team = item.get("away_team", "")
+
+        if not odds_data:
+            return {"home_odds": -110, "away_odds": -110, "bookmaker": "DraftKings"}
+
+        best_home_odds = -110
+        best_away_odds = -110
+        best_bookmaker = "DraftKings"
+
+        # Check all bookmakers to find best odds for each team
+        for market_data in odds_data:
+            if market_data.get("market_key") == "h2h":
+                outcomes = market_data.get("outcomes", [])
+                bookmaker = market_data.get("bookmaker", "")
+
+                for outcome in outcomes:
+                    team_name = outcome.get("name", "")
+                    price = float(outcome.get("price", -110))
+
+                    if team_name == home_team and price > best_home_odds:
+                        best_home_odds = price
+                        best_bookmaker = bookmaker
+                    elif team_name == away_team and price > best_away_odds:
+                        best_away_odds = price
+                        best_bookmaker = bookmaker
+
         return {
-            "home_odds": float(item.get("home_odds", -110)),
-            "away_odds": float(item.get("away_odds", -110)),
-            "bookmaker": item.get("bookmaker", "DraftKings"),
+            "home_odds": best_home_odds,
+            "away_odds": best_away_odds,
+            "bookmaker": best_bookmaker,
         }
 
 
@@ -148,7 +200,29 @@ def lambda_handler(event, context):
 
     try:
         generator = RecommendationGenerator(table_name)
-        results = generator.generate_all_recommendations()
+
+        # Check if sport parameter is provided
+        sport = event.get("sport")
+        if sport:
+            # Generate for specific sport only
+            results = {}
+            models = ["consensus"]
+            risk_levels = [
+                RiskLevel.CONSERVATIVE,
+                RiskLevel.MODERATE,
+                RiskLevel.AGGRESSIVE,
+            ]
+
+            for model in models:
+                for risk_level in risk_levels:
+                    count = generator._generate_recommendations_for_combination(
+                        sport, model, risk_level
+                    )
+                    key = f"{sport}#{model}#{risk_level.value}"
+                    results[key] = count
+        else:
+            # Generate for all sports (existing behavior)
+            results = generator.generate_all_recommendations()
 
         total_recommendations = sum(results.values())
 

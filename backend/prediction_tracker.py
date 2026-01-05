@@ -148,6 +148,9 @@ class PredictionTracker:
                         "away_team": game_data["away_team"],
                         "commence_time": game_data["commence_time"],
                         "model": model,
+                        "odds_data": game_data.get(
+                            "bookmakers", []
+                        ),  # Include bookmaker odds data for recommendations
                         "is_active": is_active,
                         "prediction_status": prediction_status,
                         "created_at": timestamp,
@@ -248,6 +251,12 @@ class PredictionTracker:
                         "sport": sport,
                         "commence_time": commence_time,
                         "model": model,
+                        "odds_data": [
+                            prop.get("outcomes", [])
+                            for prop in player_props
+                            if prop.get("player_name") == prop_pred.player_name
+                            and prop.get("market_key") == prop_pred.prop_type
+                        ],  # Include prop odds
                         "is_active": is_active,
                         "prediction_status": prediction_status,
                         "created_at": timestamp,

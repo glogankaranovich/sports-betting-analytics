@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { fetchAuthSession } from 'aws-amplify/auth';
 import { PlayerProp } from '../types/betting';
 import { bettingApi } from '../services/api';
 
@@ -47,24 +48,33 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
   const fetchPlayerProps = useCallback(async () => {
     try {
       setLoading(true);
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (!token) {
+        setProps([]);
+        setLoading(false);
+        return;
+      }
+      
       const filterParams = {
         sport: settings.sport,
         bookmaker: settings.bookmaker,
         prop_type: filters.prop_type || undefined,
-        limit: 500 // Get more props for better pagination
+        limit: 500
       };
       
       const response = await bettingApi.getPlayerProps(token, filterParams);
-      console.log('Prop bets response:', response.props?.length, 'records');
-      setProps(response.props);
+      setProps(response.props || []);
       setError(null);
     } catch (err) {
       setError('Failed to fetch player props');
       console.error('Error fetching player props:', err);
+      setProps([]);
     } finally {
       setLoading(false);
     }
-  }, [token, settings.sport, settings.bookmaker, filters]);
+  }, [settings.sport, settings.bookmaker, filters]);
 
   // Reset to first page when filters change
   useEffect(() => {
