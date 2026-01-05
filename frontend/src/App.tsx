@@ -30,18 +30,23 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   });
 
   useEffect(() => {
-    const getToken = async () => {
-      const session = await fetchAuthSession();
-      const idToken = session.tokens?.idToken?.toString();
-      if (idToken) {
-        setToken(idToken);
+    const initializeData = async () => {
+      try {
+        const session = await fetchAuthSession();
+        const idToken = session.tokens?.idToken?.toString();
+        if (idToken) {
+          setToken(idToken);
+          // Only fetch data after token is set
+          fetchGames();
+          fetchGameAnalysis();
+          fetchPropAnalysis();
+        }
+      } catch (error) {
+        console.error('Error getting auth session:', error);
       }
     };
     
-    getToken();
-    fetchGames();
-    fetchGameAnalysis();
-    fetchPropAnalysis();
+    initializeData();
   }, []);
 
   // Refetch data when settings change
