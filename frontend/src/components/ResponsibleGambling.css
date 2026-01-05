@@ -1,0 +1,184 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.responsible-gambling-modal {
+  background: white;
+  border-radius: 8px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #d32f2f;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+.modal-body {
+  padding: 20px;
+  color: #2d3748;
+}
+
+.warning-section {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.warning-section h3 {
+  color: #856404;
+  margin-top: 0;
+}
+
+.warning-section ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.warning-section li {
+  margin-bottom: 5px;
+  color: #856404;
+}
+
+.resources-section {
+  margin-bottom: 20px;
+  color: #2d3748;
+}
+
+.resources-section h3 {
+  color: #2d3748;
+}
+
+.resources-section h4 {
+  color: #2d3748;
+}
+
+.resources-section p {
+  color: #2d3748;
+}
+
+.hotline-info {
+  background-color: #f8f9fa;
+  border-left: 4px solid #007bff;
+  padding: 15px;
+  margin: 15px 0;
+}
+
+.hotline-info h4 {
+  color: #2d3748;
+  margin-top: 0;
+}
+
+.hotline-info p {
+  color: #2d3748;
+}
+
+.hotline-number {
+  font-size: 24px;
+  font-weight: bold;
+  color: #007bff;
+  margin: 5px 0;
+}
+
+.resource-links {
+  color: #2d3748;
+}
+
+.resource-links h4 {
+  color: #2d3748;
+}
+
+.resource-links ul {
+  list-style: none;
+  padding: 0;
+}
+
+.resource-links li {
+  margin-bottom: 8px;
+  color: #2d3748;
+}
+
+.resource-links a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.resource-links a:hover {
+  text-decoration: underline;
+}
+
+.self-help-section {
+  background-color: #e8f5e8;
+  border-radius: 4px;
+  padding: 15px;
+  color: #2d3748;
+}
+
+.self-help-section h3 {
+  color: #2e7d32;
+  margin-top: 0;
+}
+
+.self-help-section p {
+  color: #2d3748;
+}
+
+.self-help-section ul {
+  color: #2d3748;
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.self-help-section li {
+  color: #2d3748;
+  margin-bottom: 5px;
+}
+
+.modal-footer {
+  padding: 20px;
+  border-top: 1px solid #eee;
+  text-align: center;
+}
+
+.primary-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 30px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.primary-button:hover {
+  background-color: #0056b3;
+}

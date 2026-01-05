@@ -6,6 +6,7 @@ import { Game } from './types/betting';
 import PlayerProps from './components/PlayerProps';
 import Recommendations from './components/Recommendations';
 import Settings from './components/Settings';
+import ComplianceWrapper from './components/ComplianceWrapper';
 import './amplifyConfig'; // Initialize Amplify
 import '@aws-amplify/ui-react/styles.css';
 import './App.css';
@@ -79,7 +80,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       
       if (token) {
         const sport = settings.sport !== 'all' ? settings.sport : undefined;
-        const data = await bettingApi.getGamePredictions(token, sport);
+        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : 'fanduel';
+        const data = await bettingApi.getGamePredictions(token, sport, bookmaker);
         setGamePredictions(data.predictions || []);
       }
     } catch (err) {
@@ -502,11 +504,13 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
 function App() {
   return (
-    <Authenticator>
-      {({ signOut, user }) => (
-        <Dashboard user={user} signOut={signOut} />
-      )}
-    </Authenticator>
+    <ComplianceWrapper>
+      <Authenticator>
+        {({ signOut, user }) => (
+          <Dashboard user={user} signOut={signOut} />
+        )}
+      </Authenticator>
+    </ComplianceWrapper>
   );
 }
 

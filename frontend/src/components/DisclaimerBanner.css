@@ -1,0 +1,54 @@
+.disclaimer-banner {
+  background-color: #fff3cd;
+  border-bottom: 2px solid #ffeaa7;
+  padding: 12px 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.disclaimer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+}
+
+.disclaimer-text {
+  color: #856404;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.disclaimer-text strong {
+  font-weight: 600;
+}
+
+.disclaimer-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #856404;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 15px;
+  min-width: 20px;
+}
+
+.disclaimer-close:hover {
+  color: #533f03;
+}
+
+@media (max-width: 768px) {
+  .disclaimer-content {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .disclaimer-text {
+    font-size: 13px;
+  }
+}

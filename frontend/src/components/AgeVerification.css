@@ -1,0 +1,110 @@
+.age-verification-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.age-verification-modal {
+  background: white;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 90%;
+  padding: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.age-verification-header {
+  background-color: #2c3e50;
+  color: white;
+  padding: 30px;
+  text-align: center;
+  border-radius: 8px 8px 0 0;
+}
+
+.age-verification-header h2 {
+  margin: 0 0 10px 0;
+  font-size: 24px;
+}
+
+.age-verification-header p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+.age-verification-form {
+  padding: 30px;
+  color: #2d3748;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #bdc3c7;
+  border-radius: 4px;
+  font-size: 16px;
+  box-sizing: border-box;
+  color: #2d3748;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.error-message {
+  background-color: #e74c3c;
+  color: white;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.verify-button {
+  width: 100%;
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  padding: 15px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.verify-button:hover {
+  background-color: #219a52;
+}
+
+.age-verification-footer {
+  background-color: #ecf0f1;
+  padding: 20px 30px;
+  border-radius: 0 0 8px 8px;
+}
+
+.age-verification-footer .disclaimer {
+  margin: 0;
+  font-size: 12px;
+  color: #7f8c8d;
+  text-align: center;
+  line-height: 1.4;
+}

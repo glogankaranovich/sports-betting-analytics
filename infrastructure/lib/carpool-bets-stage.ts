@@ -7,6 +7,7 @@ import { PredictionGeneratorStack } from './prediction-generator-stack';
 import { RecommendationGeneratorStack } from './recommendation-generator-stack';
 import { OutcomeCollectorStack } from './outcome-collector-stack';
 import { AuthStack } from './auth-stack';
+import { ComplianceStack } from './compliance-stack';
 import { IntegrationTestRoleStack } from './integration-test-role-stack';
 import { StackNames } from './utils/stack-names';
 
@@ -67,6 +68,9 @@ export class CarpoolBetsStage extends cdk.Stage {
       dynamoDbTableArn: dynamoStack.betsTable.tableArn,
       oddsApiSecretArn: `arn:aws:secretsmanager:us-east-1:${this.account}:secret:odds-api-key-${props.stage}-abc123`,
     });
+
+    // Compliance stack
+    new ComplianceStack(this, 'Compliance', {});
 
     // Integration test role for pipeline access
     new IntegrationTestRoleStack(this, 'IntegrationTestRole', {
