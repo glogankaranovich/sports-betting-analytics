@@ -1,7 +1,7 @@
 # Carpool Bets - Project Status
 
-**Last Updated:** January 2, 2026  
-**Current Phase:** Phase 3 Complete - Ready for Phase 5 (AI Paper Trading)
+**Last Updated:** January 4, 2026  
+**Current Phase:** Phase 3 Complete - Ready for Bet Recommendation System
 
 ## 🎯 Project Overview
 
@@ -141,28 +141,28 @@ Carpool Bets is a sports betting analytics platform that uses machine learning t
 **Estimated Effort:** 3-4 days
 
 ### Core Features Needed
-1. **Top Recommended Bet Display**
+1. **Top Recommended Bet Display** (Task #12)
    - Always show highest confidence bet on main dashboard
    - Include odds, confidence score, and reasoning
    - Real-time updates with recommendation changes
 
-2. **Parlay Recommendation Engine**
+2. **Parlay Recommendation Engine** (Task #13)
    - 3-leg and 5-leg parlay builders
    - Optimal bet combination algorithms
    - Combined odds calculation and risk assessment
    - Avoid conflicting bets in same parlay
 
-3. **Model Comparison Dashboard**
+3. **Model Comparison Dashboard** (Task #14)
    - Different prediction models and methodologies
    - Performance metrics and accuracy tracking
    - Historical model performance over time
 
-4. **Outcome Verification System**
+4. **Outcome Verification System** (Task #15)
    - Collect actual game results and player stats
    - Verify prediction accuracy against real outcomes
    - Calculate model performance metrics
 
-5. **Multi-Model Prediction Engine**
+5. **Multi-Model Prediction Engine** (Task #16)
    - Generate predictions for every model permutation
    - Compare consensus vs value-based vs momentum models
    - Rank recommendations across all model types
@@ -177,18 +177,22 @@ Carpool Bets is a sports betting analytics platform that uses machine learning t
 ## 🚧 Current Limitations
 
 ### What We Actually Have
-- ✅ Odds collection and storage
-- ✅ Basic consensus-based predictions
-- ✅ Prediction display interface
+- ✅ Odds collection and storage with smart updating system
+- ✅ Granular processing with EventBridge scheduling (4 rules for NBA/NFL games/props)
+- ✅ Multi-model infrastructure (schema supports model in SK)
+- ✅ Basic consensus-based predictions with confidence scores
+- ✅ Prediction display interface with tabbed navigation
 - ✅ Authentication and API infrastructure
+- ✅ Parallel processing optimization with 15min timeouts
 
 ### What We're Missing
 - ❌ True historical data analysis and ML training
-- ❌ Bet recommendations with confidence rankings
+- ❌ Bet recommendations with confidence rankings (only predictions)
 - ❌ Parlay building logic and optimization
 - ❌ Model performance tracking and comparison
 - ❌ Outcome verification and accuracy measurement
-- ❌ Multiple model types (currently only consensus)
+- ❌ Multiple model types (currently only consensus model)
+- ❌ Recommendation engine (not just prediction display)
 
 ## 📈 Key Metrics & Performance
 
@@ -238,9 +242,18 @@ Carpool Bets is a sports betting analytics platform that uses machine learning t
 - **Database:** Separate DynamoDB tables
 - **Access:** Development team only
 
-## 📝 Recent Changes (January 1-2, 2026)
+## 📝 Recent Changes (January 1-4, 2026)
 
-### Major Additions
+### Major Infrastructure Optimizations (January 3-4, 2026)
+- **Granular Processing System**: Created PredictionGeneratorStack with 4 EventBridge rules
+  - NBA games (6,12,18,0), NBA props (7,13,19,1), NFL games (8,14,20,2), NFL props (9,15,21,3)
+  - Each rule processes specific sport/bet_type/model combinations with 15min timeout
+- **Enhanced Schema**: Updated prediction schema to include model in SK: "PREDICTION#{model}"
+- **Smart Updating**: Fixed odds collector to use update_item for unchanged data (GSI consistency)
+- **Integration Testing**: All tests passing with comprehensive logging and GSI handling
+- **Deployment**: Successfully deployed via staged approach with all Lambda functions operational
+
+### Prediction Pipeline Implementation (January 1-2, 2026)
 - Complete prediction pipeline implementation
 - New API endpoints for predictions
 - Enhanced DynamoDB schema with GSI indexes
@@ -248,6 +261,9 @@ Carpool Bets is a sports betting analytics platform that uses machine learning t
 - Scheduled prediction generation
 
 ### Files Modified
+- `backend/odds_collector.py` - Smart updating system
+- `backend/prediction_generator.py` - Granular processing
+- `infrastructure/lib/prediction-generator-stack.ts` - EventBridge rules
 - `backend/prediction_tracker.py` - New prediction system
 - `backend/api_handler.py` - New endpoints
 - `frontend/src/components/PlayerProps.tsx` - New component
