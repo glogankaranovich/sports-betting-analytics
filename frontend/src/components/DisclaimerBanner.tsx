@@ -10,7 +10,7 @@ const DisclaimerBanner: React.FC = () => {
     <div className="disclaimer-banner">
       <div className="disclaimer-content">
         <span className="disclaimer-text">
-          ⚠️ <strong>Risk Warning:</strong> All betting recommendations are for entertainment purposes only. 
+          ⚠️ <strong>Risk Warning:</strong> All betting analysis items are for entertainment/educational purposes only. 
           Gambling involves risk of loss. Never bet more than you can afford to lose. 
           Must be 21+ to participate.
         </span>

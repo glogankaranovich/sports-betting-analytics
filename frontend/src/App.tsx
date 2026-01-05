@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { bettingApi } from './services/api';
 import { Game } from './types/betting';
 import PlayerProps from './components/PlayerProps';
-import Recommendations from './components/Recommendations';
+import BetInsights from './components/BetInsights';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import './amplifyConfig'; // Initialize Amplify
@@ -13,11 +13,11 @@ import './App.css';
 
 function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
-  const [gamePredictions, setGamePredictions] = useState<any[]>([]);
-  const [propPredictions, setPropPredictions] = useState<any[]>([]);
+  const [gameAnalysis, setGameAnalysis] = useState<any[]>([]);
+  const [propAnalysis, setPropAnalysis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-predictions' | 'prop-predictions' | 'player-props' | 'recommendations'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
@@ -40,20 +40,20 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     
     getToken();
     fetchGames();
-    fetchGamePredictions();
-    fetchPropPredictions();
+    fetchGameAnalysis();
+    fetchPropAnalysis();
   }, []);
 
   // Refetch data when settings change
   useEffect(() => {
     if (token) {
       fetchGames();
-      fetchGamePredictions();
-      fetchPropPredictions();
+      fetchGameAnalysis();
+      fetchPropAnalysis();
     }
   }, [settings, token]);
 
-  const fetchGames = async () => {
+  const fetchGames = useCallback(async () => {
     try {
       setLoading(true);
       const session = await fetchAuthSession();
@@ -71,9 +71,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [settings.sport, settings.bookmaker]);
 
-  const fetchGamePredictions = async () => {
+  const fetchGameAnalysis = useCallback(async () => {
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
@@ -82,14 +82,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const sport = settings.sport !== 'all' ? settings.sport : undefined;
         const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : 'fanduel';
         const data = await bettingApi.getGamePredictions(token, sport, bookmaker);
-        setGamePredictions(data.predictions || []);
+        setGameAnalysis(data.predictions || []);
       }
     } catch (err) {
-      console.error('Error fetching game predictions:', err);
+      console.error('Error fetching game analysis:', err);
     }
-  };
+  }, [settings.sport, settings.bookmaker]);
 
-  const fetchPropPredictions = async () => {
+  const fetchPropAnalysis = useCallback(async () => {
     try {
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
@@ -97,12 +97,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       if (token) {
         const sport = settings.sport !== 'all' ? settings.sport : undefined;
         const data = await bettingApi.getPropPredictions(token, sport);
-        setPropPredictions(data.predictions || []);
+        setPropAnalysis(data.predictions || []);
       }
     } catch (err) {
-      console.error('Error fetching prop predictions:', err);
+      console.error('Error fetching prop analysis:', err);
     }
-  };
+  }, [settings.sport]);
 
   // Games are already grouped by game_id from the API
   let filteredGames = games.filter(game => {
@@ -137,11 +137,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     return sport.replace('americanfootball_', '').toUpperCase();
   };
 
-  // Separate game and prop predictions using new schema
-  const filteredGamePredictions = gamePredictions.filter(p => 
+  // Separate game and prop analysis using new schema
+  const filteredGameAnalysis = gameAnalysis.filter((p: any) => 
     p.home_team && p.away_team && p.sport
   );
-  const filteredPropPredictions = propPredictions.filter(p => 
+  const filteredPropAnalysis = propAnalysis.filter((p: any) => 
     p.player_name && p.prop_type
   );
 
@@ -213,8 +213,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         <div className="header-actions">
           <button className="btn btn-secondary" onClick={() => {
             fetchGames();
-            fetchGamePredictions();
-            fetchPropPredictions();
+            fetchGameAnalysis();
+            fetchPropAnalysis();
           }}>
             Refresh Data
           </button>
@@ -246,22 +246,22 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             Prop Bets
           </button>
           <button 
-            className={`tab-button ${activeTab === 'game-predictions' ? 'active' : ''}`}
-            onClick={() => handleTabChange('game-predictions')}
+            className={`tab-button ${activeTab === 'game-analysis' ? 'active' : ''}`}
+            onClick={() => handleTabChange('game-analysis')}
           >
-            Game Predictions
+            Game Analysis
           </button>
           <button 
-            className={`tab-button ${activeTab === 'prop-predictions' ? 'active' : ''}`}
-            onClick={() => handleTabChange('prop-predictions')}
+            className={`tab-button ${activeTab === 'prop-analysis' ? 'active' : ''}`}
+            onClick={() => handleTabChange('prop-analysis')}
           >
-            Prop Predictions
+            Prop Analysis
           </button>
           <button 
-            className={`tab-button ${activeTab === 'recommendations' ? 'active' : ''}`}
-            onClick={() => handleTabChange('recommendations')}
+            className={`tab-button ${activeTab === 'insights' ? 'active' : ''}`}
+            onClick={() => handleTabChange('insights')}
           >
-            Recommendations
+            Insights
           </button>
         </div>
 
@@ -353,15 +353,15 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </>
         )}
 
-        {activeTab === 'game-predictions' && (
+        {activeTab === 'game-analysis' && (
           <div className="predictions-section">
             <div className="games-header">
-              <h2>Game Predictions</h2>
+              <h2>Game Analysis</h2>
 
             </div>
             <div className="games-grid">
-              {filteredGamePredictions.length > 0 ? (
-                paginateItems(filteredGamePredictions, currentPage).map((prediction, index) => (
+              {filteredGameAnalysis.length > 0 ? (
+                paginateItems(filteredGameAnalysis, currentPage).map((prediction: any, index: number) => (
                   <div key={index} className="game-card">
                     <div className="game-info">
                       <div className="teams">
@@ -394,7 +394,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               ) : null
               }
             </div>
-            {filteredGamePredictions.length > itemsPerPage && (
+            {filteredGameAnalysis.length > itemsPerPage && (
               <div className="pagination">
                 <button 
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -402,31 +402,31 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 >
                   Previous
                 </button>
-                <span>Page {currentPage} of {getTotalPages(filteredGamePredictions)}</span>
+                <span>Page {currentPage} of {getTotalPages(filteredGameAnalysis)}</span>
                 <button 
-                  onClick={() => setCurrentPage(Math.min(getTotalPages(filteredGamePredictions), currentPage + 1))}
-                  disabled={currentPage === getTotalPages(filteredGamePredictions)}
+                  onClick={() => setCurrentPage(Math.min(getTotalPages(filteredGameAnalysis), currentPage + 1))}
+                  disabled={currentPage === getTotalPages(filteredGameAnalysis)}
                 >
                   Next
                 </button>
               </div>
             )}
             
-            {filteredGamePredictions.length === 0 && (
-              <div className="no-data">No game predictions found for current filters</div>
+            {filteredGameAnalysis.length === 0 && (
+              <div className="no-data">No game analysis items found for current filters</div>
             )}
           </div>
         )}
 
-        {activeTab === 'prop-predictions' && (
+        {activeTab === 'prop-analysis' && (
           <div className="predictions-section">
             <div className="games-header">
-              <h2>Player Prop Predictions</h2>
+              <h2>Player Prop Analysis</h2>
 
             </div>
             <div className="games-grid">
-              {filteredPropPredictions.length > 0 ? (
-                paginateItems(filteredPropPredictions, currentPage).map((prediction, index) => (
+              {filteredPropAnalysis.length > 0 ? (
+                paginateItems(filteredPropAnalysis, currentPage).map((prediction: any, index: number) => (
                   <div key={index} className="game-card">
                     <div className="game-info">
                       <div className="teams">
@@ -459,7 +459,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               ) : null
               }
             </div>
-            {filteredPropPredictions.length > itemsPerPage && (
+            {filteredPropAnalysis.length > itemsPerPage && (
               <div className="pagination">
                 <button 
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -467,18 +467,18 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 >
                   Previous
                 </button>
-                <span>Page {currentPage} of {getTotalPages(filteredPropPredictions)}</span>
+                <span>Page {currentPage} of {getTotalPages(filteredPropAnalysis)}</span>
                 <button 
-                  onClick={() => setCurrentPage(Math.min(getTotalPages(filteredPropPredictions), currentPage + 1))}
-                  disabled={currentPage === getTotalPages(filteredPropPredictions)}
+                  onClick={() => setCurrentPage(Math.min(getTotalPages(filteredPropAnalysis), currentPage + 1))}
+                  disabled={currentPage === getTotalPages(filteredPropAnalysis)}
                 >
                   Next
                 </button>
               </div>
             )}
             
-            {filteredPropPredictions.length === 0 && (
-              <div className="no-data">No prop predictions found for current filters</div>
+            {filteredPropAnalysis.length === 0 && (
+              <div className="no-data">No prop analysis items found for current filters</div>
             )}
           </div>
         )}
@@ -494,8 +494,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           />
         )}
 
-        {activeTab === 'recommendations' && (
-          <Recommendations token={token} settings={settings} />
+        {activeTab === 'insights' && (
+          <BetInsights token={token} settings={settings} />
         )}
       </main>
     </div>

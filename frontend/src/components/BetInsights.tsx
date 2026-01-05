@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/api';
 
 interface Recommendation {
@@ -18,7 +18,7 @@ interface Recommendation {
   reasoning: string;
 }
 
-interface RecommendationsProps {
+interface BetInsightsProps {
   token: string;
   settings: {
     sport: string;
@@ -28,38 +28,38 @@ interface RecommendationsProps {
   };
 }
 
-const Recommendations: React.FC<RecommendationsProps> = ({ token, settings }) => {
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [topRecommendation, setTopRecommendation] = useState<Recommendation | null>(null);
+const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
+  const [insights, setInsights] = useState<Recommendation[]>([]);
+  const [topInsight, setTopInsight] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchRecommendations();
-    fetchTopRecommendation();
+    fetchInsights();
+    fetchTopInsight();
   }, [settings]);
 
-  const fetchRecommendations = async () => {
+  const fetchInsights = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiService.getRecommendations(token, settings);
-      setRecommendations(data.recommendations || []);
+      setInsights(data.recommendations || []);
     } catch (err) {
-      setError('Failed to fetch recommendations');
-      console.error('Error fetching recommendations:', err);
+      setError('Failed to fetch insights');
+      console.error('Error fetching insights:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, settings]);
 
-  const fetchTopRecommendation = async () => {
+  const fetchTopInsight = useCallback(async () => {
     try {
       const data = await apiService.getTopRecommendation(token, settings);
-      setTopRecommendation(data.recommendation);
+      setTopInsight(data.recommendation);
     } catch (err) {
-      console.error('Error fetching top recommendation:', err);
+      console.error('Error fetching top insight:', err);
     }
-  };
+  }, [token, settings]);
 
   const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
   const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
@@ -74,54 +74,54 @@ const Recommendations: React.FC<RecommendationsProps> = ({ token, settings }) =>
   //   }
   // };
 
-  if (loading) return <div className="no-data">Loading recommendations...</div>;
+  if (loading) return <div className="no-data">Loading insights...</div>;
   if (error) return <div className="no-data">{error}</div>;
 
   return (
     <div className="predictions-section">
       <div className="games-header">
-        <h2>Recommendations</h2>
+        <h2>Insights</h2>
       </div>
 
-      {/* Top Recommendation */}
-      {topRecommendation && (
+      {/* Top Insight */}
+      {topInsight && (
         <div className="game-card featured-recommendation">
           <div className="game-info">
             <div className="teams">
-              <h3>🎯 Top Recommendation</h3>
-              <div className="sport-tag">{topRecommendation.team_or_player}</div>
-              <p className="game-time">{topRecommendation.market} • {topRecommendation.bookmaker}</p>
+              <h3>🎯 Top Insight</h3>
+              <div className="sport-tag">{topInsight.team_or_player}</div>
+              <p className="game-time">{topInsight.market} • {topInsight.bookmaker}</p>
             </div>
           </div>
           <div className="prediction-info">
             <div className="probabilities">
               <div className="prob-item">
                 <span className="prob-label">Bet Amount</span>
-                <span className="prob-value home">{formatCurrency(topRecommendation.recommended_bet_amount)}</span>
+                <span className="prob-value home">{formatCurrency(topInsight.recommended_bet_amount)}</span>
               </div>
               <div className="prob-item">
                 <span className="prob-label">Potential Payout</span>
-                <span className="prob-value away">{formatCurrency(topRecommendation.potential_payout)}</span>
+                <span className="prob-value away">{formatCurrency(topInsight.potential_payout)}</span>
               </div>
             </div>
             <div className="confidence">
               <span className="confidence-label">Edge</span>
-              <span className="confidence-value">{formatPercentage(topRecommendation.expected_value)}</span>
+              <span className="confidence-value">{formatPercentage(topInsight.expected_value)}</span>
             </div>
           </div>
           <div className="game-meta">
-            <span className="model">Confidence: {formatPercentage(topRecommendation.confidence_score)}</span>
-            <span className="sport">Odds: {formatOdds(topRecommendation.odds)}</span>
+            <span className="model">Confidence: {formatPercentage(topInsight.confidence_score)}</span>
+            <span className="sport">Odds: {formatOdds(topInsight.odds)}</span>
           </div>
-          {topRecommendation.reasoning && (
-            <div className="reasoning">{topRecommendation.reasoning}</div>
+          {topInsight.reasoning && (
+            <div className="reasoning">{topInsight.reasoning}</div>
           )}
         </div>
       )}
 
-      {/* All Recommendations */}
+      {/* All Insights */}
       <div className="games-grid">
-        {recommendations.map((rec, index) => (
+        {insights.map((rec: any, index: number) => (
             <div key={`${rec.game_id}-${index}`} className="game-card">
               <div className="game-info">
                 <div className="teams">
@@ -158,11 +158,11 @@ const Recommendations: React.FC<RecommendationsProps> = ({ token, settings }) =>
         }
       </div>
       
-      {recommendations.length === 0 && (
-        <div className="no-data">No recommendations available for the selected filters.</div>
+      {insights.length === 0 && (
+        <div className="no-data">No insights available for the selected filters.</div>
       )}
     </div>
   );
 };
 
-export default Recommendations;
+export default BetInsights;
