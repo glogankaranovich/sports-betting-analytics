@@ -10,6 +10,8 @@ from datetime import datetime
 import boto3
 from .base_collector import CollectionResult
 from .team_momentum_collector import TeamMomentumCollector
+from .weather_collector import WeatherDataCollector
+from .public_opinion_collector import PublicOpinionCollector
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,8 @@ class DataCollectionOrchestrator:
     def __init__(self):
         self.collectors = {
             "team_momentum": TeamMomentumCollector(),
+            "weather": WeatherDataCollector(),
+            "public_opinion": PublicOpinionCollector(),
             # Add other collectors as they're implemented
         }
         self.dynamodb = boto3.resource("dynamodb")

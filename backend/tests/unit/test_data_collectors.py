@@ -4,7 +4,12 @@ Test Data Collection System
 
 import pytest
 from unittest.mock import patch
-from data_collectors import TeamMomentumCollector, DataCollectionOrchestrator
+from data_collectors import (
+    TeamMomentumCollector,
+    WeatherDataCollector,
+    PublicOpinionCollector,
+    DataCollectionOrchestrator,
+)
 
 
 class TestTeamMomentumCollector:
@@ -85,7 +90,6 @@ class TestTeamMomentumCollector:
 
         assert default["composite_score"] == 0.5
 
-    @pytest.mark.asyncio
     async def test_collect_data_no_games(self, collector):
         """Test collection with no games"""
         result = await collector.collect_data("americanfootball_nfl", [])
@@ -94,7 +98,6 @@ class TestTeamMomentumCollector:
         assert result.data == {}
         assert result.records_collected == 0
 
-    @pytest.mark.asyncio
     async def test_collect_data_with_games(self, collector, sample_games):
         """Test collection with sample games"""
         with patch.object(collector, "get_recent_games", return_value=[]):
@@ -108,6 +111,63 @@ class TestTeamMomentumCollector:
             assert "home_team_momentum" in game_data
             assert "away_team_momentum" in game_data
             assert "momentum_differential" in game_data
+
+
+class TestWeatherDataCollector:
+    @pytest.fixture
+    def collector(self):
+        return WeatherDataCollector()
+
+    def test_weather_collector_initialization(self, collector):
+        """Test weather collector initializes correctly"""
+        assert collector.name == "weather"
+        assert collector.update_frequency == 30
+        assert "Arrowhead Stadium" in collector.outdoor_venues
+
+    def test_calculate_weather_impact(self, collector):
+        """Test weather impact calculation"""
+        # Cold and windy conditions
+        weather_info = {
+            "temperature": 15,  # Very cold
+            "wind_speed": 25,  # Very windy
+            "precipitation_chance": 80,  # High chance of precipitation
+        }
+
+        impact = collector.calculate_weather_impact(weather_info)
+        assert 0.8 <= impact <= 1.0  # Should be high impact
+
+        # Perfect conditions
+        perfect_weather = {
+            "temperature": 70,
+            "wind_speed": 5,
+            "precipitation_chance": 10,
+        }
+
+        impact = collector.calculate_weather_impact(perfect_weather)
+        assert impact <= 0.2  # Should be low impact
+
+
+class TestPublicOpinionCollector:
+    @pytest.fixture
+    def collector(self):
+        return PublicOpinionCollector()
+
+    def test_public_opinion_initialization(self, collector):
+        """Test public opinion collector initializes correctly"""
+        assert collector.name == "public_opinion"
+        assert collector.update_frequency == 15
+
+    def test_calculate_public_fade_score(self, collector):
+        """Test public fade score calculation"""
+        # Heavy public on home team
+        betting_data = {"home_team_percentage": 75}
+        fade_score = collector.calculate_public_fade_score(betting_data)
+        assert fade_score == 0.8
+
+        # Balanced betting
+        betting_data = {"home_team_percentage": 50}
+        fade_score = collector.calculate_public_fade_score(betting_data)
+        assert fade_score == 0.1
 
 
 class TestDataCollectionOrchestrator:
@@ -127,17 +187,17 @@ class TestDataCollectionOrchestrator:
         ]
 
     def test_orchestrator_initialization(self, orchestrator):
-        """Test orchestrator initializes with collectors"""
+        """Test orchestrator initializes with all collectors"""
         assert "team_momentum" in orchestrator.collectors
-        assert len(orchestrator.collectors) >= 1
+        assert "weather" in orchestrator.collectors
+        assert "public_opinion" in orchestrator.collectors
+        assert len(orchestrator.collectors) == 3
 
-    @pytest.mark.asyncio
     async def test_collect_all_data_no_games(self, orchestrator):
         """Test orchestration with no games"""
         results = await orchestrator.collect_all_data("americanfootball_nfl", [])
         assert results == {}
 
-    @pytest.mark.asyncio
     async def test_collect_all_data_with_games(self, orchestrator, sample_games):
         """Test orchestration with games"""
         with patch.object(orchestrator, "_store_collection_results"):
