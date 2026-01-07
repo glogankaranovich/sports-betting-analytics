@@ -86,8 +86,8 @@ class TestOutcomeCollector(unittest.TestCase):
         self.assertEqual(collector._map_sport_name("unknown_sport"), "unknown_sport")
 
     @patch("outcome_collector.boto3")
-    def test_update_prediction_outcomes(self, mock_boto3):
-        """Test updating prediction outcomes"""
+    def test_update_analysis_outcomes(self, mock_boto3):
+        """Test updating analysis outcomes"""
         mock_table = Mock()
         mock_boto3.resource.return_value.Table.return_value = mock_table
 
@@ -105,7 +105,7 @@ class TestOutcomeCollector(unittest.TestCase):
         collector = OutcomeCollector(self.table_name, self.api_key)
         game = {"id": "game123", "home_score": "120", "away_score": "115"}
 
-        updates = collector._update_prediction_outcomes(game)
+        updates = collector._update_analysis_outcomes(game)
 
         # Verify query and update were called
         mock_table.query.assert_called_once()

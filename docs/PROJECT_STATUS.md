@@ -1,31 +1,44 @@
 # Carpool Bets - Project Status
 
-**Last Updated:** January 4, 2026  
-**Current Phase:** Phase 3 Complete - Ready for Bet Recommendation System
+**Last Updated:** January 7, 2026  
+**Current Phase:** Architecture Redesign - ML Analysis & Insights System
 
 ## 🎯 Project Overview
 
-Carpool Bets is a sports betting analytics platform that uses machine learning to analyze betting odds and provide predictions. The system collects real-time odds data, applies consensus-based ML models, and presents predictions through a modern web interface.
+Carpool Bets is a sports betting analytics platform that uses machine learning models to analyze betting opportunities and generate actionable insights. The system collects comprehensive data, trains specialized ML models, and provides data-driven betting analysis through a modern web interface.
 
-## ✅ Completed Phases
+## 🔄 Current Architecture Transition
+
+**From:** Prediction/Recommendation System  
+**To:** ML Analysis/Insights System
+
+### New Terminology
+- **Analysis** (replaces "prediction"): ML-driven evaluation of betting opportunities
+- **Insight** (replaces "recommendation"): Actionable betting suggestions with confidence scores
+- **Model Training**: Continuous learning from outcome verification
+- **Outcome Verification**: Tracking actual results vs model analysis
+
+## ✅ Completed Infrastructure
 
 ### Phase 1: Data Collection ✅
-- **Status:** Complete
+- **Status:** Complete and Ready for ML Enhancement
 - **Implementation:** 
   - Automated odds collection from The Odds API
   - Supports NFL and NBA games with multiple bookmakers
   - Data stored in DynamoDB with proper schema
   - Scheduled collection every 4 hours via Lambda
 - **Key Files:** `backend/odds_collector.py`
+- **Next:** Expand data collection for ML model training
 
 ### Phase 2: Basic Frontend ✅
-- **Status:** Complete
+- **Status:** Complete - Ready for Analysis Display
 - **Implementation:**
   - React dashboard with modern dark theme
   - Professional UI with glassmorphism effects
   - Responsive design for desktop and mobile
   - Real-time data display with pagination
 - **Key Files:** `frontend/src/App.tsx`, `frontend/src/App.css`
+- **Next:** Update UI to display ML analysis and insights
 
 ### Phase 2.5: Authentication & Security ✅
 - **Status:** Complete

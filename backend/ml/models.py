@@ -4,10 +4,12 @@ ML Models for Sports Betting Analytics
 
 from typing import Dict, List
 from dataclasses import dataclass
+import math
+from abc import ABC, abstractmethod
 
 
 @dataclass
-class GamePrediction:
+class GameAnalysis:
     game_id: str
     sport: str
     home_win_probability: float
@@ -17,49 +19,71 @@ class GamePrediction:
 
 
 @dataclass
-class PlayerPropPrediction:
+class PropAnalysis:
+    game_id: str
+    sport: str
     player_name: str
     prop_type: str
-    predicted_value: float
+    line: float
     over_probability: float
     under_probability: float
     confidence_score: float
     value_bets: List[str]
 
 
-class OddsAnalyzer:
-    @staticmethod
-    def american_to_decimal(american_odds: int) -> float:
+class BaseAnalysisModel(ABC):
+    """Base class for all analysis models"""
+
+    @abstractmethod
+    def analyze_game(self, game_data: Dict) -> GameAnalysis:
+        """Analyze a game and return analysis"""
+        pass
+
+    @abstractmethod
+    def analyze_prop(self, prop_data: Dict) -> PropAnalysis:
+        """Analyze a prop bet and return analysis"""
+        pass
+
+    def american_to_decimal(self, american_odds: int) -> float:
+        """Convert American odds to decimal odds"""
         if american_odds > 0:
             return (american_odds / 100) + 1
         else:
             return (100 / abs(american_odds)) + 1
 
-    @staticmethod
-    def decimal_to_probability(decimal_odds: float) -> float:
+    def decimal_to_probability(self, decimal_odds: float) -> float:
+        """Convert decimal odds to implied probability"""
         return 1 / decimal_odds
 
-    def analyze_game(self, game_data: Dict) -> GamePrediction:
-        """Analyze a single game and return predictions"""
+    def _calculate_std(self, values: List[float]) -> float:
+        """Calculate standard deviation"""
+        if len(values) <= 1:
+            return 0
+        mean = sum(values) / len(values)
+        variance = sum((x - mean) ** 2 for x in values) / len(values)
+        return math.sqrt(variance)
 
-        # Extract moneyline odds from bookmaker items (new schema)
+
+class ConsensusModel(BaseAnalysisModel):
+    """Consensus model that averages all bookmaker odds"""
+
+    def analyze_game(self, game_data: Dict) -> GameAnalysis:
+        """Analyze a game using consensus of all bookmaker odds"""
         home_odds = []
         away_odds = []
         bookmaker_names = []
 
-        # New schema: game_data.bookmakers is a list of DynamoDB items
+        # Get all bookmaker odds for this game
         bookmaker_items = game_data.get("bookmakers", [])
         home_team = game_data.get("home_team")
         away_team = game_data.get("away_team")
 
         for item in bookmaker_items:
-            # Only process h2h (moneyline) markets
             if item.get("market_key") == "h2h":
                 outcomes = item.get("outcomes", [])
                 bookmaker_name = item.get("bookmaker")
 
                 if len(outcomes) >= 2 and bookmaker_name:
-                    # Find home and away team odds
                     home_outcome = next(
                         (o for o in outcomes if o["name"] == home_team), None
                     )
@@ -77,7 +101,7 @@ class OddsAnalyzer:
                         bookmaker_names.append(bookmaker_name)
 
         if not home_odds:
-            return GamePrediction(
+            return GameAnalysis(
                 game_id=game_data.get("game_id", "unknown"),
                 sport=game_data.get("sport", "unknown"),
                 home_win_probability=0.5,
@@ -115,96 +139,104 @@ class OddsAnalyzer:
             if away_ev > 0.05:
                 value_bets.append(f"{bookmaker}_away")
 
-        return GamePrediction(
+        return GameAnalysis(
             game_id=game_data.get("game_id", "unknown"),
             sport=game_data.get("sport", "unknown"),
-            home_win_probability=round(home_prob, 3),
-            away_win_probability=round(away_prob, 3),
-            confidence_score=round(confidence, 3),
+            home_win_probability=home_prob,
+            away_win_probability=away_prob,
+            confidence_score=confidence,
             value_bets=value_bets,
         )
 
-    def analyze_player_props(
-        self, props_data: List[Dict]
-    ) -> List[PlayerPropPrediction]:
-        """Analyze player props and return predictions"""
-        predictions = []
+    def analyze_prop(self, prop_data: Dict) -> PropAnalysis:
+        """Analyze a prop bet using consensus of all bookmaker odds"""
+        over_odds = []
+        under_odds = []
+        bookmaker_names = []
 
-        # Group props by player and market_key (prop type)
-        grouped_props = {}
-        for prop in props_data:
-            key = f"{prop['player_name']}_{prop['market_key']}"
-            if key not in grouped_props:
-                grouped_props[key] = []
-            grouped_props[key].append(prop)
+        bookmaker_items = prop_data.get("bookmakers", [])
 
-        for key, prop_group in grouped_props.items():
-            if not prop_group:
-                continue
+        for item in bookmaker_items:
+            outcomes = item.get("outcomes", [])
+            bookmaker_name = item.get("bookmaker")
 
-            player_name = prop_group[0]["player_name"]
-            market_key = prop_group[0]["market_key"]
-
-            # Group by Over/Under for the same line
-            over_props = [p for p in prop_group if p["outcome"] == "Over"]
-            under_props = [p for p in prop_group if p["outcome"] == "Under"]
-
-            if not over_props or not under_props:
-                continue
-
-            # Use the most common point value
-            points = [float(p["point"]) for p in prop_group if p.get("point")]
-            if not points:
-                continue
-            consensus_line = max(set(points), key=points.count)
-
-            # Calculate probabilities from Over odds
-            over_probs = []
-            for prop in over_props:
-                if prop["point"] == consensus_line:
-                    decimal_odds = self.american_to_decimal(int(prop["price"]))
-                    prob = self.decimal_to_probability(decimal_odds)
-                    over_probs.append(prob)
-
-            if over_probs:
-                avg_over_prob = sum(over_probs) / len(over_probs)
-                avg_under_prob = 1 - avg_over_prob
-
-                # Calculate confidence based on consensus
-                confidence = 1 - abs(avg_over_prob - 0.5) * 2
-                confidence = max(0.1, min(0.9, confidence))
-
-                # Identify value bets
-                value_bets = []
-                for prop in over_props:
-                    if prop["point"] == consensus_line:
-                        decimal_odds = self.american_to_decimal(int(prop["price"]))
-                        implied_prob = self.decimal_to_probability(decimal_odds)
-
-                        if avg_over_prob > implied_prob * 1.05:  # 5% edge for over
-                            value_bets.append(
-                                f"Over {prop['point']} at {prop['bookmaker']}"
-                            )
-
-                predictions.append(
-                    PlayerPropPrediction(
-                        player_name=player_name,
-                        prop_type=market_key,
-                        predicted_value=round(consensus_line, 1),
-                        over_probability=round(avg_over_prob, 3),
-                        under_probability=round(avg_under_prob, 3),
-                        confidence_score=round(confidence, 3),
-                        value_bets=value_bets,
-                    )
+            if len(outcomes) >= 2 and bookmaker_name:
+                over_outcome = next((o for o in outcomes if o["name"] == "Over"), None)
+                under_outcome = next(
+                    (o for o in outcomes if o["name"] == "Under"), None
                 )
 
-        return predictions
+                if over_outcome and under_outcome:
+                    over_odds.append(
+                        self.american_to_decimal(int(over_outcome["price"]))
+                    )
+                    under_odds.append(
+                        self.american_to_decimal(int(under_outcome["price"]))
+                    )
+                    bookmaker_names.append(bookmaker_name)
 
-    def _calculate_std(self, values: List[float]) -> float:
-        """Calculate standard deviation without numpy"""
-        if len(values) <= 1:
-            return 0
+        if not over_odds:
+            return PropAnalysis(
+                game_id=prop_data.get("event_id", "unknown"),
+                sport=prop_data.get("sport", "unknown"),
+                player_name=prop_data.get("player_name", "unknown"),
+                prop_type=prop_data.get("market_key", "unknown"),
+                line=float(prop_data.get("point", 0)),
+                over_probability=0.5,
+                under_probability=0.5,
+                confidence_score=0.1,
+                value_bets=[],
+            )
 
-        mean = sum(values) / len(values)
-        variance = sum((x - mean) ** 2 for x in values) / len(values)
-        return variance**0.5
+        # Calculate consensus probabilities
+        over_probs = [self.decimal_to_probability(odds) for odds in over_odds]
+        under_probs = [self.decimal_to_probability(odds) for odds in under_odds]
+
+        # Remove vig and normalize
+        avg_over_prob = sum(over_probs) / len(over_probs)
+        avg_under_prob = sum(under_probs) / len(under_probs)
+        total_prob = avg_over_prob + avg_under_prob
+
+        over_prob = avg_over_prob / total_prob
+        under_prob = avg_under_prob / total_prob
+
+        # Calculate confidence
+        over_std = self._calculate_std(over_probs)
+        under_std = self._calculate_std(under_probs)
+        confidence = 1 - (over_std + under_std) / 2
+        confidence = max(0.1, min(0.9, confidence))
+
+        # Find value bets
+        value_bets = []
+        for i, bookmaker in enumerate(bookmaker_names):
+            over_ev = over_prob - over_probs[i]
+            under_ev = under_prob - under_probs[i]
+
+            if over_ev > 0.05:
+                value_bets.append(f"{bookmaker}_over")
+            if under_ev > 0.05:
+                value_bets.append(f"{bookmaker}_under")
+
+        return PropAnalysis(
+            game_id=prop_data.get("event_id", "unknown"),
+            sport=prop_data.get("sport", "unknown"),
+            player_name=prop_data.get("player_name", "unknown"),
+            prop_type=prop_data.get("market_key", "unknown"),
+            line=float(prop_data.get("point", 0)),
+            over_probability=over_prob,
+            under_probability=under_prob,
+            confidence_score=confidence,
+            value_bets=value_bets,
+        )
+
+
+class ModelFactory:
+    """Factory to create analysis models"""
+
+    @staticmethod
+    def create_model(model_type: str) -> BaseAnalysisModel:
+        """Create a model instance based on type"""
+        if model_type == "consensus":
+            return ConsensusModel()
+        else:
+            raise ValueError(f"Unknown model type: {model_type}")

@@ -1,12 +1,12 @@
-# Comprehensive ML Model Architecture
+# Comprehensive ML Analysis Model Architecture
 
-**Last Updated:** January 4, 2026  
+**Last Updated:** January 7, 2026  
 **Status:** Design Phase - Ready for Implementation  
 **Scope:** Sport-specific models with performance tracking and dynamic weighting
 
 ## Model Overview
 
-Each model is **sport-specific** and generates independent predictions that are combined through a weighted ensemble approach. Model weights are dynamically adjusted based on historical performance.
+Each model is **sport-specific** and generates independent analyses that are combined through a weighted ensemble approach. Model weights are dynamically adjusted based on historical performance and outcome verification.
 
 ## Complete Model Suite (12 Models per Sport)
 

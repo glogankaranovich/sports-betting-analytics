@@ -135,6 +135,19 @@ class BettingDAO:
             print(f"Error getting prop data for {prop_id}: {str(e)}")
             return None
 
+    def get_game_bet_records(self, game_id: str) -> List[Dict]:
+        """Get individual game bet records for a game ID"""
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk",
+                ExpressionAttributeValues={":pk": f"GAME#{game_id}"},
+                FilterExpression="attribute_exists(latest)",  # Only get LATEST records
+            )
+            return response["Items"]
+        except Exception as e:
+            print(f"Error getting game bet records for {game_id}: {str(e)}")
+            return []
+
     def get_game_data(self, game_id: str) -> Optional[Dict]:
         """Get complete game data including odds from all bookmakers"""
         try:
@@ -180,24 +193,26 @@ class BettingDAO:
             print(f"Error getting game data for {game_id}: {str(e)}")
             return None
 
-    def get_game_predictions(self, sport: str, limit: int = 20) -> List[Dict]:
-        """Get active game predictions for a specific sport using sparse index"""
+    def get_game_analysis(
+        self, sport: str, bookmaker: str = "fanduel", limit: int = 20
+    ) -> List[Dict]:
+        """Get active game analysis for a specific sport using sparse index"""
         try:
             current_time = datetime.utcnow().isoformat()
 
             response = self.table.query(
-                IndexName="ActivePredictionsIndexV2",
-                KeyConditionExpression="active_prediction_pk = :active_prediction_pk AND commence_time >= :current_time",
+                IndexName="ActiveAnalysisIndexV2",
+                KeyConditionExpression="active_analysis_pk = :active_analysis_pk AND commence_time >= :current_time",
                 ExpressionAttributeValues={
-                    ":active_prediction_pk": f"GAME#{sport}",
+                    ":active_analysis_pk": f"GAME#{sport}#{bookmaker}",
                     ":current_time": current_time,
                 },
                 Limit=limit,
             )
 
-            predictions = []
+            analysis = []
             for item in response.get("Items", []):
-                predictions.append(
+                analysis.append(
                     {
                         "pk": item.get("pk"),
                         "sk": item.get("sk"),
@@ -219,30 +234,30 @@ class BettingDAO:
                     }
                 )
 
-            return predictions
+            return analysis
 
         except Exception as e:
-            print(f"Error getting game predictions for {sport}: {str(e)}")
+            print(f"Error getting game analysis for {sport}: {str(e)}")
             return []
 
-    def get_prop_predictions(self, sport: str, limit: int = 20) -> List[Dict]:
-        """Get active prop predictions for a specific sport using sparse index"""
+    def get_prop_analysis(self, sport: str, limit: int = 20) -> List[Dict]:
+        """Get active prop analysis for a specific sport using sparse index"""
         try:
             current_time = datetime.utcnow().isoformat()
 
             response = self.table.query(
-                IndexName="ActivePredictionsIndexV2",
-                KeyConditionExpression="active_prediction_pk = :active_prediction_pk AND commence_time >= :current_time",
+                IndexName="ActiveAnalysisIndexV2",
+                KeyConditionExpression="active_analysis_pk = :active_analysis_pk AND commence_time >= :current_time",
                 ExpressionAttributeValues={
-                    ":active_prediction_pk": f"PROP#{sport}",
+                    ":active_analysis_pk": f"PROP#{sport}",
                     ":current_time": current_time,
                 },
                 Limit=limit,
             )
 
-            predictions = []
+            analysis = []
             for item in response.get("Items", []):
-                predictions.append(
+                analysis.append(
                     {
                         "pk": item.get("pk"),
                         "sk": item.get("sk"),
@@ -259,8 +274,8 @@ class BettingDAO:
                     }
                 )
 
-            return predictions
+            return analysis
 
         except Exception as e:
-            print(f"Error getting prop predictions for {sport}: {str(e)}")
+            print(f"Error getting prop analysis for {sport}: {str(e)}")
             return []

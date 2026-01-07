@@ -15,20 +15,20 @@ class OutcomeCollector:
 
     def collect_recent_outcomes(self, days_back: int = 7) -> Dict[str, int]:
         """Collect outcomes for games from the last N days"""
-        results = {"updated_predictions": 0, "updated_recommendations": 0}
+        results = {"updated_analysis": 0, "updated_insights": 0}
 
         # Get completed games from odds API
         completed_games = self._get_completed_games(days_back)
 
         for game in completed_games:
             try:
-                # Update predictions with outcome
-                pred_updates = self._update_prediction_outcomes(game)
-                results["updated_predictions"] += pred_updates
+                # Update analysis with outcome
+                analysis_updates = self._update_analysis_outcomes(game)
+                results["updated_analysis"] += analysis_updates
 
-                # Update recommendations with outcome
-                rec_updates = self._update_recommendation_outcomes(game)
-                results["updated_recommendations"] += rec_updates
+                # Update insights with outcome
+                insight_updates = self._update_insight_outcomes(game)
+                results["updated_insights"] += insight_updates
 
             except Exception as e:
                 print(f"Error processing game {game.get('id', 'unknown')}: {e}")
@@ -73,64 +73,64 @@ class OutcomeCollector:
 
         return completed_games
 
-    def _update_prediction_outcomes(self, game: Dict[str, Any]) -> int:
-        """Update prediction records with actual outcomes"""
+    def _update_analysis_outcomes(self, game: Dict[str, Any]) -> int:
+        """Update analysis records with actual outcomes"""
         updates = 0
         game_pk = f"GAME#{game['id']}"
 
         try:
-            # Query for predictions for this game
+            # Query for analysiss for this game
             response = self.table.query(
                 KeyConditionExpression="PK = :pk AND begins_with(SK, :sk_prefix)",
-                ExpressionAttributeValues={":pk": game_pk, ":sk_prefix": "PREDICTION#"},
+                ExpressionAttributeValues={":pk": game_pk, ":sk_prefix": "ANALYSIS#"},
             )
 
             for item in response.get("Items", []):
                 # Determine actual outcome
                 home_won = self._determine_winner(game)
                 predicted_home_win = float(item.get("home_win_probability", 0.5)) > 0.5
-                prediction_correct = home_won == predicted_home_win
+                analysis_correct = home_won == predicted_home_win
 
-                # Update the prediction record
+                # Update the analysis record
                 self.table.update_item(
                     Key={"PK": item["PK"], "SK": item["SK"]},
-                    UpdateExpression="SET actual_home_won = :home_won, prediction_correct = :correct, outcome_verified_at = :verified",
+                    UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified",
                     ExpressionAttributeValues={
                         ":home_won": home_won,
-                        ":correct": prediction_correct,
+                        ":correct": analysis_correct,
                         ":verified": datetime.utcnow().isoformat(),
                     },
                 )
                 updates += 1
 
         except Exception as e:
-            print(f"Error updating predictions for game {game['id']}: {e}")
+            print(f"Error updating analysiss for game {game['id']}: {e}")
 
         return updates
 
-    def _update_recommendation_outcomes(self, game: Dict[str, Any]) -> int:
-        """Update recommendation records with actual outcomes"""
+    def _update_insight_outcomes(self, game: Dict[str, Any]) -> int:
+        """Update insight records with actual outcomes"""
         updates = 0
 
         try:
-            # Query for recommendations for this game
+            # Query for insights for this game
             response = self.table.scan(
                 FilterExpression="begins_with(PK, :pk_prefix) AND game_id = :game_id",
                 ExpressionAttributeValues={
-                    ":pk_prefix": "RECOMMENDATIONS#",
+                    ":pk_prefix": "INSIGHTS#",
                     ":game_id": game["id"],
                 },
             )
 
             for item in response.get("Items", []):
-                # Determine if the recommendation won
+                # Determine if the insight won
                 home_won = self._determine_winner(game)
                 bet_won = self._determine_bet_outcome(item, home_won)
 
                 # Calculate ROI if bet won
                 roi = self._calculate_roi(item, bet_won)
 
-                # Update the recommendation record
+                # Update the insight record
                 self.table.update_item(
                     Key={"PK": item["PK"], "SK": item["SK"]},
                     UpdateExpression="SET actual_outcome = :outcome, bet_won = :won, actual_roi = :roi, outcome_verified_at = :verified",
@@ -144,7 +144,7 @@ class OutcomeCollector:
                 updates += 1
 
         except Exception as e:
-            print(f"Error updating recommendations for game {game['id']}: {e}")
+            print(f"Error updating insights for game {game['id']}: {e}")
 
         return updates
 
@@ -158,12 +158,10 @@ class OutcomeCollector:
 
         return int(home_score) > int(away_score)
 
-    def _determine_bet_outcome(
-        self, recommendation: Dict[str, Any], home_won: bool
-    ) -> bool:
+    def _determine_bet_outcome(self, insight: Dict[str, Any], home_won: bool) -> bool:
         """Determine if the recommended bet won"""
-        bet_type = recommendation.get("bet_type", "")
-        team_or_player = recommendation.get("team_or_player", "")
+        bet_type = insight.get("bet_type", "")
+        team_or_player = insight.get("team_or_player", "")
 
         # Simple moneyline logic (expand for other bet types)
         if bet_type == "moneyline":
@@ -175,13 +173,13 @@ class OutcomeCollector:
         # Default to False for unsupported bet types
         return False
 
-    def _calculate_roi(self, recommendation: Dict[str, Any], bet_won: bool) -> float:
-        """Calculate ROI for the recommendation"""
+    def _calculate_roi(self, insight: Dict[str, Any], bet_won: bool) -> float:
+        """Calculate ROI for the insight"""
         if not bet_won:
             return -1.0  # Lost entire bet
 
-        bet_amount = float(recommendation.get("recommended_bet_amount", 0))
-        potential_payout = float(recommendation.get("potential_payout", 0))
+        bet_amount = float(insight.get("recommended_bet_amount", 0))
+        potential_payout = float(insight.get("potential_payout", 0))
 
         if bet_amount == 0:
             return 0.0

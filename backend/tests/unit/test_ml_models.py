@@ -3,30 +3,30 @@ Test ML models functionality
 """
 
 import pytest
-from ml.models import OddsAnalyzer, GamePrediction, PlayerPropPrediction
+from ml.models import ConsensusModel, GameAnalysis
 
 
 def test_american_to_decimal():
-    analyzer = OddsAnalyzer()
+    model = ConsensusModel()
 
     # Positive odds
-    assert analyzer.american_to_decimal(100) == 2.0
-    assert analyzer.american_to_decimal(200) == 3.0
+    assert model.american_to_decimal(100) == 2.0
+    assert model.american_to_decimal(200) == 3.0
 
     # Negative odds
-    assert analyzer.american_to_decimal(-100) == 2.0
-    assert analyzer.american_to_decimal(-200) == 1.5
+    assert model.american_to_decimal(-100) == 2.0
+    assert model.american_to_decimal(-200) == 1.5
 
 
 def test_decimal_to_probability():
-    analyzer = OddsAnalyzer()
+    model = ConsensusModel()
 
-    assert analyzer.decimal_to_probability(2.0) == 0.5
-    assert analyzer.decimal_to_probability(4.0) == 0.25
+    assert model.decimal_to_probability(2.0) == 0.5
+    assert model.decimal_to_probability(4.0) == 0.25
 
 
 def test_analyze_game():
-    analyzer = OddsAnalyzer()
+    model = ConsensusModel()
 
     game_data = {
         "game_id": "test_game",
@@ -46,49 +46,18 @@ def test_analyze_game():
         },
     }
 
-    prediction = analyzer.analyze_game(game_data)
+    prediction = model.analyze_game(game_data)
 
-    assert isinstance(prediction, GamePrediction)
+    assert isinstance(prediction, GameAnalysis)
     assert prediction.game_id == "test_game"
     assert prediction.home_win_probability > 0
     assert prediction.away_win_probability > 0
     assert prediction.confidence_score > 0
 
 
-def test_analyze_player_props():
-    analyzer = OddsAnalyzer()
-
-    props_data = [
-        {
-            "game_id": "test_game",
-            "sport": "basketball_nba",
-            "player_name": "Player X",
-            "market_key": "player_points",
-            "outcome": "Over",
-            "point": 25.5,
-            "price": -110,
-        },
-        {
-            "game_id": "test_game",
-            "sport": "basketball_nba",
-            "player_name": "Player X",
-            "market_key": "player_points",
-            "outcome": "Under",
-            "point": 25.5,
-            "price": -110,
-        },
-    ]
-
-    predictions = analyzer.analyze_player_props(props_data)
-
-    assert len(predictions) >= 0
-    if predictions:
-        assert isinstance(predictions[0], PlayerPropPrediction)
-
-
 def test_combat_sports_analysis():
     """Test that combat sports can be analyzed"""
-    analyzer = OddsAnalyzer()
+    model = ConsensusModel()
 
     # MMA fight data
     mma_data = {
@@ -109,9 +78,9 @@ def test_combat_sports_analysis():
         },
     }
 
-    prediction = analyzer.analyze_game(mma_data)
+    prediction = model.analyze_game(mma_data)
 
-    assert isinstance(prediction, GamePrediction)
+    assert isinstance(prediction, GameAnalysis)
     assert prediction.sport == "mma_mixed_martial_arts"
     assert prediction.home_win_probability > 0
     assert prediction.away_win_probability > 0
@@ -119,7 +88,7 @@ def test_combat_sports_analysis():
 
 def test_boxing_analysis():
     """Test that boxing matches can be analyzed"""
-    analyzer = OddsAnalyzer()
+    model = ConsensusModel()
 
     # Boxing match data
     boxing_data = {
@@ -140,9 +109,9 @@ def test_boxing_analysis():
         ],
     }
 
-    prediction = analyzer.analyze_game(boxing_data)
+    prediction = model.analyze_game(boxing_data)
 
-    assert isinstance(prediction, GamePrediction)
+    assert isinstance(prediction, GameAnalysis)
     assert prediction.sport == "boxing_boxing"
     assert (
         prediction.home_win_probability > 0.5
@@ -151,7 +120,7 @@ def test_boxing_analysis():
 
 def test_consensus_analysis_multiple_bookmakers():
     """Test consensus analysis with multiple bookmakers"""
-    analyzer = OddsAnalyzer()
+    model = ConsensusModel()
 
     # Game with multiple bookmaker odds
     game_data = {
@@ -189,8 +158,8 @@ def test_consensus_analysis_multiple_bookmakers():
     }
 
     # Should handle multiple bookmakers for consensus
-    prediction = analyzer.analyze_game(game_data)
-    assert isinstance(prediction, GamePrediction)
+    prediction = model.analyze_game(game_data)
+    assert isinstance(prediction, GameAnalysis)
     assert prediction.confidence_score > 0
 
 

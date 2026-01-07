@@ -2,6 +2,11 @@
 
 ## 🎯 Daily Development Process
 
+### AWS Profile Configuration
+- **Dev Account Profile**: `sports-betting-dev`
+- All dev environment operations use this profile automatically via Makefile
+- For manual AWS CLI commands, always specify: `AWS_PROFILE=sports-betting-dev`
+
 ### Step-by-Step Workflow
 1. **Identify Task**: Review PROJECT_STATUS.md and select next task
 2. **Update Status**: Mark task as "In Progress" in PROJECT_STATUS.md
@@ -70,14 +75,63 @@ make build        # Build all components
 
 ### Development Environment
 ```bash
-# Deploy to dev (manual only)
+# Deploy to dev (manual only) - uses sports-betting-dev profile
 make deploy-dev
 
 # Verify dev deployment
 make verify-dev
 
+# Clear DynamoDB table (use ops directory)
+cd ../ops && AWS_PROFILE=sports-betting-dev python3 clear_table.py
+
+### Lambda Testing Workflow
+Complete testing sequence for Lambda functions:
+
+```bash
+# 1. Clear DynamoDB table
+cd ../ops && AWS_PROFILE=sports-betting-dev python3 clear_table.py
+
+# 2. Deploy all stacks to dev
+cd ../infrastructure && make deploy-dev
+
+# 3. Test Lambda functions in order:
+
+# Step 3a: Test Odds Collector
+AWS_PROFILE=sports-betting-dev aws lambda invoke --function-name Dev-OddsCollector-OddsCollectorFunction6A9C6277-RXibwu37zOli /tmp/response.json
+cat /tmp/response.json
+# Verify: Check DynamoDB for game/prop data
+
+# Step 3b: Test Prediction Generator  
+echo '{"sport":"basketball_nba","model":"consensus","bet_type":"props","limit":5}' | base64 | tr -d '\n' > /tmp/payload.b64
+AWS_PROFILE=sports-betting-dev aws lambda invoke --function-name Dev-PredictionGenerator-PredictionGeneratorFunctio-nUbb1Nq1bDK4 --payload file:///tmp/payload.b64 /tmp/response.json
+cat /tmp/response.json
+# Verify: Check DynamoDB for prediction data
+
+# Step 3c: Test Recommendation Generator
+echo '{"sport":"basketball_nba","bookmaker":"fanduel","model":"consensus","risk_level":"conservative","bet_type":"props"}' | base64 | tr -d '\n' > /tmp/payload.b64
+AWS_PROFILE=sports-betting-dev aws lambda invoke --function-name Dev-RecommendationGenerat-RecommendationGeneratorF-94DTeKirnv2I --payload file:///tmp/payload.b64 /tmp/response.json
+cat /tmp/response.json
+# Verify: Check response for recommendations
+
+# 4. Check logs for any errors (replace FUNCTION_NAME and STREAM_NAME)
+AWS_PROFILE=sports-betting-dev aws logs describe-log-streams --log-group-name /aws/lambda/FUNCTION_NAME --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text
+AWS_PROFILE=sports-betting-dev aws logs get-log-events --log-group-name /aws/lambda/FUNCTION_NAME --log-stream-name STREAM_NAME
+
+# 5. If errors found: Fix code, redeploy, repeat testing
+```
+
+**Testing Rules:**
+- Always test in order: Odds Collector → Prediction Generator → Recommendation Generator
+- Verify DynamoDB state and Lambda logs after each step
+- Fix any errors immediately before proceeding to next Lambda
+- Clear table and redeploy if major changes are made
+
 # Check dev resources
-make check-dev-status
+AWS_PROFILE=sports-betting-dev aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE --query 'StackSummaries[].StackName' --output table
+
+# View Lambda logs
+AWS_PROFILE=sports-betting-dev aws logs describe-log-streams --log-group-name /aws/lambda/FUNCTION_NAME --order-by LastEventTime --descending --max-items 1 --query 'logStreams[0].logStreamName' --output text
+AWS_PROFILE=sports-betting-dev aws logs get-log-events --log-group-name /aws/lambda/FUNCTION_NAME --log-stream-name STREAM_NAME
 ```
 
 ### Pipeline Monitoring

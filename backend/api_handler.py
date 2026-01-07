@@ -3,8 +3,6 @@ import boto3
 import os
 from decimal import Decimal
 from typing import Dict, Any
-from bet_recommendations import RiskLevel
-from recommendation_storage import RecommendationStorage
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -60,24 +58,13 @@ def lambda_handler(event, context):
         elif path.startswith("/games/"):
             game_id = path.split("/")[-1]
             return handle_get_game(game_id)
-        elif path == "/predictions":
-            return handle_get_predictions(query_params)
-        elif path == "/game-predictions":
-            print("Handling game-predictions request")
-            return handle_get_game_predictions(query_params)
-        elif path == "/prop-predictions":
-            print("Handling prop-predictions request")
-            return handle_get_prop_predictions(query_params)
-        elif path == "/recommendations":
-            print("Handling recommendations request")
-            return handle_get_recommendations(query_params)
-        elif path == "/top-recommendation":
-            print("Handling top-recommendation request")
-            return handle_get_top_recommendation(query_params)
         elif path == "/player-props":
             return handle_get_player_props(query_params)
         elif path == "/sports":
             return handle_get_sports()
+        elif path == "/compliance/log" and http_method == "POST":
+            body = json.loads(event.get("body", "{}"))
+            return handle_compliance_log(body)
         elif path == "/bookmakers":
             return handle_get_bookmakers()
         else:
@@ -238,142 +225,6 @@ def handle_get_bookmakers():
         return create_response(500, {"error": f"Error fetching bookmakers: {str(e)}"})
 
 
-def handle_get_predictions(query_params: Dict[str, str]):
-    """Get ML predictions for games"""
-    sport = query_params.get("sport")
-
-    try:
-        # Get games data using new schema
-        filter_expression = boto3.dynamodb.conditions.Attr("pk").begins_with("GAME#")
-        if sport:
-            filter_expression = filter_expression & boto3.dynamodb.conditions.Attr(
-                "sport"
-            ).eq(sport)
-
-        response = table.scan(FilterExpression=filter_expression, Limit=1000)
-
-        # Group by game_id and reconstruct game structure
-        games_by_id = {}
-        for item in response.get("Items", []):
-            # Extract game_id from pk (GAME#game_id)
-            game_id = item.get("pk", "").replace("GAME#", "")
-            if not game_id:
-                continue
-
-            if game_id not in games_by_id:
-                games_by_id[game_id] = {
-                    "game_id": game_id,
-                    "sport": item.get("sport"),
-                    "home_team": item.get("home_team"),
-                    "away_team": item.get("away_team"),
-                    "commence_time": item.get("commence_time"),
-                    "odds": {},
-                }
-
-            # Parse sk to get bookmaker and market (bookmaker#market)
-            sk_parts = item.get("sk", "").split("#")
-            if len(sk_parts) >= 2:
-                bookmaker = sk_parts[0]
-                market = sk_parts[1]
-
-                if bookmaker not in games_by_id[game_id]["odds"]:
-                    games_by_id[game_id]["odds"][bookmaker] = {}
-
-                games_by_id[game_id]["odds"][bookmaker][market] = {
-                    "outcomes": item.get("outcomes", [])
-                }
-
-        # Generate predictions
-        from ml.models import OddsAnalyzer
-
-        analyzer = OddsAnalyzer()
-        predictions = []
-
-        for game_data in games_by_id.values():
-            try:
-                prediction = analyzer.analyze_game(game_data)
-                predictions.append(
-                    {
-                        "game_id": game_data["game_id"],
-                        "sport": game_data["sport"],
-                        "home_team": game_data["home_team"],
-                        "away_team": game_data["away_team"],
-                        "commence_time": game_data["commence_time"],
-                        "home_win_probability": prediction.home_win_probability,
-                        "away_win_probability": prediction.away_win_probability,
-                        "confidence_score": prediction.confidence_score,
-                        "value_bets": prediction.value_bets,
-                    }
-                )
-            except Exception:
-                # Skip games with prediction errors
-                continue
-
-        return create_response(
-            200, {"predictions": predictions, "count": len(predictions)}
-        )
-    except Exception as e:
-        return create_response(
-            500, {"error": f"Error generating predictions: {str(e)}"}
-        )
-
-
-def handle_get_game_predictions(query_params: Dict[str, str]):
-    """Get game predictions only"""
-    sport = query_params.get("sport", "basketball_nba")  # Default sport
-    limit = int(query_params.get("limit", "20"))  # Default limit
-
-    try:
-        print(f"Getting game predictions for {sport} with limit: {limit}")
-        from dao import BettingDAO
-
-        dao = BettingDAO()
-        predictions = dao.get_game_predictions(sport, limit)
-        print(f"Found {len(predictions)} game predictions")
-
-        return create_response(
-            200, {"predictions": predictions, "count": len(predictions)}
-        )
-    except Exception as e:
-        print(f"Error in handle_get_game_predictions: {str(e)}")
-        return create_response(500, {"error": str(e)})
-        import traceback
-
-        traceback.print_exc()
-        return create_response(
-            500, {"error": f"Error fetching game predictions: {str(e)}"}
-        )
-
-
-def handle_get_prop_predictions(query_params: Dict[str, str]):
-    """Get prop predictions only"""
-    sport = query_params.get("sport", "basketball_nba")  # Default sport
-    limit = int(query_params.get("limit", "20"))  # Default limit
-
-    try:
-        print(f"Getting prop predictions for {sport} with limit: {limit}")
-        from dao import BettingDAO
-
-        dao = BettingDAO()
-        predictions = dao.get_prop_predictions(sport, limit)
-        print(f"Found {len(predictions)} prop predictions")
-
-        return create_response(
-            200, {"predictions": predictions, "count": len(predictions)}
-        )
-    except Exception as e:
-        print(f"Error in handle_get_prop_predictions: {str(e)}")
-        return create_response(500, {"error": str(e)})
-    except Exception as e:
-        print(f"Error in handle_get_prop_predictions: {str(e)}")
-        import traceback
-
-        traceback.print_exc()
-        return create_response(
-            500, {"error": f"Error fetching prop predictions: {str(e)}"}
-        )
-
-
 def handle_get_player_props(query_params: Dict[str, str]):
     """Get player props with optional filtering using GSI"""
     sport = query_params.get("sport")
@@ -464,73 +315,43 @@ def handle_get_player_props(query_params: Dict[str, str]):
         return create_response(500, {"error": f"Error fetching player props: {str(e)}"})
 
 
-def handle_get_recommendations(query_params: Dict[str, str]):
-    """Get stored bet recommendations"""
-    sport = query_params.get("sport", "NBA")
-    model = query_params.get("model", "consensus")
-    risk_level = query_params.get("risk_level", "moderate")
-    limit = int(query_params.get("limit", "10"))
-
-    try:
-        storage = RecommendationStorage(table_name)
-        risk_enum = RiskLevel(risk_level)
-
-        recommendations = storage.get_recommendations(sport, model, risk_enum, limit)
-
-        return create_response(
-            200,
-            {
-                "recommendations": recommendations,
-                "count": len(recommendations),
-                "sport": sport,
-                "model": model,
-                "risk_level": risk_level,
-            },
-        )
-
-    except Exception as e:
-        print(f"Error getting recommendations: {str(e)}")
-        return create_response(500, {"error": str(e)})
+def handle_get_insights(query_params: Dict[str, str]):
+    """Get stored bet insights - DISABLED: Module removed during cleanup"""
+    return create_response(501, {"error": "Insights feature temporarily disabled"})
 
 
-def handle_get_top_recommendation(query_params: Dict[str, str]):
-    """Get the single top recommendation"""
-    sport = query_params.get("sport", "NBA")
-    model = query_params.get("model", "consensus")
-    risk_level = query_params.get("risk_level", "moderate")
-
-    try:
-        storage = RecommendationStorage(table_name)
-        risk_enum = RiskLevel(risk_level)
-
-        recommendations = storage.get_recommendations(sport, model, risk_enum, 1)
-
-        if not recommendations:
-            return create_response(
-                200,
-                {
-                    "recommendation": None,
-                    "message": f"No recommendations available for {sport} {model} {risk_level}",
-                },
-            )
-
-        return create_response(
-            200,
-            {
-                "recommendation": recommendations[0],
-                "sport": sport,
-                "model": model,
-                "risk_level": risk_level,
-            },
-        )
-
-    except Exception as e:
-        print(f"Error getting top recommendation: {str(e)}")
-        return create_response(500, {"error": str(e)})
+def handle_get_top_insight(query_params: Dict[str, str]):
+    """Get the single top insight - DISABLED: Module removed during cleanup"""
+    return create_response(501, {"error": "Insights feature temporarily disabled"})
 
 
-def _get_recent_game_predictions(sport, limit):
-    """Helper to get recent game predictions with odds data"""
+def _get_recent_game_analysis(sport, limit):
+    """Helper to get recent game analysis with odds data"""
     # TODO: Implement actual data fetching from DynamoDB
     # For now, return empty list until we integrate with real data
     return []
+
+
+def handle_compliance_log(event_body: Dict[str, Any]):
+    """Handle compliance logging requests"""
+    try:
+        from compliance_logger import ComplianceLogger
+
+        compliance_logger = ComplianceLogger()
+        session_id = event_body.get("sessionId")
+        action = event_body.get("action")
+        data = event_body.get("data", {})
+
+        if not session_id or not action:
+            return create_response(400, {"error": "Missing required fields"})
+
+        success = compliance_logger.log_user_action(session_id, action, data)
+
+        if success:
+            return create_response(200, {"success": True})
+        else:
+            return create_response(500, {"error": "Failed to log action"})
+
+    except Exception as e:
+        print(f"Error logging compliance action: {str(e)}")
+        return create_response(500, {"error": str(e)})

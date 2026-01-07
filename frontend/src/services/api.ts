@@ -69,8 +69,13 @@ export const bettingApi = {
     return response.data;
   },
 
-  async getGamePredictions(token: string, sport?: string): Promise<any> {
-    const url = sport ? `/game-predictions?sport=${sport}&limit=500` : '/game-predictions?limit=500';
+  async getGamePredictions(token: string, sport?: string, bookmaker?: string): Promise<any> {
+    const params = new URLSearchParams();
+    if (sport) params.append('sport', sport);
+    if (bookmaker) params.append('bookmaker', bookmaker);
+    params.append('limit', '500');
+    
+    const url = `/game-predictions?${params.toString()}`;
     const response = await api.get(url, {
       headers: { Authorization: `Bearer ${token}` }
     });

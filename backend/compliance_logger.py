@@ -67,15 +67,15 @@ class ComplianceLogger:
             },
         )
 
-    def log_bet_recommendation_view(
-        self, session_id: str, recommendation_id: str, confidence_score: float
+    def log_bet_insight_view(
+        self, session_id: str, insight_id: str, confidence_score: float
     ) -> bool:
-        """Log when user views betting recommendations"""
+        """Log when user views betting insights"""
         return self.log_user_action(
             session_id=session_id,
-            action="recommendation_viewed",
+            action="insight_viewed",
             user_data={
-                "recommendation_id": recommendation_id,
+                "insight_id": insight_id,
                 "confidence_score": confidence_score,
             },
         )

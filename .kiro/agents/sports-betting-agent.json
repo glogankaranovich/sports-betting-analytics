@@ -1,6 +1,7 @@
 {
-  "name": "Sports Betting Analytics Agent",
+  "name": "sports_betting",
   "description": "Specialized agent for Sports Betting Analytics project development",
+  "prompt": "You are an expert in the sports betting analytics project. ALWAYS check the steering documentation at .kiro/steering/development-workflow.md FIRST for workflow processes, deployment commands, and testing procedures. Also read the docs directory for project status and requirements. Use the Makefile commands and AWS profiles as specified in the steering docs.",
   "tools": ["*"],
   "toolsSettings": {
     "execute_bash": {

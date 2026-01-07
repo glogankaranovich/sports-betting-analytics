@@ -1,15 +1,19 @@
-# Bet Recommendation System - Implementation Plan
+# Bet Analysis & Insight System - Implementation Plan
 
-**Priority:** Immediate (Next Phase)  
-**Estimated Timeline:** 3-4 days  
-**Goal:** Transform prediction system into actionable bet recommendations with parlay building
+**Status:** Superseded by ML Analysis Architecture  
+**Date:** January 7, 2026  
+**Superseded By:** `ml-analysis-architecture.md`
 
-## 🎯 Core Features to Implement
+**Goal:** Transform analysis system into actionable bet insights with portfolio building
 
-### 1. Top Recommended Bet Display
+## 🎯 New System Overview
+
+This document has been superseded by the new ML Analysis Architecture. The system now focuses on:
+
+### 1. Top Insight Display
 **Location:** Main dashboard (always visible)
 **Components:**
-- Highest confidence bet recommendation
+- Highest confidence bet insight
 - Odds from best bookmaker
 - Confidence score and reasoning
 - Expected value calculation

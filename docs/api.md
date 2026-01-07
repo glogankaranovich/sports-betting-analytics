@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Sports Betting Analytics API provides endpoints for managing bets, retrieving predictions, and accessing sports data. The API includes ML-powered prediction endpoints and real-time odds data.
+The Sports Betting Analytics API provides endpoints for managing bets, retrieving analysis results, and accessing sports data. The API includes ML-powered analysis endpoints and real-time odds data.
 
 ## Base URLs
 
@@ -60,9 +60,9 @@ GET /games/{game_id}
 ```
 Returns detailed odds for a specific game.
 
-### ML Predictions
+### ML Analysis Results
 
-#### Get Game Predictions
+#### Get Game Analysis
 ```http
 GET /game-predictions?limit=50
 ```

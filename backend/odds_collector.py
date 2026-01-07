@@ -390,7 +390,8 @@ class OddsCollector:
 
         total_games = 0
         for sport in active_sports:
-            total_games += self.collect_odds_for_sport(sport)
+            game_ids = self.collect_odds_for_sport(sport)
+            total_games += len(game_ids)
 
         return total_games
 

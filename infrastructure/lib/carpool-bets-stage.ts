@@ -3,8 +3,6 @@ import { Construct } from 'constructs';
 import { DynamoDBStack } from './dynamodb-stack';
 import { OddsCollectorStack } from './odds-collector-stack';
 import { BetCollectorApiStack } from './bet-collector-api-stack';
-import { PredictionGeneratorStack } from './prediction-generator-stack';
-import { RecommendationGeneratorStack } from './recommendation-generator-stack';
 import { OutcomeCollectorStack } from './outcome-collector-stack';
 import { AuthStack } from './auth-stack';
 import { ComplianceStack } from './compliance-stack';
@@ -47,19 +45,6 @@ export class CarpoolBetsStage extends cdk.Stage {
 
     // Add explicit dependency to ensure DynamoDB deploys before BetCollectorApi
     betCollectorApiStack.addDependency(dynamoStack);
-
-    // Prediction generator stack
-    new PredictionGeneratorStack(this, 'PredictionGenerator', {
-      environment: props.stage,
-      betsTable: dynamoStack.betsTable,
-    });
-
-    // Recommendation generator stack
-    new RecommendationGeneratorStack(this, 'RecommendationGenerator', {
-      environment: props.stage,
-      dynamoDbTableName: `carpool-bets-v2-${props.stage}`,
-      dynamoDbTableArn: dynamoStack.betsTable.tableArn,
-    });
 
     // Outcome collector stack
     new OutcomeCollectorStack(this, 'OutcomeCollector', {

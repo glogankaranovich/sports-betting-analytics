@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Sports Betting Analytics System is a cloud-native ML platform built on AWS with real-time data collection, AI-powered predictions, and a modern React frontend.
+The Sports Betting Analytics System is a cloud-native ML platform built on AWS with real-time data collection, AI-powered analysis models, and a modern React frontend.
 
 ## Components
 
@@ -12,25 +12,31 @@ The Sports Betting Analytics System is a cloud-native ML platform built on AWS w
 - **Scheduler**: Sport-specific EventBridge rules (NBA/NFL twice daily)
 - **DynamoDB**: Real-time storage with GSI indexes and smart deduplication
 
-### 2. Machine Learning Layer
-- **OddsAnalyzer**: Consensus-based prediction algorithms
-- **PredictionTracker**: Model training pipeline with clean data separation
-- **Scheduled Generation**: ML models run every 6 hours via Lambda
-- **Value Bet Detection**: Identifies opportunities where models disagree with market
+### 2. Machine Learning Analysis Layer
+- **12 Specialized Models**: Management, momentum, stats, weather, sentiment, referee, etc.
+- **Dynamic Weighting System**: Performance-based model importance adjustment
+- **Outcome Verification**: Continuous learning from actual results
+- **Value Bet Detection**: Identifies opportunities through ensemble analysis
 
-### 3. API Layer
+### 3. Insight Generation Layer
+- **Ensemble Analysis**: Combines weighted model outputs for comprehensive insights
+- **Confidence Scoring**: Statistical confidence in analysis results
+- **ROI Calculation**: Expected value and return estimation
+- **Top Picks Selection**: Highest confidence × ROI opportunities
+
+### 4. API Layer
 - **API Gateway**: RESTful endpoints with CORS and rate limiting
 - **Lambda Functions**: Serverless API handlers with proper error handling
 - **Cognito Authentication**: JWT-based user authentication with protected endpoints
 - **Multiple Environments**: Dev, Beta, and Production with separate resources
 
-### 4. Frontend Layer
-- **React TypeScript**: Modern web interface with 4-tab navigation
+### 5. Frontend Layer
+- **React TypeScript**: Modern web interface displaying analysis insights
 - **AWS Amplify**: Authentication integration and hosting
 - **Responsive Design**: Mobile-friendly with glassmorphism styling
-- **Real-time Data**: Pagination, filtering, and loading states
+- **Real-time Data**: Analysis results, confidence scores, and insight tracking
 
-### 5. Infrastructure Layer
+### 6. Infrastructure Layer
 - **AWS CDK**: Infrastructure as Code with TypeScript
 - **CI/CD Pipeline**: Automated deployment with rollback capabilities
 - **Multi-Environment**: Separate stacks for dev/beta/prod
