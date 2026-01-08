@@ -58,6 +58,8 @@ def lambda_handler(event, context):
         elif path.startswith("/games/"):
             game_id = path.split("/")[-1]
             return handle_get_game(game_id)
+        elif path == "/analyses":
+            return handle_get_analyses(query_params)
         elif path == "/player-props":
             return handle_get_player_props(query_params)
         elif path == "/sports":
@@ -355,3 +357,80 @@ def handle_compliance_log(event_body: Dict[str, Any]):
     except Exception as e:
         print(f"Error logging compliance action: {str(e)}")
         return create_response(500, {"error": str(e)})
+
+
+def handle_get_analyses(query_params: Dict[str, str]):
+    """Get ML analyses using AnalysisGSI"""
+    try:
+        sport = query_params.get("sport", "basketball_nba")
+        model = query_params.get("model")
+        bookmaker = query_params.get("bookmaker")
+        limit = int(query_params.get("limit", "50"))
+
+        # Build analysis_pk: ANALYSIS#{sport}#{bookmaker}#{model}
+        if not bookmaker or not model:
+            return create_response(
+                400, {"error": "Both bookmaker and model are required"}
+            )
+
+        analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}"
+
+        # Query using AnalysisTimeGSI for chronological ordering
+        query_kwargs = {
+            "IndexName": "AnalysisTimeGSI",
+            "KeyConditionExpression": boto3.dynamodb.conditions.Key(
+                "analysis_time_pk"
+            ).eq(analysis_pk),
+            "ScanIndexForward": False,  # Most recent first
+        }
+
+        all_items = []
+        while True:
+            response = table.query(**query_kwargs)
+            all_items.extend(response.get("Items", []))
+
+            if len(all_items) >= limit:
+                all_items = all_items[:limit]
+                break
+
+            # Check if there are more items to paginate
+            last_evaluated_key = response.get("LastEvaluatedKey")
+            if not last_evaluated_key:
+                break
+
+            query_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+        analyses = []
+        for item in all_items:
+            analyses.append(
+                {
+                    "game_id": item.get("game_id"),
+                    "model": item.get("model"),
+                    "analysis_type": item.get("analysis_type"),
+                    "sport": item.get("sport"),
+                    "bookmaker": item.get("bookmaker"),
+                    "prediction": item.get("prediction"),
+                    "confidence": float(item.get("confidence", 0)),
+                    "reasoning": item.get("reasoning"),
+                    "home_team": item.get("home_team"),
+                    "away_team": item.get("away_team"),
+                    "created_at": item.get("created_at"),
+                    "commence_time": item.get("commence_time"),
+                }
+            )
+
+        analyses = decimal_to_float(analyses)
+
+        return create_response(
+            200,
+            {
+                "analyses": analyses,
+                "count": len(analyses),
+                "sport": sport,
+                "model_filter": model,
+                "bookmaker_filter": bookmaker,
+            },
+        )
+
+    except Exception as e:
+        return create_response(500, {"error": f"Error fetching analyses: {str(e)}"})

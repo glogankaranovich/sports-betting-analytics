@@ -58,40 +58,40 @@ export class OddsCollectorStack extends cdk.Stack {
     // Grant Secrets Manager permissions
     oddsApiSecret.grantRead(this.oddsCollectorFunction);
 
-    // Schedule NBA odds collection twice daily (8 AM and 8 PM)
-    const nbaOddsRule = new events.Rule(this, 'NBAOddsCollectionSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '8,20' })
-    });
+    // TEMPORARILY DISABLED - Schedule NBA odds collection twice daily (8 AM and 8 PM)
+    // const nbaOddsRule = new events.Rule(this, 'NBAOddsCollectionSchedule', {
+    //   schedule: events.Schedule.cron({ minute: '0', hour: '8,20' })
+    // });
 
-    nbaOddsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
-      event: events.RuleTargetInput.fromObject({ sport: 'basketball_nba' })
-    }));
+    // nbaOddsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
+    //   event: events.RuleTargetInput.fromObject({ sport: 'basketball_nba' })
+    // }));
 
-    // Schedule NFL odds collection twice daily (9 AM and 9 PM)
-    const nflOddsRule = new events.Rule(this, 'NFLOddsCollectionSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '9,21' })
-    });
+    // TEMPORARILY DISABLED - Schedule NFL odds collection twice daily (9 AM and 9 PM)
+    // const nflOddsRule = new events.Rule(this, 'NFLOddsCollectionSchedule', {
+    //   schedule: events.Schedule.cron({ minute: '0', hour: '9,21' })
+    // });
 
-    nflOddsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
-      event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl' })
-    }));
+    // nflOddsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
+    //   event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl' })
+    // }));
 
-    // Schedule NBA props collection twice daily (10 AM and 10 PM)
-    const nbaPropsRule = new events.Rule(this, 'NBAPropsCollectionSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '10,22' })
-    });
+    // TEMPORARILY DISABLED - Schedule NBA props collection twice daily (10 AM and 10 PM)
+    // const nbaPropsRule = new events.Rule(this, 'NBAPropsCollectionSchedule', {
+    //   schedule: events.Schedule.cron({ minute: '0', hour: '10,22' })
+    // });
 
-    nbaPropsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
-      event: events.RuleTargetInput.fromObject({ sport: 'basketball_nba', props_only: true })
-    }));
+    // nbaPropsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
+    //   event: events.RuleTargetInput.fromObject({ sport: 'basketball_nba', props_only: true })
+    // }));
 
-    // Schedule NFL props collection twice daily (11 AM and 11 PM)
-    const nflPropsRule = new events.Rule(this, 'NFLPropsCollectionSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '11,23' })
-    });
+    // TEMPORARILY DISABLED - Schedule NFL props collection twice daily (11 AM and 11 PM)
+    // const nflPropsRule = new events.Rule(this, 'NFLPropsCollectionSchedule', {
+    //   schedule: events.Schedule.cron({ minute: '0', hour: '11,23' })
+    // });
 
-    nflPropsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
-      event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl', props_only: true })
-    }));
+    // nflPropsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
+    //   event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl', props_only: true })
+    // }));
   }
 }

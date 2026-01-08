@@ -55,6 +55,19 @@ export class DynamoDBStack extends cdk.Stack {
       }
     });
 
+    // Add GSI for analysis querying chronologically
+    this.betsTable.addGlobalSecondaryIndex({
+      indexName: 'AnalysisTimeGSI',
+      partitionKey: {
+        name: 'analysis_time_pk',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'commence_time',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
     // Output the table name
     this.betsTableName = new cdk.CfnOutput(this, 'BetsTableName', {
       value: this.betsTable.tableName,

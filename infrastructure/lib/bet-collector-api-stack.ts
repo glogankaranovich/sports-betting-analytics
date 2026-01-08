@@ -62,7 +62,7 @@ export class BetCollectorApiStack extends cdk.Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: ['http://localhost:3000', 'https://*.amplifyapp.com'],
         allowMethods: apigateway.Cors.ALL_METHODS,
-        allowHeaders: ['Content-Type', 'Authorization'],
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
         allowCredentials: true,
       }
     });
@@ -128,6 +128,10 @@ export class BetCollectorApiStack extends cdk.Stack {
     // Player props endpoint (protected)
     const playerProps = betCollectorApi.root.addResource('player-props');
     playerProps.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // Analyses endpoint (protected)
+    const analyses = betCollectorApi.root.addResource('analyses');
+    analyses.addMethod('GET', lambdaIntegration, methodOptions);
 
     // Recommendations endpoints (protected)
     const recommendations = betCollectorApi.root.addResource('recommendations');

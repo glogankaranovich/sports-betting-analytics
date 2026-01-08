@@ -42,8 +42,10 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
   const fetchInsights = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiService.getRecommendations(token, settings);
-      setInsights(data.recommendations || []);
+      // TODO: Replace with new insights API
+      // const data = await apiService.getRecommendations(token, settings);
+      // setInsights(data.recommendations || []);
+      setInsights([]);
     } catch (err) {
       setError('Failed to fetch insights');
       console.error('Error fetching insights:', err);
@@ -54,8 +56,10 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
 
   const fetchTopInsight = useCallback(async () => {
     try {
-      const data = await apiService.getTopRecommendation(token, settings);
-      setTopInsight(data.recommendation);
+      // TODO: Replace with new top insight API
+      // const data = await apiService.getTopRecommendation(token, settings);
+      // setTopInsight(data.recommendation);
+      setTopInsight(null);
     } catch (err) {
       console.error('Error fetching top insight:', err);
     }

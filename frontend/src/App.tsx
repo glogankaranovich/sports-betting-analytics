@@ -85,14 +85,15 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       
       if (token) {
         const sport = settings.sport !== 'all' ? settings.sport : undefined;
-        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : 'fanduel';
-        const data = await bettingApi.getGamePredictions(token, sport, bookmaker);
-        setGameAnalysis(data.predictions || []);
+        const model = settings.model !== 'all' ? settings.model : undefined;
+        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, limit: 50 });
+        setGameAnalysis(data.analyses || []);
       }
     } catch (err) {
       console.error('Error fetching game analysis:', err);
     }
-  }, [settings.sport, settings.bookmaker]);
+  }, [settings.sport, settings.model, settings.bookmaker]);
 
   const fetchPropAnalysis = useCallback(async () => {
     try {
@@ -100,9 +101,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const sport = settings.sport !== 'all' ? settings.sport : undefined;
-        const data = await bettingApi.getPropPredictions(token, sport);
-        setPropAnalysis(data.predictions || []);
+        // TODO: Replace with new prediction API
+        // const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        // const data = await bettingApi.getPropPredictions(token, sport);
+        // setPropAnalysis(data.predictions || []);
+        setPropAnalysis([]);
       }
     } catch (err) {
       console.error('Error fetching prop analysis:', err);
@@ -143,8 +146,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   };
 
   // Separate game and prop analysis using new schema
-  const filteredGameAnalysis = gameAnalysis.filter((p: any) => 
-    p.home_team && p.away_team && p.sport
+  const filteredGameAnalysis = gameAnalysis.filter((a: any) => 
+    a.analysis_type === 'game' && a.home_team && a.away_team
   );
   const filteredPropAnalysis = propAnalysis.filter((p: any) => 
     p.player_name && p.prop_type
@@ -362,37 +365,34 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <div className="predictions-section">
             <div className="games-header">
               <h2>Game Analysis</h2>
-
             </div>
             <div className="games-grid">
-              {filteredGameAnalysis.length > 0 ? (
-                paginateItems(filteredGameAnalysis, currentPage).map((prediction: any, index: number) => (
+              {gameAnalysis.length > 0 ? (
+                paginateItems(gameAnalysis, currentPage).map((analysis: any, index: number) => (
                   <div key={index} className="game-card">
                     <div className="game-info">
                       <div className="teams">
-                        <h3>{prediction.away_team} @ {prediction.home_team}</h3>
-                        <div className="sport-tag">{formatSport(prediction.sport)}</div>
-                        <p className="game-time">{new Date(prediction.commence_time).toLocaleString()}</p>
+                        <h3>{analysis.away_team} @ {analysis.home_team}</h3>
+                        <div className="sport-tag">{formatSport(analysis.sport)}</div>
                       </div>
                     </div>
-                    <div className="prediction-info">
-                      <div className="probabilities">
-                        <div className="prob-item">
-                          <span className="prob-label">Home Win</span>
-                          <span className="prob-value home">{(prediction.home_win_probability * 100).toFixed(1)}%</span>
-                        </div>
-                        <div className="prob-item">
-                          <span className="prob-label">Away Win</span>
-                          <span className="prob-value away">{(prediction.away_win_probability * 100).toFixed(1)}%</span>
-                        </div>
+                    <div className="analysis-info">
+                      <div className="analysis-row">
+                        <span className="analysis-label">Analysis Outcome: </span>
+                        <span className="analysis-value">{analysis.prediction}</span>
                       </div>
-                      <div className="confidence">
-                        <span className="confidence-label">Confidence</span>
-                        <span className="confidence-value">{(prediction.confidence_score * 100).toFixed(0)}%</span>
+                      <div className="confidence-row">
+                        <span className="confidence-label">Confidence: </span>
+                        <span className="confidence-value">{(analysis.confidence * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="reasoning">
+                        <span className="reasoning-label">Reasoning: </span>
+                        <span className="reasoning-value">{analysis.reasoning}</span>
                       </div>
                     </div>
                     <div className="game-meta">
-                      <span className="model">Model: {prediction.model}</span>
+                      <span className="model">Model: {analysis.model}</span>
+                      <span className="created">Created: {new Date(analysis.created_at).toLocaleString()}</span>
                     </div>
                   </div>
                 ))

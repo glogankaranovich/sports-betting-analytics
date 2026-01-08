@@ -18,17 +18,29 @@ def clear_dynamodb_table(table_name: str, profile: str = None):
     
     # Scan and delete in batches
     total_deleted = 0
+    last_evaluated_key = None
     
     while True:
         # Scan for items (only get keys for efficiency)
-        response = table.scan(
-            ProjectionExpression='pk, sk',
-            Limit=25  # DynamoDB batch_writer can handle up to 25 items
-        )
+        scan_kwargs = {
+            'ProjectionExpression': 'pk, sk',
+            'Limit': 25  # DynamoDB batch_writer can handle up to 25 items
+        }
+        
+        if last_evaluated_key:
+            scan_kwargs['ExclusiveStartKey'] = last_evaluated_key
+            
+        response = table.scan(**scan_kwargs)
         
         items = response.get('Items', [])
         if not items:
-            break
+            # Check if we have more items to scan
+            last_evaluated_key = response.get('LastEvaluatedKey')
+            if not last_evaluated_key:
+                break
+            else:
+                # Continue scanning even if no items in this batch
+                continue
             
         # Delete items in batch
         with table.batch_writer() as batch:
@@ -39,7 +51,8 @@ def clear_dynamodb_table(table_name: str, profile: str = None):
         print(f"Deleted {len(items)} items (total: {total_deleted})")
         
         # Check if there are more items
-        if 'LastEvaluatedKey' not in response:
+        last_evaluated_key = response.get('LastEvaluatedKey')
+        if not last_evaluated_key:
             break
     
     print(f"✅ Cleared table {table_name}. Total items deleted: {total_deleted}")

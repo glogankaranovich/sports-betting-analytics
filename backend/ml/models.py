@@ -2,10 +2,10 @@
 ML Models for Sports Betting Analytics
 """
 
-from typing import Dict, List
+from typing import Dict, List, Any
 from dataclasses import dataclass
 import math
-from abc import ABC, abstractmethod
+from datetime import datetime
 
 
 @dataclass
@@ -31,18 +31,60 @@ class PropAnalysis:
     value_bets: List[str]
 
 
-class BaseAnalysisModel(ABC):
+@dataclass
+class AnalysisResult:
+    """Standardized analysis result for DynamoDB storage"""
+
+    game_id: str
+    model: str
+    analysis_type: str  # "game" or "prop"
+    sport: str
+    prediction: str
+    confidence: float
+    reasoning: str
+    home_team: str = None
+    away_team: str = None
+    commence_time: str = None
+    player_name: str = None
+    bookmaker: str = None
+
+    def to_dynamodb_item(self) -> Dict[str, Any]:
+        """Convert to DynamoDB item format with GSI attributes"""
+        return {
+            "pk": f"ANALYSIS#{self.sport}#{self.game_id}#{self.bookmaker}",
+            "sk": f"{self.model}#{self.analysis_type}#LATEST",
+            "analysis_pk": f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}",  # AnalysisGSI partition key
+            "analysis_time_pk": f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}",  # AnalysisTimeGSI partition key
+            "commence_time": self.commence_time,  # Sort key for AnalysisTimeGSI
+            "model_type": f"{self.model}#{self.analysis_type}",  # Sort key for AnalysisGSI
+            "analysis_type": self.analysis_type,
+            "model": self.model,
+            "game_id": self.game_id,
+            "sport": self.sport,
+            "bookmaker": self.bookmaker,
+            "home_team": self.home_team,
+            "away_team": self.away_team,
+            "player_name": self.player_name,
+            "prediction": self.prediction,
+            "confidence": self.confidence,
+            "reasoning": self.reasoning,
+            "created_at": datetime.utcnow().isoformat(),
+            "latest": True,
+        }
+
+
+class BaseAnalysisModel:
     """Base class for all analysis models"""
 
-    @abstractmethod
-    def analyze_game(self, game_data: Dict) -> GameAnalysis:
-        """Analyze a game and return analysis"""
-        pass
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        """Analyze game odds and return analysis result"""
+        raise NotImplementedError("Subclasses must implement analyze_game_odds")
 
-    @abstractmethod
-    def analyze_prop(self, prop_data: Dict) -> PropAnalysis:
-        """Analyze a prop bet and return analysis"""
-        pass
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        """Analyze prop odds and return analysis result"""
+        raise NotImplementedError("Subclasses must implement analyze_prop_odds")
 
     def american_to_decimal(self, american_odds: int) -> float:
         """Convert American odds to decimal odds"""
@@ -51,9 +93,141 @@ class BaseAnalysisModel(ABC):
         else:
             return (100 / abs(american_odds)) + 1
 
-    def decimal_to_probability(self, decimal_odds: float) -> float:
-        """Convert decimal odds to implied probability"""
-        return 1 / decimal_odds
+
+class ConsensusModel(BaseAnalysisModel):
+    """Consensus model: Average across all bookmakers"""
+
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        spreads = []
+        for item in odds_items:
+            if "spreads" in item.get("sk", "") and "outcomes" in item:
+                if len(item["outcomes"]) >= 2:
+                    spreads.append(float(item["outcomes"][0].get("point", 0)))
+
+        if not spreads:
+            return None
+
+        avg_spread = sum(spreads) / len(spreads)
+        confidence = min(0.95, 0.6 + (len(spreads) * 0.05))
+
+        return AnalysisResult(
+            game_id=game_id,
+            model="consensus",
+            analysis_type="game",
+            sport=game_info.get("sport"),
+            home_team=game_info.get("home_team"),
+            away_team=game_info.get("away_team"),
+            commence_time=game_info.get("commence_time"),
+            prediction=f"{game_info.get('home_team')} {avg_spread:+.1f}",
+            confidence=confidence,
+            reasoning=f"Consensus across {len(spreads)} bookmakers: {avg_spread:+.1f}",
+        )
+
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        # Simplified prop analysis for now
+        return None
+
+
+class ValueModel(BaseAnalysisModel):
+    """Value model: Find best odds discrepancies"""
+
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        spreads = []
+        current_bookmaker = game_info.get("bookmaker")
+
+        for item in odds_items:
+            if "spreads" in item.get("sk", "") and "outcomes" in item:
+                if len(item["outcomes"]) >= 2:
+                    spread = float(item["outcomes"][0].get("point", 0))
+                    price = float(item["outcomes"][0].get("price", 0))
+                    spreads.append((spread, price))
+
+        if not spreads:
+            return None
+
+        # For value model, just use the first spread since we're analyzing per-bookmaker
+        selected_spread = spreads[0]
+        avg_spread = sum(s[0] for s in spreads) / len(spreads)
+        confidence = 0.7 if abs(selected_spread[0] - avg_spread) > 1.0 else 0.5
+
+        return AnalysisResult(
+            game_id=game_id,
+            model="value",
+            analysis_type="game",
+            sport=game_info.get("sport"),
+            home_team=game_info.get("home_team"),
+            away_team=game_info.get("away_team"),
+            commence_time=game_info.get("commence_time"),
+            prediction=f"{game_info.get('home_team')} {selected_spread[0]:+.1f} @ {current_bookmaker}",
+            confidence=confidence,
+            reasoning=f"Value bet: {selected_spread[0]:+.1f} vs consensus {avg_spread:+.1f}",
+        )
+
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        return None
+
+
+class MomentumModel(BaseAnalysisModel):
+    """Momentum model: Based on recent odds movement"""
+
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        latest_item = max(odds_items, key=lambda x: x.get("updated_at", ""))
+
+        if "spreads" not in latest_item.get("sk", "") or "outcomes" not in latest_item:
+            return None
+
+        if len(latest_item["outcomes"]) < 2:
+            return None
+
+        spread = float(latest_item["outcomes"][0].get("point", 0))
+        confidence = 0.75
+
+        return AnalysisResult(
+            game_id=game_id,
+            model="momentum",
+            analysis_type="game",
+            sport=game_info.get("sport"),
+            home_team=game_info.get("home_team"),
+            away_team=game_info.get("away_team"),
+            commence_time=game_info.get("commence_time"),
+            prediction=f"{game_info.get('home_team')} {spread:+.1f}",
+            confidence=confidence,
+            reasoning=f"Momentum play: Latest line {spread:+.1f} from {latest_item.get('bookmaker')}",
+        )
+
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        return None
+
+
+class ModelFactory:
+    """Factory for creating analysis models"""
+
+    _models = {
+        "consensus": ConsensusModel,
+        "value": ValueModel,
+        "momentum": MomentumModel,
+    }
+
+    @classmethod
+    def create_model(cls, model_name: str) -> BaseAnalysisModel:
+        """Create and return a model instance"""
+        if model_name not in cls._models:
+            raise ValueError(
+                f"Unknown model: {model_name}. Available: {list(cls._models.keys())}"
+            )
+
+        return cls._models[model_name]()
+
+    @classmethod
+    def get_available_models(cls) -> List[str]:
+        """Get list of available model names"""
+        return list(cls._models.keys())
 
     def _calculate_std(self, values: List[float]) -> float:
         """Calculate standard deviation"""
@@ -228,15 +402,3 @@ class ConsensusModel(BaseAnalysisModel):
             confidence_score=confidence,
             value_bets=value_bets,
         )
-
-
-class ModelFactory:
-    """Factory to create analysis models"""
-
-    @staticmethod
-    def create_model(model_type: str) -> BaseAnalysisModel:
-        """Create a model instance based on type"""
-        if model_type == "consensus":
-            return ConsensusModel()
-        else:
-            raise ValueError(f"Unknown model type: {model_type}")
