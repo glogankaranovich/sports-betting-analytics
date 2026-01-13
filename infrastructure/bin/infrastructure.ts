@@ -3,8 +3,6 @@ import * as cdk from 'aws-cdk-lib/core';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { OddsCollectorStack } from '../lib/odds-collector-stack';
 import { BetCollectorApiStack } from '../lib/bet-collector-api-stack';
-import { PredictionGeneratorStack } from '../lib/prediction-generator-stack';
-import { RecommendationGeneratorStack } from '../lib/recommendation-generator-stack';
 import { OutcomeCollectorStack } from '../lib/outcome-collector-stack';
 import { AnalysisGeneratorStack } from '../lib/analysis-generator-stack';
 import { AuthStack } from '../lib/auth-stack';
@@ -41,19 +39,6 @@ if (environment === 'dev') {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
     userPool: authStack.userPool,
-    env: ENVIRONMENTS.dev,
-  });
-
-  new PredictionGeneratorStack(app, StackNames.forEnvironment('dev', 'PredictionGenerator'), {
-    environment: 'dev',
-    betsTable: dynamoStack.betsTable,
-    env: ENVIRONMENTS.dev,
-  });
-
-  new RecommendationGeneratorStack(app, StackNames.forEnvironment('dev', 'RecommendationGenerator'), {
-    environment: 'dev',
-    dynamoDbTableName: 'carpool-bets-v2-dev',
-    dynamoDbTableArn: dynamoStack.betsTable.tableArn,
     env: ENVIRONMENTS.dev,
   });
 
