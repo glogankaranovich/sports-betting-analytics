@@ -61,7 +61,6 @@ if (environment === 'dev') {
     environment: 'dev',
     dynamoDbTableName: 'carpool-bets-v2-dev',
     dynamoDbTableArn: dynamoStack.betsTable.tableArn,
-    oddsApiSecretArn: 'arn:aws:secretsmanager:us-east-1:952070844012:secret:odds-api-key-dev-abc123',
     env: ENVIRONMENTS.dev,
   });
 

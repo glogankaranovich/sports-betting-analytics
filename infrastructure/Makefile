@@ -16,6 +16,7 @@ help:
 	@echo ""
 	@echo "🚀 Deployment:"
 	@echo "  make deploy-dev  - Deploy to dev environment (manual)"
+	@echo "  make deploy-stack STACK=name - Deploy specific stack to dev"
 	@echo "  make deploy-pipeline - Deploy pipeline (auto beta/prod)"
 	@echo ""
 	@echo "🔍 Monitoring:"
@@ -61,6 +62,12 @@ test-all: build test-backend
 deploy-dev: build test
 	@echo "🚀 Deploying to dev environment..."
 	AWS_PROFILE=sports-betting-dev cdk deploy --context environment=dev --require-approval never --all
+
+# Deploy specific stack to dev environment
+deploy-stack: build
+	@echo "🚀 Deploying $(STACK) to dev environment..."
+	@if [ -z "$(STACK)" ]; then echo "❌ Error: STACK parameter required. Usage: make deploy-stack STACK=Dev-StackName"; exit 1; fi
+	AWS_PROFILE=sports-betting-dev cdk deploy --context environment=dev --require-approval never $(STACK)
 
 # Run integration tests against dev environment
 verify-dev: 

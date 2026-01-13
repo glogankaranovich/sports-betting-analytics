@@ -51,7 +51,6 @@ export class CarpoolBetsStage extends cdk.Stage {
       environment: props.stage,
       dynamoDbTableName: `carpool-bets-v2-${props.stage}`,
       dynamoDbTableArn: dynamoStack.betsTable.tableArn,
-      oddsApiSecretArn: `arn:aws:secretsmanager:us-east-1:${this.account}:secret:odds-api-key-${props.stage}-abc123`,
     });
 
     // Compliance stack

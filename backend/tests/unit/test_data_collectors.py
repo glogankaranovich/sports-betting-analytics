@@ -90,6 +90,7 @@ class TestTeamMomentumCollector:
 
         assert default["composite_score"] == 0.5
 
+    @pytest.mark.asyncio
     async def test_collect_data_no_games(self, collector):
         """Test collection with no games"""
         result = await collector.collect_data("americanfootball_nfl", [])
@@ -98,6 +99,7 @@ class TestTeamMomentumCollector:
         assert result.data == {}
         assert result.records_collected == 0
 
+    @pytest.mark.asyncio
     async def test_collect_data_with_games(self, collector, sample_games):
         """Test collection with sample games"""
         with patch.object(collector, "get_recent_games", return_value=[]):
@@ -193,11 +195,13 @@ class TestDataCollectionOrchestrator:
         assert "public_opinion" in orchestrator.collectors
         assert len(orchestrator.collectors) == 3
 
+    @pytest.mark.asyncio
     async def test_collect_all_data_no_games(self, orchestrator):
         """Test orchestration with no games"""
         results = await orchestrator.collect_all_data("americanfootball_nfl", [])
         assert results == {}
 
+    @pytest.mark.asyncio
     async def test_collect_all_data_with_games(self, orchestrator, sample_games):
         """Test orchestration with games"""
         with patch.object(orchestrator, "_store_collection_results"):

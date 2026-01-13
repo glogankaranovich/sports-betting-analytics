@@ -5,6 +5,8 @@ import { bettingApi } from './services/api';
 import { Game } from './types/betting';
 import PlayerProps from './components/PlayerProps';
 import BetInsights from './components/BetInsights';
+import AnalysisHistory from './components/AnalysisHistory';
+import ModelPerformanceDashboard from './components/ModelPerformanceDashboard';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import './amplifyConfig'; // Initialize Amplify
@@ -17,7 +19,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [propAnalysis, setPropAnalysis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights' | 'analysis-history' | 'model-performance'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
@@ -271,6 +273,18 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           >
             Insights
           </button>
+          <button 
+            className={`tab-button ${activeTab === 'analysis-history' ? 'active' : ''}`}
+            onClick={() => handleTabChange('analysis-history')}
+          >
+            Analysis History
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'model-performance' ? 'active' : ''}`}
+            onClick={() => handleTabChange('model-performance')}
+          >
+            Model Performance
+          </button>
         </div>
 
         {activeTab === 'games' && (
@@ -501,6 +515,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activeTab === 'insights' && (
           <BetInsights token={token} settings={settings} />
+        )}
+
+        {activeTab === 'analysis-history' && (
+          <AnalysisHistory token={token} settings={settings} />
+        )}
+
+        {activeTab === 'model-performance' && (
+          <ModelPerformanceDashboard token={token} settings={settings} />
         )}
       </main>
     </div>

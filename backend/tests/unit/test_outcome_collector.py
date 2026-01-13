@@ -87,28 +87,36 @@ class TestOutcomeCollector(unittest.TestCase):
 
     @patch("outcome_collector.boto3")
     def test_update_analysis_outcomes(self, mock_boto3):
-        """Test updating analysis outcomes"""
+        """Test updating analysis outcomes with new schema"""
         mock_table = Mock()
         mock_boto3.resource.return_value.Table.return_value = mock_table
 
-        # Mock query response
-        mock_table.query.return_value = {
+        # Mock scan response with new schema
+        mock_table.scan.return_value = {
             "Items": [
                 {
-                    "PK": "GAME#game123",
-                    "SK": "PREDICTION#consensus",
-                    "home_win_probability": 0.7,
+                    "pk": "ANALYSIS#basketball_nba#game123#fanduel",
+                    "sk": "consensus#game#LATEST",
+                    "analysis_type": "game",
+                    "prediction": "Lakers +2.5",
+                    "game_id": "game123",
                 }
             ]
         }
 
         collector = OutcomeCollector(self.table_name, self.api_key)
-        game = {"id": "game123", "home_score": "120", "away_score": "115"}
+        game = {
+            "id": "game123",
+            "home_team": "Lakers",
+            "away_team": "Warriors",
+            "home_score": "120",
+            "away_score": "115",
+        }
 
         updates = collector._update_analysis_outcomes(game)
 
-        # Verify query and update were called
-        mock_table.query.assert_called_once()
+        # Verify scan and update were called
+        mock_table.scan.assert_called_once()
         mock_table.update_item.assert_called_once()
         self.assertEqual(updates, 1)
 

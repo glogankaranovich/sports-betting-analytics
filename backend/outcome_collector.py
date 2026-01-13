@@ -76,37 +76,92 @@ class OutcomeCollector:
     def _update_analysis_outcomes(self, game: Dict[str, Any]) -> int:
         """Update analysis records with actual outcomes"""
         updates = 0
-        game_pk = f"GAME#{game['id']}"
 
         try:
-            # Query for analysiss for this game
-            response = self.table.query(
-                KeyConditionExpression="PK = :pk AND begins_with(SK, :sk_prefix)",
-                ExpressionAttributeValues={":pk": game_pk, ":sk_prefix": "ANALYSIS#"},
+            # Query for analyses for this game using the correct pattern
+            # Analysis items have PK like "ANALYSIS#sport#game_id#bookmaker"
+            response = self.table.scan(
+                FilterExpression="begins_with(pk, :pk_prefix) AND game_id = :game_id",
+                ExpressionAttributeValues={
+                    ":pk_prefix": "ANALYSIS#",
+                    ":game_id": game["id"],
+                },
             )
 
             for item in response.get("Items", []):
-                # Determine actual outcome
-                home_won = self._determine_winner(game)
-                predicted_home_win = float(item.get("home_win_probability", 0.5)) > 0.5
-                analysis_correct = home_won == predicted_home_win
+                # Determine actual outcome based on analysis type
+                if item.get("analysis_type") == "game":
+                    home_won = self._determine_winner(game)
 
-                # Update the analysis record
-                self.table.update_item(
-                    Key={"PK": item["PK"], "SK": item["SK"]},
-                    UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified",
-                    ExpressionAttributeValues={
-                        ":home_won": home_won,
-                        ":correct": analysis_correct,
-                        ":verified": datetime.utcnow().isoformat(),
-                    },
-                )
-                updates += 1
+                    # Check if analysis was correct
+                    analysis_result = item.get(
+                        "prediction", ""
+                    )  # Note: field is still called 'prediction' in DB
+                    analysis_correct = self._check_game_analysis_accuracy(
+                        analysis_result, home_won, game
+                    )
+
+                    # Update the analysis record
+                    self.table.update_item(
+                        Key={"pk": item["pk"], "sk": item["sk"]},
+                        UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified",
+                        ExpressionAttributeValues={
+                            ":home_won": home_won,
+                            ":correct": analysis_correct,
+                            ":verified": datetime.utcnow().isoformat(),
+                        },
+                    )
+                    updates += 1
+
+                elif item.get("analysis_type") == "prop":
+                    # For props, we'd need actual player stats (not implemented yet)
+                    # For now, just mark as verified without accuracy check
+                    self.table.update_item(
+                        Key={"pk": item["pk"], "sk": item["sk"]},
+                        UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct",
+                        ExpressionAttributeValues={
+                            ":verified": datetime.utcnow().isoformat(),
+                            ":correct": False,  # Default until we implement prop verification
+                        },
+                    )
+                    updates += 1
 
         except Exception as e:
-            print(f"Error updating analysiss for game {game['id']}: {e}")
+            print(f"Error updating analyses for game {game['id']}: {e}")
 
         return updates
+
+    def _check_game_analysis_accuracy(
+        self, analysis_result: str, home_won: bool, game: Dict[str, Any]
+    ) -> bool:
+        """Check if a game analysis was accurate"""
+        try:
+            analysis_lower = analysis_result.lower()
+            home_team = game.get("home_team", "").lower()
+            away_team = game.get("away_team", "").lower()
+
+            # Check if analysis mentions home team winning
+            if home_team in analysis_lower and (
+                "+" in analysis_result or "win" in analysis_lower
+            ):
+                return home_won
+            elif away_team in analysis_lower and (
+                "+" in analysis_result or "win" in analysis_lower
+            ):
+                return not home_won
+            else:
+                # For spread analysis, we'd need the actual spread result
+                # For now, default to checking team names
+                if home_team in analysis_lower:
+                    return home_won
+                elif away_team in analysis_lower:
+                    return not home_won
+                else:
+                    return False  # Can't determine
+
+        except Exception as e:
+            print(f"Error checking analysis accuracy: {e}")
+            return False
 
     def _update_insight_outcomes(self, game: Dict[str, Any]) -> int:
         """Update insight records with actual outcomes"""
@@ -115,9 +170,9 @@ class OutcomeCollector:
         try:
             # Query for insights for this game
             response = self.table.scan(
-                FilterExpression="begins_with(PK, :pk_prefix) AND game_id = :game_id",
+                FilterExpression="begins_with(pk, :pk_prefix) AND game_id = :game_id",
                 ExpressionAttributeValues={
-                    ":pk_prefix": "INSIGHTS#",
+                    ":pk_prefix": "INSIGHT#",
                     ":game_id": game["id"],
                 },
             )
@@ -132,7 +187,7 @@ class OutcomeCollector:
 
                 # Update the insight record
                 self.table.update_item(
-                    Key={"PK": item["PK"], "SK": item["SK"]},
+                    Key={"pk": item["pk"], "sk": item["sk"]},
                     UpdateExpression="SET actual_outcome = :outcome, bet_won = :won, actual_roi = :roi, outcome_verified_at = :verified",
                     ExpressionAttributeValues={
                         ":outcome": home_won,

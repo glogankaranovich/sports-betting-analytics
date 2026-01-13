@@ -3,7 +3,12 @@ Test ML models functionality
 """
 
 import pytest
-from ml.models import ConsensusModel, GameAnalysis
+from ml.models import (
+    ConsensusModel,
+    ValueModel,
+    MomentumModel,
+    AnalysisResult,
+)
 
 
 def test_american_to_decimal():
@@ -18,149 +23,137 @@ def test_american_to_decimal():
     assert model.american_to_decimal(-200) == 1.5
 
 
-def test_decimal_to_probability():
+# Remove old test that uses non-existent method
+# def test_decimal_to_probability():
+
+
+# Test Consensus Model Prop Analysis
+def test_consensus_prop_analysis():
     model = ConsensusModel()
 
-    assert model.decimal_to_probability(2.0) == 0.5
-    assert model.decimal_to_probability(4.0) == 0.25
-
-
-def test_analyze_game():
-    model = ConsensusModel()
-
-    game_data = {
-        "game_id": "test_game",
-        "sport": "americanfootball_nfl",
-        "home_team": "Team A",
-        "away_team": "Team B",
-        "commence_time": "2026-01-03T20:00:00Z",
-        "odds": {
-            "test_bookmaker": {
-                "h2h": {
-                    "outcomes": [
-                        {"name": "Team A", "price": -110},
-                        {"name": "Team B", "price": 100},
-                    ]
-                }
-            }
-        },
+    prop_item = {
+        "pk": "PROP#basketball_nba#game123#fanduel",
+        "sk": "player_points#LATEST",
+        "sport": "basketball_nba",
+        "home_team": "Lakers",
+        "away_team": "Warriors",
+        "commence_time": "2026-01-13T20:00:00Z",
+        "description": "LeBron James - Points",
+        "point": 25.5,
+        "outcomes": [{"name": "Over", "price": -110}, {"name": "Under", "price": -110}],
     }
 
-    prediction = model.analyze_game(game_data)
+    result = model.analyze_prop_odds(prop_item)
 
-    assert isinstance(prediction, GameAnalysis)
-    assert prediction.game_id == "test_game"
-    assert prediction.home_win_probability > 0
-    assert prediction.away_win_probability > 0
-    assert prediction.confidence_score > 0
+    assert isinstance(result, AnalysisResult)
+    assert result.model == "consensus"
+    assert result.analysis_type == "prop"
+    assert result.player_name == "LeBron James"
+    assert "Over" in result.prediction or "Under" in result.prediction
+    assert result.confidence > 0
 
 
-def test_combat_sports_analysis():
-    """Test that combat sports can be analyzed"""
-    model = ConsensusModel()
+# Test Value Model Prop Analysis
+def test_value_prop_analysis():
+    model = ValueModel()
 
-    # MMA fight data
-    mma_data = {
-        "game_id": "mma_fight_1",
-        "sport": "mma_mixed_martial_arts",
-        "home_team": "Fighter A",
-        "away_team": "Fighter B",
-        "commence_time": "2026-01-03T20:00:00Z",
-        "odds": {
-            "test_bookmaker": {
-                "h2h": {
-                    "outcomes": [
-                        {"name": "Fighter A", "price": -150},
-                        {"name": "Fighter B", "price": 120},
-                    ]
-                }
-            }
-        },
+    # Low vig scenario
+    prop_item = {
+        "pk": "PROP#basketball_nba#game123#fanduel",
+        "sport": "basketball_nba",
+        "description": "Stephen Curry - 3-Pointers Made",
+        "point": 4.5,
+        "outcomes": [{"name": "Over", "price": -105}, {"name": "Under", "price": -105}],
     }
 
-    prediction = model.analyze_game(mma_data)
+    result = model.analyze_prop_odds(prop_item)
 
-    assert isinstance(prediction, GameAnalysis)
-    assert prediction.sport == "mma_mixed_martial_arts"
-    assert prediction.home_win_probability > 0
-    assert prediction.away_win_probability > 0
+    assert isinstance(result, AnalysisResult)
+    assert result.model == "value"
+    assert result.confidence >= 0.6
 
 
-def test_boxing_analysis():
-    """Test that boxing matches can be analyzed"""
-    model = ConsensusModel()
+# Test Momentum Model Prop Analysis
+def test_momentum_prop_analysis():
+    model = MomentumModel()
 
-    # Boxing match data
-    boxing_data = {
-        "game_id": "boxing_match_1",
-        "sport": "boxing_boxing",
-        "home_team": "Boxer A",
-        "away_team": "Boxer B",
-        "commence_time": "2026-01-03T20:00:00Z",
-        "bookmakers": [
-            {
-                "bookmaker": "test_bookmaker",
-                "market_key": "h2h",
-                "outcomes": [
-                    {"name": "Boxer A", "price": -200},
-                    {"name": "Boxer B", "price": 170},
-                ],
-            }
+    prop_item = {
+        "pk": "PROP#basketball_nba#game123#fanduel",
+        "sport": "basketball_nba",
+        "description": "Giannis Antetokounmpo - Rebounds",
+        "point": 11.5,
+        "outcomes": [
+            {"name": "Over", "price": -120},  # Worse odds = money on Under
+            {"name": "Under", "price": -100},
         ],
     }
 
-    prediction = model.analyze_game(boxing_data)
+    result = model.analyze_prop_odds(prop_item)
 
-    assert isinstance(prediction, GameAnalysis)
-    assert prediction.sport == "boxing_boxing"
-    assert (
-        prediction.home_win_probability > 0.5
-    )  # Favorite should have higher probability
+    assert isinstance(result, AnalysisResult)
+    assert result.model == "momentum"
+    assert "Momentum" in result.reasoning
 
 
-def test_consensus_analysis_multiple_bookmakers():
-    """Test consensus analysis with multiple bookmakers"""
+# Test AnalysisResult DynamoDB conversion
+def test_analysis_result_to_dynamodb():
+    result = AnalysisResult(
+        game_id="test123",
+        model="consensus",
+        analysis_type="game",
+        sport="basketball_nba",
+        prediction="Lakers +2.5",
+        confidence=0.75,
+        reasoning="Test reasoning",
+        home_team="Lakers",
+        away_team="Warriors",
+        commence_time="2026-01-13T20:00:00Z",
+        bookmaker="fanduel",
+    )
+
+    item = result.to_dynamodb_item()
+
+    assert item["pk"] == "ANALYSIS#basketball_nba#test123#fanduel"
+    assert item["sk"] == "consensus#game#LATEST"
+    assert item["analysis_time_pk"] == "ANALYSIS#basketball_nba#fanduel#consensus"
+    assert item["model"] == "consensus"
+    assert item["analysis_type"] == "game"
+    assert item["latest"] is True
+
+
+# Test old methods that are no longer used - remove these tests
+# def test_decimal_to_probability():
+# def test_analyze_game():
+# def test_combat_sports_analysis():
+# def test_boxing_analysis():
+# def test_consensus_analysis_multiple_bookmakers():
+
+
+# Test game odds analysis using new method
+def test_consensus_game_odds_analysis():
     model = ConsensusModel()
 
-    # Game with multiple bookmaker odds
-    game_data = {
-        "game_id": "test_game",
-        "sport": "americanfootball_nfl",
-        "home_team": "Team A",
-        "away_team": "Team B",
-        "commence_time": "2026-01-03T20:00:00Z",
-        "bookmakers": [
-            {
-                "key": "fanduel",
-                "markets": [
-                    {
-                        "key": "h2h",
-                        "outcomes": [
-                            {"name": "Team A", "price": -110},
-                            {"name": "Team B", "price": -110},
-                        ],
-                    }
-                ],
-            },
-            {
-                "key": "draftkings",
-                "markets": [
-                    {
-                        "key": "h2h",
-                        "outcomes": [
-                            {"name": "Team A", "price": -105},
-                            {"name": "Team B", "price": -115},
-                        ],
-                    }
-                ],
-            },
-        ],
+    odds_items = [
+        {
+            "sk": "spreads#LATEST",
+            "outcomes": [{"point": -2.5, "price": -110}, {"point": 2.5, "price": -110}],
+        }
+    ]
+
+    game_info = {
+        "sport": "basketball_nba",
+        "home_team": "Lakers",
+        "away_team": "Warriors",
+        "commence_time": "2026-01-13T20:00:00Z",
+        "bookmaker": "fanduel",
     }
 
-    # Should handle multiple bookmakers for consensus
-    prediction = model.analyze_game(game_data)
-    assert isinstance(prediction, GameAnalysis)
-    assert prediction.confidence_score > 0
+    result = model.analyze_game_odds("game123", odds_items, game_info)
+
+    assert isinstance(result, AnalysisResult)
+    assert result.model == "consensus"
+    assert result.analysis_type == "game"
+    assert "Lakers" in result.prediction
 
 
 if __name__ == "__main__":

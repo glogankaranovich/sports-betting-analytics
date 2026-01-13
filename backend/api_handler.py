@@ -60,6 +60,8 @@ def lambda_handler(event, context):
             return handle_get_game(game_id)
         elif path == "/analyses":
             return handle_get_analyses(query_params)
+        elif path == "/analysis-history":
+            return handle_get_analysis_history(query_params)
         elif path == "/player-props":
             return handle_get_player_props(query_params)
         elif path == "/sports":
@@ -434,3 +436,65 @@ def handle_get_analyses(query_params: Dict[str, str]):
 
     except Exception as e:
         return create_response(500, {"error": f"Error fetching analyses: {str(e)}"})
+
+
+def handle_get_analysis_history(query_params: Dict[str, str]):
+    """Get analysis history with outcome verification using GSI"""
+    try:
+        sport = query_params.get("sport", "basketball_nba")
+        model = query_params.get("model", "consensus")
+        bookmaker = query_params.get("bookmaker", "fanduel")
+        limit = int(query_params.get("limit", "100"))
+
+        # Use AnalysisTimeGSI: analysis_time_pk = ANALYSIS#{sport}#{bookmaker}#{model}
+        analysis_time_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}"
+
+        response = table.query(
+            IndexName="AnalysisTimeGSI",
+            KeyConditionExpression="analysis_time_pk = :pk",
+            ExpressionAttributeValues={":pk": analysis_time_pk},
+            ScanIndexForward=False,  # Most recent first
+            Limit=limit,
+        )
+
+        analyses = []
+        for item in response.get("Items", []):
+            analysis_data = {
+                "pk": item.get("pk"),
+                "sk": item.get("sk"),
+                "game_id": item.get("game_id"),
+                "model": item.get("model"),
+                "analysis_type": item.get("analysis_type"),
+                "sport": item.get("sport"),
+                "bookmaker": item.get("bookmaker"),
+                "prediction": item.get("prediction"),
+                "confidence": float(item.get("confidence", 0)),
+                "reasoning": item.get("reasoning"),
+                "home_team": item.get("home_team"),
+                "away_team": item.get("away_team"),
+                "player_name": item.get("player_name"),
+                "created_at": item.get("created_at"),
+                "commence_time": item.get("commence_time"),
+                "analysis_correct": item.get("analysis_correct"),
+                "actual_home_won": item.get("actual_home_won"),
+                "outcome_verified_at": item.get("outcome_verified_at"),
+            }
+            analyses.append(analysis_data)
+
+        analyses = decimal_to_float(analyses)
+
+        return create_response(
+            200,
+            {
+                "analyses": analyses,
+                "count": len(analyses),
+                "sport_filter": sport,
+                "model_filter": model,
+                "bookmaker_filter": bookmaker,
+            },
+        )
+
+    except Exception as e:
+        return create_response(
+            500, {"error": f"Error fetching analysis history: {str(e)}"}
+        )
