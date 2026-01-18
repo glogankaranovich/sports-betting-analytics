@@ -89,7 +89,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const sport = settings.sport !== 'all' ? settings.sport : undefined;
         const model = settings.model !== 'all' ? settings.model : undefined;
         const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, limit: 50 });
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', limit: 50 });
         setGameAnalysis(data.analyses || []);
       }
     } catch (err) {
@@ -103,16 +103,17 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        // TODO: Replace with new prediction API
-        // const sport = settings.sport !== 'all' ? settings.sport : undefined;
-        // const data = await bettingApi.getPropPredictions(token, sport);
-        // setPropAnalysis(data.predictions || []);
-        setPropAnalysis([]);
+        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const model = settings.model !== 'all' ? settings.model : undefined;
+        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', limit: 50 });
+        setPropAnalysis(data.analyses || []);
       }
     } catch (err) {
       console.error('Error fetching prop analysis:', err);
+      setPropAnalysis([]);
     }
-  }, [settings.sport]);
+  }, [settings.sport, settings.model, settings.bookmaker]);
 
   // Games are already grouped by game_id from the API
   let filteredGames = games.filter(game => {

@@ -276,11 +276,17 @@ def lambda_handler(event, context):
 def _get_secret_value(secret_arn: str) -> str:
     """Get secret value from AWS Secrets Manager"""
     import boto3
+    import json
 
     secrets_client = boto3.client("secretsmanager", region_name="us-east-1")
     response = secrets_client.get_secret_value(SecretId=secret_arn)
 
-    import json
+    secret_string = response["SecretString"]
 
-    secret_data = json.loads(response["SecretString"])
-    return secret_data.get("api_key", "")
+    # Try to parse as JSON first (for structured secrets)
+    try:
+        secret_data = json.loads(secret_string)
+        return secret_data.get("api_key", secret_string)
+    except json.JSONDecodeError:
+        # If not JSON, return the plain string
+        return secret_string

@@ -181,11 +181,36 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
 
         print(f"Total prop items processed: {total_items_processed}")
 
-        count = 0
-        props_to_process = props[:limit] if limit else props
+        # Group props by event_id, player, bookmaker, and market
+        grouped_props = {}
+        for item in props:
+            key = (
+                item.get("event_id"),
+                item.get("player_name"),
+                item.get("bookmaker"),
+                item.get("market_key"),
+            )
+            if key not in grouped_props:
+                grouped_props[key] = {
+                    "event_id": item.get("event_id"),
+                    "player_name": item.get("player_name"),
+                    "bookmaker": item.get("bookmaker"),
+                    "market_key": item.get("market_key"),
+                    "sport": item.get("sport"),
+                    "commence_time": item.get("commence_time"),
+                    "point": item.get("point"),
+                    "outcomes": [],
+                }
+            grouped_props[key]["outcomes"].append(
+                {"name": item.get("outcome"), "price": int(item.get("price", 0))}
+            )
 
-        for item in props_to_process:
-            analysis_result = model.analyze_prop_odds(item)
+        count = 0
+        grouped_list = list(grouped_props.values())
+        props_to_process = grouped_list[:limit] if limit else grouped_list
+
+        for grouped_prop in props_to_process:
+            analysis_result = model.analyze_prop_odds(grouped_prop)
 
             if analysis_result:
                 store_analysis(analysis_result.to_dynamodb_item())

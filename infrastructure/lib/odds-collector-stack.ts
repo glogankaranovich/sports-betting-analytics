@@ -58,6 +58,10 @@ export class OddsCollectorStack extends cdk.Stack {
     // Grant Secrets Manager permissions
     oddsApiSecret.grantRead(this.oddsCollectorFunction);
 
+    // EventBridge schedules disabled for manual testing
+    // Uncomment to enable automated collection
+    
+    /*
     // Schedule NBA odds collection twice daily (8 AM and 8 PM)
     const nbaOddsRule = new events.Rule(this, 'NBAOddsCollectionSchedule', {
       schedule: events.Schedule.cron({ minute: '0', hour: '8,20' })
@@ -93,5 +97,6 @@ export class OddsCollectorStack extends cdk.Stack {
     nflPropsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
       event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl', props_only: true })
     }));
+    */
   }
 }

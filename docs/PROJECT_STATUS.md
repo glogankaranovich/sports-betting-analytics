@@ -1,22 +1,117 @@
 # Carpool Bets - Project Status
 
-**Last Updated:** January 7, 2026  
-**Current Phase:** Architecture Redesign - ML Analysis & Insights System
+**Last Updated:** January 18, 2026  
+**Current Phase:** System Verification & Testing
 
 ## 🎯 Project Overview
 
-Carpool Bets is a sports betting analytics platform that uses machine learning models to analyze betting opportunities and generate actionable insights. The system collects comprehensive data, trains specialized ML models, and provides data-driven betting analysis through a modern web interface.
+Carpool Bets is a sports betting analytics platform that uses machine learning models to analyze betting opportunities and generate actionable insights. The system collects comprehensive data, generates ML-driven analyses, and provides data-driven betting insights through a modern web interface.
 
-## 🔄 Current Architecture Transition
+## ✅ System Architecture
 
-**From:** Prediction/Recommendation System  
-**To:** ML Analysis/Insights System
+### Core Components (All Operational)
+1. **Odds Collector** - Collects game odds and prop bets from The Odds API
+2. **Analysis Generator** - Generates ML analyses for games and props using consensus model
+3. **Outcome Collector** - Collects game results for verification
+4. **API Handler** - Serves data via REST API with authentication
+5. **React Frontend** - Displays games, analyses, and insights
+6. **DynamoDB** - Stores all data with GSI indexes for efficient querying
 
-### New Terminology
-- **Analysis** (replaces "prediction"): ML-driven evaluation of betting opportunities
-- **Insight** (replaces "recommendation"): Actionable betting suggestions with confidence scores
-- **Model Training**: Continuous learning from outcome verification
-- **Outcome Verification**: Tracking actual results vs model analysis
+### Recent Fixes (Jan 17-18, 2026)
+- ✅ Fixed prop analysis grouping (Over/Under combination)
+- ✅ Fixed PK collisions between game and prop analyses
+- ✅ Updated GSI partition keys to include analysis type
+- ✅ Fixed API endpoints to support type parameter
+- ✅ Fixed frontend to fetch game/prop analyses separately
+- ✅ Fixed outcome collector secret handling
+- ✅ Cleared 93K+ old records for fresh start
+
+## 📊 Current Capabilities
+
+### Data Collection ✅
+- NFL and NBA games with multiple bookmakers
+- Player props for key statistics
+- Automated collection (currently disabled for testing)
+- Smart updating (only updates when odds change)
+
+### Analysis Generation ✅
+- Game outcome analyses using consensus model
+- Prop bet analyses with confidence scores
+- Proper data structure with unique PKs
+- GSI indexes for efficient querying
+
+### API & Frontend ✅
+- Protected REST API with JWT authentication
+- Game analysis tab
+- Prop analysis tab
+- Analysis history with outcome verification
+- Model performance dashboard
+
+## 🚧 Known Limitations
+
+### What Works
+- ✅ Complete data pipeline (odds → analyses → outcomes)
+- ✅ Game and prop analysis generation
+- ✅ API serving with authentication
+- ✅ Frontend display with tabs
+- ✅ Outcome verification system
+
+### What's Missing
+- ❌ Multiple analysis models (only consensus implemented)
+- ❌ Parlay insight engine
+- ❌ Model comparison dashboard
+- ❌ Historical performance tracking
+- ❌ Paper trading system
+- ❌ Real-time data sources (weather, social sentiment)
+
+## 🔧 Technical Debt
+
+### High Priority
+- [ ] Delete orphaned RecommendationGenerator Lambda
+- [ ] Re-enable EventBridge schedules for automated collection
+- [ ] Archive outdated TODO lists
+- [ ] Update unit tests to match current infrastructure
+
+### Medium Priority
+- [ ] Implement additional analysis models (value, momentum)
+- [ ] Add parlay builder functionality
+- [ ] Create model comparison interface
+- [ ] Add comprehensive error monitoring
+
+## 🚀 Deployment Status
+
+### Development Environment
+- **Status:** ✅ Fully operational
+- **Database:** carpool-bets-v2-dev (cleared and ready)
+- **Automation:** Disabled for manual testing
+- **Testing:** All components verified working
+
+### Production Environment  
+- **Status:** ✅ Deployed via pipeline
+- **Last Deploy:** January 14, 2026
+- **Pipeline:** All stages succeeded
+- **Monitoring:** CloudWatch dashboards active
+
+## 📝 Next Steps
+
+1. **Immediate**
+   - Test full pipeline with fresh data
+   - Verify frontend displays correctly
+   - Re-enable EventBridge schedules
+
+2. **Short-term**
+   - Implement additional analysis models
+   - Build parlay insight engine
+   - Add model performance tracking
+
+3. **Long-term**
+   - Paper trading system
+   - Social sentiment integration
+   - Weather data integration
+   - Historical backtesting
+
+---
+*For detailed recent changes, see [RECENT_UPDATES.md](./RECENT_UPDATES.md)*
 
 ## ✅ Completed Infrastructure
 

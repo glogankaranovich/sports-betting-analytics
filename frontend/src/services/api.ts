@@ -43,11 +43,12 @@ export const bettingApi = {
     return response.data;
   },
 
-  async getAnalyses(token: string, filters: { sport?: string; model?: string; bookmaker?: string; limit?: number } = {}): Promise<any> {
+  async getAnalyses(token: string, filters: { sport?: string; model?: string; bookmaker?: string; type?: string; limit?: number } = {}): Promise<any> {
     const params = new URLSearchParams();
     if (filters.sport) params.append('sport', filters.sport);
     if (filters.model) params.append('model', filters.model);
     if (filters.bookmaker) params.append('bookmaker', filters.bookmaker);
+    if (filters.type) params.append('type', filters.type);
     if (filters.limit) params.append('limit', filters.limit.toString());
     
     const headers = { Authorization: `Bearer ${token}` };

@@ -367,15 +367,16 @@ def handle_get_analyses(query_params: Dict[str, str]):
         sport = query_params.get("sport", "basketball_nba")
         model = query_params.get("model")
         bookmaker = query_params.get("bookmaker")
+        analysis_type = query_params.get("type", "game")  # "game" or "prop"
         limit = int(query_params.get("limit", "50"))
 
-        # Build analysis_pk: ANALYSIS#{sport}#{bookmaker}#{model}
+        # Build analysis_pk: ANALYSIS#{sport}#{bookmaker}#{model}#{type}
         if not bookmaker or not model:
             return create_response(
                 400, {"error": "Both bookmaker and model are required"}
             )
 
-        analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}"
+        analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
 
         # Query using AnalysisTimeGSI for chronological ordering
         query_kwargs = {
@@ -404,22 +405,26 @@ def handle_get_analyses(query_params: Dict[str, str]):
 
         analyses = []
         for item in all_items:
-            analyses.append(
-                {
-                    "game_id": item.get("game_id"),
-                    "model": item.get("model"),
-                    "analysis_type": item.get("analysis_type"),
-                    "sport": item.get("sport"),
-                    "bookmaker": item.get("bookmaker"),
-                    "prediction": item.get("prediction"),
-                    "confidence": float(item.get("confidence", 0)),
-                    "reasoning": item.get("reasoning"),
-                    "home_team": item.get("home_team"),
-                    "away_team": item.get("away_team"),
-                    "created_at": item.get("created_at"),
-                    "commence_time": item.get("commence_time"),
-                }
-            )
+            analysis = {
+                "game_id": item.get("game_id"),
+                "model": item.get("model"),
+                "analysis_type": item.get("analysis_type"),
+                "sport": item.get("sport"),
+                "bookmaker": item.get("bookmaker"),
+                "prediction": item.get("prediction"),
+                "confidence": float(item.get("confidence", 0)),
+                "reasoning": item.get("reasoning"),
+                "home_team": item.get("home_team"),
+                "away_team": item.get("away_team"),
+                "created_at": item.get("created_at"),
+                "commence_time": item.get("commence_time"),
+            }
+
+            # Add player_name for prop analyses
+            if item.get("player_name"):
+                analysis["player_name"] = item.get("player_name")
+
+            analyses.append(analysis)
 
         analyses = decimal_to_float(analyses)
 
@@ -444,10 +449,11 @@ def handle_get_analysis_history(query_params: Dict[str, str]):
         sport = query_params.get("sport", "basketball_nba")
         model = query_params.get("model", "consensus")
         bookmaker = query_params.get("bookmaker", "fanduel")
+        analysis_type = query_params.get("type", "game")  # "game" or "prop"
         limit = int(query_params.get("limit", "100"))
 
-        # Use AnalysisTimeGSI: analysis_time_pk = ANALYSIS#{sport}#{bookmaker}#{model}
-        analysis_time_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}"
+        # Use AnalysisTimeGSI: analysis_time_pk = ANALYSIS#{sport}#{bookmaker}#{model}#{type}
+        analysis_time_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
 
         response = table.query(
             IndexName="AnalysisTimeGSI",

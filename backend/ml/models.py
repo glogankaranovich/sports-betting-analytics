@@ -50,11 +50,25 @@ class AnalysisResult:
 
     def to_dynamodb_item(self) -> Dict[str, Any]:
         """Convert to DynamoDB item format with GSI attributes"""
+        # For props, include player_name in PK to avoid collisions with game analyses
+        if self.analysis_type == "prop" and self.player_name:
+            pk = f"ANALYSIS#{self.sport}#{self.game_id}#{self.player_name}#{self.bookmaker}"
+            analysis_pk = f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}#prop"
+            analysis_time_pk = (
+                f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}#prop"
+            )
+        else:
+            pk = f"ANALYSIS#{self.sport}#{self.game_id}#{self.bookmaker}"
+            analysis_pk = f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}#game"
+            analysis_time_pk = (
+                f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}#game"
+            )
+
         return {
-            "pk": f"ANALYSIS#{self.sport}#{self.game_id}#{self.bookmaker}",
+            "pk": pk,
             "sk": f"{self.model}#{self.analysis_type}#LATEST",
-            "analysis_pk": f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}",  # AnalysisGSI partition key
-            "analysis_time_pk": f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}",  # AnalysisTimeGSI partition key
+            "analysis_pk": analysis_pk,  # AnalysisGSI partition key
+            "analysis_time_pk": analysis_time_pk,  # AnalysisTimeGSI partition key
             "commence_time": self.commence_time,  # Sort key for AnalysisTimeGSI
             "model_type": f"{self.model}#{self.analysis_type}",  # Sort key for AnalysisGSI
             "analysis_type": self.analysis_type,
@@ -166,24 +180,16 @@ class ConsensusModel(BaseAnalysisModel):
                 prediction = f"Under {prop_item.get('point', 'N/A')}"
                 confidence = under_prob_fair
 
-            # Extract player name from description or use market key
-            player_name = (
-                prop_item.get("description", "").split(" - ")[0]
-                if " - " in prop_item.get("description", "")
-                else "Unknown Player"
-            )
-
             return AnalysisResult(
-                game_id=prop_item.get("pk", "").replace("PROP#", "").split("#")[1]
-                if "#" in prop_item.get("pk", "")
-                else "unknown",
+                game_id=prop_item.get("event_id", "unknown"),
+                bookmaker=prop_item.get("bookmaker"),
                 model="consensus",
                 analysis_type="prop",
                 sport=prop_item.get("sport"),
                 home_team=prop_item.get("home_team"),
                 away_team=prop_item.get("away_team"),
                 commence_time=prop_item.get("commence_time"),
-                player_name=player_name,
+                player_name=prop_item.get("player_name", "Unknown Player"),
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=f"Consensus analysis: {prediction} with {confidence:.1%} confidence (Over: {over_prob_fair:.1%}, Under: {under_prob_fair:.1%})",
