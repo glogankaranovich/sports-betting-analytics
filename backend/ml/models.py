@@ -47,6 +47,7 @@ class AnalysisResult:
     commence_time: str = None
     player_name: str = None
     bookmaker: str = None
+    market_key: str = None  # For props: player_points, player_assists, etc.
 
     def to_dynamodb_item(self) -> Dict[str, Any]:
         """Convert to DynamoDB item format with GSI attributes"""
@@ -79,6 +80,7 @@ class AnalysisResult:
             "home_team": self.home_team,
             "away_team": self.away_team,
             "player_name": self.player_name,
+            "market_key": self.market_key,
             "prediction": self.prediction,
             "confidence": self.confidence,
             "reasoning": self.reasoning,
@@ -190,6 +192,7 @@ class ConsensusModel(BaseAnalysisModel):
                 away_team=prop_item.get("away_team"),
                 commence_time=prop_item.get("commence_time"),
                 player_name=prop_item.get("player_name", "Unknown Player"),
+                market_key=prop_item.get("market_key"),
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=f"Consensus across {len(prop_item.get('bookmakers', []))} bookmakers: {prediction}",

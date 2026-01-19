@@ -4,6 +4,7 @@ import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { OddsCollectorStack } from '../lib/odds-collector-stack';
 import { BetCollectorApiStack } from '../lib/bet-collector-api-stack';
 import { OutcomeCollectorStack } from '../lib/outcome-collector-stack';
+import { PlayerStatsCollectorStack } from '../lib/player-stats-collector-stack';
 import { AnalysisGeneratorStack } from '../lib/analysis-generator-stack';
 import { InsightGeneratorStack } from '../lib/insight-generator-stack';
 import { AuthStack } from '../lib/auth-stack';
@@ -47,6 +48,12 @@ if (environment === 'dev') {
     environment: 'dev',
     dynamoDbTableName: 'carpool-bets-v2-dev',
     dynamoDbTableArn: dynamoStack.betsTable.tableArn,
+    env: ENVIRONMENTS.dev,
+  });
+
+  new PlayerStatsCollectorStack(app, StackNames.forEnvironment('dev', 'PlayerStatsCollector'), {
+    environment: 'dev',
+    betsTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
   });
 

@@ -243,6 +243,7 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
                         away_team=analysis_result.away_team,
                         commence_time=analysis_result.commence_time,
                         player_name=analysis_result.player_name,
+                        market_key=analysis_result.market_key,
                         prediction=analysis_result.prediction,
                         confidence=analysis_result.confidence,
                         reasoning=analysis_result.reasoning,
