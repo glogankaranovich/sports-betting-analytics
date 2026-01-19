@@ -5,6 +5,7 @@ import { OddsCollectorStack } from './odds-collector-stack';
 import { BetCollectorApiStack } from './bet-collector-api-stack';
 import { OutcomeCollectorStack } from './outcome-collector-stack';
 import { PlayerStatsCollectorStack } from './player-stats-collector-stack';
+import { TeamStatsCollectorStack } from './team-stats-collector-stack';
 import { AuthStack } from './auth-stack';
 import { ComplianceStack } from './compliance-stack';
 import { IntegrationTestRoleStack } from './integration-test-role-stack';
@@ -58,6 +59,12 @@ export class CarpoolBetsStage extends cdk.Stage {
     new PlayerStatsCollectorStack(this, 'PlayerStatsCollector', {
       environment: props.stage,
       betsTableName: `carpool-bets-v2-${props.stage}`,
+    });
+
+    // Team stats collector stack
+    new TeamStatsCollectorStack(this, 'TeamStatsCollector', {
+      environment: props.stage,
+      table: dynamoStack.betsTable,
     });
 
     // Compliance stack
