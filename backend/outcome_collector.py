@@ -118,14 +118,15 @@ class OutcomeCollector:
                     updates += 1
 
                 elif item.get("analysis_type") == "prop":
-                    # For props, we'd need actual player stats (not implemented yet)
-                    # For now, just mark as verified without accuracy check
+                    # Get player stats for prop verification
+                    prop_correct = self._check_prop_analysis_accuracy(item, game)
+
                     self.table.update_item(
                         Key={"pk": item["pk"], "sk": item["sk"]},
                         UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct",
                         ExpressionAttributeValues={
                             ":verified": datetime.utcnow().isoformat(),
-                            ":correct": False,  # Default until we implement prop verification
+                            ":correct": prop_correct,
                         },
                     )
                     updates += 1
@@ -140,32 +141,123 @@ class OutcomeCollector:
     ) -> bool:
         """Check if a game analysis was accurate"""
         try:
+            home_score = int(game.get("home_score", 0))
+            away_score = int(game.get("away_score", 0))
+
             analysis_lower = analysis_result.lower()
             home_team = game.get("home_team", "").lower()
             away_team = game.get("away_team", "").lower()
 
-            # Check if analysis mentions home team winning
-            if home_team in analysis_lower and (
-                "+" in analysis_result or "win" in analysis_lower
-            ):
+            # Check for spread bets (e.g., "Team +7.5" or "Team -3.5")
+            if "+" in analysis_result or "-" in analysis_result:
+                # Extract spread value
+                import re
+
+                spread_match = re.search(r"([+-]\d+\.?\d*)", analysis_result)
+                if spread_match:
+                    spread = float(spread_match.group(1))
+
+                    # Determine which team has the spread
+                    if home_team in analysis_lower:
+                        # Home team with spread
+                        adjusted_score = home_score + spread
+                        return adjusted_score > away_score
+                    elif away_team in analysis_lower:
+                        # Away team with spread
+                        adjusted_score = away_score + spread
+                        return adjusted_score > home_score
+
+            # Check for totals (over/under)
+            if "over" in analysis_lower or "under" in analysis_lower:
+                total_score = home_score + away_score
+                # Extract total value
+                import re
+
+                total_match = re.search(r"(\d+\.?\d*)", analysis_result)
+                if total_match:
+                    line = float(total_match.group(1))
+                    if "over" in analysis_lower:
+                        return total_score > line
+                    else:  # under
+                        return total_score < line
+
+            # Moneyline - simple win/loss
+            if home_team in analysis_lower:
                 return home_won
-            elif away_team in analysis_lower and (
-                "+" in analysis_result or "win" in analysis_lower
-            ):
+            elif away_team in analysis_lower:
                 return not home_won
-            else:
-                # For spread analysis, we'd need the actual spread result
-                # For now, default to checking team names
-                if home_team in analysis_lower:
-                    return home_won
-                elif away_team in analysis_lower:
-                    return not home_won
-                else:
-                    return False  # Can't determine
+
+            return False  # Can't determine
 
         except Exception as e:
             print(f"Error checking analysis accuracy: {e}")
             return False
+
+    def _check_prop_analysis_accuracy(
+        self, analysis: Dict[str, Any], game: Dict[str, Any]
+    ) -> bool:
+        """Check if a prop analysis was accurate using player stats"""
+        try:
+            # Extract prop details from analysis
+            prop_type = analysis.get("prop_type", "")
+            player_name = analysis.get("player_name", "")
+            line = float(analysis.get("line", 0))
+            prediction = analysis.get("prediction", "").lower()
+
+            # Query for player stats for this game
+            game_id = game["id"]
+            sport = game["sport"]
+
+            # Look for player stats in DynamoDB
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ":pk": f"GAME#{sport}#{game_id}",
+                    ":sk": "PLAYER#",
+                },
+            )
+
+            # Find the player's stats
+            for item in response.get("Items", []):
+                if item.get("player_name", "").lower() == player_name.lower():
+                    stats = item.get("stats", {})
+
+                    # Map prop type to stat field
+                    stat_value = self._get_stat_value(stats, prop_type)
+
+                    if stat_value is not None:
+                        # Check if prediction was correct
+                        if "over" in prediction:
+                            return stat_value > line
+                        elif "under" in prediction:
+                            return stat_value < line
+
+            return False  # Can't verify without stats
+
+        except Exception as e:
+            print(f"Error checking prop analysis accuracy: {e}")
+            return False
+
+    def _get_stat_value(self, stats: Dict[str, Any], prop_type: str) -> float:
+        """Extract stat value from player stats based on prop type"""
+        prop_mapping = {
+            "points": "PTS",
+            "rebounds": "REB",
+            "assists": "AST",
+            "three_pointers": "3PM",
+            "steals": "STL",
+            "blocks": "BLK",
+            "turnovers": "TO",
+        }
+
+        stat_key = prop_mapping.get(prop_type.lower())
+        if stat_key and stat_key in stats:
+            try:
+                return float(stats[stat_key])
+            except (ValueError, TypeError):
+                return None
+
+        return None
 
     def _update_insight_outcomes(self, game: Dict[str, Any]) -> int:
         """Update insight records with actual outcomes"""
@@ -280,17 +372,9 @@ def lambda_handler(event, context):
 def _get_secret_value(secret_arn: str) -> str:
     """Get secret value from AWS Secrets Manager"""
     import boto3
-    import json
 
     secrets_client = boto3.client("secretsmanager", region_name="us-east-1")
     response = secrets_client.get_secret_value(SecretId=secret_arn)
 
-    secret_string = response["SecretString"]
-
-    # Try to parse as JSON first (for structured secrets)
-    try:
-        secret_data = json.loads(secret_string)
-        return secret_data.get("api_key", secret_string)
-    except json.JSONDecodeError:
-        # If not JSON, return the plain string
-        return secret_string
+    # Secret is stored as plain string, not JSON
+    return response["SecretString"]
