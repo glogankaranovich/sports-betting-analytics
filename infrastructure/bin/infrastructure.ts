@@ -5,6 +5,7 @@ import { OddsCollectorStack } from '../lib/odds-collector-stack';
 import { BetCollectorApiStack } from '../lib/bet-collector-api-stack';
 import { OutcomeCollectorStack } from '../lib/outcome-collector-stack';
 import { AnalysisGeneratorStack } from '../lib/analysis-generator-stack';
+import { InsightGeneratorStack } from '../lib/insight-generator-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { AmplifyStack } from '../lib/amplify-stack';
 import { ComplianceStack } from '../lib/compliance-stack';
@@ -52,6 +53,12 @@ if (environment === 'dev') {
   new AnalysisGeneratorStack(app, StackNames.forEnvironment('dev', 'AnalysisGenerator'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
+    env: ENVIRONMENTS.dev,
+  });
+
+  new InsightGeneratorStack(app, StackNames.forEnvironment('dev', 'InsightGenerator'), {
+    environment: 'dev',
+    betsTable: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,
   });
 

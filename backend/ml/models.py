@@ -182,7 +182,7 @@ class ConsensusModel(BaseAnalysisModel):
 
             return AnalysisResult(
                 game_id=prop_item.get("event_id", "unknown"),
-                bookmaker=prop_item.get("bookmaker"),
+                bookmaker="consensus",  # Will be overridden per bookmaker
                 model="consensus",
                 analysis_type="prop",
                 sport=prop_item.get("sport"),
@@ -192,7 +192,7 @@ class ConsensusModel(BaseAnalysisModel):
                 player_name=prop_item.get("player_name", "Unknown Player"),
                 prediction=prediction,
                 confidence=confidence,
-                reasoning=f"Consensus analysis: {prediction} with {confidence:.1%} confidence (Over: {over_prob_fair:.1%}, Under: {under_prob_fair:.1%})",
+                reasoning=f"Consensus across {len(prop_item.get('bookmakers', []))} bookmakers: {prediction}",
             )
 
         except Exception as e:

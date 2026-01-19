@@ -5,8 +5,6 @@ import { bettingApi } from './services/api';
 import { Game } from './types/betting';
 import PlayerProps from './components/PlayerProps';
 import BetInsights from './components/BetInsights';
-import AnalysisHistory from './components/AnalysisHistory';
-import ModelPerformanceDashboard from './components/ModelPerformanceDashboard';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import './amplifyConfig'; // Initialize Amplify
@@ -17,9 +15,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
   const [gameAnalysis, setGameAnalysis] = useState<any[]>([]);
   const [propAnalysis, setPropAnalysis] = useState<any[]>([]);
+  const [topInsight, setTopInsight] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights' | 'analysis-history' | 'model-performance'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
@@ -42,6 +41,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           fetchGames();
           fetchGameAnalysis();
           fetchPropAnalysis();
+          fetchTopInsight();
         }
       } catch (error) {
         console.error('Error getting auth session:', error);
@@ -57,6 +57,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       fetchGames();
       fetchGameAnalysis();
       fetchPropAnalysis();
+      fetchTopInsight();
     }
   }, [settings, token]);
 
@@ -89,7 +90,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const sport = settings.sport !== 'all' ? settings.sport : undefined;
         const model = settings.model !== 'all' ? settings.model : undefined;
         const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', limit: 50 });
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game' });
         setGameAnalysis(data.analyses || []);
       }
     } catch (err) {
@@ -99,6 +100,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   const fetchPropAnalysis = useCallback(async () => {
     try {
+      console.log('fetchPropAnalysis called');
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
       
@@ -106,7 +108,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const sport = settings.sport !== 'all' ? settings.sport : undefined;
         const model = settings.model !== 'all' ? settings.model : undefined;
         const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', limit: 50 });
+        console.log('Fetching prop analyses with:', { sport, model, bookmaker, type: 'prop' });
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop' });
+        console.log('Prop analyses response:', data);
         setPropAnalysis(data.analyses || []);
       }
     } catch (err) {
@@ -114,6 +118,23 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       setPropAnalysis([]);
     }
   }, [settings.sport, settings.model, settings.bookmaker]);
+
+  const fetchTopInsight = useCallback(async () => {
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (token) {
+        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        // No model filter - get top insight across all models
+        const data = await bettingApi.getTopInsight(token, { sport, bookmaker, type: 'game' });
+        setTopInsight(data.top_insight);
+      }
+    } catch (err) {
+      console.error('Error fetching top insight:', err);
+    }
+  }, [settings.sport, settings.bookmaker]);
 
   // Games are already grouped by game_id from the API
   let filteredGames = games.filter(game => {
@@ -153,7 +174,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     a.analysis_type === 'game' && a.home_team && a.away_team
   );
   const filteredPropAnalysis = propAnalysis.filter((p: any) => 
-    p.player_name && p.prop_type
+    p.player_name && p.prediction
   );
 
   // Pagination logic
@@ -226,6 +247,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             fetchGames();
             fetchGameAnalysis();
             fetchPropAnalysis();
+            fetchTopInsight();
           }}>
             Refresh Data
           </button>
@@ -234,6 +256,37 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </button>
         </div>
       </header>
+      
+      {topInsight && (
+        <div className="top-insight-banner">
+          <div className="top-insight-header">
+            <h2>🎯 Top Insight</h2>
+            <span className="insight-badge">Highest Confidence</span>
+          </div>
+          <div className="top-insight-content">
+            <div className="insight-game-info">
+              <h3>{topInsight.away_team} @ {topInsight.home_team}</h3>
+              <p className="game-time">{new Date(topInsight.commence_time).toLocaleString()}</p>
+            </div>
+            <div className="insight-prediction">
+              <div className="prediction-box">
+                <span className="prediction-label">Analysis Outcome: </span>
+                <span className="prediction-value">{topInsight.prediction}</span>
+              </div>
+              <div className="confidence">
+                <span className="confidence-label">Confidence</span>
+                <span className="confidence-value">{(topInsight.confidence * 100).toFixed(0)}%</span>
+              </div>
+            </div>
+            <div className="insight-details">
+              <p className="reasoning">{topInsight.reasoning}</p>
+              <div className="insight-meta">
+                <span>Model: {topInsight.model}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <Settings 
         settings={settings}
@@ -273,18 +326,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onClick={() => handleTabChange('insights')}
           >
             Insights
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'analysis-history' ? 'active' : ''}`}
-            onClick={() => handleTabChange('analysis-history')}
-          >
-            Analysis History
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'model-performance' ? 'active' : ''}`}
-            onClick={() => handleTabChange('model-performance')}
-          >
-            Model Performance
           </button>
         </div>
 
@@ -446,33 +487,32 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             </div>
             <div className="games-grid">
               {filteredPropAnalysis.length > 0 ? (
-                paginateItems(filteredPropAnalysis, currentPage).map((prediction: any, index: number) => (
+                paginateItems(filteredPropAnalysis, currentPage).map((analysis: any, index: number) => (
                   <div key={index} className="game-card">
                     <div className="game-info">
                       <div className="teams">
-                        <h3>{prediction.player_name} - {prediction.prop_type}</h3>
-                        <div className="sport-tag">{prediction.gameMatchup || formatSport(prediction.sport)}</div>
-                        <p className="game-time">{new Date(prediction.commence_time).toLocaleString()}</p>
+                        <h3>{analysis.player_name}</h3>
+                        <div className="sport-tag">{formatSport(analysis.sport)}</div>
+                        <p className="game-time">{new Date(analysis.commence_time).toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="prediction-info">
-                      <div className="probabilities">
-                        <div className="prob-item">
-                          <span className="prob-label">Over {prediction.predicted_value}</span>
-                          <span className="prob-value home">{(prediction.over_probability * 100).toFixed(1)}%</span>
-                        </div>
-                        <div className="prob-item">
-                          <span className="prob-label">Under {prediction.predicted_value}</span>
-                          <span className="prob-value away">{(prediction.under_probability * 100).toFixed(1)}%</span>
-                        </div>
+                      <div className="prediction-box">
+                        <span className="prediction-label">Analysis Outcome: </span>
+                        <span className="prediction-value">{analysis.prediction}</span>
                       </div>
                       <div className="confidence">
                         <span className="confidence-label">Confidence</span>
-                        <span className="confidence-value">{(prediction.confidence_score * 100).toFixed(0)}%</span>
+                        <span className="confidence-value">{(analysis.confidence * 100).toFixed(0)}%</span>
                       </div>
                     </div>
+                    <div className="reasoning">
+                      <span className="reasoning-label">Reasoning: </span>
+                      <span>{analysis.reasoning}</span>
+                    </div>
                     <div className="game-meta">
-                      <span className="model">Model: {prediction.model}</span>
+                      <span className="model">Model: {analysis.model}</span>
+                      <span className="bookmaker">Bookmaker: {analysis.bookmaker}</span>
                     </div>
                   </div>
                 ))
@@ -516,14 +556,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activeTab === 'insights' && (
           <BetInsights token={token} settings={settings} />
-        )}
-
-        {activeTab === 'analysis-history' && (
-          <AnalysisHistory token={token} settings={settings} />
-        )}
-
-        {activeTab === 'model-performance' && (
-          <ModelPerformanceDashboard token={token} settings={settings} />
         )}
       </main>
     </div>

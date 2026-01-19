@@ -345,8 +345,8 @@ class OddsCollector:
                 print(f"Error collecting props for game {game_id}: {str(e)}")
                 return 0
 
-        # Use ThreadPoolExecutor for parallel API calls
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        # Use ThreadPoolExecutor for parallel API calls (increased workers for speed)
+        with ThreadPoolExecutor(max_workers=20) as executor:
             future_to_game = {
                 executor.submit(collect_props_for_game, game_id): game_id
                 for game_id in future_games
@@ -397,21 +397,34 @@ class OddsCollector:
 
 
 def lambda_handler(event, context):
-    """AWS Lambda handler - supports multiple execution modes:
+    """AWS Lambda handler - requires sport parameter:
     - {"sport": "basketball_nba"} - collect odds only for NBA
     - {"sport": "basketball_nba", "props_only": true} - collect NBA props with parallel processing
-    - {"limit": 5} - limit number of games/props for testing
-    - {} - collect odds for all sports (no props)
+    - {"sport": "basketball_nba", "limit": 5} - limit number of games/props for testing
     """
     try:
         collector = OddsCollector()
 
         # Parse event parameters
         sport = event.get("sport") if event else None
+
+        # Require sport parameter
+        if not sport:
+            return {
+                "statusCode": 400,
+                "body": json.dumps(
+                    {
+                        "error": "sport parameter is required",
+                        "example": {"sport": "basketball_nba"},
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                ),
+            }
+
         props_only = event.get("props_only", False) if event else False
         limit = event.get("limit") if event else None
 
-        if sport and props_only:
+        if props_only:
             print(f"Processing props only for: {sport} (limit: {limit})")
             total_props = collector.collect_props_for_sport(sport, limit=limit)
             message = (
@@ -430,17 +443,12 @@ def lambda_handler(event, context):
                     }
                 ),
             }
-        elif sport:
+        else:
             print(f"Processing odds only for: {sport} (limit: {limit})")
             game_ids = collector.collect_odds_for_sport(sport, limit=limit)
             message = (
                 f"Successfully collected odds for {len(game_ids)} games in {sport}"
             )
-        else:
-            print("Processing all active sports (odds only)")
-            total_games = collector.collect_all_odds()
-            game_ids = []  # collect_all_odds still returns int for now
-            message = f"Successfully collected odds for {total_games} total games"
 
         return {
             "statusCode": 200,
@@ -449,10 +457,8 @@ def lambda_handler(event, context):
                     "message": message,
                     "sport": sport,
                     "props_only": False,
-                    "games_collected": len(game_ids)
-                    if isinstance(game_ids, list)
-                    else total_games,
-                    "game_ids": game_ids if isinstance(game_ids, list) else [],
+                    "games_collected": len(game_ids),
+                    "game_ids": game_ids,
                     "timestamp": datetime.utcnow().isoformat(),
                 }
             ),

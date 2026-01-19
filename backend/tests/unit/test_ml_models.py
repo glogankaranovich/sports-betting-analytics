@@ -39,6 +39,7 @@ def test_consensus_prop_analysis():
         "away_team": "Warriors",
         "commence_time": "2026-01-13T20:00:00Z",
         "description": "LeBron James - Points",
+        "player_name": "LeBron James",
         "point": 25.5,
         "outcomes": [{"name": "Over", "price": -110}, {"name": "Under", "price": -110}],
     }
@@ -115,7 +116,7 @@ def test_analysis_result_to_dynamodb():
 
     assert item["pk"] == "ANALYSIS#basketball_nba#test123#fanduel"
     assert item["sk"] == "consensus#game#LATEST"
-    assert item["analysis_time_pk"] == "ANALYSIS#basketball_nba#fanduel#consensus"
+    assert item["analysis_time_pk"] == "ANALYSIS#basketball_nba#fanduel#consensus#game"
     assert item["model"] == "consensus"
     assert item["analysis_type"] == "game"
     assert item["latest"] is True

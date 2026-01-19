@@ -13,9 +13,13 @@ class OutcomeCollector:
         self.odds_api_key = odds_api_key
         self.base_url = "https://api.the-odds-api.com/v4"
 
-    def collect_recent_outcomes(self, days_back: int = 7) -> Dict[str, int]:
-        """Collect outcomes for games from the last N days"""
+    def collect_recent_outcomes(self, days_back: int = 3) -> Dict[str, int]:
+        """Collect outcomes for games from the last N days (max 3)"""
         results = {"updated_analysis": 0, "updated_insights": 0}
+
+        # Validate days_back (API only accepts 1-3)
+        if days_back < 1 or days_back > 3:
+            days_back = 3
 
         # Get completed games from odds API
         completed_games = self._get_completed_games(days_back)

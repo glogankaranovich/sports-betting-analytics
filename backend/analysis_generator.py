@@ -3,7 +3,7 @@ import boto3
 import os
 from typing import Dict, Any
 from decimal import Decimal
-from ml.models import ModelFactory
+from ml.models import ModelFactory, AnalysisResult
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -95,19 +95,19 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
 
             response = table.query(**query_kwargs)
 
-            # Group by game_id and bookmaker
+            # Group by game_id only (across all bookmakers)
             for item in response["Items"]:
                 game_id = item["pk"][5:]  # Remove GAME# prefix
                 bookmaker = item.get("bookmaker")
-                key = f"{game_id}#{bookmaker}"
 
-                if key not in games:
-                    games[key] = {
+                if game_id not in games:
+                    games[game_id] = {
                         "game_id": game_id,
-                        "bookmaker": bookmaker,
                         "items": [],
+                        "bookmakers": set(),
                     }
-                games[key]["items"].append(item)
+                games[game_id]["items"].append(item)
+                games[game_id]["bookmakers"].add(bookmaker)
                 total_items_processed += 1
 
             last_evaluated_key = response.get("LastEvaluatedKey")
@@ -115,33 +115,45 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                 break
 
             print(
-                f"Processed {total_items_processed} items, found {len(games)} unique game-bookmaker combinations"
+                f"Processed {total_items_processed} items, found {len(games)} unique games"
             )
 
         print(
-            f"Total items processed: {total_items_processed}, unique combinations: {len(games)}"
+            f"Total items processed: {total_items_processed}, unique games: {len(games)}"
         )
 
         count = 0
         games_to_process = list(games.items())[:limit] if limit else list(games.items())
 
-        for key, game_data in games_to_process:
+        for game_id, game_data in games_to_process:
             game_info = game_data["items"][0]  # Get game info from first item
-            game_info["selected_bookmaker"] = game_data[
-                "bookmaker"
-            ]  # Pass bookmaker to model
+            bookmakers = list(game_data["bookmakers"])
 
+            # Generate analysis once using all bookmakers' odds
             analysis_result = model.analyze_game_odds(
-                game_data["game_id"], game_data["items"], game_info
+                game_id, game_data["items"], game_info
             )
 
             if analysis_result:
-                # Add bookmaker to analysis result before converting to DynamoDB item
-                analysis_result.bookmaker = game_data["bookmaker"]
-                analysis_item = analysis_result.to_dynamodb_item()
-
-                store_analysis(analysis_item)
-                count += 1
+                # Store one record per bookmaker with the same analysis
+                for bookmaker in bookmakers:
+                    # Create a new AnalysisResult with the specific bookmaker
+                    bookmaker_result = AnalysisResult(
+                        game_id=analysis_result.game_id,
+                        bookmaker=bookmaker,
+                        model=analysis_result.model,
+                        analysis_type=analysis_result.analysis_type,
+                        sport=analysis_result.sport,
+                        home_team=analysis_result.home_team,
+                        away_team=analysis_result.away_team,
+                        commence_time=analysis_result.commence_time,
+                        player_name=analysis_result.player_name,
+                        prediction=analysis_result.prediction,
+                        confidence=analysis_result.confidence,
+                        reasoning=analysis_result.reasoning,
+                    )
+                    store_analysis(bookmaker_result.to_dynamodb_item())
+                    count += 1
 
         return count
 
@@ -181,40 +193,62 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
 
         print(f"Total prop items processed: {total_items_processed}")
 
-        # Group props by event_id, player, bookmaker, and market
+        # Group props by event_id, player, and market (across all bookmakers)
         grouped_props = {}
         for item in props:
             key = (
                 item.get("event_id"),
                 item.get("player_name"),
-                item.get("bookmaker"),
                 item.get("market_key"),
             )
             if key not in grouped_props:
                 grouped_props[key] = {
                     "event_id": item.get("event_id"),
                     "player_name": item.get("player_name"),
-                    "bookmaker": item.get("bookmaker"),
                     "market_key": item.get("market_key"),
                     "sport": item.get("sport"),
                     "commence_time": item.get("commence_time"),
                     "point": item.get("point"),
                     "outcomes": [],
+                    "bookmakers": set(),
                 }
             grouped_props[key]["outcomes"].append(
                 {"name": item.get("outcome"), "price": int(item.get("price", 0))}
             )
+            grouped_props[key]["bookmakers"].add(item.get("bookmaker"))
 
         count = 0
         grouped_list = list(grouped_props.values())
         props_to_process = grouped_list[:limit] if limit else grouped_list
 
         for grouped_prop in props_to_process:
+            # Convert bookmakers set to list for JSON serialization
+            bookmakers = list(grouped_prop["bookmakers"])
+            grouped_prop["bookmakers"] = bookmakers
+
+            # Generate analysis once using all bookmakers
             analysis_result = model.analyze_prop_odds(grouped_prop)
 
             if analysis_result:
-                store_analysis(analysis_result.to_dynamodb_item())
-                count += 1
+                # Store one record per bookmaker with the same analysis
+                for bookmaker in bookmakers:
+                    # Create a new AnalysisResult with the specific bookmaker
+                    bookmaker_result = AnalysisResult(
+                        game_id=analysis_result.game_id,
+                        bookmaker=bookmaker,
+                        model=analysis_result.model,
+                        analysis_type=analysis_result.analysis_type,
+                        sport=analysis_result.sport,
+                        home_team=analysis_result.home_team,
+                        away_team=analysis_result.away_team,
+                        commence_time=analysis_result.commence_time,
+                        player_name=analysis_result.player_name,
+                        prediction=analysis_result.prediction,
+                        confidence=analysis_result.confidence,
+                        reasoning=analysis_result.reasoning,
+                    )
+                    store_analysis(bookmaker_result.to_dynamodb_item())
+                    count += 1
 
         return count
 

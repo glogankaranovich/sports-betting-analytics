@@ -57,43 +57,30 @@ export const bettingApi = {
     return response.data;
   },
 
-
-  async getAnalysisHistory(token: string, filters: { sport?: string; model?: string; bookmaker?: string; limit?: number } = {}): Promise<any> {
+  async getInsights(token: string, filters: { sport?: string; model?: string; bookmaker?: string; type?: string; limit?: number } = {}): Promise<any> {
     const params = new URLSearchParams();
     if (filters.sport) params.append('sport', filters.sport);
     if (filters.model) params.append('model', filters.model);
     if (filters.bookmaker) params.append('bookmaker', filters.bookmaker);
+    if (filters.type) params.append('type', filters.type);
     if (filters.limit) params.append('limit', filters.limit.toString());
-    else params.append('limit', '100'); // Default limit for history
     
     const headers = { Authorization: `Bearer ${token}` };
     
-    const response = await api.get(`/analysis-history?${params.toString()}`, { headers });
+    const response = await api.get(`/insights?${params.toString()}`, { headers });
     return response.data;
   },
 
-  async getRecommendations(token: string, filters: { sport?: string; model?: string; risk_level?: string; limit?: number } = {}): Promise<any> {
+  async getTopInsight(token: string, filters: { sport?: string; model?: string; bookmaker?: string; type?: string } = {}): Promise<any> {
     const params = new URLSearchParams();
     if (filters.sport) params.append('sport', filters.sport);
     if (filters.model) params.append('model', filters.model);
-    if (filters.risk_level) params.append('risk_level', filters.risk_level);
-    if (filters.limit) params.append('limit', filters.limit.toString());
+    if (filters.bookmaker) params.append('bookmaker', filters.bookmaker);
+    if (filters.type) params.append('type', filters.type);
     
-    const response = await api.get(`/recommendations?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    return response.data;
-  },
-
-  async getTopRecommendation(token: string, filters: { sport?: string; model?: string; risk_level?: string } = {}): Promise<any> {
-    const params = new URLSearchParams();
-    if (filters.sport) params.append('sport', filters.sport);
-    if (filters.model) params.append('model', filters.model);
-    if (filters.risk_level) params.append('risk_level', filters.risk_level);
+    const headers = { Authorization: `Bearer ${token}` };
     
-    const response = await api.get(`/top-recommendation?${params.toString()}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const response = await api.get(`/top-insight?${params.toString()}`, { headers });
     return response.data;
   },
 

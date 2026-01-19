@@ -27,26 +27,9 @@ describe('OddsCollectorStack', () => {
     });
   });
 
-  test('creates EventBridge rules for granular scheduling', () => {
-    // NBA odds collection
-    template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'cron(0 8,20 * * ? *)'
-    });
-    
-    // NFL odds collection  
-    template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'cron(0 9,21 * * ? *)'
-    });
-    
-    // NBA props collection
-    template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'cron(0 10,22 * * ? *)'
-    });
-    
-    // NFL props collection
-    template.hasResourceProperties('AWS::Events::Rule', {
-      ScheduleExpression: 'cron(0 11,23 * * ? *)'
-    });
+  test('EventBridge schedules are commented out for manual testing', () => {
+    // Schedules are disabled - verify no EventBridge rules exist
+    template.resourceCountIs('AWS::Events::Rule', 0);
   });
 
   test('creates IAM policy for Lambda permissions', () => {
@@ -55,9 +38,5 @@ describe('OddsCollectorStack', () => {
 
   test('creates exactly one Lambda function', () => {
     template.resourceCountIs('AWS::Lambda::Function', 1);
-  });
-
-  test('creates four EventBridge rules for granular scheduling', () => {
-    template.resourceCountIs('AWS::Events::Rule', 4);
   });
 });

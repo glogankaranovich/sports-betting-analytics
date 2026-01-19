@@ -38,6 +38,7 @@ export class OddsCollectorStack extends cdk.Stack {
         }
       }),
       timeout: cdk.Duration.minutes(15),
+      memorySize: 2048, // Increased from default 128MB for faster processing
       environment: {
         DYNAMODB_TABLE: props.betsTableName,
         ODDS_API_SECRET_ARN: oddsApiSecret.secretArn,
