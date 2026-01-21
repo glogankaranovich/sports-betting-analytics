@@ -29,13 +29,11 @@ interface BetInsightsProps {
 
 const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
   const [insights, setInsights] = useState<Insight[]>([]);
-  const [topInsight, setTopInsight] = useState<Insight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInsights();
-    fetchTopInsight();
   }, [settings]);
 
   const fetchInsights = useCallback(async () => {
@@ -57,20 +55,6 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
     }
   }, [token, settings]);
 
-  const fetchTopInsight = useCallback(async () => {
-    try {
-      const data = await apiService.getTopInsight(token, {
-        sport: settings.sport,
-        model: settings.model,
-        bookmaker: settings.bookmaker,
-        type: 'game'
-      });
-      setTopInsight(data.top_insight);
-    } catch (err) {
-      console.error('Error fetching top insight:', err);
-    }
-  }, [token, settings]);
-
   const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
 
   if (loading) return <div className="no-data">Loading insights...</div>;
@@ -81,37 +65,6 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
       <div className="games-header">
         <h2>Insights</h2>
       </div>
-
-      {/* Top Insight */}
-      {topInsight && (
-        <div className="game-card featured-recommendation">
-          <div className="game-info">
-            <div className="teams">
-              <h3>🎯 Top Insight</h3>
-              <div className="sport-tag">{topInsight.home_team && topInsight.away_team ? `${topInsight.away_team} @ ${topInsight.home_team}` : topInsight.player_name}</div>
-              <p className="game-time">{topInsight.bookmaker} • {new Date(topInsight.commence_time).toLocaleString()}</p>
-            </div>
-          </div>
-          <div className="prediction-info">
-            <div className="probabilities">
-              <div className="prob-item">
-                <span className="prob-label">Insight</span>
-                <span className="prob-value home">{topInsight.prediction}</span>
-              </div>
-            </div>
-            <div className="confidence">
-              <span className="confidence-label">Confidence</span>
-              <span className="confidence-value">{formatPercentage(topInsight.confidence)}</span>
-            </div>
-          </div>
-          <div className="game-meta">
-            <span className="model">Model: {topInsight.model}</span>
-          </div>
-          {topInsight.reasoning && (
-            <div className="reasoning">{topInsight.reasoning}</div>
-          )}
-        </div>
-      )}
 
       {/* All Insights */}
       <div className="games-grid">

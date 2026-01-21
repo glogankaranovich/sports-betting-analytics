@@ -7,8 +7,10 @@ import PlayerProps from './components/PlayerProps';
 import BetInsights from './components/BetInsights';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
+import logo from './assets/carpool_bets_2.png';
 import './amplifyConfig'; // Initialize Amplify
 import '@aws-amplify/ui-react/styles.css';
+import './amplify-theme.css';
 import './App.css';
 
 function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
@@ -235,11 +237,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     <div className="App">
       <header className="App-header">
         <div className="header-left">
-          <h1>Carpool Bets</h1>
+          <img src={logo} alt="Carpool Bets" className="logo" />
           <div className="header-info">
-            <span>Welcome {user?.signInDetails?.loginId}</span>
-            <span>•</span>
-            <span>Stage: {process.env.REACT_APP_STAGE}</span>
+            <span>Welcome, {user?.signInDetails?.loginId}</span>
+            <span>Environment: {process.env.REACT_APP_STAGE}</span>
           </div>
         </div>
         <div className="header-actions">
@@ -564,13 +565,34 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
 function App() {
   return (
-    <ComplianceWrapper>
-      <Authenticator>
-        {({ signOut, user }) => (
+    <Authenticator
+      components={{
+        Header() {
+          return (
+            <img 
+              src={logo} 
+              alt="Carpool Bets" 
+              style={{ 
+                height: '160px',
+                filter: 'drop-shadow(0 4px 16px rgba(0, 212, 255, 0.3))',
+                opacity: '0.95',
+                display: 'block',
+                margin: '3rem auto 2rem'
+              }} 
+            />
+          );
+        },
+        Footer() {
+          return null;
+        },
+      }}
+    >
+      {({ signOut, user }) => (
+        <ComplianceWrapper>
           <Dashboard user={user} signOut={signOut} />
-        )}
-      </Authenticator>
-    </ComplianceWrapper>
+        </ComplianceWrapper>
+      )}
+    </Authenticator>
   );
 }
 

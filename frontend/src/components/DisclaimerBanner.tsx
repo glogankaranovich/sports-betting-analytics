@@ -1,8 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './DisclaimerBanner.css';
 
 const DisclaimerBanner: React.FC = () => {
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem('disclaimer-dismissed');
+    if (!dismissed) {
+      setIsVisible(true);
+    }
+  }, []);
+
+  const handleDismiss = () => {
+    localStorage.setItem('disclaimer-dismissed', 'true');
+    setIsVisible(false);
+  };
 
   if (!isVisible) return null;
 
@@ -16,7 +28,7 @@ const DisclaimerBanner: React.FC = () => {
         </span>
         <button 
           className="disclaimer-close"
-          onClick={() => setIsVisible(false)}
+          onClick={handleDismiss}
           aria-label="Close disclaimer"
         >
           ×

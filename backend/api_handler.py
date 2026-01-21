@@ -3,6 +3,7 @@ import boto3
 import os
 from decimal import Decimal
 from typing import Dict, Any
+from datetime import datetime, timedelta
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -111,7 +112,6 @@ def handle_get_games(query_params: Dict[str, str]):
         all_odds_items = []
 
         # Query each sport partition separately with time filtering
-        from datetime import datetime, timedelta
 
         day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
@@ -251,6 +251,10 @@ def handle_get_player_props(query_params: Dict[str, str]):
         # Use ActiveBetsIndex GSI to query for PROP bet types efficiently
         props = []
 
+        # Time filtering - only show props from last 24 hours
+
+        day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
+
         for query_sport in sports_to_query:
             last_evaluated_key = None
 
@@ -260,7 +264,8 @@ def handle_get_player_props(query_params: Dict[str, str]):
                     "IndexName": "ActiveBetsIndexV2",
                     "KeyConditionExpression": boto3.dynamodb.conditions.Key(
                         "active_bet_pk"
-                    ).eq(f"PROP#{query_sport}"),
+                    ).eq(f"PROP#{query_sport}")
+                    & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
                     "Limit": remaining_limit,
                 }
 
@@ -268,6 +273,7 @@ def handle_get_player_props(query_params: Dict[str, str]):
                 filter_expressions = [
                     boto3.dynamodb.conditions.Attr("latest").eq(True)
                 ]  # Always filter for latest
+
                 if bookmaker:
                     filter_expressions.append(
                         boto3.dynamodb.conditions.Attr("sk").begins_with(
@@ -370,12 +376,17 @@ def handle_get_analyses(query_params: Dict[str, str]):
 
         analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
 
+        # Time filtering - only show analyses from last 24 hours
+
+        day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
+
         # Query using AnalysisTimeGSI for chronological ordering
         query_kwargs = {
             "IndexName": "AnalysisTimeGSI",
             "KeyConditionExpression": boto3.dynamodb.conditions.Key(
                 "analysis_time_pk"
-            ).eq(analysis_pk),
+            ).eq(analysis_pk)
+            & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
             "ScanIndexForward": False,  # Most recent first
         }
 
@@ -447,12 +458,17 @@ def handle_get_insights(query_params: Dict[str, str]):
         # Build analysis_pk: ANALYSIS#{sport}#{bookmaker}#{model}#{type}
         analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
 
+        # Time filtering - only show insights from last 24 hours
+
+        day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
+
         # Query using AnalysisTimeGSI
         response = table.query(
             IndexName="AnalysisTimeGSI",
             KeyConditionExpression=boto3.dynamodb.conditions.Key("analysis_time_pk").eq(
                 analysis_pk
-            ),
+            )
+            & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
             ScanIndexForward=False,  # Most recent first
             Limit=100,  # Get more than needed, then sort by confidence
         )
