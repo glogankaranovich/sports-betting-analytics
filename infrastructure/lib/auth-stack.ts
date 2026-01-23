@@ -36,7 +36,7 @@ export class AuthStack extends cdk.Stack {
     // Create Cognito User Pool
     this.userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: `carpool-bets-users-${props.environment}`,
-      selfSignUpEnabled: true,
+      selfSignUpEnabled: false,
       signInAliases: {
         email: true,
       },
