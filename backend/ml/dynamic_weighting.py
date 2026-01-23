@@ -20,21 +20,18 @@ class DynamicModelWeighting:
             datetime.utcnow() - timedelta(days=self.lookback_days)
         ).isoformat()
 
-        # Query verified analyses
+        # Query verified analyses using GSI
+        # PK: VERIFIED#{model}#{sport}#{bet_type}
+        # SK: {verified_at}
+        verified_pk = f"VERIFIED#{model}#{sport}#{bet_type}"
+
         response = table.query(
             IndexName="VerifiedAnalysisGSI",
-            KeyConditionExpression=Key("verification_status").eq("verified")
-            & Key("verified_at").gte(cutoff_date),
+            KeyConditionExpression=Key("verified_analysis_pk").eq(verified_pk)
+            & Key("verified_analysis_sk").gte(cutoff_date),
         )
 
-        # Filter by model, sport, and bet_type
-        analyses = [
-            item
-            for item in response.get("Items", [])
-            if item.get("model") == model
-            and item.get("sport") == sport
-            and item.get("analysis_type") == bet_type
-        ]
+        analyses = response.get("Items", [])
 
         if not analyses:
             return None
@@ -48,19 +45,15 @@ class DynamicModelWeighting:
             datetime.utcnow() - timedelta(days=self.lookback_days)
         ).isoformat()
 
+        verified_pk = f"VERIFIED#{model}#{sport}#{bet_type}"
+
         response = table.query(
             IndexName="VerifiedAnalysisGSI",
-            KeyConditionExpression=Key("verification_status").eq("verified")
-            & Key("verified_at").gte(cutoff_date),
+            KeyConditionExpression=Key("verified_analysis_pk").eq(verified_pk)
+            & Key("verified_analysis_sk").gte(cutoff_date),
         )
 
-        analyses = [
-            item
-            for item in response.get("Items", [])
-            if item.get("model") == model
-            and item.get("sport") == sport
-            and item.get("analysis_type") == bet_type
-        ]
+        analyses = response.get("Items", [])
 
         if not analyses:
             return None

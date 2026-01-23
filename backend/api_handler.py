@@ -656,6 +656,32 @@ def handle_get_analytics(query_params: Dict[str, str]):
                     400, {"error": "model parameter required for confidence"}
                 )
             data = analytics.get_model_confidence_analysis(model)
+        elif metric_type == "weights":
+            from ml.dynamic_weighting import DynamicModelWeighting
+
+            weighting = DynamicModelWeighting()
+            sport = query_params.get("sport", "basketball_nba")
+            bet_type = query_params.get("bet_type", "game")
+
+            # Get weights and performance metrics for all models
+            weights = weighting.get_model_weights(sport, bet_type)
+
+            model_metrics = {}
+            for model_name in ["consensus", "value", "momentum"]:
+                accuracy = weighting.get_recent_accuracy(model_name, sport, bet_type)
+                brier = weighting.get_recent_brier_score(model_name, sport, bet_type)
+                model_metrics[model_name] = {
+                    "weight": weights[model_name],
+                    "recent_accuracy": accuracy,
+                    "recent_brier_score": brier,
+                }
+
+            data = {
+                "sport": sport,
+                "bet_type": bet_type,
+                "lookback_days": weighting.lookback_days,
+                "model_weights": model_metrics,
+            }
         else:
             return create_response(
                 400, {"error": f"Unknown metric type: {metric_type}"}

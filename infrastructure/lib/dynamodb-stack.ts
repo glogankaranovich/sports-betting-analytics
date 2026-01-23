@@ -68,6 +68,19 @@ export class DynamoDBStack extends cdk.Stack {
       }
     });
 
+    // Add GSI for verified analysis querying (for model feedback loop)
+    this.betsTable.addGlobalSecondaryIndex({
+      indexName: 'VerifiedAnalysisGSI',
+      partitionKey: {
+        name: 'verified_analysis_pk',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'verified_analysis_sk',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
     // Output the table name
     this.betsTableName = new cdk.CfnOutput(this, 'BetsTableName', {
       value: this.betsTable.tableName,

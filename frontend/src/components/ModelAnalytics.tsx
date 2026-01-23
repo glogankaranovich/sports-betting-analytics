@@ -33,6 +33,19 @@ interface TimeSeriesData {
   accuracy: number;
 }
 
+interface ModelWeights {
+  sport: string;
+  bet_type: string;
+  lookback_days: number;
+  model_weights: {
+    [model: string]: {
+      weight: number;
+      recent_accuracy: number | null;
+      recent_brier_score: number | null;
+    };
+  };
+}
+
 interface ModelAnalyticsProps {
   token: string;
 }

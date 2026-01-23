@@ -105,14 +105,21 @@ class OutcomeCollector:
                         analysis_result, home_won, game
                     )
 
+                    verified_at = datetime.utcnow().isoformat()
+                    model = item.get("model", "consensus")
+                    sport = item.get("sport")
+                    verified_pk = f"VERIFIED#{model}#{sport}#game"
+
                     # Update the analysis record
                     self.table.update_item(
                         Key={"pk": item["pk"], "sk": item["sk"]},
-                        UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified",
+                        UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
                         ExpressionAttributeValues={
                             ":home_won": home_won,
                             ":correct": analysis_correct,
-                            ":verified": datetime.utcnow().isoformat(),
+                            ":verified": verified_at,
+                            ":vpk": verified_pk,
+                            ":vsk": verified_at,
                         },
                     )
                     updates += 1
@@ -125,12 +132,19 @@ class OutcomeCollector:
                         f"Prop verification: {item.get('player_name')} {item.get('market_key')} {item.get('prediction')} = {prop_correct}"
                     )
 
+                    verified_at = datetime.utcnow().isoformat()
+                    model = item.get("model", "consensus")
+                    sport = item.get("sport")
+                    verified_pk = f"VERIFIED#{model}#{sport}#prop"
+
                     self.table.update_item(
                         Key={"pk": item["pk"], "sk": item["sk"]},
-                        UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct",
+                        UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
                         ExpressionAttributeValues={
-                            ":verified": datetime.utcnow().isoformat(),
+                            ":verified": verified_at,
                             ":correct": prop_correct,
+                            ":vpk": verified_pk,
+                            ":vsk": verified_at,
                         },
                     )
                     updates += 1
