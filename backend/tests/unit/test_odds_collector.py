@@ -146,20 +146,21 @@ class TestLambdaHandler(unittest.TestCase):
     @patch("odds_collector.OddsCollector")
     def test_lambda_handler_success(self, mock_collector_class):
         mock_collector = Mock()
-        mock_collector.collect_all_odds.return_value = 5
+        mock_collector.collect_odds_for_sport.return_value = ["game1", "game2", "game3"]
         mock_collector_class.return_value = mock_collector
 
-        result = lambda_handler({}, {})
+        result = lambda_handler({"sport": "basketball_nba"}, {})
 
         self.assertEqual(result["statusCode"], 200)
         body = json.loads(result["body"])
-        self.assertIn("Successfully collected odds for 5", body["message"])
+        self.assertIn("Successfully collected odds", body["message"])
+        self.assertEqual(body["games_collected"], 3)
 
     @patch("odds_collector.OddsCollector")
     def test_lambda_handler_error(self, mock_collector_class):
         mock_collector_class.side_effect = Exception("Test error")
 
-        result = lambda_handler({}, {})
+        result = lambda_handler({"sport": "basketball_nba"}, {})
 
         self.assertEqual(result["statusCode"], 500)
         body = json.loads(result["body"])

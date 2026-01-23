@@ -78,11 +78,13 @@ class TestOutcomeCollector(unittest.TestCase):
         self.assertEqual(roi_zero, 0.0)
 
     def test_map_sport_name(self):
-        """Test sport name mapping"""
+        """Test sport name mapping - returns api_sport directly"""
         collector = OutcomeCollector(self.table_name, self.api_key)
 
-        self.assertEqual(collector._map_sport_name("americanfootball_nfl"), "NFL")
-        self.assertEqual(collector._map_sport_name("basketball_nba"), "NBA")
+        self.assertEqual(
+            collector._map_sport_name("americanfootball_nfl"), "americanfootball_nfl"
+        )
+        self.assertEqual(collector._map_sport_name("basketball_nba"), "basketball_nba")
         self.assertEqual(collector._map_sport_name("unknown_sport"), "unknown_sport")
 
     @patch("outcome_collector.boto3")
