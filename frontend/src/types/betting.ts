@@ -54,6 +54,7 @@ export interface ApiResponse {
   games: Game[];
   count: number;
   sport_filter: string | null;
+  lastEvaluatedKey?: string;
 }
 
 export interface PlayerPropsResponse {
@@ -64,4 +65,5 @@ export interface PlayerPropsResponse {
     player?: string;
     prop_type?: string;
   };
+  lastEvaluatedKey?: string;
 }

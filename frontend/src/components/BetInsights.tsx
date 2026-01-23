@@ -30,7 +30,9 @@ interface BetInsightsProps {
 const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastEvaluatedKey, setLastEvaluatedKey] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInsights();
@@ -47,6 +49,7 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
         limit: 20
       });
       setInsights(data.insights || []);
+      setLastEvaluatedKey(data.lastEvaluatedKey || null);
     } catch (err) {
       setError('Failed to fetch insights');
       console.error('Error fetching insights:', err);
@@ -54,6 +57,28 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
       setLoading(false);
     }
   }, [token, settings]);
+
+  const loadMore = async () => {
+    if (!lastEvaluatedKey || loadingMore) return;
+    
+    try {
+      setLoadingMore(true);
+      const data = await apiService.getInsights(token, {
+        sport: settings.sport,
+        model: settings.model,
+        bookmaker: settings.bookmaker,
+        type: 'game',
+        limit: 20,
+        lastEvaluatedKey
+      });
+      setInsights(prev => [...prev, ...(data.insights || [])]);
+      setLastEvaluatedKey(data.lastEvaluatedKey || null);
+    } catch (err) {
+      console.error('Error loading more insights:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const formatPercentage = (value: number) => `${(value * 100).toFixed(1)}%`;
 
@@ -102,6 +127,26 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
       
       {insights.length === 0 && (
         <div className="no-data">No insights available for the selected filters.</div>
+      )}
+
+      {lastEvaluatedKey && (
+        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+          <button 
+            onClick={loadMore} 
+            disabled={loadingMore}
+            style={{
+              padding: '10px 20px',
+              fontSize: '16px',
+              cursor: loadingMore ? 'not-allowed' : 'pointer',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px'
+            }}
+          >
+            {loadingMore ? 'Loading...' : 'Load More'}
+          </button>
+        </div>
       )}
     </div>
   );

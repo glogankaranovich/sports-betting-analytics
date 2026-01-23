@@ -27,7 +27,9 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
 }) => {
   const [props, setProps] = useState<PlayerProp[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastEvaluatedKey, setLastEvaluatedKey] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     sport: '',
     bookmaker: '',
@@ -61,11 +63,12 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
         sport: settings.sport,
         bookmaker: settings.bookmaker,
         prop_type: filters.prop_type || undefined,
-        limit: 500
+        limit: 20
       };
       
       const response = await bettingApi.getPlayerProps(token, filterParams);
       setProps(response.props || []);
+      setLastEvaluatedKey(response.lastEvaluatedKey || null);
       setError(null);
     } catch (err) {
       setError('Failed to fetch player props');
@@ -75,6 +78,34 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
       setLoading(false);
     }
   }, [settings.sport, settings.bookmaker, filters]);
+
+  const loadMore = async () => {
+    if (!lastEvaluatedKey || loadingMore) return;
+    
+    try {
+      setLoadingMore(true);
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (!token) return;
+      
+      const filterParams = {
+        sport: settings.sport,
+        bookmaker: settings.bookmaker,
+        prop_type: filters.prop_type || undefined,
+        limit: 20,
+        lastEvaluatedKey
+      };
+      
+      const response = await bettingApi.getPlayerProps(token, filterParams);
+      setProps(prev => [...prev, ...(response.props || [])]);
+      setLastEvaluatedKey(response.lastEvaluatedKey || null);
+    } catch (err) {
+      console.error('Error loading more props:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Reset to first page when filters change
   useEffect(() => {
@@ -98,13 +129,7 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
     return acc;
   }, {} as { [key: string]: PlayerProp[] });
 
-  // Paginate the grouped props
   const groupedPropsArray = Object.entries(groupedProps);
-  const getTotalPages = () => Math.ceil(groupedPropsArray.length / itemsPerPage);
-  const paginateItems = () => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return groupedPropsArray.slice(startIndex, startIndex + itemsPerPage);
-  };
 
   if (loading) return <div className="loading">Loading player props...</div>;
   if (error) return <div className="error">{error}</div>;
@@ -128,7 +153,7 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
       </div>
 
       <div className="games-grid">
-        {paginateItems().map(([key, propGroup]) => {
+        {groupedPropsArray.map(([key, propGroup]) => {
           const [eventId, playerName, marketKey] = key.split('-');
           const firstProp = propGroup[0];
           
@@ -182,20 +207,22 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
         })}
       </div>
 
-      {groupedPropsArray.length > itemsPerPage && (
-        <div className="pagination">
+      {lastEvaluatedKey && (
+        <div style={{ textAlign: 'center', marginTop: '20px' }}>
           <button 
-            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
+            onClick={loadMore} 
+            disabled={loadingMore}
+            style={{
+              padding: '10px 20px',
+              fontSize: '16px',
+              cursor: loadingMore ? 'not-allowed' : 'pointer',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px'
+            }}
           >
-            Previous
-          </button>
-          <span>Page {currentPage} of {getTotalPages()}</span>
-          <button 
-            onClick={() => onPageChange(Math.min(getTotalPages(), currentPage + 1))}
-            disabled={currentPage === getTotalPages()}
-          >
-            Next
+            {loadingMore ? 'Loading...' : 'Load More'}
           </button>
         </div>
       )}

@@ -34,6 +34,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     model: 'consensus',
     riskTolerance: 'moderate'
   });
+  const [gameAnalysisKey, setGameAnalysisKey] = useState<string | null>(null);
+  const [propAnalysisKey, setPropAnalysisKey] = useState<string | null>(null);
+  const [loadingMoreGame, setLoadingMoreGame] = useState(false);
+  const [loadingMoreProp, setLoadingMoreProp] = useState(false);
+  const [gamesKey, setGamesKey] = useState<string | null>(null);
+  const [loadingMoreGames, setLoadingMoreGames] = useState(false);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -77,6 +83,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
         const data = await bettingApi.getGames(token, sport, bookmaker);
         setGames(data.games || []);
+        setGamesKey(data.lastEvaluatedKey || null);
       }
     } catch (err) {
       setError('Failed to fetch games');
@@ -85,6 +92,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       setLoading(false);
     }
   }, [settings.sport, settings.bookmaker]);
+
+  const loadMoreGames = async () => {
+    if (!gamesKey || loadingMoreGames) return;
+    
+    try {
+      setLoadingMoreGames(true);
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (token) {
+        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const data = await bettingApi.getGames(token, sport, bookmaker, gamesKey);
+        setGames(prev => [...prev, ...(data.games || [])]);
+        setGamesKey(data.lastEvaluatedKey || null);
+      }
+    } catch (err) {
+      console.error('Error loading more games:', err);
+    } finally {
+      setLoadingMoreGames(false);
+    }
+  };
 
   const fetchGameAnalysis = useCallback(async () => {
     try {
@@ -95,8 +124,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const sport = settings.sport !== 'all' ? settings.sport : undefined;
         const model = settings.model !== 'all' ? settings.model : undefined;
         const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game' });
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', limit: 20 });
         setGameAnalysis(data.analyses || []);
+        setGameAnalysisKey(data.lastEvaluatedKey || null);
       }
     } catch (err) {
       console.error('Error fetching game analysis:', err);
@@ -114,15 +144,62 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const model = settings.model !== 'all' ? settings.model : undefined;
         const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
         console.log('Fetching prop analyses with:', { sport, model, bookmaker, type: 'prop' });
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop' });
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', limit: 20 });
         console.log('Prop analyses response:', data);
         setPropAnalysis(data.analyses || []);
+        setPropAnalysisKey(data.lastEvaluatedKey || null);
       }
     } catch (err) {
       console.error('Error fetching prop analysis:', err);
       setPropAnalysis([]);
     }
   }, [settings.sport, settings.model, settings.bookmaker]);
+
+  const loadMoreGameAnalysis = async () => {
+    if (!gameAnalysisKey || loadingMoreGame) return;
+    
+    try {
+      setLoadingMoreGame(true);
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (token) {
+        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const model = settings.model !== 'all' ? settings.model : undefined;
+        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', limit: 20, lastEvaluatedKey: gameAnalysisKey });
+        setGameAnalysis(prev => [...prev, ...(data.analyses || [])]);
+        setGameAnalysisKey(data.lastEvaluatedKey || null);
+      }
+    } catch (err) {
+      console.error('Error loading more game analysis:', err);
+    } finally {
+      setLoadingMoreGame(false);
+    }
+  };
+
+  const loadMorePropAnalysis = async () => {
+    if (!propAnalysisKey || loadingMoreProp) return;
+    
+    try {
+      setLoadingMoreProp(true);
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (token) {
+        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const model = settings.model !== 'all' ? settings.model : undefined;
+        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', limit: 20, lastEvaluatedKey: propAnalysisKey });
+        setPropAnalysis(prev => [...prev, ...(data.analyses || [])]);
+        setPropAnalysisKey(data.lastEvaluatedKey || null);
+      }
+    } catch (err) {
+      console.error('Error loading more prop analysis:', err);
+    } finally {
+      setLoadingMoreProp(false);
+    }
+  };
 
   const fetchTopInsight = useCallback(async () => {
     try {
@@ -198,7 +275,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   // Generate all game cards for pagination
   const generateGameCards = () => {
-    const result = filteredGames.map((game) => {
+    const result = games.map((game) => {
       const availableBookmakers = Object.keys(game.odds || {});
       
       const displayBookmakers = availableBookmakers.filter(bookmaker => bookmaker === settings.bookmaker);
@@ -360,7 +437,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             <div className="games-grid">
               {(() => {
                 const allGameCards = generateGameCards();
-                return paginateItems(allGameCards, currentPage).map((cardData: any) => {
+                return allGameCards.map((cardData: any) => {
                   const { game, markets, key } = cardData;
                   const marketLabels: Record<string, string> = { h2h: 'Moneyline', spreads: 'Spread', totals: 'Total' };
                   
@@ -400,28 +477,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 });
               })()}
             </div>
-            {(() => {
-              const allGameCards = generateGameCards();
-              return allGameCards.length > itemsPerPage && (
-                <div className="pagination">
-                  <button 
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </button>
-                  <span>Page {currentPage} of {getTotalPages(allGameCards)}</span>
-                  <button 
-                    onClick={() => setCurrentPage(Math.min(getTotalPages(allGameCards), currentPage + 1))}
-                    disabled={currentPage === getTotalPages(allGameCards)}
-                  >
-                    Next
-                  </button>
-                </div>
-              );
-            })()}
             
-            {filteredGames.length === 0 && (
+            {gamesKey && (
+              <div style={{ textAlign: 'center', marginTop: '20px' }}>
+                <button 
+                  onClick={loadMoreGames} 
+                  disabled={loadingMoreGames}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '16px',
+                    cursor: loadingMoreGames ? 'not-allowed' : 'pointer',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px'
+                  }}
+                >
+                  {loadingMoreGames ? 'Loading...' : 'Load More'}
+                </button>
+              </div>
+            )}
+            
+            {games.length === 0 && (
               <div className="no-data">No games found for current filters</div>
             )}
           </>
@@ -434,7 +511,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             </div>
             <div className="games-grid">
               {gameAnalysis.length > 0 ? (
-                paginateItems(gameAnalysis, currentPage).map((analysis: any, index: number) => (
+                gameAnalysis.map((analysis: any, index: number) => (
                   <div key={index} className="game-card">
                     <div className="game-info">
                       <div className="teams">
@@ -465,25 +542,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               ) : null
               }
             </div>
-            {filteredGameAnalysis.length > itemsPerPage && (
-              <div className="pagination">
+            
+            {gameAnalysisKey && (
+              <div style={{ textAlign: 'center', marginTop: '20px' }}>
                 <button 
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
+                  onClick={loadMoreGameAnalysis} 
+                  disabled={loadingMoreGame}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '16px',
+                    cursor: loadingMoreGame ? 'not-allowed' : 'pointer',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px'
+                  }}
                 >
-                  Previous
-                </button>
-                <span>Page {currentPage} of {getTotalPages(filteredGameAnalysis)}</span>
-                <button 
-                  onClick={() => setCurrentPage(Math.min(getTotalPages(filteredGameAnalysis), currentPage + 1))}
-                  disabled={currentPage === getTotalPages(filteredGameAnalysis)}
-                >
-                  Next
+                  {loadingMoreGame ? 'Loading...' : 'Load More'}
                 </button>
               </div>
             )}
             
-            {filteredGameAnalysis.length === 0 && (
+            {gameAnalysis.length === 0 && (
               <div className="no-data">No game analysis items found for current filters</div>
             )}
           </div>
@@ -496,8 +576,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
             </div>
             <div className="games-grid">
-              {filteredPropAnalysis.length > 0 ? (
-                paginateItems(filteredPropAnalysis, currentPage).map((analysis: any, index: number) => (
+              {propAnalysis.length > 0 ? (
+                propAnalysis.map((analysis: any, index: number) => (
                   <div key={index} className="game-card">
                     <div className="game-info">
                       <div className="teams">
@@ -529,25 +609,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               ) : null
               }
             </div>
-            {filteredPropAnalysis.length > itemsPerPage && (
-              <div className="pagination">
+            
+            {propAnalysisKey && (
+              <div style={{ textAlign: 'center', marginTop: '20px' }}>
                 <button 
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
+                  onClick={loadMorePropAnalysis} 
+                  disabled={loadingMoreProp}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '16px',
+                    cursor: loadingMoreProp ? 'not-allowed' : 'pointer',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px'
+                  }}
                 >
-                  Previous
-                </button>
-                <span>Page {currentPage} of {getTotalPages(filteredPropAnalysis)}</span>
-                <button 
-                  onClick={() => setCurrentPage(Math.min(getTotalPages(filteredPropAnalysis), currentPage + 1))}
-                  disabled={currentPage === getTotalPages(filteredPropAnalysis)}
-                >
-                  Next
+                  {loadingMoreProp ? 'Loading...' : 'Load More'}
                 </button>
               </div>
             )}
             
-            {filteredPropAnalysis.length === 0 && (
+            {propAnalysis.length === 0 && (
               <div className="no-data">No prop analysis items found for current filters</div>
             )}
           </div>

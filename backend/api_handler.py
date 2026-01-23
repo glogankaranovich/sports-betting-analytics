@@ -99,44 +99,48 @@ def handle_get_games(query_params: Dict[str, str]):
     """Get all games with latest odds using GSI query"""
     sport = query_params.get("sport")
     bookmaker = query_params.get("bookmaker")
-    limit = int(query_params.get("limit", "500"))
+    limit = int(query_params.get("limit", "20"))
+    last_evaluated_key = query_params.get("lastEvaluatedKey")
+
+    if not sport:
+        return create_response(400, {"error": "sport parameter is required"})
 
     # Frontend display bookmakers (backend collects from all bookmakers)
     display_bookmakers = {"fanatics", "fanduel", "draftkings", "betmgm"}
 
-    # Supported sports for querying
-    SUPPORTED_SPORTS = ["basketball_nba", "americanfootball_nfl", "soccer_epl"]
-
-    # Determine which sports to query
-    sports_to_query = [sport] if sport else SUPPORTED_SPORTS
-
     try:
-        all_odds_items = []
-
-        # Query each sport partition separately with time filtering
+        # Parse pagination token if provided
+        exclusive_start_key = None
+        if last_evaluated_key:
+            try:
+                exclusive_start_key = json.loads(last_evaluated_key)
+            except Exception:
+                pass
 
         day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
-        for query_sport in sports_to_query:
-            # Build filter expression
-            filter_expr = boto3.dynamodb.conditions.Attr("latest").eq(True)
-            if bookmaker:
-                filter_expr = filter_expr & boto3.dynamodb.conditions.Attr(
-                    "sk"
-                ).begins_with(f"{bookmaker}#")
+        # Build filter expression
+        filter_expr = boto3.dynamodb.conditions.Attr("latest").eq(True)
+        if bookmaker:
+            filter_expr = filter_expr & boto3.dynamodb.conditions.Attr(
+                "sk"
+            ).begins_with(f"{bookmaker}#")
 
-            response = table.query(
-                IndexName="ActiveBetsIndexV2",
-                KeyConditionExpression=boto3.dynamodb.conditions.Key(
-                    "active_bet_pk"
-                ).eq(f"GAME#{query_sport}")
-                & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
-                FilterExpression=filter_expr,
-                Limit=limit * 10,
+        query_kwargs = {
+            "IndexName": "ActiveBetsIndexV2",
+            "KeyConditionExpression": boto3.dynamodb.conditions.Key("active_bet_pk").eq(
+                f"GAME#{sport}"
             )
-            all_odds_items.extend(response.get("Items", []))
+            & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
+            "FilterExpression": filter_expr,
+            "Limit": limit * 10,
+        }
 
-        odds_items = all_odds_items
+        if exclusive_start_key:
+            query_kwargs["ExclusiveStartKey"] = exclusive_start_key
+
+        response = table.query(**query_kwargs)
+        odds_items = response.get("Items", [])
 
         # Group odds by game_id
         games_dict = {}
@@ -157,23 +161,28 @@ def handle_get_games(query_params: Dict[str, str]):
             # Parse bookmaker and market from sk (format: bookmaker#market#LATEST)
             if "#" in item["sk"]:
                 parts = item["sk"].split("#")
-                bookmaker = parts[0]
-                market = parts[1]  # Extract just the market name, ignore #LATEST
+                bookmaker_name = parts[0]
+                market = parts[1]
 
                 # Filter by specific bookmaker if provided, otherwise use all display bookmakers
                 allowed_bookmakers = {bookmaker} if bookmaker else display_bookmakers
-                if bookmaker in allowed_bookmakers:
-                    if bookmaker not in games_dict[game_id]["odds"]:
-                        games_dict[game_id]["odds"][bookmaker] = {}
+                if bookmaker_name in allowed_bookmakers:
+                    if bookmaker_name not in games_dict[game_id]["odds"]:
+                        games_dict[game_id]["odds"][bookmaker_name] = {}
 
-                    games_dict[game_id]["odds"][bookmaker][market] = item["outcomes"]
+                    games_dict[game_id]["odds"][bookmaker_name][market] = item[
+                        "outcomes"
+                    ]
 
         games = list(games_dict.values())[:limit]
         games = decimal_to_float(games)
 
-        return create_response(
-            200, {"games": games, "count": len(games), "sport_filter": sport}
-        )
+        result = {"games": games, "count": len(games), "sport_filter": sport}
+
+        if "LastEvaluatedKey" in response:
+            result["lastEvaluatedKey"] = json.dumps(response["LastEvaluatedKey"])
+
+        return create_response(200, result)
     except Exception as e:
         return create_response(500, {"error": f"Error fetching games: {str(e)}"})
 
@@ -237,94 +246,98 @@ def handle_get_player_props(query_params: Dict[str, str]):
     """Get player props with optional filtering using GSI"""
     sport = query_params.get("sport")
     bookmaker = query_params.get("bookmaker")
-    prop_type = query_params.get("prop_type")  # Filter by market_key
-    limit = int(query_params.get("limit", "500"))
+    prop_type = query_params.get("prop_type")
+    limit = int(query_params.get("limit", "20"))
+    last_evaluated_key = query_params.get("lastEvaluatedKey")
 
-    # Frontend display bookmakers (backend collects from all bookmakers)
-    display_bookmakers = {"fanatics", "fanduel", "draftkings", "betmgm"}
+    if not sport:
+        return create_response(400, {"error": "sport parameter is required"})
 
-    # Supported sports for querying
-    SUPPORTED_SPORTS = ["basketball_nba", "americanfootball_nfl", "soccer_epl"]
-
-    # Determine which sports to query
-    sports_to_query = [sport] if sport else SUPPORTED_SPORTS
+    # Frontend display bookmakers
+    display_bookmakers = ["fanatics", "fanduel", "draftkings", "betmgm"]
 
     try:
-        # Use ActiveBetsIndex GSI to query for PROP bet types efficiently
-        props = []
-
-        # Time filtering - only show props from last 24 hours
+        exclusive_start_key = None
+        if last_evaluated_key:
+            try:
+                exclusive_start_key = json.loads(last_evaluated_key)
+            except Exception:
+                pass
 
         day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
-        for query_sport in sports_to_query:
-            last_evaluated_key = None
+        # Build filter expression
+        filter_expressions = [boto3.dynamodb.conditions.Attr("latest").eq(True)]
 
-            while len(props) < limit:
-                remaining_limit = limit - len(props)
-                query_kwargs = {
-                    "IndexName": "ActiveBetsIndexV2",
-                    "KeyConditionExpression": boto3.dynamodb.conditions.Key(
-                        "active_bet_pk"
-                    ).eq(f"PROP#{query_sport}")
-                    & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
-                    "Limit": remaining_limit,
-                }
+        if bookmaker:
+            filter_expressions.append(
+                boto3.dynamodb.conditions.Attr("bookmaker").eq(bookmaker)
+            )
+        else:
+            bookmaker_filter = boto3.dynamodb.conditions.Attr("bookmaker").eq(
+                display_bookmakers[0]
+            )
+            for bm in display_bookmakers[1:]:
+                bookmaker_filter = bookmaker_filter | boto3.dynamodb.conditions.Attr(
+                    "bookmaker"
+                ).eq(bm)
+            filter_expressions.append(bookmaker_filter)
 
-                # Add filters as FilterExpression if provided
-                filter_expressions = [
-                    boto3.dynamodb.conditions.Attr("latest").eq(True)
-                ]  # Always filter for latest
+        if prop_type:
+            filter_expressions.append(
+                boto3.dynamodb.conditions.Attr("market_key").eq(prop_type)
+            )
 
-                if bookmaker:
-                    filter_expressions.append(
-                        boto3.dynamodb.conditions.Attr("sk").begins_with(
-                            f"{bookmaker}#"
-                        )
-                    )
-                if prop_type:
-                    filter_expressions.append(
-                        boto3.dynamodb.conditions.Attr("market_key").eq(prop_type)
-                    )
+        filter_expression = filter_expressions[0]
+        for expr in filter_expressions[1:]:
+            filter_expression = filter_expression & expr
 
-                if filter_expressions:
-                    filter_expression = filter_expressions[0]
-                    for expr in filter_expressions[1:]:
-                        filter_expression = filter_expression & expr
-                    query_kwargs["FilterExpression"] = filter_expression
+        # Loop to get enough items (FilterExpression filters AFTER limit)
+        props = []
+        current_key = exclusive_start_key
 
-                if last_evaluated_key:
-                    query_kwargs["ExclusiveStartKey"] = last_evaluated_key
+        while len(props) < limit:
+            query_kwargs = {
+                "IndexName": "ActiveBetsIndexV2",
+                "KeyConditionExpression": boto3.dynamodb.conditions.Key(
+                    "active_bet_pk"
+                ).eq(f"PROP#{sport}")
+                & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
+                "FilterExpression": filter_expression,
+                "Limit": limit * 3,
+            }
 
-                response = table.query(**query_kwargs)
-                batch_props = response.get("Items", [])
+            if current_key:
+                query_kwargs["ExclusiveStartKey"] = current_key
 
-                # Filter to only display bookmakers for frontend
-                filtered_props = [
-                    prop
-                    for prop in batch_props
-                    if prop.get("bookmaker") in display_bookmakers
-                ]
-                props.extend(filtered_props)
+            response = table.query(**query_kwargs)
+            batch = response.get("Items", [])
+            props.extend(batch)
 
-                last_evaluated_key = response.get("LastEvaluatedKey")
-                if not last_evaluated_key or len(batch_props) == 0:
-                    break
+            current_key = response.get("LastEvaluatedKey")
+
+            if not current_key or len(props) >= limit:
+                break
+
+        props = props[:limit]
+        pagination_key = current_key if len(props) >= limit else None
 
         props = decimal_to_float(props)
 
-        return create_response(
-            200,
-            {
-                "props": props,
-                "count": len(props),
-                "filters": {
-                    "sport": sport,
-                    "bookmaker": bookmaker,
-                    "prop_type": prop_type,
-                },
+        result = {
+            "props": props,
+            "count": len(props),
+            "filters": {
+                "sport": sport,
+                "bookmaker": bookmaker,
+                "prop_type": prop_type,
             },
-        )
+        }
+
+        if pagination_key:
+            result["lastEvaluatedKey"] = json.dumps(pagination_key)
+
+        return create_response(200, result)
     except Exception as e:
         return create_response(500, {"error": f"Error fetching player props: {str(e)}"})
 
