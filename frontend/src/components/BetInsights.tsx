@@ -74,7 +74,6 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
                 <div className="teams">
                   <h3>{insight.home_team && insight.away_team ? `${insight.away_team} @ ${insight.home_team}` : insight.player_name}</h3>
                   <div className="sport-tag">{insight.sport}</div>
-                  <p className="game-time">{insight.bookmaker} • {new Date(insight.commence_time).toLocaleString()}</p>
                 </div>
               </div>
               <div className="prediction-info">
@@ -89,12 +88,13 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
                   <span className="confidence-value">{formatPercentage(insight.confidence)}</span>
                 </div>
               </div>
-              <div className="game-meta">
-                <span className="model">Model: {insight.model}</span>
-              </div>
               {insight.reasoning && (
                 <div className="reasoning">{insight.reasoning}</div>
               )}
+              <div className="game-meta">
+                <span className="model">Model: {insight.model}</span>
+                <span className="game-time">{new Date(insight.commence_time).toLocaleString()}</span>
+              </div>
             </div>
           ))
         }

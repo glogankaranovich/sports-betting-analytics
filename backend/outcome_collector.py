@@ -368,9 +368,8 @@ class OutcomeCollector:
         return profit / bet_amount
 
     def _map_sport_name(self, api_sport: str) -> str:
-        """Map API sport names to our internal names"""
-        mapping = {"americanfootball_nfl": "NFL", "basketball_nba": "NBA"}
-        return mapping.get(api_sport, api_sport)
+        """Keep sport names consistent with storage format"""
+        return api_sport
 
 
 def lambda_handler(event, context):

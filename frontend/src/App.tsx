@@ -456,7 +456,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     </div>
                     <div className="game-meta">
                       <span className="model">Model: {analysis.model}</span>
-                      <span className="created">Created: {new Date(analysis.created_at).toLocaleString()}</span>
+                      <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
                     </div>
                   </div>
                 ))
@@ -520,7 +520,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     </div>
                     <div className="game-meta">
                       <span className="model">Model: {analysis.model}</span>
-                      <span className="bookmaker">Bookmaker: {analysis.bookmaker}</span>
+                      <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
                     </div>
                   </div>
                 ))
