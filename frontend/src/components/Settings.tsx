@@ -5,7 +5,6 @@ interface SettingsProps {
     sport: string;
     bookmaker: string;
     model: string;
-    riskTolerance: string;
   };
   onSettingsChange: (settings: any) => void;
   availableSports: string[];
@@ -70,18 +69,6 @@ const Settings: React.FC<SettingsProps> = ({
           <div className="model-description">
             {modelDescriptions[settings.model]}
           </div>
-        </div>
-
-        <div className="setting-item">
-          <label>Risk Tolerance:</label>
-          <select 
-            value={settings.riskTolerance} 
-            onChange={(e) => handleChange('riskTolerance', e.target.value)}
-          >
-            <option value="conservative">Conservative</option>
-            <option value="moderate">Moderate</option>
-            <option value="aggressive">Aggressive</option>
-          </select>
         </div>
       </div>
 

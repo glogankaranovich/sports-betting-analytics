@@ -13,7 +13,6 @@ interface PlayerPropsProps {
     sport: string;
     bookmaker: string;
     model: string;
-    riskTolerance: string;
   };
 }
 

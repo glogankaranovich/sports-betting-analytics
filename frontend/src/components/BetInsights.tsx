@@ -23,7 +23,6 @@ interface BetInsightsProps {
     sport: string;
     bookmaker: string;
     model: string;
-    riskTolerance: string;
   };
 }
 

@@ -31,8 +31,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [settings, setSettings] = useState({
     sport: 'basketball_nba',
     bookmaker: 'fanduel',
-    model: 'consensus',
-    riskTolerance: 'moderate'
+    model: 'consensus'
   });
   const [gameAnalysisKey, setGameAnalysisKey] = useState<string | null>(null);
   const [propAnalysisKey, setPropAnalysisKey] = useState<string | null>(null);
