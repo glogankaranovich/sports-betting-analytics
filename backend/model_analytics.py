@@ -11,16 +11,16 @@ class ModelAnalytics:
 
     def get_model_performance_summary(self) -> Dict[str, Dict[str, Any]]:
         """Get performance summary for each model"""
-        predictions = self._get_verified_predictions()
+        analyses = self._get_verified_analyses()
 
         by_model = defaultdict(lambda: {"total": 0, "correct": 0, "sports": set()})
 
-        for pred in predictions:
-            model = pred.get("model", "unknown")
+        for analysis in analyses:
+            model = analysis.get("model", "unknown")
             by_model[model]["total"] += 1
-            by_model[model]["sports"].add(pred.get("sport", "unknown"))
+            by_model[model]["sports"].add(analysis.get("sport", "unknown"))
 
-            if pred.get("prediction_correct", False):
+            if analysis.get("analysis_correct", False):
                 by_model[model]["correct"] += 1
 
         result = {}
@@ -29,9 +29,9 @@ class ModelAnalytics:
             correct = stats["correct"]
             result[model] = {
                 "model_name": model,
-                "total_predictions": total,
-                "correct_predictions": correct,
-                "incorrect_predictions": total - correct,
+                "total_analyses": total,
+                "correct_analyses": correct,
+                "incorrect_analyses": total - correct,
                 "accuracy": round((correct / total) * 100, 2) if total > 0 else 0.0,
                 "sports_covered": list(stats["sports"]),
             }
@@ -42,22 +42,22 @@ class ModelAnalytics:
         self, model: str = None
     ) -> Dict[str, Dict[str, Any]]:
         """Get model performance broken down by sport"""
-        predictions = self._get_verified_predictions()
+        analyses = self._get_verified_analyses()
 
         # Filter by model if specified
         if model:
-            predictions = [p for p in predictions if p.get("model") == model]
+            analyses = [a for a in analyses if a.get("model") == model]
 
         by_model_sport = defaultdict(
             lambda: defaultdict(lambda: {"total": 0, "correct": 0})
         )
 
-        for pred in predictions:
-            model_name = pred.get("model", "unknown")
-            sport = pred.get("sport", "unknown")
+        for analysis in analyses:
+            model_name = analysis.get("model", "unknown")
+            sport = analysis.get("sport", "unknown")
 
             by_model_sport[model_name][sport]["total"] += 1
-            if pred.get("prediction_correct", False):
+            if analysis.get("analysis_correct", False):
                 by_model_sport[model_name][sport]["correct"] += 1
 
         result = {}
@@ -79,22 +79,22 @@ class ModelAnalytics:
         self, model: str = None
     ) -> Dict[str, Dict[str, Any]]:
         """Get model performance broken down by bet type"""
-        predictions = self._get_verified_predictions()
+        analyses = self._get_verified_analyses()
 
         # Filter by model if specified
         if model:
-            predictions = [p for p in predictions if p.get("model") == model]
+            analyses = [a for a in analyses if a.get("model") == model]
 
         by_model_type = defaultdict(
             lambda: defaultdict(lambda: {"total": 0, "correct": 0})
         )
 
-        for pred in predictions:
-            model_name = pred.get("model", "unknown")
-            bet_type = pred.get("bet_type", "unknown")
+        for analysis in analyses:
+            model_name = analysis.get("model", "unknown")
+            bet_type = analysis.get("bet_type", "unknown")
 
             by_model_type[model_name][bet_type]["total"] += 1
-            if pred.get("prediction_correct", False):
+            if analysis.get("analysis_correct", False):
                 by_model_type[model_name][bet_type]["correct"] += 1
 
         result = {}
@@ -116,17 +116,17 @@ class ModelAnalytics:
         self, model: str, days: int = 30
     ) -> List[Dict[str, Any]]:
         """Get daily performance for a specific model"""
-        predictions = self._get_verified_predictions()
-        predictions = [p for p in predictions if p.get("model") == model]
+        analyses = self._get_verified_analyses()
+        analyses = [a for a in analyses if a.get("model") == model]
 
         by_date = defaultdict(lambda: {"total": 0, "correct": 0})
 
-        for pred in predictions:
-            verified_at = pred.get("outcome_verified_at")
+        for analysis in analyses:
+            verified_at = analysis.get("outcome_verified_at")
             if verified_at:
                 date = verified_at.split("T")[0]
                 by_date[date]["total"] += 1
-                if pred.get("prediction_correct", False):
+                if analysis.get("analysis_correct", False):
                     by_date[date]["correct"] += 1
 
         result = []
@@ -155,9 +155,9 @@ class ModelAnalytics:
                 {
                     "model": model_name,
                     "accuracy": stats["accuracy"],
-                    "total_predictions": stats["total_predictions"],
-                    "correct": stats["correct_predictions"],
-                    "incorrect": stats["incorrect_predictions"],
+                    "total_analyses": stats["total_analyses"],
+                    "correct": stats["correct_analyses"],
+                    "incorrect": stats["incorrect_analyses"],
                     "sports": stats["sports_covered"],
                 }
             )
@@ -166,9 +166,9 @@ class ModelAnalytics:
         return models
 
     def get_model_confidence_analysis(self, model: str) -> Dict[str, Any]:
-        """Analyze prediction accuracy by confidence level"""
-        predictions = self._get_verified_predictions()
-        predictions = [p for p in predictions if p.get("model") == model]
+        """Analyze analysis accuracy by confidence level"""
+        analyses = self._get_verified_analyses()
+        analyses = [a for a in analyses if a.get("model") == model]
 
         # Group by confidence ranges
         confidence_ranges = {
@@ -177,13 +177,13 @@ class ModelAnalytics:
             "low": {"min": 0.0, "max": 0.5, "total": 0, "correct": 0},
         }
 
-        for pred in predictions:
-            confidence = float(pred.get("confidence", 0))
+        for analysis in analyses:
+            confidence = float(analysis.get("confidence", 0))
 
             for range_name, range_data in confidence_ranges.items():
                 if range_data["min"] <= confidence < range_data["max"]:
                     range_data["total"] += 1
-                    if pred.get("prediction_correct", False):
+                    if analysis.get("analysis_correct", False):
                         range_data["correct"] += 1
                     break
 
@@ -200,14 +200,28 @@ class ModelAnalytics:
 
         return result
 
-    def _get_verified_predictions(self) -> List[Dict[str, Any]]:
-        """Get all predictions with verified outcomes"""
+    def _get_verified_analyses(self) -> List[Dict[str, Any]]:
+        """Get all analyses with verified outcomes"""
         response = self.table.scan(
-            FilterExpression="begins_with(pk, :pk) AND attribute_exists(outcome_verified_at)",
-            ExpressionAttributeValues={":pk": "PREDICTION#"},
+            FilterExpression="begins_with(pk, :pk) AND attribute_exists(outcome_verified_at) AND attribute_exists(analysis_correct)",
+            ExpressionAttributeValues={":pk": "ANALYSIS#"},
         )
 
-        return response.get("Items", [])
+        # Map analysis fields for consistency
+        items = []
+        for item in response.get("Items", []):
+            items.append(
+                {
+                    "model": item.get("model", "unknown"),
+                    "sport": item.get("sport", "unknown"),
+                    "bet_type": item.get("analysis_type", "unknown"),  # game or prop
+                    "confidence": item.get("confidence", 0),
+                    "analysis_correct": item.get("analysis_correct", False),
+                    "outcome_verified_at": item.get("outcome_verified_at"),
+                }
+            )
+
+        return items
 
 
 def lambda_handler(event, context):

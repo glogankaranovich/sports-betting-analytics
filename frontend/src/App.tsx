@@ -7,6 +7,7 @@ import PlayerProps from './components/PlayerProps';
 import BetInsights from './components/BetInsights';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
+import { ModelAnalytics } from './components/ModelAnalytics';
 import logo from './assets/carpool_bets_2.png';
 import './amplifyConfig'; // Initialize Amplify
 import '@aws-amplify/ui-react/styles.css';
@@ -20,7 +21,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [topInsight, setTopInsight] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights' | 'analytics'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
@@ -328,6 +329,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           >
             Insights
           </button>
+          <button 
+            className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`}
+            onClick={() => handleTabChange('analytics')}
+          >
+            Model Analytics
+          </button>
         </div>
 
         {activeTab === 'games' && (
@@ -557,6 +564,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activeTab === 'insights' && (
           <BetInsights token={token} settings={settings} />
+        )}
+
+        {activeTab === 'analytics' && (
+          <ModelAnalytics token={token} />
         )}
       </main>
     </div>

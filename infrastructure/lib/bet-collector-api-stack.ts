@@ -140,6 +140,10 @@ export class BetCollectorApiStack extends cdk.Stack {
     const topInsight = betCollectorApi.root.addResource('top-insight');
     topInsight.addMethod('GET', lambdaIntegration, methodOptions);
 
+    // Analytics endpoint (protected)
+    const analytics = betCollectorApi.root.addResource('analytics');
+    analytics.addMethod('GET', lambdaIntegration, methodOptions);
+
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {
       value: betCollectorApi.url,
       description: 'Bet Collector API Gateway URL'

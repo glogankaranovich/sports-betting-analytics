@@ -74,6 +74,8 @@ def lambda_handler(event, context):
             return handle_compliance_log(body)
         elif path == "/bookmakers":
             return handle_get_bookmakers()
+        elif path == "/analytics":
+            return handle_get_analytics(query_params)
         else:
             return create_response(404, {"error": "Endpoint not found"})
 
@@ -596,3 +598,46 @@ def handle_get_top_insight(query_params: Dict[str, str]):
 
     except Exception as e:
         return create_response(500, {"error": f"Error fetching top insight: {str(e)}"})
+
+
+def handle_get_analytics(query_params: Dict[str, str]):
+    """Get model analytics data"""
+    try:
+        from model_analytics import ModelAnalytics
+
+        analytics = ModelAnalytics(table_name)
+        metric_type = query_params.get("type", "summary")
+        model = query_params.get("model")
+
+        # Route to appropriate metric
+        if metric_type == "summary":
+            data = analytics.get_model_performance_summary()
+        elif metric_type == "by_sport":
+            data = analytics.get_model_performance_by_sport(model)
+        elif metric_type == "by_bet_type":
+            data = analytics.get_model_performance_by_bet_type(model)
+        elif metric_type == "over_time":
+            if not model:
+                return create_response(
+                    400, {"error": "model parameter required for over_time"}
+                )
+            days = int(query_params.get("days", 30))
+            data = analytics.get_model_performance_over_time(model, days)
+        elif metric_type == "comparison":
+            data = analytics.get_model_comparison()
+        elif metric_type == "confidence":
+            if not model:
+                return create_response(
+                    400, {"error": "model parameter required for confidence"}
+                )
+            data = analytics.get_model_confidence_analysis(model)
+        else:
+            return create_response(
+                400, {"error": f"Unknown metric type: {metric_type}"}
+            )
+
+        return create_response(200, decimal_to_float(data))
+
+    except Exception as e:
+        print(f"Error in analytics endpoint: {str(e)}")
+        return create_response(500, {"error": f"Error fetching analytics: {str(e)}"})

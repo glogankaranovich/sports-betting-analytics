@@ -121,6 +121,10 @@ class OutcomeCollector:
                     # Get player stats for prop verification
                     prop_correct = self._check_prop_analysis_accuracy(item, game)
 
+                    print(
+                        f"Prop verification: {item.get('player_name')} {item.get('market_key')} {item.get('prediction')} = {prop_correct}"
+                    )
+
                     self.table.update_item(
                         Key={"pk": item["pk"], "sk": item["sk"]},
                         UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct",
@@ -199,38 +203,63 @@ class OutcomeCollector:
         """Check if a prop analysis was accurate using player stats"""
         try:
             # Extract prop details from analysis
-            prop_type = analysis.get("prop_type", "")
+            market_key = analysis.get("market_key", "")
+            prop_type = market_key.replace(
+                "player_", ""
+            )  # e.g., "player_assists" -> "assists"
             player_name = analysis.get("player_name", "")
-            line = float(analysis.get("line", 0))
-            prediction = analysis.get("prediction", "").lower()
+            prediction = analysis.get("prediction", "")
+
+            # Extract line from prediction (e.g., "Under 6.5" -> 6.5)
+            import re
+
+            line_match = re.search(r"(\d+\.?\d*)", prediction)
+            if not line_match:
+                return False
+            line = float(line_match.group(1))
+            prediction_lower = prediction.lower()
 
             # Query for player stats for this game
             game_id = game["id"]
             sport = game["sport"]
 
-            # Look for player stats in DynamoDB
+            pk = f"PLAYER_STATS#{sport}#{game_id}#{player_name}"
+            print(f"Querying for player stats with PK: {pk}")
+
+            # Look for player stats in DynamoDB using correct PK pattern
             response = self.table.query(
-                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                KeyConditionExpression="pk = :pk",
                 ExpressionAttributeValues={
-                    ":pk": f"GAME#{sport}#{game_id}",
-                    ":sk": "PLAYER#",
+                    ":pk": pk,
                 },
             )
 
-            # Find the player's stats
-            for item in response.get("Items", []):
-                if item.get("player_name", "").lower() == player_name.lower():
-                    stats = item.get("stats", {})
+            print(f"Query returned {len(response.get('Items', []))} items")
 
-                    # Map prop type to stat field
-                    stat_value = self._get_stat_value(stats, prop_type)
+            # Check if we found the player's stats
+            if response.get("Items"):
+                item = response["Items"][0]
+                stats = item.get("stats", {})
 
-                    if stat_value is not None:
-                        # Check if prediction was correct
-                        if "over" in prediction:
-                            return stat_value > line
-                        elif "under" in prediction:
-                            return stat_value < line
+                print(f"Found stats for {player_name}: {stats}")
+
+                # Map prop type to stat field
+                stat_value = self._get_stat_value(stats, prop_type)
+
+                print(
+                    f"Prop type: {prop_type}, Stat value: {stat_value}, Line: {line}, Prediction: {prediction_lower}"
+                )
+
+                if stat_value is not None:
+                    # Check if prediction was correct
+                    if "over" in prediction_lower:
+                        result = stat_value > line
+                        print(f"Over check: {stat_value} > {line} = {result}")
+                        return result
+                    elif "under" in prediction_lower:
+                        result = stat_value < line
+                        print(f"Under check: {stat_value} < {line} = {result}")
+                        return result
 
             return False  # Can't verify without stats
 
@@ -244,7 +273,7 @@ class OutcomeCollector:
             "points": "PTS",
             "rebounds": "REB",
             "assists": "AST",
-            "three_pointers": "3PM",
+            "threes": "3PM",
             "steals": "STL",
             "blocks": "BLK",
             "turnovers": "TO",

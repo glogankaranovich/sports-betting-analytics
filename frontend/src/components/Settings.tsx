@@ -58,8 +58,6 @@ const Settings: React.FC<SettingsProps> = ({
             onChange={(e) => handleChange('model', e.target.value)}
           >
             <option value="consensus">Consensus</option>
-            <option value="value">Value-Based</option>
-            <option value="momentum">Momentum</option>
           </select>
         </div>
 
