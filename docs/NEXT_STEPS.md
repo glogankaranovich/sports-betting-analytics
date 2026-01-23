@@ -9,30 +9,51 @@
 
 **Results**: Prop verification now working correctly - successfully finding player stats and verifying prop bet accuracy.
 
+### ~~2. Fix Unit Tests~~ (COMPLETED)
+**Issue**: 5 newly created unit tests failing due to mismatched implementations.
+
+**Solution**: 
+- Fixed player_stats_collector tests: no constructor params, uses env var
+- Fixed team_stats_collector tests: returns dict not list
+- Fixed model_analytics tests: correct method names and return structure
+- Fixed outcome_collector test: _map_sport_name returns api_sport directly
+- Fixed odds_collector lambda_handler test: requires sport parameter
+
+**Results**: All 50 unit tests now passing (9 test files, 50 test cases).
+
 ## Immediate Priorities
+
+### 1. Schedule Automated Data Collection (High Priority)
+**Status**: Infrastructure ready, schedules need to be enabled
+
+**Current Schedule**:
+- 6:00 PM ET: Odds collection (NBA/NFL season-aware)
+- 7:00 PM ET: Game analysis generation
+- 7:05 PM ET: Prop analysis generation
+- 8:00 PM ET: Game insight generation
+- 8:05 PM ET: Prop insight generation
+- 2:00 AM ET: Player/team stats collection
+- 3:00 AM ET: Outcome verification
 
 **Commands**:
 ```bash
-# Collect player stats
+# Test player stats collection
 AWS_PROFILE=sports-betting-dev aws lambda invoke \
   --function-name Dev-PlayerStatsCollector-PlayerStatsCollectorFunct-BYO787NFkH42 \
   --payload '{"sport":"basketball_nba"}' \
   /tmp/player_stats_response.json
 
-# Verify outcomes
+# Test outcome verification
 AWS_PROFILE=sports-betting-dev aws lambda invoke \
   --function-name Dev-OutcomeCollector-OutcomeCollectorFunction3408B-nJ1mGv0BztIO \
   /tmp/outcome_response.json
 ```
 
-### 3. Schedule Automated Collection
-- [ ] Enable EventBridge schedules for automated data collection
-
-### 1. Schedule Automated Data Collection (High Priority)
-- [ ] Enable EventBridge schedules for automated data collection
-- [ ] Schedule player_stats_collector to run 2 hours after games typically end
-- [ ] Schedule outcome_collector to run 3 hours after games end
-- [ ] Monitor CloudWatch logs for errors
+**Tasks**:
+- [ ] Enable EventBridge schedules in infrastructure code
+- [ ] Deploy to dev environment
+- [ ] Monitor first automated run
+- [ ] Verify data collection pipeline end-to-end
 
 ## Medium-Term Enhancements
 
@@ -79,6 +100,11 @@ Implement additional analysis models beyond consensus:
 ## Technical Debt
 
 ### 8. Testing & Quality
+- [x] Add unit tests for player_stats_collector (5 tests)
+- [x] Add unit tests for team_stats_collector (5 tests)
+- [x] Add unit tests for model_analytics (3 tests)
+- [x] Add unit tests for analysis_generator (5 tests)
+- [x] Add unit tests for insight_generator (6 tests)
 - [ ] Add unit tests for outcome verification logic
 - [ ] Add integration tests for analytics endpoints
 - [ ] Add E2E tests for frontend analytics dashboard
@@ -118,4 +144,4 @@ Implement additional analysis models beyond consensus:
 
 **Last Updated**: January 23, 2026  
 **Status**: Active Development  
-**Current Focus**: Automated data collection scheduling
+**Current Focus**: Unit test fixes complete - all 50 tests passing
