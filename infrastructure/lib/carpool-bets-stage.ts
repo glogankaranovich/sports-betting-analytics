@@ -10,6 +10,9 @@ import { ModelAnalyticsStack } from './model-analytics-stack';
 import { AuthStack } from './auth-stack';
 import { ComplianceStack } from './compliance-stack';
 import { IntegrationTestRoleStack } from './integration-test-role-stack';
+import { AnalysisGeneratorStack } from './analysis-generator-stack';
+import { InsightGeneratorStack } from './insight-generator-stack';
+import { MonitoringStack } from './monitoring-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -34,7 +37,7 @@ export class CarpoolBetsStage extends cdk.Stage {
     });
 
     // Odds collector Lambda stack
-    new OddsCollectorStack(this, 'OddsCollector', {
+    const oddsCollectorStack = new OddsCollectorStack(this, 'OddsCollector', {
       environment: props.stage,
       betsTableName: `carpool-bets-v2-${props.stage}`,
     });
@@ -50,20 +53,32 @@ export class CarpoolBetsStage extends cdk.Stage {
     betCollectorApiStack.addDependency(dynamoStack);
 
     // Outcome collector stack
-    new OutcomeCollectorStack(this, 'OutcomeCollector', {
+    const outcomeCollectorStack = new OutcomeCollectorStack(this, 'OutcomeCollector', {
       environment: props.stage,
       dynamoDbTableName: `carpool-bets-v2-${props.stage}`,
       dynamoDbTableArn: dynamoStack.betsTable.tableArn,
     });
 
     // Player stats collector stack
-    new PlayerStatsCollectorStack(this, 'PlayerStatsCollector', {
+    const playerStatsCollectorStack = new PlayerStatsCollectorStack(this, 'PlayerStatsCollector', {
       environment: props.stage,
       betsTableName: `carpool-bets-v2-${props.stage}`,
     });
 
     // Team stats collector stack
-    new TeamStatsCollectorStack(this, 'TeamStatsCollector', {
+    const teamStatsCollectorStack = new TeamStatsCollectorStack(this, 'TeamStatsCollector', {
+      environment: props.stage,
+      table: dynamoStack.betsTable,
+    });
+
+    // Analysis generator stack
+    const analysisGeneratorStack = new AnalysisGeneratorStack(this, 'AnalysisGenerator', {
+      environment: props.stage,
+      table: dynamoStack.betsTable,
+    });
+
+    // Insight generator stack
+    const insightGeneratorStack = new InsightGeneratorStack(this, 'InsightGenerator', {
       environment: props.stage,
       table: dynamoStack.betsTable,
     });
@@ -75,6 +90,17 @@ export class CarpoolBetsStage extends cdk.Stage {
 
     // Compliance stack
     new ComplianceStack(this, 'Compliance', {});
+
+    // Monitoring stack
+    new MonitoringStack(this, 'Monitoring', {
+      environment: props.stage,
+      oddsCollectorFunction: oddsCollectorStack.oddsCollectorFunction,
+      analysisGeneratorFunction: analysisGeneratorStack.analysisGeneratorFunction,
+      insightGeneratorFunction: insightGeneratorStack.insightGeneratorFunction,
+      playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
+      teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,
+      outcomeCollectorFunction: outcomeCollectorStack.outcomeCollectorFunction,
+    });
 
     // Integration test role for pipeline access
     new IntegrationTestRoleStack(this, 'IntegrationTestRole', {
