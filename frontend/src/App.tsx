@@ -594,6 +594,7 @@ function App() {
   
   return (
     <Authenticator
+      hideSignUp={true}
       components={{
         Header() {
           return (
