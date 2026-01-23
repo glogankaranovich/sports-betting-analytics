@@ -26,14 +26,113 @@ interface ConfidenceStats {
   accuracy: number;
 }
 
+interface TimeSeriesData {
+  date: string;
+  total: number;
+  correct: number;
+  accuracy: number;
+}
+
 interface ModelAnalyticsProps {
   token: string;
 }
+
+const PerformanceChart: React.FC<{ data: TimeSeriesData[] }> = ({ data }) => {
+  const width = 800;
+  const height = 300;
+  const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+  
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  
+  const maxAccuracy = 100;
+  const minAccuracy = 0;
+  
+  const xScale = (index: number) => (index / (data.length - 1)) * chartWidth;
+  const yScale = (accuracy: number) => chartHeight - ((accuracy - minAccuracy) / (maxAccuracy - minAccuracy)) * chartHeight;
+  
+  const pathData = data.map((d, i) => {
+    const x = xScale(i);
+    const y = yScale(d.accuracy);
+    return i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
+  }).join(' ');
+  
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <svg width={width} height={height} style={{ display: 'block', margin: '0 auto' }}>
+        <g transform={`translate(${padding.left}, ${padding.top})`}>
+          {/* Grid lines */}
+          {[0, 25, 50, 75, 100].map(val => (
+            <g key={val}>
+              <line
+                x1={0}
+                y1={yScale(val)}
+                x2={chartWidth}
+                y2={yScale(val)}
+                stroke="rgba(255,255,255,0.1)"
+                strokeWidth="1"
+              />
+              <text
+                x={-10}
+                y={yScale(val)}
+                textAnchor="end"
+                alignmentBaseline="middle"
+                fill="rgba(255,255,255,0.7)"
+                fontSize="12"
+              >
+                {val}%
+              </text>
+            </g>
+          ))}
+          
+          {/* Line */}
+          <path
+            d={pathData}
+            fill="none"
+            stroke="#00d4ff"
+            strokeWidth="2"
+          />
+          
+          {/* Points */}
+          {data.map((d, i) => (
+            <g key={i}>
+              <circle
+                cx={xScale(i)}
+                cy={yScale(d.accuracy)}
+                r="4"
+                fill="#00d4ff"
+              />
+              <title>{`${d.date}: ${d.accuracy}% (${d.correct}/${d.total})`}</title>
+            </g>
+          ))}
+          
+          {/* X-axis labels */}
+          {data.filter((_, i) => i % Math.ceil(data.length / 6) === 0).map((d, i, arr) => {
+            const index = data.indexOf(d);
+            return (
+              <text
+                key={index}
+                x={xScale(index)}
+                y={chartHeight + 20}
+                textAnchor="middle"
+                fill="rgba(255,255,255,0.7)"
+                fontSize="12"
+              >
+                {new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </text>
+            );
+          })}
+        </g>
+      </svg>
+    </div>
+  );
+};
 
 export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token }) => {
   const [summary, setSummary] = useState<Record<string, ModelSummary>>({});
   const [byBetType, setByBetType] = useState<Record<string, Record<string, BetTypeStats>>>({});
   const [confidence, setConfidence] = useState<Record<string, ConfidenceStats>>({});
+  const [overTime, setOverTime] = useState<TimeSeriesData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,15 +147,17 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token }) => {
       setLoading(true);
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [summaryRes, betTypeRes, confidenceRes] = await Promise.all([
+      const [summaryRes, betTypeRes, confidenceRes, overTimeRes] = await Promise.all([
         axios.get(`${API_URL}/analytics?type=summary`, { headers }),
         axios.get(`${API_URL}/analytics?type=by_bet_type`, { headers }),
         axios.get(`${API_URL}/analytics?type=confidence&model=consensus`, { headers }),
+        axios.get(`${API_URL}/analytics?type=over_time&model=consensus&days=30`, { headers }),
       ]);
 
       setSummary(summaryRes.data);
       setByBetType(betTypeRes.data);
       setConfidence(confidenceRes.data);
+      setOverTime(overTimeRes.data || []);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch analytics');
@@ -141,6 +242,14 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token }) => {
           ))}
         </div>
       </div>
+
+      {/* Performance Over Time */}
+      {overTime.length > 0 && (
+        <div className="analytics-card">
+          <h3>Performance Over Time (Last 30 Days)</h3>
+          <PerformanceChart data={overTime} />
+        </div>
+      )}
 
       <style>{`
         .analytics-container {
