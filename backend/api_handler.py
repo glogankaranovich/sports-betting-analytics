@@ -368,7 +368,16 @@ def handle_get_analyses(query_params: Dict[str, str]):
         model = query_params.get("model")
         bookmaker = query_params.get("bookmaker")
         analysis_type = query_params.get("type", "game")  # "game" or "prop"
-        limit = int(query_params.get("limit", "50"))
+        limit = int(query_params.get("limit", "20"))
+        last_evaluated_key_str = query_params.get("lastEvaluatedKey")
+
+        # Parse lastEvaluatedKey if provided
+        last_evaluated_key = None
+        if last_evaluated_key_str:
+            try:
+                last_evaluated_key = json.loads(last_evaluated_key_str)
+            except Exception:
+                pass
 
         # Build analysis_pk: ANALYSIS#{sport}#{bookmaker}#{model}#{type}
         if not bookmaker or not model:
@@ -379,7 +388,6 @@ def handle_get_analyses(query_params: Dict[str, str]):
         analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
 
         # Time filtering - only show analyses from last 24 hours
-
         day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
         # Query using AnalysisTimeGSI for chronological ordering
@@ -390,26 +398,17 @@ def handle_get_analyses(query_params: Dict[str, str]):
             ).eq(analysis_pk)
             & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
             "ScanIndexForward": False,  # Most recent first
+            "Limit": limit,
         }
 
-        all_items = []
-        while True:
-            response = table.query(**query_kwargs)
-            all_items.extend(response.get("Items", []))
-
-            if len(all_items) >= limit:
-                all_items = all_items[:limit]
-                break
-
-            # Check if there are more items to paginate
-            last_evaluated_key = response.get("LastEvaluatedKey")
-            if not last_evaluated_key:
-                break
-
+        if last_evaluated_key:
             query_kwargs["ExclusiveStartKey"] = last_evaluated_key
 
+        response = table.query(**query_kwargs)
+        items = response.get("Items", [])
+
         analyses = []
-        for item in all_items:
+        for item in items:
             analysis = {
                 "game_id": item.get("game_id"),
                 "model": item.get("model"),
@@ -433,16 +432,19 @@ def handle_get_analyses(query_params: Dict[str, str]):
 
         analyses = decimal_to_float(analyses)
 
-        return create_response(
-            200,
-            {
-                "analyses": analyses,
-                "count": len(analyses),
-                "sport": sport,
-                "model_filter": model,
-                "bookmaker_filter": bookmaker,
-            },
-        )
+        result = {
+            "analyses": analyses,
+            "count": len(analyses),
+            "sport": sport,
+            "model_filter": model,
+            "bookmaker_filter": bookmaker,
+        }
+
+        # Add pagination token if there are more results
+        if response.get("LastEvaluatedKey"):
+            result["lastEvaluatedKey"] = json.dumps(response["LastEvaluatedKey"])
+
+        return create_response(200, result)
 
     except Exception as e:
         return create_response(500, {"error": f"Error fetching analyses: {str(e)}"})
@@ -456,25 +458,37 @@ def handle_get_insights(query_params: Dict[str, str]):
         bookmaker = query_params.get("bookmaker", "fanduel")
         analysis_type = query_params.get("type", "game")  # "game" or "prop"
         limit = int(query_params.get("limit", "10"))
+        last_evaluated_key_str = query_params.get("lastEvaluatedKey")
+
+        # Parse lastEvaluatedKey if provided
+        last_evaluated_key = None
+        if last_evaluated_key_str:
+            try:
+                last_evaluated_key = json.loads(last_evaluated_key_str)
+            except Exception:
+                pass
 
         # Build analysis_pk: ANALYSIS#{sport}#{bookmaker}#{model}#{type}
         analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
 
         # Time filtering - only show insights from last 24 hours
-
         day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
 
         # Query using AnalysisTimeGSI
-        response = table.query(
-            IndexName="AnalysisTimeGSI",
-            KeyConditionExpression=boto3.dynamodb.conditions.Key("analysis_time_pk").eq(
-                analysis_pk
-            )
+        query_kwargs = {
+            "IndexName": "AnalysisTimeGSI",
+            "KeyConditionExpression": boto3.dynamodb.conditions.Key(
+                "analysis_time_pk"
+            ).eq(analysis_pk)
             & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
-            ScanIndexForward=False,  # Most recent first
-            Limit=100,  # Get more than needed, then sort by confidence
-        )
+            "ScanIndexForward": False,  # Most recent first
+            "Limit": limit * 2,  # Get more than needed to sort by confidence
+        }
 
+        if last_evaluated_key:
+            query_kwargs["ExclusiveStartKey"] = last_evaluated_key
+
+        response = table.query(**query_kwargs)
         items = response.get("Items", [])
 
         # Convert to insights format
@@ -509,16 +523,19 @@ def handle_get_insights(query_params: Dict[str, str]):
 
         insights = decimal_to_float(insights)
 
-        return create_response(
-            200,
-            {
-                "insights": insights,
-                "count": len(insights),
-                "sport": sport,
-                "model": model,
-                "bookmaker": bookmaker,
-            },
-        )
+        result = {
+            "insights": insights,
+            "count": len(insights),
+            "sport": sport,
+            "model": model,
+            "bookmaker": bookmaker,
+        }
+
+        # Add pagination token if there are more results
+        if response.get("LastEvaluatedKey"):
+            result["lastEvaluatedKey"] = json.dumps(response["LastEvaluatedKey"])
+
+        return create_response(200, result)
 
     except Exception as e:
         return create_response(500, {"error": f"Error fetching insights: {str(e)}"})

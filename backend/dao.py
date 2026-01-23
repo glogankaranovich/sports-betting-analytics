@@ -194,21 +194,30 @@ class BettingDAO:
             return None
 
     def get_game_analysis(
-        self, sport: str, bookmaker: str = "fanduel", limit: int = 20
-    ) -> List[Dict]:
+        self,
+        sport: str,
+        bookmaker: str = "fanduel",
+        limit: int = 20,
+        last_evaluated_key: Dict = None,
+    ) -> Dict:
         """Get active game analysis for a specific sport using sparse index"""
         try:
             current_time = datetime.utcnow().isoformat()
 
-            response = self.table.query(
-                IndexName="ActiveAnalysisIndexV2",
-                KeyConditionExpression="active_analysis_pk = :active_analysis_pk AND commence_time >= :current_time",
-                ExpressionAttributeValues={
+            query_params = {
+                "IndexName": "ActiveAnalysisIndexV2",
+                "KeyConditionExpression": "active_analysis_pk = :active_analysis_pk AND commence_time >= :current_time",
+                "ExpressionAttributeValues": {
                     ":active_analysis_pk": f"GAME#{sport}#{bookmaker}",
                     ":current_time": current_time,
                 },
-                Limit=limit,
-            )
+                "Limit": limit,
+            }
+
+            if last_evaluated_key:
+                query_params["ExclusiveStartKey"] = last_evaluated_key
+
+            response = self.table.query(**query_params)
 
             analysis = []
             for item in response.get("Items", []):
@@ -234,26 +243,36 @@ class BettingDAO:
                     }
                 )
 
-            return analysis
+            return {
+                "items": analysis,
+                "lastEvaluatedKey": response.get("LastEvaluatedKey"),
+            }
 
         except Exception as e:
             print(f"Error getting game analysis for {sport}: {str(e)}")
-            return []
+            return {"items": [], "lastEvaluatedKey": None}
 
-    def get_prop_analysis(self, sport: str, limit: int = 20) -> List[Dict]:
+    def get_prop_analysis(
+        self, sport: str, limit: int = 20, last_evaluated_key: Dict = None
+    ) -> Dict:
         """Get active prop analysis for a specific sport using sparse index"""
         try:
             current_time = datetime.utcnow().isoformat()
 
-            response = self.table.query(
-                IndexName="ActiveAnalysisIndexV2",
-                KeyConditionExpression="active_analysis_pk = :active_analysis_pk AND commence_time >= :current_time",
-                ExpressionAttributeValues={
+            query_params = {
+                "IndexName": "ActiveAnalysisIndexV2",
+                "KeyConditionExpression": "active_analysis_pk = :active_analysis_pk AND commence_time >= :current_time",
+                "ExpressionAttributeValues": {
                     ":active_analysis_pk": f"PROP#{sport}",
                     ":current_time": current_time,
                 },
-                Limit=limit,
-            )
+                "Limit": limit,
+            }
+
+            if last_evaluated_key:
+                query_params["ExclusiveStartKey"] = last_evaluated_key
+
+            response = self.table.query(**query_params)
 
             analysis = []
             for item in response.get("Items", []):
@@ -274,8 +293,11 @@ class BettingDAO:
                     }
                 )
 
-            return analysis
+            return {
+                "items": analysis,
+                "lastEvaluatedKey": response.get("LastEvaluatedKey"),
+            }
 
         except Exception as e:
             print(f"Error getting prop analysis for {sport}: {str(e)}")
-            return []
+            return {"items": [], "lastEvaluatedKey": None}
