@@ -8,6 +8,8 @@ import BetInsights from './components/BetInsights';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
+import TermsOfService from './components/TermsOfService';
+import PrivacyPolicy from './components/PrivacyPolicy';
 import logo from './assets/carpool_bets_2.png';
 import './amplifyConfig'; // Initialize Amplify
 import '@aws-amplify/ui-react/styles.css';
@@ -575,6 +577,21 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 }
 
 function App() {
+  // Simple routing based on URL path
+  const path = window.location.pathname;
+  
+  if (path === '/terms') {
+    return <TermsOfService />;
+  }
+  
+  if (path === '/privacy') {
+    return <PrivacyPolicy />;
+  }
+  
+  if (path === '/responsible-gambling') {
+    return <ResponsibleGamblingPage />;
+  }
+  
   return (
     <Authenticator
       components={{
@@ -604,6 +621,71 @@ function App() {
         </ComplianceWrapper>
       )}
     </Authenticator>
+  );
+}
+
+// Standalone Responsible Gambling page
+function ResponsibleGamblingPage() {
+  return (
+    <div className="legal-page">
+      <div className="legal-container">
+        <h1>Responsible Gambling</h1>
+        
+        <section>
+          <h2>⚠️ Important Gambling Warnings</h2>
+          <ul>
+            <li>Gambling can be addictive and harmful</li>
+            <li>Never bet more than you can afford to lose</li>
+            <li>Set limits on time and money spent gambling</li>
+            <li>Don't chase losses with bigger bets</li>
+            <li>Gambling is not a way to make money or solve financial problems</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Get Help</h2>
+          <div style={{ background: 'rgba(74, 158, 255, 0.1)', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
+            <h3>National Problem Gambling Helpline</h3>
+            <p style={{ fontSize: '2rem', color: '#4a9eff', fontWeight: 'bold', margin: '10px 0' }}>1-800-522-4700</p>
+            <p>24/7 confidential support</p>
+          </div>
+          
+          <h3>Additional Resources:</h3>
+          <ul>
+            <li><a href="https://www.ncpgambling.org" target="_blank" rel="noopener noreferrer">National Council on Problem Gambling</a></li>
+            <li><a href="https://www.gamblersanonymous.org" target="_blank" rel="noopener noreferrer">Gamblers Anonymous</a></li>
+            <li><a href="https://www.responsiblegambling.org" target="_blank" rel="noopener noreferrer">Responsible Gambling Council</a></li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Self-Help Tools</h2>
+          <p>Consider using these tools to maintain control:</p>
+          <ul>
+            <li>Set daily, weekly, or monthly spending limits</li>
+            <li>Use time limits for gambling sessions</li>
+            <li>Take regular breaks from gambling</li>
+            <li>Self-exclude from gambling sites if needed</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Warning Signs of Problem Gambling</h2>
+          <ul>
+            <li>Spending more money or time gambling than you can afford</li>
+            <li>Having arguments with family or friends about money and gambling</li>
+            <li>Losing interest in usual activities or hobbies</li>
+            <li>Feeling guilty or anxious about gambling</li>
+            <li>Borrowing money or selling possessions to gamble</li>
+            <li>Trying unsuccessfully to cut down or stop gambling</li>
+          </ul>
+        </section>
+
+        <div style={{ textAlign: 'center', marginTop: '40px' }}>
+          <a href="/" style={{ color: '#4a9eff', textDecoration: 'none', fontSize: '1.1rem' }}>← Back to Home</a>
+        </div>
+      </div>
+    </div>
   );
 }
 
