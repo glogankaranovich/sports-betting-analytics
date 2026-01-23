@@ -74,13 +74,13 @@ export class CarpoolBetsStage extends cdk.Stage {
     // Analysis generator stack
     const analysisGeneratorStack = new AnalysisGeneratorStack(this, 'AnalysisGenerator', {
       environment: props.stage,
-      table: dynamoStack.betsTable,
+      betsTableName: `carpool-bets-v2-${props.stage}`,
     });
 
     // Insight generator stack
     const insightGeneratorStack = new InsightGeneratorStack(this, 'InsightGenerator', {
       environment: props.stage,
-      table: dynamoStack.betsTable,
+      betsTable: dynamoStack.betsTable,
     });
 
     // Model analytics stack

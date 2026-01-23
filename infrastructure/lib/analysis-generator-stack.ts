@@ -11,12 +11,13 @@ export interface AnalysisGeneratorStackProps extends cdk.StackProps {
 }
 
 export class AnalysisGeneratorStack extends cdk.Stack {
+  public readonly analysisGeneratorFunction: lambda.Function;
   public readonly analysisGeneratorFunctionArn: cdk.CfnOutput;
 
   constructor(scope: Construct, id: string, props: AnalysisGeneratorStackProps) {
     super(scope, id, props);
 
-    const analysisGeneratorFunction = new lambda.Function(this, 'AnalysisGeneratorFunction', {
+    this.analysisGeneratorFunction = new lambda.Function(this, 'AnalysisGeneratorFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'analysis_generator.lambda_handler',
       code: lambda.Code.fromAsset('../backend'),
@@ -28,7 +29,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       }
     });
 
-    analysisGeneratorFunction.addToRolePolicy(new iam.PolicyStatement({
+    this.analysisGeneratorFunction.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
         'dynamodb:Scan',
@@ -54,7 +55,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       description: 'Generate game analyses daily at 7 PM ET'
     });
 
-    dailyGameRule.addTarget(new targets.LambdaFunction(analysisGeneratorFunction, {
+    dailyGameRule.addTarget(new targets.LambdaFunction(this.analysisGeneratorFunction, {
       event: events.RuleTargetInput.fromObject({
         model: 'consensus',
         bet_type: 'games'
@@ -70,7 +71,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       description: 'Generate prop analyses daily at 7:05 PM ET'
     });
 
-    dailyPropRule.addTarget(new targets.LambdaFunction(analysisGeneratorFunction, {
+    dailyPropRule.addTarget(new targets.LambdaFunction(this.analysisGeneratorFunction, {
       event: events.RuleTargetInput.fromObject({
         model: 'consensus',
         bet_type: 'props'
@@ -78,7 +79,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
     }));
 
     this.analysisGeneratorFunctionArn = new cdk.CfnOutput(this, 'AnalysisGeneratorFunctionArn', {
-      value: analysisGeneratorFunction.functionArn
+      value: this.analysisGeneratorFunction.functionArn
     });
   }
 }
