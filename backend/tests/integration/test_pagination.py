@@ -131,6 +131,60 @@ def test_pagination():
     assert "count" in data, "Response should have 'count' key"
 
     print(f"\n{'='*60}")
+    print("Testing /analyses endpoint with prop type")
+    print(f"{'='*60}")
+
+    # Test prop analysis pagination
+    url = f"{api_url}/analyses?sport=basketball_nba&bookmaker=fanduel&model=consensus&type=prop&limit=2"
+    print("\n1. Fetching first page of prop analyses (limit=2)...")
+    response = requests.get(url, headers=headers, timeout=10)
+
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+    data = response.json()
+
+    print(f"   ✓ Status: {response.status_code}")
+    print(f"   ✓ Prop analyses count: {data.get('count')}")
+    print(f"   ✓ Has lastEvaluatedKey: {'lastEvaluatedKey' in data}")
+
+    assert "analyses" in data, "Response should have 'analyses' key"
+
+    print(f"\n{'='*60}")
+    print("Testing invalid pagination token handling")
+    print(f"{'='*60}")
+
+    # Test invalid pagination token
+    url = f"{api_url}/analyses?sport=basketball_nba&bookmaker=fanduel&model=consensus&type=game&limit=2&lastEvaluatedKey=invalid"
+    print("\n1. Fetching with invalid pagination token...")
+    response = requests.get(url, headers=headers, timeout=10)
+
+    # Should either return 400 or treat as first page
+    print(f"   ✓ Status: {response.status_code}")
+    if response.status_code == 200:
+        print("   ℹ️  Invalid token treated as first page")
+    else:
+        print("   ℹ️  Invalid token rejected with error")
+
+    print(f"\n{'='*60}")
+    print("Testing pagination exhaustion (last page)")
+    print(f"{'='*60}")
+
+    # Test with limit larger than total results
+    url = f"{api_url}/analyses?sport=basketball_nba&bookmaker=fanduel&model=consensus&type=game&limit=1000"
+    print("\n1. Fetching with large limit to exhaust results...")
+    response = requests.get(url, headers=headers, timeout=10)
+
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+    data = response.json()
+
+    print(f"   ✓ Status: {response.status_code}")
+    print(f"   ✓ Analyses count: {data.get('count')}")
+    has_token = "lastEvaluatedKey" in data
+    print(f"   ✓ Has lastEvaluatedKey: {has_token}")
+
+    if not has_token:
+        print("   ✓ No pagination token on last page (as expected)")
+
+    print(f"\n{'='*60}")
     print("✅ All pagination tests passed!")
     print(f"{'='*60}")
 
