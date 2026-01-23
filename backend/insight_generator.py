@@ -14,18 +14,24 @@ def lambda_handler(event, context):
     try:
         sport = event.get("sport", "basketball_nba")
         model = event.get("model", "consensus")
+        analysis_type = event.get("analysis_type", "all")  # 'game', 'prop', or 'all'
         min_confidence = float(event.get("min_confidence", 0.6))
         limit = int(event.get("limit", 10))
 
-        # Get top game analyses
-        game_insights = generate_insights_from_analyses(
-            sport, model, "game", min_confidence, limit
-        )
+        game_insights = []
+        prop_insights = []
 
-        # Get top prop analyses
-        prop_insights = generate_insights_from_analyses(
-            sport, model, "prop", min_confidence, limit
-        )
+        # Get game insights if requested
+        if analysis_type in ["game", "all"]:
+            game_insights = generate_insights_from_analyses(
+                sport, model, "game", min_confidence, limit
+            )
+
+        # Get prop insights if requested
+        if analysis_type in ["prop", "all"]:
+            prop_insights = generate_insights_from_analyses(
+                sport, model, "prop", min_confidence, limit
+            )
 
         total_insights = len(game_insights) + len(prop_insights)
 

@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 
 export interface InsightGeneratorStackProps extends cdk.StackProps {
@@ -34,6 +36,40 @@ export class InsightGeneratorStack extends cdk.Stack {
     });
 
     props.betsTable.grantReadWriteData(this.insightGeneratorFunction);
+
+    // EventBridge schedules to run daily at 8 PM ET (1 AM UTC) - after analysis generation
+    
+    // Generate game insights
+    const dailyGameRule = new events.Rule(this, 'DailyGameInsightGeneration', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '1',
+      }),
+      description: 'Generate game insights daily at 8 PM ET'
+    });
+
+    dailyGameRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
+      event: events.RuleTargetInput.fromObject({
+        model: 'consensus',
+        analysis_type: 'game'
+      })
+    }));
+
+    // Generate prop insights
+    const dailyPropRule = new events.Rule(this, 'DailyPropInsightGeneration', {
+      schedule: events.Schedule.cron({
+        minute: '5',
+        hour: '1',
+      }),
+      description: 'Generate prop insights daily at 8:05 PM ET'
+    });
+
+    dailyPropRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
+      event: events.RuleTargetInput.fromObject({
+        model: 'consensus',
+        analysis_type: 'prop'
+      })
+    }));
 
     new cdk.CfnOutput(this, 'InsightGeneratorFunctionArn', {
       value: this.insightGeneratorFunction.functionArn,

@@ -27,9 +27,9 @@ describe('OddsCollectorStack', () => {
     });
   });
 
-  test('EventBridge schedules are commented out for manual testing', () => {
-    // Schedules are disabled - verify no EventBridge rules exist
-    template.resourceCountIs('AWS::Events::Rule', 0);
+  test('EventBridge schedules are enabled for automated collection', () => {
+    // Verify 4 EventBridge rules exist (NBA odds, NFL odds, NBA props, NFL props)
+    template.resourceCountIs('AWS::Events::Rule', 4);
   });
 
   test('creates IAM policy for Lambda permissions', () => {

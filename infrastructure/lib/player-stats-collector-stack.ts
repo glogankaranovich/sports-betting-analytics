@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 
 export interface PlayerStatsCollectorStackProps extends cdk.StackProps {
@@ -48,6 +50,34 @@ export class PlayerStatsCollectorStack extends cdk.Stack {
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}/index/*`
       ]
+    }));
+
+    // EventBridge schedule to run daily at 2 AM ET (7 AM UTC) during NBA season (Oct-Jun)
+    const dailyNbaRule = new events.Rule(this, 'DailyNbaStatsCollection', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '7',
+        month: '10-6',
+      }),
+      description: 'Collect NBA player stats daily at 2 AM ET during NBA season'
+    });
+
+    dailyNbaRule.addTarget(new targets.LambdaFunction(this.playerStatsCollectorFunction, {
+      event: events.RuleTargetInput.fromObject({ sport: 'basketball_nba' })
+    }));
+
+    // EventBridge schedule to run daily at 2 AM ET (7 AM UTC) during NFL season (Sep-Feb)
+    const dailyNflRule = new events.Rule(this, 'DailyNflStatsCollection', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '7',
+        month: '9-2',
+      }),
+      description: 'Collect NFL player stats daily at 2 AM ET during NFL season'
+    });
+
+    dailyNflRule.addTarget(new targets.LambdaFunction(this.playerStatsCollectorFunction, {
+      event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl' })
     }));
 
     // Output

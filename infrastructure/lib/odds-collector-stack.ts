@@ -59,45 +59,46 @@ export class OddsCollectorStack extends cdk.Stack {
     // Grant Secrets Manager permissions
     oddsApiSecret.grantRead(this.oddsCollectorFunction);
 
-    // EventBridge schedules disabled for manual testing
-    // Uncomment to enable automated collection
+    // EventBridge schedules for automated odds collection
     
-    /*
-    // Schedule NBA odds collection twice daily (8 AM and 8 PM)
+    // Schedule NBA odds collection daily at 6 PM ET (11 PM UTC) - October through June
     const nbaOddsRule = new events.Rule(this, 'NBAOddsCollectionSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '8,20' })
+      schedule: events.Schedule.cron({ minute: '0', hour: '23', month: '10-6' }),
+      description: 'Collect NBA odds daily at 6 PM ET during NBA season (Oct-Jun)'
     });
 
     nbaOddsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
       event: events.RuleTargetInput.fromObject({ sport: 'basketball_nba' })
     }));
 
-    // Schedule NFL odds collection twice daily (9 AM and 9 PM)
+    // Schedule NFL odds collection daily at 6 PM ET (11 PM UTC) - September through February
     const nflOddsRule = new events.Rule(this, 'NFLOddsCollectionSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '9,21' })
+      schedule: events.Schedule.cron({ minute: '0', hour: '23', month: '9-2' }),
+      description: 'Collect NFL odds daily at 6 PM ET during NFL season (Sep-Feb)'
     });
 
     nflOddsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
       event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl' })
     }));
 
-    // Schedule NBA props collection twice daily (10 AM and 10 PM)
+    // Schedule NBA props collection daily at 6 PM ET (11 PM UTC) - October through June
     const nbaPropsRule = new events.Rule(this, 'NBAPropsCollectionSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '10,22' })
+      schedule: events.Schedule.cron({ minute: '0', hour: '23', month: '10-6' }),
+      description: 'Collect NBA props daily at 6 PM ET during NBA season (Oct-Jun)'
     });
 
     nbaPropsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
       event: events.RuleTargetInput.fromObject({ sport: 'basketball_nba', props_only: true })
     }));
 
-    // Schedule NFL props collection twice daily (11 AM and 11 PM)
+    // Schedule NFL props collection daily at 6 PM ET (11 PM UTC) - September through February
     const nflPropsRule = new events.Rule(this, 'NFLPropsCollectionSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '11,23' })
+      schedule: events.Schedule.cron({ minute: '0', hour: '23', month: '9-2' }),
+      description: 'Collect NFL props daily at 6 PM ET during NFL season (Sep-Feb)'
     });
 
     nflPropsRule.addTarget(new targets.LambdaFunction(this.oddsCollectorFunction, {
       event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl', props_only: true })
     }));
-    */
   }
 }

@@ -223,14 +223,15 @@ class OutcomeCollector:
             game_id = game["id"]
             sport = game["sport"]
 
-            pk = f"PLAYER_STATS#{sport}#{game_id}#{player_name}"
-            print(f"Querying for player stats with PK: {pk}")
+            pk = f"PLAYER_STATS#{sport}#{player_name}"
+            print(f"Querying for player stats with PK: {pk}, SK: {game_id}")
 
             # Look for player stats in DynamoDB using correct PK pattern
             response = self.table.query(
-                KeyConditionExpression="pk = :pk",
+                KeyConditionExpression="pk = :pk AND sk = :sk",
                 ExpressionAttributeValues={
                     ":pk": pk,
+                    ":sk": game_id,
                 },
             )
 

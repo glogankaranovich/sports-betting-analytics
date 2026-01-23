@@ -214,15 +214,22 @@ class TeamStatsCollector:
             # Convert to Decimal for DynamoDB
             team_stats_decimal = self._convert_to_decimal(team_stats)
 
-            # Update the game record with team stats
-            self.table.update_item(
-                Key={"pk": f"GAME#{sport}#{game_id}", "sk": "LATEST"},
-                UpdateExpression="SET team_stats = :stats, team_stats_collected = :true",
-                ExpressionAttributeValues={
-                    ":stats": team_stats_decimal,
-                    ":true": True,
-                },
-            )
+            # Store team stats as separate records
+            for team_name, stats in team_stats_decimal.items():
+                pk = f"TEAM_STATS#{sport}#{team_name}"
+                sk = game_id
+
+                self.table.put_item(
+                    Item={
+                        "pk": pk,
+                        "sk": sk,
+                        "game_id": game_id,
+                        "sport": sport,
+                        "team_name": team_name,
+                        "stats": stats,
+                        "collected_at": datetime.utcnow().isoformat(),
+                    }
+                )
 
         except Exception as e:
             print(f"Error storing team stats: {e}")

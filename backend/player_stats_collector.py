@@ -239,8 +239,8 @@ class PlayerStatsCollector:
                 # Convert float values to Decimal
                 stats_decimal = self._convert_to_decimal(stats)
 
-                pk = f"PLAYER_STATS#{sport}#{game_id}#{player_name}"
-                sk = "LATEST"
+                pk = f"PLAYER_STATS#{sport}#{player_name}"
+                sk = game_id
 
                 self.table.put_item(
                     Item={
@@ -253,13 +253,6 @@ class PlayerStatsCollector:
                         "collected_at": datetime.utcnow().isoformat(),
                     }
                 )
-
-            # Mark game as having stats collected
-            self.table.update_item(
-                Key={"pk": f"GAME#{sport}#{game_id}", "sk": "LATEST"},
-                UpdateExpression="SET player_stats_collected = :true",
-                ExpressionAttributeValues={":true": True},
-            )
 
         except Exception as e:
             print(f"Error storing player stats: {e}")

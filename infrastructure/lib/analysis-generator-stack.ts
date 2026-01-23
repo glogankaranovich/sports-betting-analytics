@@ -1,6 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 
 export interface AnalysisGeneratorStackProps extends cdk.StackProps {
@@ -39,6 +41,40 @@ export class AnalysisGeneratorStack extends cdk.Stack {
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}/index/*`
       ]
+    }));
+
+    // EventBridge schedules to run daily at 7 PM ET (12 AM UTC) - after odds collection
+    
+    // Generate game analyses
+    const dailyGameRule = new events.Rule(this, 'DailyGameAnalysisGeneration', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '0',
+      }),
+      description: 'Generate game analyses daily at 7 PM ET'
+    });
+
+    dailyGameRule.addTarget(new targets.LambdaFunction(analysisGeneratorFunction, {
+      event: events.RuleTargetInput.fromObject({
+        model: 'consensus',
+        bet_type: 'games'
+      })
+    }));
+
+    // Generate prop analyses
+    const dailyPropRule = new events.Rule(this, 'DailyPropAnalysisGeneration', {
+      schedule: events.Schedule.cron({
+        minute: '5',
+        hour: '0',
+      }),
+      description: 'Generate prop analyses daily at 7:05 PM ET'
+    });
+
+    dailyPropRule.addTarget(new targets.LambdaFunction(analysisGeneratorFunction, {
+      event: events.RuleTargetInput.fromObject({
+        model: 'consensus',
+        bet_type: 'props'
+      })
     }));
 
     this.analysisGeneratorFunctionArn = new cdk.CfnOutput(this, 'AnalysisGeneratorFunctionArn', {
