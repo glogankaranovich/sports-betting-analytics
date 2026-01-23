@@ -595,6 +595,7 @@ function App() {
   return (
     <Authenticator
       hideSignUp={true}
+      loginMechanisms={['email']}
       components={{
         Header() {
           return (
