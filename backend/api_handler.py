@@ -484,8 +484,8 @@ def handle_get_insights(query_params: Dict[str, str]):
         # Build analysis_pk: ANALYSIS#{sport}#{bookmaker}#{model}#{type}
         analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
 
-        # Time filtering - only show insights from last 24 hours
-        day_ago_time = (datetime.utcnow() - timedelta(days=1)).isoformat()
+        # Time filtering - only show insights for future games
+        current_time = datetime.utcnow().isoformat()
 
         # Query using AnalysisTimeGSI
         query_kwargs = {
@@ -493,7 +493,7 @@ def handle_get_insights(query_params: Dict[str, str]):
             "KeyConditionExpression": boto3.dynamodb.conditions.Key(
                 "analysis_time_pk"
             ).eq(analysis_pk)
-            & boto3.dynamodb.conditions.Key("commence_time").gte(day_ago_time),
+            & boto3.dynamodb.conditions.Key("commence_time").gte(current_time),
             "ScanIndexForward": False,  # Most recent first
             "Limit": limit * 2,  # Get more than needed to sort by confidence
         }
@@ -555,73 +555,68 @@ def handle_get_insights(query_params: Dict[str, str]):
 
 
 def handle_get_top_insight(query_params: Dict[str, str]):
-    """Get single top insight sorted by confidence"""
+    """Get single top insight sorted by confidence across all models"""
     try:
         sport = query_params.get("sport", "basketball_nba")
-        model = query_params.get("model", "consensus")
         bookmaker = query_params.get("bookmaker", "fanduel")
         analysis_type = query_params.get("type", "game")  # "game" or "prop"
 
-        # Build analysis_pk: ANALYSIS#{sport}#{bookmaker}#{model}#{type}
-        analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
+        # Time filtering - only show insights for future games
+        current_time = datetime.utcnow().isoformat()
 
-        # Query using AnalysisTimeGSI
-        response = table.query(
-            IndexName="AnalysisTimeGSI",
-            KeyConditionExpression=boto3.dynamodb.conditions.Key("analysis_time_pk").eq(
-                analysis_pk
-            ),
-            ScanIndexForward=False,  # Most recent first
-            Limit=50,  # Get enough to find highest confidence
-        )
+        # Query all three models
+        all_insights = []
+        for model in ["consensus", "value", "momentum"]:
+            analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
 
-        items = response.get("Items", [])
+            response = table.query(
+                IndexName="AnalysisTimeGSI",
+                KeyConditionExpression=boto3.dynamodb.conditions.Key(
+                    "analysis_time_pk"
+                ).eq(analysis_pk)
+                & boto3.dynamodb.conditions.Key("commence_time").gte(current_time),
+                ScanIndexForward=False,
+                Limit=50,
+            )
 
-        if not items:
+            for item in response.get("Items", []):
+                insight = {
+                    "game_id": item.get("game_id"),
+                    "model": item.get("model"),
+                    "analysis_type": item.get("analysis_type"),
+                    "sport": item.get("sport"),
+                    "bookmaker": item.get("bookmaker"),
+                    "prediction": item.get("prediction"),
+                    "confidence": float(item.get("confidence", 0)),
+                    "reasoning": item.get("reasoning"),
+                    "home_team": item.get("home_team"),
+                    "away_team": item.get("away_team"),
+                    "created_at": item.get("created_at"),
+                    "commence_time": item.get("commence_time"),
+                }
+                if item.get("player_name"):
+                    insight["player_name"] = item.get("player_name")
+                all_insights.append(insight)
+
+        if not all_insights:
             return create_response(
                 200,
                 {
                     "top_insight": None,
                     "sport": sport,
-                    "model": model,
                     "bookmaker": bookmaker,
                 },
             )
 
-        # Convert to insights format and find highest confidence
-        insights = []
-        for item in items:
-            insight = {
-                "game_id": item.get("game_id"),
-                "model": item.get("model"),
-                "analysis_type": item.get("analysis_type"),
-                "sport": item.get("sport"),
-                "bookmaker": item.get("bookmaker"),
-                "prediction": item.get("prediction"),
-                "confidence": float(item.get("confidence", 0)),
-                "reasoning": item.get("reasoning"),
-                "home_team": item.get("home_team"),
-                "away_team": item.get("away_team"),
-                "created_at": item.get("created_at"),
-                "commence_time": item.get("commence_time"),
-            }
-
-            # Add player_name for prop analyses
-            if item.get("player_name"):
-                insight["player_name"] = item.get("player_name")
-
-            insights.append(insight)
-
-        # Sort by confidence and get top one
-        insights.sort(key=lambda x: x["confidence"], reverse=True)
-        top_insight = decimal_to_float(insights[0])
+        # Sort by confidence and get top one across all models
+        all_insights.sort(key=lambda x: x["confidence"], reverse=True)
+        top_insight = decimal_to_float(all_insights[0])
 
         return create_response(
             200,
             {
                 "top_insight": top_insight,
                 "sport": sport,
-                "model": model,
                 "bookmaker": bookmaker,
             },
         )
