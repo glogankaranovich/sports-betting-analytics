@@ -93,7 +93,7 @@ def test_momentum_prop_analysis():
 
     assert isinstance(result, AnalysisResult)
     assert result.model == "momentum"
-    assert "Momentum" in result.reasoning
+    assert "Sharp action" in result.reasoning or "Momentum" in result.reasoning
 
 
 # Test AnalysisResult DynamoDB conversion

@@ -39,37 +39,42 @@ export class InsightGeneratorStack extends cdk.Stack {
 
     // EventBridge schedules to run daily at 8 PM ET (1 AM UTC) - after analysis generation
     
-    // Generate game insights
-    const dailyGameRule = new events.Rule(this, 'DailyGameInsightGeneration', {
-      schedule: events.Schedule.cron({
-        minute: '0',
-        hour: '1',
-      }),
-      description: 'Generate game insights daily at 8 PM ET'
+    // Generate insights for all models: consensus, value, momentum
+    const models = ['consensus', 'value', 'momentum'];
+    
+    models.forEach((model, index) => {
+      // Generate game insights for each model
+      const gameRule = new events.Rule(this, `Daily${model.charAt(0).toUpperCase() + model.slice(1)}GameInsight`, {
+        schedule: events.Schedule.cron({
+          minute: `${index * 2}`,  // Stagger by 2 minutes: 0, 2, 4
+          hour: '1',
+        }),
+        description: `Generate ${model} game insights daily at 8:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`
+      });
+
+      gameRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
+        event: events.RuleTargetInput.fromObject({
+          model: model,
+          analysis_type: 'game'
+        })
+      }));
+
+      // Generate prop insights for each model
+      const propRule = new events.Rule(this, `Daily${model.charAt(0).toUpperCase() + model.slice(1)}PropInsight`, {
+        schedule: events.Schedule.cron({
+          minute: `${10 + (index * 2)}`,  // Stagger by 2 minutes: 10, 12, 14
+          hour: '1',
+        }),
+        description: `Generate ${model} prop insights daily at 8:${10 + (index * 2)} PM ET`
+      });
+
+      propRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
+        event: events.RuleTargetInput.fromObject({
+          model: model,
+          analysis_type: 'prop'
+        })
+      }));
     });
-
-    dailyGameRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
-      event: events.RuleTargetInput.fromObject({
-        model: 'consensus',
-        analysis_type: 'game'
-      })
-    }));
-
-    // Generate prop insights
-    const dailyPropRule = new events.Rule(this, 'DailyPropInsightGeneration', {
-      schedule: events.Schedule.cron({
-        minute: '5',
-        hour: '1',
-      }),
-      description: 'Generate prop insights daily at 8:05 PM ET'
-    });
-
-    dailyPropRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
-      event: events.RuleTargetInput.fromObject({
-        model: 'consensus',
-        analysis_type: 'prop'
-      })
-    }));
 
     new cdk.CfnOutput(this, 'InsightGeneratorFunctionArn', {
       value: this.insightGeneratorFunction.functionArn,

@@ -322,16 +322,42 @@ class MomentumModel(BaseAnalysisModel):
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
     ) -> AnalysisResult:
-        latest_item = max(odds_items, key=lambda x: x.get("updated_at", ""))
+        # Filter for spread items and sort by timestamp
+        spread_items = [
+            item
+            for item in odds_items
+            if "spreads" in item.get("sk", "") and "outcomes" in item
+        ]
 
-        if "spreads" not in latest_item.get("sk", "") or "outcomes" not in latest_item:
+        if len(spread_items) < 2:
+            return None  # Need at least 2 data points for momentum
+
+        # Sort by updated_at timestamp
+        spread_items.sort(key=lambda x: x.get("updated_at", ""))
+
+        # Get oldest and newest spreads
+        oldest = spread_items[0]
+        newest = spread_items[-1]
+
+        if len(oldest.get("outcomes", [])) < 2 or len(newest.get("outcomes", [])) < 2:
             return None
 
-        if len(latest_item["outcomes"]) < 2:
-            return None
+        old_spread = float(oldest["outcomes"][0].get("point", 0))
+        new_spread = float(newest["outcomes"][0].get("point", 0))
 
-        spread = float(latest_item["outcomes"][0].get("point", 0))
-        confidence = 0.75
+        # Calculate movement
+        movement = new_spread - old_spread
+
+        # Higher confidence if significant movement
+        if abs(movement) > 1.0:
+            confidence = 0.8
+            reasoning = f"Strong line movement: {old_spread:+.1f} → {new_spread:+.1f} ({movement:+.1f})"
+        elif abs(movement) > 0.5:
+            confidence = 0.7
+            reasoning = f"Moderate line movement: {old_spread:+.1f} → {new_spread:+.1f} ({movement:+.1f})"
+        else:
+            confidence = 0.6
+            reasoning = f"Slight line movement: {old_spread:+.1f} → {new_spread:+.1f} ({movement:+.1f})"
 
         return AnalysisResult(
             game_id=game_id,
@@ -341,13 +367,15 @@ class MomentumModel(BaseAnalysisModel):
             home_team=game_info.get("home_team"),
             away_team=game_info.get("away_team"),
             commence_time=game_info.get("commence_time"),
-            prediction=f"{game_info.get('home_team')} {spread:+.1f}",
+            prediction=f"{game_info.get('home_team')} {new_spread:+.1f}",
             confidence=confidence,
-            reasoning=f"Momentum play: Latest line {spread:+.1f} from {latest_item.get('bookmaker')}",
+            reasoning=reasoning,
         )
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
-        """Analyze prop odds based on recent line movement"""
+        """Analyze prop odds based on line movement - requires historical data"""
+        # Note: This is a simplified version since we're analyzing a single prop_item
+        # In a real implementation with historical data, we'd query multiple timestamps
         try:
             if "outcomes" not in prop_item or len(prop_item["outcomes"]) < 2:
                 return None
@@ -359,8 +387,6 @@ class MomentumModel(BaseAnalysisModel):
             if not over_outcome or not under_outcome:
                 return None
 
-            # For momentum model, we focus on the most recent odds
-            # In a real implementation, we'd compare with historical odds
             over_price = int(over_outcome["price"])
             under_price = int(under_outcome["price"])
 
@@ -371,49 +397,41 @@ class MomentumModel(BaseAnalysisModel):
             over_prob = 1 / over_decimal
             under_prob = 1 / under_decimal
 
-            # Momentum model assumes recent movement indicates sharp money
-            # For now, we'll favor the side with better odds (indicating recent movement)
-            if over_price > -110:  # Over is getting worse odds = money on Under
-                prediction = f"Under {prop_item.get('point', 'N/A')} (Momentum)"
+            # Detect sharp money based on odds imbalance
+            # If one side has significantly worse odds, sharp money is on the other side
+            if over_price <= -120:  # Over is heavily favored
+                prediction = f"Over {prop_item.get('point', 'N/A')}"
+                confidence = 0.75
+                reasoning = (
+                    f"Sharp action on Over: {over_price} indicates heavy betting"
+                )
+            elif under_price <= -120:  # Under is heavily favored
+                prediction = f"Under {prop_item.get('point', 'N/A')}"
+                confidence = 0.75
+                reasoning = (
+                    f"Sharp action on Under: {under_price} indicates heavy betting"
+                )
+            elif over_prob > under_prob * 1.1:  # Over has 10%+ edge
+                prediction = f"Over {prop_item.get('point', 'N/A')}"
                 confidence = 0.7
-                reasoning = f"Momentum play: Over odds moved to {over_price}, indicating Under action"
-            elif under_price > -110:  # Under is getting worse odds = money on Over
-                prediction = f"Over {prop_item.get('point', 'N/A')} (Momentum)"
+                reasoning = f"Momentum favors Over: {over_price} vs {under_price}"
+            elif under_prob > over_prob * 1.1:  # Under has 10%+ edge
+                prediction = f"Under {prop_item.get('point', 'N/A')}"
                 confidence = 0.7
-                reasoning = f"Momentum play: Under odds moved to {under_price}, indicating Over action"
+                reasoning = f"Momentum favors Under: {under_price} vs {over_price}"
             else:
-                # No clear momentum, pick the favorite
-                if over_prob > under_prob:
-                    prediction = f"Over {prop_item.get('point', 'N/A')}"
-                    confidence = 0.6
-                    reasoning = (
-                        f"Latest odds favor Over ({over_price} vs {under_price})"
-                    )
-                else:
-                    prediction = f"Under {prop_item.get('point', 'N/A')}"
-                    confidence = 0.6
-                    reasoning = (
-                        f"Latest odds favor Under ({under_price} vs {over_price})"
-                    )
-
-            # Extract player name
-            player_name = (
-                prop_item.get("description", "").split(" - ")[0]
-                if " - " in prop_item.get("description", "")
-                else "Unknown Player"
-            )
+                return None  # No clear momentum signal
 
             return AnalysisResult(
-                game_id=prop_item.get("pk", "").replace("PROP#", "").split("#")[1]
-                if "#" in prop_item.get("pk", "")
-                else "unknown",
+                game_id=prop_item.get("event_id", "unknown"),
                 model="momentum",
                 analysis_type="prop",
                 sport=prop_item.get("sport"),
                 home_team=prop_item.get("home_team"),
                 away_team=prop_item.get("away_team"),
                 commence_time=prop_item.get("commence_time"),
-                player_name=player_name,
+                player_name=prop_item.get("player_name", "Unknown Player"),
+                market_key=prop_item.get("market_key"),
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,
