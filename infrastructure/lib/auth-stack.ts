@@ -41,7 +41,7 @@ export class AuthStack extends cdk.Stack {
         email: true,
       },
       autoVerify: {
-        email: true,
+        email: false,
       },
       passwordPolicy: {
         minLength: 8,
@@ -50,7 +50,7 @@ export class AuthStack extends cdk.Stack {
         requireDigits: true,
         requireSymbols: false,
       },
-      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      accountRecovery: cognito.AccountRecovery.NONE,
       removalPolicy: cdk.RemovalPolicy.DESTROY, // For dev/testing
     });
 
