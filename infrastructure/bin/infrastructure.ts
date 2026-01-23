@@ -9,6 +9,7 @@ import { TeamStatsCollectorStack } from '../lib/team-stats-collector-stack';
 import { ModelAnalyticsStack } from '../lib/model-analytics-stack';
 import { AnalysisGeneratorStack } from '../lib/analysis-generator-stack';
 import { InsightGeneratorStack } from '../lib/insight-generator-stack';
+import { MonitoringStack } from '../lib/monitoring-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { AmplifyStack } from '../lib/amplify-stack';
 import { ComplianceStack } from '../lib/compliance-stack';
@@ -33,7 +34,7 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
   
-  new OddsCollectorStack(app, StackNames.forEnvironment('dev', 'OddsCollector'), {
+  const oddsCollectorStack = new OddsCollectorStack(app, StackNames.forEnvironment('dev', 'OddsCollector'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
@@ -46,20 +47,20 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  new OutcomeCollectorStack(app, StackNames.forEnvironment('dev', 'OutcomeCollector'), {
+  const outcomeCollectorStack = new OutcomeCollectorStack(app, StackNames.forEnvironment('dev', 'OutcomeCollector'), {
     environment: 'dev',
     dynamoDbTableName: 'carpool-bets-v2-dev',
     dynamoDbTableArn: dynamoStack.betsTable.tableArn,
     env: ENVIRONMENTS.dev,
   });
 
-  new PlayerStatsCollectorStack(app, StackNames.forEnvironment('dev', 'PlayerStatsCollector'), {
+  const playerStatsCollectorStack = new PlayerStatsCollectorStack(app, StackNames.forEnvironment('dev', 'PlayerStatsCollector'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
   });
 
-  new TeamStatsCollectorStack(app, StackNames.forEnvironment('dev', 'TeamStatsCollector'), {
+  const teamStatsCollectorStack = new TeamStatsCollectorStack(app, StackNames.forEnvironment('dev', 'TeamStatsCollector'), {
     environment: 'dev',
     table: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,
@@ -70,19 +71,30 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  new AnalysisGeneratorStack(app, StackNames.forEnvironment('dev', 'AnalysisGenerator'), {
+  const analysisGeneratorStack = new AnalysisGeneratorStack(app, StackNames.forEnvironment('dev', 'AnalysisGenerator'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
   });
 
-  new InsightGeneratorStack(app, StackNames.forEnvironment('dev', 'InsightGenerator'), {
+  const insightGeneratorStack = new InsightGeneratorStack(app, StackNames.forEnvironment('dev', 'InsightGenerator'), {
     environment: 'dev',
     betsTable: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,
   });
 
   new ComplianceStack(app, StackNames.forEnvironment('dev', 'Compliance'), {
+    env: ENVIRONMENTS.dev,
+  });
+
+  new MonitoringStack(app, StackNames.forEnvironment('dev', 'Monitoring'), {
+    environment: 'dev',
+    oddsCollectorFunction: oddsCollectorStack.oddsCollectorFunction,
+    analysisGeneratorFunction: analysisGeneratorStack.analysisGeneratorFunction,
+    insightGeneratorFunction: insightGeneratorStack.insightGeneratorFunction,
+    playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
+    teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,
+    outcomeCollectorFunction: outcomeCollectorStack.outcomeCollectorFunction,
     env: ENVIRONMENTS.dev,
   });
 } else {
