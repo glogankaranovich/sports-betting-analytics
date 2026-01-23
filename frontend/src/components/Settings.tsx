@@ -22,6 +22,12 @@ const Settings: React.FC<SettingsProps> = ({
     onSettingsChange({ ...settings, [key]: value });
   };
 
+  const modelDescriptions: Record<string, string> = {
+    consensus: 'Average across all bookmakers - balanced approach',
+    value: 'Finds odds discrepancies and value opportunities',
+    momentum: 'Tracks line movement and sharp action'
+  };
+
   return (
     <div className="predictions-section">
       <div className="settings-grid">
@@ -58,7 +64,12 @@ const Settings: React.FC<SettingsProps> = ({
             onChange={(e) => handleChange('model', e.target.value)}
           >
             <option value="consensus">Consensus</option>
+            <option value="value">Value</option>
+            <option value="momentum">Momentum</option>
           </select>
+          <div className="model-description">
+            {modelDescriptions[settings.model]}
+          </div>
         </div>
 
         <div className="setting-item">
@@ -73,6 +84,15 @@ const Settings: React.FC<SettingsProps> = ({
           </select>
         </div>
       </div>
+
+      <style>{`
+        .model-description {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.6);
+          margin-top: 4px;
+          font-style: italic;
+        }
+      `}</style>
     </div>
   );
 };

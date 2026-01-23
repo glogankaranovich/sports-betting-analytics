@@ -264,48 +264,60 @@ class ValueModel(BaseAnalysisModel):
             total_prob = over_prob + under_prob
             vig = total_prob - 1.0
 
-            # Value model looks for low vig situations or line discrepancies
-            if vig < 0.05:  # Low vig = potential value
-                confidence = 0.8
-                if over_prob > under_prob:
-                    prediction = f"Over {prop_item.get('point', 'N/A')} (Value)"
-                    reasoning = f"Low vig opportunity: {vig:.1%} vig, Over favored"
-                else:
-                    prediction = f"Under {prop_item.get('point', 'N/A')} (Value)"
-                    reasoning = f"Low vig opportunity: {vig:.1%} vig, Under favored"
-            else:
-                confidence = 0.6
-                # Look for the side with better implied odds
-                over_prob_fair = over_prob / total_prob
-                under_prob_fair = under_prob / total_prob
+            # Remove vig to get fair probabilities
+            over_prob_fair = over_prob / total_prob
+            under_prob_fair = under_prob / total_prob
 
+            # Value model looks for low vig situations (better value for bettors)
+            if vig < 0.06:  # Low vig (< 6%) = good value
+                confidence = 0.75
+                if over_prob_fair > under_prob_fair:
+                    prediction = f"Over {prop_item.get('point', 'N/A')}"
+                    reasoning = (
+                        f"Low vig value: {vig:.1%} vig, Over {over_prob_fair:.1%}"
+                    )
+                else:
+                    prediction = f"Under {prop_item.get('point', 'N/A')}"
+                    reasoning = (
+                        f"Low vig value: {vig:.1%} vig, Under {under_prob_fair:.1%}"
+                    )
+            elif vig < 0.08:  # Moderate vig (6-8%) = decent value
+                confidence = 0.65
+                if over_prob_fair > 0.52:  # Slight edge
+                    prediction = f"Over {prop_item.get('point', 'N/A')}"
+                    reasoning = (
+                        f"Moderate value: {vig:.1%} vig, Over {over_prob_fair:.1%}"
+                    )
+                elif under_prob_fair > 0.52:
+                    prediction = f"Under {prop_item.get('point', 'N/A')}"
+                    reasoning = (
+                        f"Moderate value: {vig:.1%} vig, Under {under_prob_fair:.1%}"
+                    )
+                else:
+                    return None  # Too close to call
+            else:
+                # High vig - only recommend if there's a clear edge
                 if over_prob_fair > 0.55:
                     prediction = f"Over {prop_item.get('point', 'N/A')}"
-                    reasoning = f"Value play: Over {over_prob_fair:.1%} vs Under {under_prob_fair:.1%}"
+                    confidence = 0.6
+                    reasoning = f"High vig but strong edge: Over {over_prob_fair:.1%}"
                 elif under_prob_fair > 0.55:
                     prediction = f"Under {prop_item.get('point', 'N/A')}"
-                    reasoning = f"Value play: Under {under_prob_fair:.1%} vs Over {over_prob_fair:.1%}"
+                    confidence = 0.6
+                    reasoning = f"High vig but strong edge: Under {under_prob_fair:.1%}"
                 else:
-                    return None  # No clear value
-
-            # Extract player name
-            player_name = (
-                prop_item.get("description", "").split(" - ")[0]
-                if " - " in prop_item.get("description", "")
-                else "Unknown Player"
-            )
+                    return None  # No value in high vig situation
 
             return AnalysisResult(
-                game_id=prop_item.get("pk", "").replace("PROP#", "").split("#")[1]
-                if "#" in prop_item.get("pk", "")
-                else "unknown",
+                game_id=prop_item.get("event_id", "unknown"),
                 model="value",
                 analysis_type="prop",
                 sport=prop_item.get("sport"),
                 home_team=prop_item.get("home_team"),
                 away_team=prop_item.get("away_team"),
                 commence_time=prop_item.get("commence_time"),
-                player_name=player_name,
+                player_name=prop_item.get("player_name", "Unknown Player"),
+                market_key=prop_item.get("market_key"),
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,
