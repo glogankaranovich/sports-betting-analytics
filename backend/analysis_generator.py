@@ -4,6 +4,7 @@ import os
 from typing import Dict, Any
 from decimal import Decimal
 from ml.models import ModelFactory, AnalysisResult
+from ml.dynamic_weighting import DynamicModelWeighting
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -125,6 +126,9 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
         count = 0
         games_to_process = list(games.items())[:limit] if limit else list(games.items())
 
+        # Initialize dynamic weighting
+        weighting = DynamicModelWeighting()
+
         for game_id, game_data in games_to_process:
             game_info = game_data["items"][0]  # Get game info from first item
             bookmakers = list(game_data["bookmakers"])
@@ -135,6 +139,14 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
             )
 
             if analysis_result:
+                # Adjust confidence based on recent performance
+                adjusted_confidence = weighting.calculate_adjusted_confidence(
+                    analysis_result.confidence,
+                    analysis_result.model,
+                    analysis_result.sport,
+                    "game",
+                )
+
                 # Store one record per bookmaker with the same analysis
                 for bookmaker in bookmakers:
                     # Create a new AnalysisResult with the specific bookmaker
@@ -149,7 +161,7 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                         commence_time=analysis_result.commence_time,
                         player_name=analysis_result.player_name,
                         prediction=analysis_result.prediction,
-                        confidence=analysis_result.confidence,
+                        confidence=adjusted_confidence,
                         reasoning=analysis_result.reasoning,
                     )
                     store_analysis(bookmaker_result.to_dynamodb_item())
@@ -221,6 +233,9 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
         grouped_list = list(grouped_props.values())
         props_to_process = grouped_list[:limit] if limit else grouped_list
 
+        # Initialize dynamic weighting
+        weighting = DynamicModelWeighting()
+
         for grouped_prop in props_to_process:
             # Convert bookmakers set to list for JSON serialization
             bookmakers = list(grouped_prop["bookmakers"])
@@ -230,6 +245,14 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
             analysis_result = model.analyze_prop_odds(grouped_prop)
 
             if analysis_result:
+                # Adjust confidence based on recent performance
+                adjusted_confidence = weighting.calculate_adjusted_confidence(
+                    analysis_result.confidence,
+                    analysis_result.model,
+                    analysis_result.sport,
+                    "prop",
+                )
+
                 # Store one record per bookmaker with the same analysis
                 for bookmaker in bookmakers:
                     # Create a new AnalysisResult with the specific bookmaker
@@ -245,7 +268,7 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
                         player_name=analysis_result.player_name,
                         market_key=analysis_result.market_key,
                         prediction=analysis_result.prediction,
-                        confidence=analysis_result.confidence,
+                        confidence=adjusted_confidence,
                         reasoning=analysis_result.reasoning,
                     )
                     store_analysis(bookmaker_result.to_dynamodb_item())
