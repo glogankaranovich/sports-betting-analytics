@@ -111,7 +111,7 @@ def test_api_integration():
 
         print("Testing /games endpoint with auth...")
         auth_games_response = requests.get(
-            f"{api_url}/games", headers=headers, timeout=10
+            f"{api_url}/games?sport=basketball_nba", headers=headers, timeout=10
         )
         assert (
             auth_games_response.status_code == 200
