@@ -99,6 +99,16 @@ class TestPlayerStatsCollector(unittest.TestCase):
 
         collector = PlayerStatsCollector()
 
+        # Test supported sports
+        self.assertEqual(collector.collect_stats_for_sport("basketball_nba"), 0)
+        self.assertEqual(collector.collect_stats_for_sport("americanfootball_nfl"), 0)
+        self.assertEqual(collector.collect_stats_for_sport("baseball_mlb"), 0)
+        self.assertEqual(collector.collect_stats_for_sport("icehockey_nhl"), 0)
+        self.assertEqual(collector.collect_stats_for_sport("soccer_epl"), 0)
+
+        # Test unsupported sport
+        self.assertEqual(collector.collect_stats_for_sport("unsupported_sport"), 0)
+
         result = collector._convert_to_decimal(3.14)
         self.assertIsInstance(result, Decimal)
         self.assertEqual(result, Decimal("3.14"))

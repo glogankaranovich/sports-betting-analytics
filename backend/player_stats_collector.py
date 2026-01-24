@@ -18,7 +18,15 @@ class PlayerStatsCollector:
 
     def collect_stats_for_sport(self, sport: str) -> int:
         """Collect player stats for completed games"""
-        if sport not in ["basketball_nba", "americanfootball_nfl"]:
+        supported_sports = [
+            "basketball_nba",
+            "americanfootball_nfl",
+            "baseball_mlb",
+            "icehockey_nhl",
+            "soccer_epl",
+        ]
+
+        if sport not in supported_sports:
             print(f"Player stats not supported for {sport}")
             return 0
 
@@ -97,9 +105,14 @@ class PlayerStatsCollector:
         """Find ESPN game ID by matching teams and date"""
         try:
             # Convert sport key to ESPN format
-            espn_sport = (
-                "basketball/nba" if sport == "basketball_nba" else "football/nfl"
-            )
+            sport_map = {
+                "basketball_nba": "basketball/nba",
+                "americanfootball_nfl": "football/nfl",
+                "baseball_mlb": "baseball/mlb",
+                "icehockey_nhl": "hockey/nhl",
+                "soccer_epl": "soccer/eng.1",
+            }
+            espn_sport = sport_map.get(sport, "basketball/nba")
 
             # Get game date (YYYYMMDD format)
             game_date = datetime.fromisoformat(
@@ -183,9 +196,14 @@ class PlayerStatsCollector:
     ) -> List[Dict[str, Any]]:
         """Fetch player stats from ESPN API"""
         try:
-            espn_sport = (
-                "basketball/nba" if sport == "basketball_nba" else "football/nfl"
-            )
+            sport_map = {
+                "basketball_nba": "basketball/nba",
+                "americanfootball_nfl": "football/nfl",
+                "baseball_mlb": "baseball/mlb",
+                "icehockey_nhl": "hockey/nhl",
+                "soccer_epl": "soccer/eng.1",
+            }
+            espn_sport = sport_map.get(sport, "basketball/nba")
             url = f"{self.espn_base_url}/{espn_sport}/summary?event={espn_game_id}"
 
             response = requests.get(url, timeout=10)

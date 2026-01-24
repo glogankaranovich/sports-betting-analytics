@@ -96,6 +96,22 @@ class TestTeamStatsCollector(unittest.TestCase):
         self.assertEqual(result["name"], "test")
 
     @patch("team_stats_collector.boto3")
+    def test_supported_sports(self, mock_boto3):
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+
+        collector = TeamStatsCollector()
+
+        # Test supported sports
+        self.assertEqual(collector.collect_stats_for_sport("basketball_nba"), 0)
+        self.assertEqual(collector.collect_stats_for_sport("americanfootball_nfl"), 0)
+        self.assertEqual(collector.collect_stats_for_sport("baseball_mlb"), 0)
+        self.assertEqual(collector.collect_stats_for_sport("icehockey_nhl"), 0)
+        self.assertEqual(collector.collect_stats_for_sport("soccer_epl"), 0)
+
+        # Test unsupported sport
+        self.assertEqual(collector.collect_stats_for_sport("unsupported_sport"), 0)
+
+    @patch("team_stats_collector.boto3")
     @patch("team_stats_collector.requests")
     def test_fetch_espn_team_stats_api_error(self, mock_requests, mock_boto3):
         mock_boto3.resource.return_value.Table.return_value = self.mock_table
