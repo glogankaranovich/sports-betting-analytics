@@ -37,6 +37,9 @@ export class InsightGeneratorStack extends cdk.Stack {
       memorySize: 512,
     };
 
+    // Split into 2 Lambdas by bet type to avoid IAM policy size limit
+    // Lambda 1: Game insights (all sports) - 30 rules
+    // Lambda 2: Prop insights (all sports) - 30 rules
     this.insightGeneratorFunction = new lambda.Function(this, 'InsightGeneratorFunction', functionProps);
     this.insightGeneratorFunction2 = new lambda.Function(this, 'InsightGeneratorFunction2', functionProps);
 
@@ -45,22 +48,19 @@ export class InsightGeneratorStack extends cdk.Stack {
 
     // EventBridge schedules to run daily at 8 PM ET (1 AM UTC) - after analysis generation
     
-    // Sport seasons - split between two Lambdas to avoid policy size limit
-    const sportSeasons1 = {
+    // All sports
+    const sports = {
       'basketball_nba': { start: 10, end: 6 },
       'americanfootball_nfl': { start: 9, end: 2 },
-      'baseball_mlb': { start: 3, end: 10 }
-    };
-    
-    const sportSeasons2 = {
+      'baseball_mlb': { start: 3, end: 10 },
       'icehockey_nhl': { start: 10, end: 6 },
       'soccer_epl': { start: 8, end: 5 }
     };
     
     const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule'];
     
-    // Lambda 1: NBA, NFL, MLB
-    Object.entries(sportSeasons1).forEach(([sport, season]) => {
+    // Lambda 1: Game insights for all sports (30 rules)
+    Object.entries(sports).forEach(([sport, season]) => {
       const sportName = sport.split('_')[1].toUpperCase();
       
       models.forEach((model, index) => {
@@ -69,32 +69,16 @@ export class InsightGeneratorStack extends cdk.Stack {
           description: `Generate ${model} ${sportName} game insights at 8:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`,
           targets: [new targets.LambdaFunction(this.insightGeneratorFunction, {
             event: events.RuleTargetInput.fromObject({ model, analysis_type: 'game', sport })
-          })]
-        });
-
-        new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}PropInsight`, {
-          schedule: events.Schedule.cron({ minute: `${10 + (index * 2)}`, hour: '1' }),
-          description: `Generate ${model} ${sportName} prop insights at 8:${10 + (index * 2)} PM ET`,
-          targets: [new targets.LambdaFunction(this.insightGeneratorFunction, {
-            event: events.RuleTargetInput.fromObject({ model, analysis_type: 'prop', sport })
           })]
         });
       });
     });
     
-    // Lambda 2: NHL, EPL
-    Object.entries(sportSeasons2).forEach(([sport, season]) => {
+    // Lambda 2: Prop insights for all sports (30 rules)
+    Object.entries(sports).forEach(([sport, season]) => {
       const sportName = sport.split('_')[1].toUpperCase();
       
       models.forEach((model, index) => {
-        new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}GameInsight`, {
-          schedule: events.Schedule.cron({ minute: `${index * 2}`, hour: '1' }),
-          description: `Generate ${model} ${sportName} game insights at 8:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`,
-          targets: [new targets.LambdaFunction(this.insightGeneratorFunction2, {
-            event: events.RuleTargetInput.fromObject({ model, analysis_type: 'game', sport })
-          })]
-        });
-
         new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}PropInsight`, {
           schedule: events.Schedule.cron({ minute: `${10 + (index * 2)}`, hour: '1' }),
           description: `Generate ${model} ${sportName} prop insights at 8:${10 + (index * 2)} PM ET`,

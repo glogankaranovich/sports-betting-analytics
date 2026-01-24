@@ -132,10 +132,11 @@ def test_prediction_generator_integration():
     else:
         print(f"✓ Game analysis completed: {payload}")
 
-    # Test prop analysis
+    # Test prop analysis (Lambda 2 handles props after split)
     print("Testing prop analysis with limit=2...")
+    lambda_function_name_props = f"analysis-generator-2-{environment}"
     response = lambda_client.invoke(
-        FunctionName=lambda_function_name,
+        FunctionName=lambda_function_name_props,
         InvocationType="RequestResponse",
         Payload=json.dumps(
             {

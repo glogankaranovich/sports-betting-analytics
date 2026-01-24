@@ -52,11 +52,12 @@ def test_multi_model_analysis():
         # Small delay between invocations
         time.sleep(1)
 
-        # Test prop analysis
+        # Test prop analysis (Lambda 2 handles props after split)
         payload["bet_type"] = "props"
+        lambda_function_name_props = f"analysis-generator-2-{environment}"
 
         response = lambda_client.invoke(
-            FunctionName=lambda_function_name,
+            FunctionName=lambda_function_name_props,
             InvocationType="RequestResponse",
             Payload=json.dumps(payload),
         )
