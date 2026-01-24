@@ -216,8 +216,11 @@ class TeamStatsCollector:
 
             # Store team stats as separate records
             for team_name, stats in team_stats_decimal.items():
-                pk = f"TEAM_STATS#{sport}#{team_name}"
-                sk = game_id
+                # Normalize team name: lowercase with underscores
+                normalized_name = team_name.lower().replace(" ", "_")
+
+                pk = f"TEAM_STATS#{sport}#{normalized_name}"
+                sk = datetime.utcnow().isoformat()
 
                 self.table.put_item(
                     Item={
@@ -227,7 +230,7 @@ class TeamStatsCollector:
                         "sport": sport,
                         "team_name": team_name,
                         "stats": stats,
-                        "collected_at": datetime.utcnow().isoformat(),
+                        "collected_at": sk,
                     }
                 )
 

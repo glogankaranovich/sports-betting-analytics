@@ -81,6 +81,15 @@ export class DynamoDBStack extends cdk.Stack {
       }
     });
 
+    // Add LSI for game_id lookups on player/team stats
+    this.betsTable.addLocalSecondaryIndex({
+      indexName: 'GameIdIndex',
+      sortKey: {
+        name: 'game_id',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
     // Output the table name
     this.betsTableName = new cdk.CfnOutput(this, 'BetsTableName', {
       value: this.betsTable.tableName,

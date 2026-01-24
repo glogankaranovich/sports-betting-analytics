@@ -237,15 +237,18 @@ class OutcomeCollector:
             game_id = game["id"]
             sport = game["sport"]
 
-            pk = f"PLAYER_STATS#{sport}#{player_name}"
-            print(f"Querying for player stats with PK: {pk}, SK: {game_id}")
+            # Normalize player name to match storage format
+            normalized_name = player_name.lower().replace(" ", "_")
+            pk = f"PLAYER_STATS#{sport}#{normalized_name}"
+            print(f"Querying for player stats with PK: {pk}, game_id: {game_id}")
 
-            # Look for player stats in DynamoDB using correct PK pattern
+            # Look for player stats in DynamoDB using LSI
             response = self.table.query(
-                KeyConditionExpression="pk = :pk AND sk = :sk",
+                IndexName="GameIdIndex",
+                KeyConditionExpression="pk = :pk AND game_id = :game_id",
                 ExpressionAttributeValues={
                     ":pk": pk,
-                    ":sk": game_id,
+                    ":game_id": game_id,
                 },
             )
 

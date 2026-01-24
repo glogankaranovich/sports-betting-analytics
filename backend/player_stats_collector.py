@@ -239,8 +239,11 @@ class PlayerStatsCollector:
                 # Convert float values to Decimal
                 stats_decimal = self._convert_to_decimal(stats)
 
-                pk = f"PLAYER_STATS#{sport}#{player_name}"
-                sk = game_id
+                # Normalize player name: lowercase with underscores
+                normalized_name = player_name.lower().replace(" ", "_")
+
+                pk = f"PLAYER_STATS#{sport}#{normalized_name}"
+                sk = datetime.utcnow().isoformat()
 
                 self.table.put_item(
                     Item={
@@ -250,7 +253,7 @@ class PlayerStatsCollector:
                         "sport": sport,
                         "player_name": player_name,
                         "stats": stats_decimal,
-                        "collected_at": datetime.utcnow().isoformat(),
+                        "collected_at": sk,
                     }
                 )
 
