@@ -82,11 +82,16 @@ class TestPlayerStatsCollector(unittest.TestCase):
         call_args = self.mock_table.put_item.call_args[1]
         item = call_args["Item"]
 
-        self.assertEqual(item["pk"], "PLAYER_STATS#basketball_nba#Test Player")
-        self.assertEqual(item["sk"], game_id)
+        self.assertEqual(item["pk"], "PLAYER_STATS#basketball_nba#test_player")
         self.assertEqual(item["game_id"], game_id)
+        self.assertEqual(item["game_index_pk"], game_id)
+        self.assertEqual(
+            item["game_index_sk"], "PLAYER_STATS#basketball_nba#test_player"
+        )
         self.assertEqual(item["sport"], "basketball_nba")
         self.assertEqual(item["player_name"], "Test Player")
+        self.assertIn("sk", item)  # SK is timestamp
+        self.assertIn("collected_at", item)  # collected_at is timestamp
 
     @patch("player_stats_collector.boto3")
     def test_convert_to_decimal(self, mock_boto3):
