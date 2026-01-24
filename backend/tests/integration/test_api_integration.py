@@ -115,7 +115,7 @@ def test_api_integration():
         )
         assert (
             auth_games_response.status_code == 200
-        ), f"Authenticated games request failed: {auth_games_response.status_code}"
+        ), f"Authenticated games request failed: {auth_games_response.status_code} - {auth_games_response.text}"
 
         games_data = auth_games_response.json()
         assert "games" in games_data, "Games data missing"
