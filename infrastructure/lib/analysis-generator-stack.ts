@@ -30,8 +30,14 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       }
     };
 
-    this.analysisGeneratorFunction = new lambda.Function(this, 'AnalysisGeneratorFunction', functionProps);
-    this.analysisGeneratorFunction2 = new lambda.Function(this, 'AnalysisGeneratorFunction2', functionProps);
+    this.analysisGeneratorFunction = new lambda.Function(this, 'AnalysisGeneratorFunction', {
+      ...functionProps,
+      functionName: `analysis-generator-1-${props.environment}`
+    });
+    this.analysisGeneratorFunction2 = new lambda.Function(this, 'AnalysisGeneratorFunction2', {
+      ...functionProps,
+      functionName: `analysis-generator-2-${props.environment}`
+    });
 
     const policy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,

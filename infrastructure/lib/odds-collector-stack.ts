@@ -26,6 +26,7 @@ export class OddsCollectorStack extends cdk.Stack {
 
     // Lambda function for odds collection with Docker bundling
     this.oddsCollectorFunction = new lambda.Function(this, 'OddsCollectorFunction', {
+      functionName: `odds-collector-${props.environment}`,
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'odds_collector.lambda_handler',
       code: lambda.Code.fromAsset('../backend', {

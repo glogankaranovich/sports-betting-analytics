@@ -9,22 +9,11 @@ def test_odds_collector_integration():
 
     environment = os.getenv("ENVIRONMENT", "dev")
     table_name = f"carpool-bets-v2-{environment}"
+    lambda_function_name = f"odds-collector-{environment}"
 
     lambda_client = boto3.client("lambda", region_name="us-east-1")
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
     table = dynamodb.Table(table_name)
-
-    # Find the Lambda function
-    functions_response = lambda_client.list_functions()
-    lambda_function_name = None
-
-    for func in functions_response["Functions"]:
-        if "OddsCollectorFunction" in func["FunctionName"]:
-            lambda_function_name = func["FunctionName"]
-            break
-
-    if not lambda_function_name:
-        raise Exception("Could not find OddsCollectorFunction Lambda")
 
     print(f"Testing odds collector: {lambda_function_name}")
 
@@ -91,20 +80,9 @@ def test_odds_collector_integration():
 def test_props_collector_integration():
     """Test props collector Lambda function"""
 
-    _ = os.getenv("ENVIRONMENT", "dev")  # Environment for function discovery
+    environment = os.getenv("ENVIRONMENT", "dev")
+    lambda_function_name = f"odds-collector-{environment}"
     lambda_client = boto3.client("lambda", region_name="us-east-1")
-
-    # Find the Lambda function
-    functions_response = lambda_client.list_functions()
-    lambda_function_name = None
-
-    for func in functions_response["Functions"]:
-        if "OddsCollectorFunction" in func["FunctionName"]:
-            lambda_function_name = func["FunctionName"]
-            break
-
-    if not lambda_function_name:
-        raise Exception("Could not find OddsCollectorFunction Lambda")
 
     print(f"Testing props collector: {lambda_function_name}")
 
@@ -128,21 +106,9 @@ def test_props_collector_integration():
 def test_prediction_generator_integration():
     """Test prediction generator Lambda function"""
 
-    _ = os.getenv("ENVIRONMENT", "dev")  # Environment for function discovery
+    environment = os.getenv("ENVIRONMENT", "dev")
+    lambda_function_name = f"analysis-generator-1-{environment}"
     lambda_client = boto3.client("lambda", region_name="us-east-1")
-
-    # Find the Lambda function
-    functions_response = lambda_client.list_functions()
-    lambda_function_name = None
-
-    for func in functions_response["Functions"]:
-        if "AnalysisGenerator" in func["FunctionName"]:
-            lambda_function_name = func["FunctionName"]
-            break
-
-    if not lambda_function_name:
-        print("⚠️  AnalysisGenerator function not found - skipping test")
-        return True
 
     print(f"Testing analysis generator: {lambda_function_name}")
 
@@ -198,20 +164,9 @@ def test_prediction_generator_integration():
 
 def test_outcome_collector_integration():
     """Test outcome collector Lambda function"""
+    environment = os.getenv("ENVIRONMENT", "dev")
+    lambda_function_name = f"outcome-collector-{environment}"
     lambda_client = boto3.client("lambda", region_name="us-east-1")
-
-    # Find the Lambda function
-    functions_response = lambda_client.list_functions()
-    lambda_function_name = None
-
-    for func in functions_response["Functions"]:
-        if "OutcomeCollector" in func["FunctionName"]:
-            lambda_function_name = func["FunctionName"]
-            break
-
-    if not lambda_function_name:
-        print("⚠️  OutcomeCollector function not found - skipping test")
-        return True
 
     print(f"Testing outcome collector: {lambda_function_name}")
 

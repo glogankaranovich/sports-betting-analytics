@@ -4,24 +4,14 @@ Integration test for multi-model analysis generation
 import boto3
 import json
 import time
+import os
 
 
 def test_multi_model_analysis():
     """Test that all three models generate analyses correctly"""
+    environment = os.getenv("ENVIRONMENT", "dev")
+    lambda_function_name = f"analysis-generator-1-{environment}"
     lambda_client = boto3.client("lambda", region_name="us-east-1")
-    cloudformation = boto3.client("cloudformation", region_name="us-east-1")
-
-    # Get Lambda function name from stack
-    stack_name = "Dev-AnalysisGenerator"
-    response = cloudformation.describe_stacks(StackName=stack_name)
-
-    function_arn = None
-    for output in response["Stacks"][0]["Outputs"]:
-        if output["OutputKey"] == "AnalysisGeneratorFunctionArn":
-            function_arn = output["OutputValue"]
-            break
-
-    function_name = function_arn.split(":")[-1]
 
     models = ["consensus", "value", "momentum"]
     results = {}
@@ -42,7 +32,7 @@ def test_multi_model_analysis():
         }
 
         response = lambda_client.invoke(
-            FunctionName=function_name,
+            FunctionName=lambda_function_name,
             InvocationType="RequestResponse",
             Payload=json.dumps(payload),
         )
@@ -66,7 +56,7 @@ def test_multi_model_analysis():
         payload["bet_type"] = "props"
 
         response = lambda_client.invoke(
-            FunctionName=function_name,
+            FunctionName=lambda_function_name,
             InvocationType="RequestResponse",
             Payload=json.dumps(payload),
         )
@@ -98,8 +88,9 @@ def test_multi_model_analysis():
 
 def test_model_data_differences():
     """Verify that different models produce different analyses"""
+    environment = os.getenv("ENVIRONMENT", "dev")
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-    table = dynamodb.Table("carpool-bets-v2-dev")
+    table = dynamodb.Table(f"carpool-bets-v2-{environment}")
 
     print(f"\n{'='*60}")
     print("Testing Model Data Differences")

@@ -84,7 +84,7 @@ class TestPlayerPropsUnit(unittest.TestCase):
 
         # Patch the table object like existing tests
         with patch("api_handler.table") as mock_table:
-            mock_table.scan.return_value = {"Items": []}
+            mock_table.query.return_value = {"Items": [], "Count": 0}
 
             event = {
                 "httpMethod": "GET",
@@ -139,7 +139,9 @@ class TestPlayerPropsIntegration(unittest.TestCase):
 
     def test_player_props_endpoint_exists(self):
         """Test that player props endpoint is accessible"""
-        response = requests.get(f"{self.api_url}/player-props", headers=self.headers)
+        response = requests.get(
+            f"{self.api_url}/player-props?sport=basketball_nba", headers=self.headers
+        )
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
@@ -166,7 +168,7 @@ class TestPlayerPropsIntegration(unittest.TestCase):
     def test_player_props_filtering_by_prop_type(self):
         """Test filtering player props by prop type"""
         response = requests.get(
-            f"{self.api_url}/player-props?prop_type=player_pass_tds",
+            f"{self.api_url}/player-props?sport=americanfootball_nfl&prop_type=player_pass_tds",
             headers=self.headers,
         )
         self.assertEqual(response.status_code, 200)
@@ -194,7 +196,8 @@ class TestPlayerPropsIntegration(unittest.TestCase):
     def test_player_props_pagination(self):
         """Test pagination with limit parameter"""
         response = requests.get(
-            f"{self.api_url}/player-props?limit=5", headers=self.headers
+            f"{self.api_url}/player-props?sport=basketball_nba&limit=5",
+            headers=self.headers,
         )
         self.assertEqual(response.status_code, 200)
 

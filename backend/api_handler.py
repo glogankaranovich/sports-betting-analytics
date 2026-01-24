@@ -295,8 +295,10 @@ def handle_get_player_props(query_params: Dict[str, str]):
         # Loop to get enough items (FilterExpression filters AFTER limit)
         props = []
         current_key = exclusive_start_key
+        max_iterations = 10  # Safety limit to prevent infinite loops
 
-        while len(props) < limit:
+        while len(props) < limit and max_iterations > 0:
+            max_iterations -= 1
             query_kwargs = {
                 "IndexName": "ActiveBetsIndexV2",
                 "KeyConditionExpression": boto3.dynamodb.conditions.Key(

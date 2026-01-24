@@ -27,6 +27,7 @@ export class OutcomeCollectorStack extends cdk.Stack {
 
     // Lambda function for outcome collection
     this.outcomeCollectorFunction = new lambda.Function(this, 'OutcomeCollectorFunction', {
+      functionName: `outcome-collector-${props.environment}`,
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'outcome_collector.lambda_handler',
       code: lambda.Code.fromAsset('../backend', {
