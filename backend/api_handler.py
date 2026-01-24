@@ -344,13 +344,6 @@ def handle_get_player_props(query_params: Dict[str, str]):
         return create_response(500, {"error": f"Error fetching player props: {str(e)}"})
 
 
-def _get_recent_game_analysis(sport, limit):
-    """Helper to get recent game analysis with odds data"""
-    # TODO: Implement actual data fetching from DynamoDB
-    # For now, return empty list until we integrate with real data
-    return []
-
-
 def handle_compliance_log(event_body: Dict[str, Any]):
     """Handle compliance logging requests"""
     try:
