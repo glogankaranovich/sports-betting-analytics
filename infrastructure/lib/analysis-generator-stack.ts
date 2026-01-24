@@ -46,8 +46,8 @@ export class AnalysisGeneratorStack extends cdk.Stack {
 
     // EventBridge schedules to run daily at 7 PM ET (12 AM UTC) - after odds collection
     
-    // Generate analyses for all models: consensus, value, momentum
-    const models = ['consensus', 'value', 'momentum'];
+    // Generate analyses for all models
+    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold'];
     
     models.forEach((model, index) => {
       // Generate game analyses for each model

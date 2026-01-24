@@ -39,8 +39,8 @@ export class InsightGeneratorStack extends cdk.Stack {
 
     // EventBridge schedules to run daily at 8 PM ET (1 AM UTC) - after analysis generation
     
-    // Generate insights for all models: consensus, value, momentum
-    const models = ['consensus', 'value', 'momentum'];
+    // Generate insights for all models
+    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold'];
     
     models.forEach((model, index) => {
       // Generate game insights for each model
