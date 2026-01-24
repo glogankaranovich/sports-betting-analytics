@@ -81,11 +81,15 @@ export class DynamoDBStack extends cdk.Stack {
       }
     });
 
-    // Add LSI for game_id lookups on player/team stats
-    this.betsTable.addLocalSecondaryIndex({
-      indexName: 'GameIdIndex',
+    // Add GSI for game-based lookups (player/team stats by game)
+    this.betsTable.addGlobalSecondaryIndex({
+      indexName: 'GameIndex',
+      partitionKey: {
+        name: 'game_index_pk',
+        type: dynamodb.AttributeType.STRING
+      },
       sortKey: {
-        name: 'game_id',
+        name: 'game_index_sk',
         type: dynamodb.AttributeType.STRING
       }
     });

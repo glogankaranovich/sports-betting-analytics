@@ -227,6 +227,8 @@ class TeamStatsCollector:
                         "pk": pk,
                         "sk": sk,
                         "game_id": game_id,
+                        "game_index_pk": game_id,
+                        "game_index_sk": pk,
                         "sport": sport,
                         "team_name": team_name,
                         "stats": stats,

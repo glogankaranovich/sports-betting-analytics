@@ -250,6 +250,8 @@ class PlayerStatsCollector:
                         "pk": pk,
                         "sk": sk,
                         "game_id": game_id,
+                        "game_index_pk": game_id,
+                        "game_index_sk": pk,
                         "sport": sport,
                         "player_name": player_name,
                         "stats": stats_decimal,

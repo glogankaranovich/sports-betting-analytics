@@ -239,16 +239,18 @@ class OutcomeCollector:
 
             # Normalize player name to match storage format
             normalized_name = player_name.lower().replace(" ", "_")
-            pk = f"PLAYER_STATS#{sport}#{normalized_name}"
-            print(f"Querying for player stats with PK: {pk}, game_id: {game_id}")
+            player_pk = f"PLAYER_STATS#{sport}#{normalized_name}"
+            print(
+                f"Querying for player stats with game_id: {game_id}, player: {player_pk}"
+            )
 
-            # Look for player stats in DynamoDB using LSI
+            # Look for player stats in DynamoDB using GameIndex GSI
             response = self.table.query(
-                IndexName="GameIdIndex",
-                KeyConditionExpression="pk = :pk AND game_id = :game_id",
+                IndexName="GameIndex",
+                KeyConditionExpression="game_index_pk = :game_id AND game_index_sk = :player_pk",
                 ExpressionAttributeValues={
-                    ":pk": pk,
                     ":game_id": game_id,
+                    ":player_pk": player_pk,
                 },
             )
 
