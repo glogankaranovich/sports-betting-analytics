@@ -27,7 +27,8 @@ const Settings: React.FC<SettingsProps> = ({
     value: 'Finds odds discrepancies and value opportunities',
     momentum: 'Tracks line movement and sharp action',
     contrarian: 'Fades the public, follows sharp money',
-    hot_cold: 'Recent form and performance trends'
+    hot_cold: 'Recent form and performance trends',
+    rest_schedule: 'Rest days, back-to-backs, and home/away splits'
   };
 
   const sportDisplayNames: Record<string, string> = {
@@ -78,6 +79,7 @@ const Settings: React.FC<SettingsProps> = ({
             <option value="momentum">Momentum</option>
             <option value="contrarian">Contrarian</option>
             <option value="hot_cold">Hot/Cold</option>
+            <option value="rest_schedule">Rest/Schedule</option>
           </select>
           <div className="model-description">
             {modelDescriptions[settings.model]}

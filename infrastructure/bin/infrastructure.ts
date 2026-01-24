@@ -15,6 +15,7 @@ import { AmplifyStack } from '../lib/amplify-stack';
 import { ComplianceStack } from '../lib/compliance-stack';
 import { CarpoolBetsPipelineStack } from '../lib/pipeline-stack';
 import { SeasonManagerStack } from '../lib/season-manager-stack';
+import { ScheduleCollectorStack } from '../lib/schedule-collector-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -86,6 +87,12 @@ if (environment === 'dev') {
 
   new SeasonManagerStack(app, StackNames.forEnvironment('dev', 'SeasonManager'), {
     environment: 'dev',
+    env: ENVIRONMENTS.dev,
+  });
+
+  new ScheduleCollectorStack(app, StackNames.forEnvironment('dev', 'ScheduleCollector'), {
+    environment: 'dev',
+    betsTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
   });
 

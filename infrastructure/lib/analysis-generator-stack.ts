@@ -65,7 +65,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       'soccer_epl': { start: 8, end: 5 }
     };
     
-    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold'];
+    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule'];
     
     // Lambda 1: NBA, NFL, MLB
     Object.entries(sportSeasons1).forEach(([sport, season]) => {

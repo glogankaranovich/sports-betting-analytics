@@ -66,6 +66,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       name: 'Hot/Cold Model',
       description: 'Recent form and performance trends',
       methodology: 'Analyzes last 10 games for teams and players. Identifies hot streaks and cold slumps. Weights recent performance heavily.'
+    },
+    rest_schedule: {
+      name: 'Rest/Schedule Model',
+      description: 'Rest days, back-to-backs, and home/away splits',
+      methodology: 'Evaluates days of rest between games. Penalizes back-to-back situations. Factors in home court advantage and travel fatigue.'
     }
   };
 

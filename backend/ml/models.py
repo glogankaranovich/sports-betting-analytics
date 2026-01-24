@@ -2,7 +2,7 @@
 ML Models for Sports Betting Analytics
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import math
 from datetime import datetime
@@ -750,7 +750,7 @@ class HotColdModel(BaseAnalysisModel):
         """
         try:
             # Query for recent games where this team played
-            response = self.table.query(
+            response = self.self.table.query(
                 IndexName="AnalysisTimeGSI",
                 KeyConditionExpression="analysis_time_pk = :pk",
                 FilterExpression="(home_team = :team OR away_team = :team) AND attribute_exists(analysis_correct)",
@@ -928,7 +928,7 @@ class HotColdModel(BaseAnalysisModel):
             pk = f"PLAYER_STATS#{sport}#{normalized_name}"
 
             # Query recent stats
-            response = self.table.query(
+            response = self.self.table.query(
                 KeyConditionExpression="pk = :pk",
                 ExpressionAttributeValues={":pk": pk},
                 Limit=lookback,
@@ -979,6 +979,157 @@ class HotColdModel(BaseAnalysisModel):
         return mapping.get(market_key, "PTS")
 
 
+class RestScheduleModel(BaseAnalysisModel):
+    """Model that analyzes rest days, back-to-back games, and home/away splits"""
+
+    def __init__(self, dynamodb_table=None):
+        """Initialize with optional DynamoDB table"""
+        self.table = dynamodb_table
+        if not self.table:
+            import boto3
+            import os
+
+            dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+            table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
+            self.table = dynamodb.Table(table_name)
+
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        """Analyze game based on rest and schedule factors"""
+        sport = game_info.get("sport")
+        home_team = game_info.get("home_team", "").lower().replace(" ", "_")
+        away_team = game_info.get("away_team", "").lower().replace(" ", "_")
+        game_date = game_info.get("commence_time")
+
+        home_rest = self._get_rest_score(sport, home_team, game_date, is_home=True)
+        away_rest = self._get_rest_score(sport, away_team, game_date, is_home=False)
+
+        rest_advantage = home_rest - away_rest
+        confidence = 0.5 + (rest_advantage * 0.05)
+        confidence = max(0.3, min(0.9, confidence))
+
+        pick = (
+            game_info.get("home_team")
+            if rest_advantage > 0
+            else game_info.get("away_team")
+        )
+        reasoning = f"Rest advantage: {home_team} ({home_rest:.1f}) vs {away_team} ({away_rest:.1f})"
+
+        return AnalysisResult(
+            game_id=game_id,
+            model="rest_schedule",
+            analysis_type="game",
+            sport=sport,
+            home_team=game_info.get("home_team"),
+            away_team=game_info.get("away_team"),
+            commence_time=game_date,
+            prediction=pick,
+            confidence=confidence,
+            reasoning=reasoning,
+        )
+
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        """Analyze prop based on team rest situation"""
+        sport = prop_item.get("sport")
+        player_name = prop_item.get("player_name", "").lower().replace(" ", "_")
+        game_date = prop_item.get("commence_time")
+
+        # Get team from player stats
+        team = self._get_player_team(sport, player_name)
+        if not team:
+            return None
+
+        rest_score = self._get_rest_score(sport, team, game_date, is_home=True)
+
+        confidence = 0.5 + (rest_score * 0.03)
+        confidence = max(0.3, min(0.8, confidence))
+
+        pick = "over" if rest_score > 1 else "under"
+        reasoning = f"Team rest score: {rest_score:.1f}"
+
+        return AnalysisResult(
+            game_id=prop_item.get("game_id"),
+            model="rest_schedule",
+            analysis_type="prop",
+            sport=sport,
+            player_name=prop_item.get("player_name"),
+            market_key=prop_item.get("market_key"),
+            commence_time=game_date,
+            prediction=pick,
+            confidence=confidence,
+            reasoning=reasoning,
+        )
+
+    def _get_rest_score(
+        self, sport: str, team: str, game_date: str, is_home: bool
+    ) -> float:
+        """Calculate rest score for a team"""
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND sk <= :date",
+                ExpressionAttributeValues={
+                    ":pk": f"SCHEDULE#{sport}#{team}",
+                    ":date": game_date,
+                },
+                ScanIndexForward=False,
+                Limit=2,
+            )
+
+            items = response.get("Items", [])
+            if not items:
+                return 0.0
+
+            # Current game
+            current_game = items[0]
+            rest_days = current_game.get("rest_days", 2)
+
+            score = 0.0
+
+            # Rest days factor
+            if rest_days >= 3:
+                score += 3.0
+            elif rest_days == 2:
+                score += 1.5
+            elif rest_days == 1:
+                score += 0.5
+            elif rest_days == 0:
+                score -= 3.0  # Back-to-back
+
+            # Home advantage
+            if is_home:
+                score += 1.0
+            else:
+                score -= 0.5
+
+            return score
+
+        except Exception as e:
+            print(f"Error getting rest score: {e}")
+            return 0.0
+
+    def _get_player_team(self, sport: str, player_name: str) -> Optional[str]:
+        """Get team for a player from recent stats"""
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk",
+                ExpressionAttributeValues={
+                    ":pk": f"PLAYER_STATS#{sport}#{player_name}"
+                },
+                ScanIndexForward=False,
+                Limit=1,
+            )
+
+            items = response.get("Items", [])
+            if items:
+                return items[0].get("team", "").lower().replace(" ", "_")
+            return None
+
+        except Exception as e:
+            print(f"Error getting player team: {e}")
+            return None
+
+
 class ModelFactory:
     """Factory for creating analysis models"""
 
@@ -988,6 +1139,7 @@ class ModelFactory:
         "momentum": MomentumModel,
         "contrarian": ContrarianModel,
         "hot_cold": HotColdModel,
+        "rest_schedule": RestScheduleModel,
     }
 
     @classmethod
