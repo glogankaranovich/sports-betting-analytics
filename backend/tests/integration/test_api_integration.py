@@ -214,10 +214,10 @@ def test_api_integration():
 
 
 if __name__ == "__main__":
-    success = test_api_integration()
-    if not success:
-        print("\n❌ API integration tests failed!")
-        exit(1)
-    else:
+    try:
+        test_api_integration()
         print("\n✅ All API integration tests passed!")
         exit(0)
+    except Exception as e:
+        print(f"\n❌ API integration tests failed: {e}")
+        exit(1)
