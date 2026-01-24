@@ -44,6 +44,14 @@ export class IntegrationTestRoleStack extends cdk.Stack {
                 'cloudformation:ListStacks'
               ],
               resources: ['*']
+            }),
+            new iam.PolicyStatement({
+              effect: iam.Effect.ALLOW,
+              actions: [
+                'cognito-idp:AdminInitiateAuth',
+                'cognito-idp:AdminGetUser'
+              ],
+              resources: ['*']
             })
           ]
         })
