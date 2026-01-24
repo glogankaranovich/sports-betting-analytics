@@ -51,6 +51,10 @@ interface ModelAnalyticsProps {
 }
 
 const PerformanceChart: React.FC<{ data: TimeSeriesData[] }> = ({ data }) => {
+  if (!data || data.length === 0) {
+    return <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.5)' }}>No data available</div>;
+  }
+
   const width = 800;
   const height = 300;
   const padding = { top: 20, right: 20, bottom: 40, left: 50 };
@@ -61,7 +65,7 @@ const PerformanceChart: React.FC<{ data: TimeSeriesData[] }> = ({ data }) => {
   const maxAccuracy = 100;
   const minAccuracy = 0;
   
-  const xScale = (index: number) => (index / (data.length - 1)) * chartWidth;
+  const xScale = (index: number) => data.length > 1 ? (index / (data.length - 1)) * chartWidth : chartWidth / 2;
   const yScale = (accuracy: number) => chartHeight - ((accuracy - minAccuracy) / (maxAccuracy - minAccuracy)) * chartHeight;
   
   const pathData = data.map((d, i) => {
@@ -99,12 +103,14 @@ const PerformanceChart: React.FC<{ data: TimeSeriesData[] }> = ({ data }) => {
           ))}
           
           {/* Line */}
-          <path
-            d={pathData}
-            fill="none"
-            stroke="#00d4ff"
-            strokeWidth="2"
-          />
+          {data.length > 1 && (
+            <path
+              d={pathData}
+              fill="none"
+              stroke="#00d4ff"
+              strokeWidth="2"
+            />
+          )}
           
           {/* Points */}
           {data.map((d, i) => (

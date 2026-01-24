@@ -8,6 +8,7 @@ import BetInsights from './components/BetInsights';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
+import Models from './components/Models';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import logo from './assets/carpool_bets_2.png';
@@ -23,7 +24,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [topInsight, setTopInsight] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights' | 'analytics'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights' | 'models'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
@@ -409,10 +410,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             Insights
           </button>
           <button 
-            className={`tab-button ${activeTab === 'analytics' ? 'active' : ''}`}
-            onClick={() => handleTabChange('analytics')}
+            className={`tab-button ${activeTab === 'models' ? 'active' : ''}`}
+            onClick={() => handleTabChange('models')}
           >
-            Model Analytics
+            Models
           </button>
         </div>
 
@@ -651,8 +652,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <BetInsights token={token} settings={settings} />
         )}
 
-        {activeTab === 'analytics' && (
-          <ModelAnalytics token={token} />
+        {activeTab === 'models' && (
+          <Models token={token} settings={settings} />
         )}
       </main>
     </div>
