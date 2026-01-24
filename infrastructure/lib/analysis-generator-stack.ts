@@ -57,6 +57,12 @@ export class AnalysisGeneratorStack extends cdk.Stack {
     
     const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold'];
     
+    // Add single permission for all EventBridge rules to avoid policy size limit
+    this.analysisGeneratorFunction.addPermission('AllowEventBridgeInvoke', {
+      principal: new iam.ServicePrincipal('events.amazonaws.com'),
+      action: 'lambda:InvokeFunction'
+    });
+    
     Object.entries(sportSeasons).forEach(([sport, season]) => {
       const sportName = sport.split('_')[1].toUpperCase();
       
