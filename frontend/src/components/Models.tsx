@@ -57,6 +57,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       name: 'Momentum Model',
       description: 'Tracks line movement and sharp action',
       methodology: 'Detects significant line movement and betting patterns. Identifies sharp action based on odds imbalances.'
+    },
+    contrarian: {
+      name: 'Contrarian Model',
+      description: 'Fades the public, follows sharp money',
+      methodology: 'Identifies reverse line movement and odds imbalances. Bets against public favorites and with sharp action.'
     }
   };
 

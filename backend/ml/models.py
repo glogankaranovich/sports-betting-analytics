@@ -454,6 +454,215 @@ class MomentumModel(BaseAnalysisModel):
             return None
 
 
+class ContrarianModel(BaseAnalysisModel):
+    """Contrarian model: Fade the public, follow sharp action"""
+
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        """
+        Contrarian approach:
+        1. Look for reverse line movement (line moves against public betting)
+        2. Identify odds imbalances that suggest sharp action
+        3. Fade heavy public favorites
+        """
+        spread_items = []
+
+        for item in odds_items:
+            if "spreads" in item.get("sk", "") and "outcomes" in item:
+                if len(item["outcomes"]) >= 2:
+                    spread_items.append(item)
+
+        if not spread_items:
+            return None
+
+        # Sort by timestamp to track movement
+        spread_items.sort(key=lambda x: x.get("updated_at", ""))
+
+        if len(spread_items) < 2:
+            # Not enough data for movement analysis, use odds imbalance
+            return self._analyze_odds_imbalance(game_id, spread_items[0], game_info)
+
+        # Analyze line movement for reverse line movement
+        oldest = spread_items[0]
+        newest = spread_items[-1]
+
+        if len(oldest.get("outcomes", [])) < 2 or len(newest.get("outcomes", [])) < 2:
+            return None
+
+        old_spread = float(oldest["outcomes"][0].get("point", 0))
+        new_spread = float(newest["outcomes"][0].get("point", 0))
+        movement = new_spread - old_spread
+
+        # Contrarian signal: significant line movement suggests sharp action
+        if abs(movement) > 1.0:
+            # Strong movement = sharp money
+            confidence = 0.75
+            # Bet with the line movement (sharp side)
+            if movement > 0:
+                prediction = f"{game_info.get('away_team')} {-new_spread:+.1f}"
+                reasoning = f"Sharp action detected: Line moved {movement:+.1f} points. Fading public, following sharps."
+            else:
+                prediction = f"{game_info.get('home_team')} {new_spread:+.1f}"
+                reasoning = f"Sharp action detected: Line moved {movement:+.1f} points. Fading public, following sharps."
+        elif abs(movement) > 0.5:
+            confidence = 0.65
+            if movement > 0:
+                prediction = f"{game_info.get('away_team')} {-new_spread:+.1f}"
+                reasoning = f"Moderate sharp action: Line moved {movement:+.1f} points."
+            else:
+                prediction = f"{game_info.get('home_team')} {new_spread:+.1f}"
+                reasoning = f"Moderate sharp action: Line moved {movement:+.1f} points."
+        else:
+            # No significant movement, use odds imbalance
+            return self._analyze_odds_imbalance(game_id, newest, game_info)
+
+        return AnalysisResult(
+            game_id=game_id,
+            model="contrarian",
+            analysis_type="game",
+            sport=game_info.get("sport"),
+            home_team=game_info.get("home_team"),
+            away_team=game_info.get("away_team"),
+            commence_time=game_info.get("commence_time"),
+            prediction=prediction,
+            confidence=confidence,
+            reasoning=reasoning,
+        )
+
+    def _analyze_odds_imbalance(
+        self, game_id: str, spread_item: Dict, game_info: Dict
+    ) -> AnalysisResult:
+        """
+        Analyze odds imbalance to detect sharp action
+        When one side has worse odds than expected, it suggests sharp money
+        """
+        outcomes = spread_item.get("outcomes", [])
+        if len(outcomes) < 2:
+            return None
+
+        home_outcome = outcomes[0]
+        away_outcome = outcomes[1]
+
+        home_price = float(home_outcome.get("price", -110))
+        away_price = float(away_outcome.get("price", -110))
+        home_spread = float(home_outcome.get("point", 0))
+
+        # Calculate vig imbalance
+        # Standard is -110/-110, imbalance suggests one-sided action
+        price_diff = abs(home_price - away_price)
+
+        if price_diff > 15:
+            # Significant imbalance - bet the worse price (sharp side)
+            confidence = 0.70
+            if home_price < away_price:
+                # Home has worse price = sharp money on home
+                prediction = f"{game_info.get('home_team')} {home_spread:+.1f}"
+                reasoning = f"Odds imbalance detected ({home_price}/{away_price}). Sharp money on home team."
+            else:
+                # Away has worse price = sharp money on away
+                prediction = f"{game_info.get('away_team')} {-home_spread:+.1f}"
+                reasoning = f"Odds imbalance detected ({home_price}/{away_price}). Sharp money on away team."
+        elif price_diff > 10:
+            confidence = 0.60
+            if home_price < away_price:
+                prediction = f"{game_info.get('home_team')} {home_spread:+.1f}"
+                reasoning = f"Moderate odds imbalance ({home_price}/{away_price}). Slight sharp lean on home."
+            else:
+                prediction = f"{game_info.get('away_team')} {-home_spread:+.1f}"
+                reasoning = f"Moderate odds imbalance ({home_price}/{away_price}). Slight sharp lean on away."
+        else:
+            # No clear signal, fade the favorite
+            confidence = 0.55
+            if home_spread < 0:
+                # Home is favorite, fade them
+                prediction = f"{game_info.get('away_team')} {-home_spread:+.1f}"
+                reasoning = f"No clear sharp action. Fading favorite {game_info.get('home_team')}."
+            else:
+                # Away is favorite, fade them
+                prediction = f"{game_info.get('home_team')} {home_spread:+.1f}"
+                reasoning = f"No clear sharp action. Fading favorite {game_info.get('away_team')}."
+
+        return AnalysisResult(
+            game_id=game_id,
+            model="contrarian",
+            analysis_type="game",
+            sport=game_info.get("sport"),
+            home_team=game_info.get("home_team"),
+            away_team=game_info.get("away_team"),
+            commence_time=game_info.get("commence_time"),
+            prediction=prediction,
+            confidence=confidence,
+            reasoning=reasoning,
+        )
+
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        """Analyze prop odds using contrarian approach"""
+        try:
+            if "outcomes" not in prop_item or len(prop_item["outcomes"]) < 2:
+                return None
+
+            outcomes = prop_item["outcomes"]
+            over_outcome = next((o for o in outcomes if o["name"] == "Over"), None)
+            under_outcome = next((o for o in outcomes if o["name"] == "Under"), None)
+
+            if not over_outcome or not under_outcome:
+                return None
+
+            over_price = float(over_outcome.get("price", -110))
+            under_price = float(under_outcome.get("price", -110))
+
+            # Analyze odds imbalance
+            price_diff = abs(over_price - under_price)
+
+            if price_diff > 15:
+                # Significant imbalance - bet the worse price (sharp side)
+                confidence = 0.70
+                if over_price < under_price:
+                    prediction = f"Over {prop_item.get('point', 'N/A')}"
+                    reasoning = f"Sharp action on Over. Odds imbalance: {over_price}/{under_price}"
+                else:
+                    prediction = f"Under {prop_item.get('point', 'N/A')}"
+                    reasoning = f"Sharp action on Under. Odds imbalance: {over_price}/{under_price}"
+            elif price_diff > 10:
+                confidence = 0.60
+                if over_price < under_price:
+                    prediction = f"Over {prop_item.get('point', 'N/A')}"
+                    reasoning = (
+                        f"Moderate sharp lean on Over: {over_price}/{under_price}"
+                    )
+                else:
+                    prediction = f"Under {prop_item.get('point', 'N/A')}"
+                    reasoning = (
+                        f"Moderate sharp lean on Under: {over_price}/{under_price}"
+                    )
+            else:
+                # No clear signal, fade the public (assume public likes overs)
+                confidence = 0.55
+                prediction = f"Under {prop_item.get('point', 'N/A')}"
+                reasoning = "No clear sharp action. Fading public (typically on overs)."
+
+            return AnalysisResult(
+                game_id=prop_item.get("event_id", "unknown"),
+                bookmaker="contrarian",
+                model="contrarian",
+                analysis_type="prop",
+                sport=prop_item.get("sport"),
+                home_team=prop_item.get("home_team"),
+                away_team=prop_item.get("away_team"),
+                commence_time=prop_item.get("commence_time"),
+                player_name=prop_item.get("player_name", "Unknown Player"),
+                market_key=prop_item.get("market_key"),
+                prediction=prediction,
+                confidence=confidence,
+                reasoning=reasoning,
+            )
+
+        except Exception as e:
+            print(f"Error analyzing contrarian prop odds: {e}")
+            return None
+
+
 class ModelFactory:
     """Factory for creating analysis models"""
 
@@ -461,6 +670,7 @@ class ModelFactory:
         "consensus": ConsensusModel,
         "value": ValueModel,
         "momentum": MomentumModel,
+        "contrarian": ContrarianModel,
     }
 
     @classmethod
