@@ -53,6 +53,22 @@ describe('DynamoDBStack', () => {
         {
           AttributeName: 'analysis_time_pk',
           AttributeType: 'S'
+        },
+        {
+          AttributeName: 'verified_analysis_pk',
+          AttributeType: 'S'
+        },
+        {
+          AttributeName: 'verified_analysis_sk',
+          AttributeType: 'S'
+        },
+        {
+          AttributeName: 'game_index_pk',
+          AttributeType: 'S'
+        },
+        {
+          AttributeName: 'game_index_sk',
+          AttributeType: 'S'
         }
       ],
       GlobalSecondaryIndexes: [
@@ -97,6 +113,38 @@ describe('DynamoDBStack', () => {
             },
             {
               AttributeName: 'commence_time',
+              KeyType: 'RANGE'
+            }
+          ],
+          Projection: {
+            ProjectionType: 'ALL'
+          }
+        },
+        {
+          IndexName: 'VerifiedAnalysisGSI',
+          KeySchema: [
+            {
+              AttributeName: 'verified_analysis_pk',
+              KeyType: 'HASH'
+            },
+            {
+              AttributeName: 'verified_analysis_sk',
+              KeyType: 'RANGE'
+            }
+          ],
+          Projection: {
+            ProjectionType: 'ALL'
+          }
+        },
+        {
+          IndexName: 'GameIndex',
+          KeySchema: [
+            {
+              AttributeName: 'game_index_pk',
+              KeyType: 'HASH'
+            },
+            {
+              AttributeName: 'game_index_sk',
               KeyType: 'RANGE'
             }
           ],
