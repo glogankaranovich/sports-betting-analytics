@@ -62,6 +62,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       name: 'Contrarian Model',
       description: 'Fades the public, follows sharp money',
       methodology: 'Identifies reverse line movement and odds imbalances. Bets against public favorites and with sharp action.'
+    },
+    hot_cold: {
+      name: 'Hot/Cold Model',
+      description: 'Recent form and performance trends',
+      methodology: 'Analyzes last 10 games for teams and players. Identifies hot streaks and cold slumps. Weights recent performance heavily.'
     }
   };
 

@@ -26,7 +26,8 @@ const Settings: React.FC<SettingsProps> = ({
     consensus: 'Average across all bookmakers - balanced approach',
     value: 'Finds odds discrepancies and value opportunities',
     momentum: 'Tracks line movement and sharp action',
-    contrarian: 'Fades the public, follows sharp money'
+    contrarian: 'Fades the public, follows sharp money',
+    hot_cold: 'Recent form and performance trends'
   };
 
   return (
@@ -68,6 +69,7 @@ const Settings: React.FC<SettingsProps> = ({
             <option value="value">Value</option>
             <option value="momentum">Momentum</option>
             <option value="contrarian">Contrarian</option>
+            <option value="hot_cold">Hot/Cold</option>
           </select>
           <div className="model-description">
             {modelDescriptions[settings.model]}
