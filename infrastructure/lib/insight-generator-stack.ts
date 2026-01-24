@@ -13,11 +13,12 @@ export interface InsightGeneratorStackProps extends cdk.StackProps {
 
 export class InsightGeneratorStack extends cdk.Stack {
   public readonly insightGeneratorFunction: lambda.Function;
+  public readonly insightGeneratorFunction2: lambda.Function;
 
   constructor(scope: Construct, id: string, props: InsightGeneratorStackProps) {
     super(scope, id, props);
 
-    this.insightGeneratorFunction = new lambda.Function(this, 'InsightGeneratorFunction', {
+    const functionProps = {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'insight_generator.lambda_handler',
       code: lambda.Code.fromAsset('../backend', {
@@ -34,66 +35,73 @@ export class InsightGeneratorStack extends cdk.Stack {
       },
       timeout: cdk.Duration.minutes(5),
       memorySize: 512,
-    });
+    };
+
+    this.insightGeneratorFunction = new lambda.Function(this, 'InsightGeneratorFunction', functionProps);
+    this.insightGeneratorFunction2 = new lambda.Function(this, 'InsightGeneratorFunction2', functionProps);
 
     props.betsTable.grantReadWriteData(this.insightGeneratorFunction);
+    props.betsTable.grantReadWriteData(this.insightGeneratorFunction2);
 
     // EventBridge schedules to run daily at 8 PM ET (1 AM UTC) - after analysis generation
     
-    // Sport seasons (month ranges)
-    const sportSeasons = {
-      'basketball_nba': { start: 10, end: 6 },      // Oct-Jun
-      'americanfootball_nfl': { start: 9, end: 2 }, // Sep-Feb
-      'baseball_mlb': { start: 3, end: 10 },        // Mar-Oct
-      'icehockey_nhl': { start: 10, end: 6 },       // Oct-Jun
-      'soccer_epl': { start: 8, end: 5 }            // Aug-May
+    // Sport seasons - split between two Lambdas to avoid policy size limit
+    const sportSeasons1 = {
+      'basketball_nba': { start: 10, end: 6 },
+      'americanfootball_nfl': { start: 9, end: 2 },
+      'baseball_mlb': { start: 3, end: 10 }
+    };
+    
+    const sportSeasons2 = {
+      'icehockey_nhl': { start: 10, end: 6 },
+      'soccer_epl': { start: 8, end: 5 }
     };
     
     const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold'];
     
-    // Add single permission for all EventBridge rules to avoid policy size limit
-    this.insightGeneratorFunction.addPermission('AllowEventBridgeInvoke', {
-      principal: new iam.ServicePrincipal('events.amazonaws.com'),
-      action: 'lambda:InvokeFunction'
-    });
-    
-    Object.entries(sportSeasons).forEach(([sport, season]) => {
+    // Lambda 1: NBA, NFL, MLB
+    Object.entries(sportSeasons1).forEach(([sport, season]) => {
       const sportName = sport.split('_')[1].toUpperCase();
       
       models.forEach((model, index) => {
-        // Generate game insights for each model/sport
-        const gameRule = new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}GameInsight`, {
-          schedule: events.Schedule.cron({
-            minute: `${index * 2}`,
-            hour: '1',
-          }),
-          description: `Generate ${model} ${sportName} game insights at 8:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET (${season.start <= season.end ? `${season.start}-${season.end}` : `${season.start}-12,1-${season.end}`})`
+        new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}GameInsight`, {
+          schedule: events.Schedule.cron({ minute: `${index * 2}`, hour: '1' }),
+          description: `Generate ${model} ${sportName} game insights at 8:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`,
+          targets: [new targets.LambdaFunction(this.insightGeneratorFunction, {
+            event: events.RuleTargetInput.fromObject({ model, analysis_type: 'game', sport })
+          })]
         });
 
-        gameRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
-          event: events.RuleTargetInput.fromObject({
-            model: model,
-            analysis_type: 'game',
-            sport: sport
-          })
-        }));
-
-        // Generate prop insights for each model/sport
-        const propRule = new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}PropInsight`, {
-          schedule: events.Schedule.cron({
-            minute: `${10 + (index * 2)}`,
-            hour: '1',
-          }),
-          description: `Generate ${model} ${sportName} prop insights at 8:${10 + (index * 2)} PM ET (${season.start <= season.end ? `${season.start}-${season.end}` : `${season.start}-12,1-${season.end}`})`
+        new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}PropInsight`, {
+          schedule: events.Schedule.cron({ minute: `${10 + (index * 2)}`, hour: '1' }),
+          description: `Generate ${model} ${sportName} prop insights at 8:${10 + (index * 2)} PM ET`,
+          targets: [new targets.LambdaFunction(this.insightGeneratorFunction, {
+            event: events.RuleTargetInput.fromObject({ model, analysis_type: 'prop', sport })
+          })]
+        });
+      });
+    });
+    
+    // Lambda 2: NHL, EPL
+    Object.entries(sportSeasons2).forEach(([sport, season]) => {
+      const sportName = sport.split('_')[1].toUpperCase();
+      
+      models.forEach((model, index) => {
+        new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}GameInsight`, {
+          schedule: events.Schedule.cron({ minute: `${index * 2}`, hour: '1' }),
+          description: `Generate ${model} ${sportName} game insights at 8:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`,
+          targets: [new targets.LambdaFunction(this.insightGeneratorFunction2, {
+            event: events.RuleTargetInput.fromObject({ model, analysis_type: 'game', sport })
+          })]
         });
 
-        propRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
-          event: events.RuleTargetInput.fromObject({
-            model: model,
-            analysis_type: 'prop',
-            sport: sport
-          })
-        }));
+        new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}PropInsight`, {
+          schedule: events.Schedule.cron({ minute: `${10 + (index * 2)}`, hour: '1' }),
+          description: `Generate ${model} ${sportName} prop insights at 8:${10 + (index * 2)} PM ET`,
+          targets: [new targets.LambdaFunction(this.insightGeneratorFunction2, {
+            event: events.RuleTargetInput.fromObject({ model, analysis_type: 'prop', sport })
+          })]
+        });
       });
     });
 
