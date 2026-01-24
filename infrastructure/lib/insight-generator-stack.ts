@@ -39,41 +39,55 @@ export class InsightGeneratorStack extends cdk.Stack {
 
     // EventBridge schedules to run daily at 8 PM ET (1 AM UTC) - after analysis generation
     
-    // Generate insights for all models
+    // Sport seasons (month ranges)
+    const sportSeasons = {
+      'basketball_nba': { start: 10, end: 6 },      // Oct-Jun
+      'americanfootball_nfl': { start: 9, end: 2 }, // Sep-Feb
+      'baseball_mlb': { start: 3, end: 10 },        // Mar-Oct
+      'icehockey_nhl': { start: 10, end: 6 },       // Oct-Jun
+      'soccer_epl': { start: 8, end: 5 }            // Aug-May
+    };
+    
     const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold'];
     
-    models.forEach((model, index) => {
-      // Generate game insights for each model
-      const gameRule = new events.Rule(this, `Daily${model.charAt(0).toUpperCase() + model.slice(1)}GameInsight`, {
-        schedule: events.Schedule.cron({
-          minute: `${index * 2}`,  // Stagger by 2 minutes: 0, 2, 4
-          hour: '1',
-        }),
-        description: `Generate ${model} game insights daily at 8:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`
+    Object.entries(sportSeasons).forEach(([sport, season]) => {
+      const sportName = sport.split('_')[1].toUpperCase();
+      
+      models.forEach((model, index) => {
+        // Generate game insights for each model/sport
+        const gameRule = new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}GameInsight`, {
+          schedule: events.Schedule.cron({
+            minute: `${index * 2}`,
+            hour: '1',
+          }),
+          description: `Generate ${model} ${sportName} game insights at 8:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET (${season.start <= season.end ? `${season.start}-${season.end}` : `${season.start}-12,1-${season.end}`})`
+        });
+
+        gameRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
+          event: events.RuleTargetInput.fromObject({
+            model: model,
+            analysis_type: 'game',
+            sport: sport
+          })
+        }));
+
+        // Generate prop insights for each model/sport
+        const propRule = new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}PropInsight`, {
+          schedule: events.Schedule.cron({
+            minute: `${10 + (index * 2)}`,
+            hour: '1',
+          }),
+          description: `Generate ${model} ${sportName} prop insights at 8:${10 + (index * 2)} PM ET (${season.start <= season.end ? `${season.start}-${season.end}` : `${season.start}-12,1-${season.end}`})`
+        });
+
+        propRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
+          event: events.RuleTargetInput.fromObject({
+            model: model,
+            analysis_type: 'prop',
+            sport: sport
+          })
+        }));
       });
-
-      gameRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
-        event: events.RuleTargetInput.fromObject({
-          model: model,
-          analysis_type: 'game'
-        })
-      }));
-
-      // Generate prop insights for each model
-      const propRule = new events.Rule(this, `Daily${model.charAt(0).toUpperCase() + model.slice(1)}PropInsight`, {
-        schedule: events.Schedule.cron({
-          minute: `${10 + (index * 2)}`,  // Stagger by 2 minutes: 10, 12, 14
-          hour: '1',
-        }),
-        description: `Generate ${model} prop insights daily at 8:${10 + (index * 2)} PM ET`
-      });
-
-      propRule.addTarget(new targets.LambdaFunction(this.insightGeneratorFunction, {
-        event: events.RuleTargetInput.fromObject({
-          model: model,
-          analysis_type: 'prop'
-        })
-      }));
     });
 
     new cdk.CfnOutput(this, 'InsightGeneratorFunctionArn', {

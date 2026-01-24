@@ -79,8 +79,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const sport = settings.sport !== 'all' ? settings.sport : undefined;
-        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const sport = settings.sport;
+        const bookmaker = settings.bookmaker;
         const data = await bettingApi.getGames(token, sport, bookmaker);
         setGames(data.games || []);
         setGamesKey(data.lastEvaluatedKey || null);
@@ -102,8 +102,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const sport = settings.sport !== 'all' ? settings.sport : undefined;
-        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const sport = settings.sport;
+        const bookmaker = settings.bookmaker;
         const data = await bettingApi.getGames(token, sport, bookmaker, gamesKey);
         setGames(prev => [...prev, ...(data.games || [])]);
         setGamesKey(data.lastEvaluatedKey || null);
@@ -121,9 +121,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const sport = settings.sport;
         const model = settings.model !== 'all' ? settings.model : undefined;
-        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const bookmaker = settings.bookmaker;
         const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', limit: 20 });
         setGameAnalysis(data.analyses || []);
         setGameAnalysisKey(data.lastEvaluatedKey || null);
@@ -140,9 +140,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const sport = settings.sport;
         const model = settings.model !== 'all' ? settings.model : undefined;
-        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const bookmaker = settings.bookmaker;
         console.log('Fetching prop analyses with:', { sport, model, bookmaker, type: 'prop' });
         const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', limit: 20 });
         console.log('Prop analyses response:', data);
@@ -164,9 +164,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const sport = settings.sport;
         const model = settings.model !== 'all' ? settings.model : undefined;
-        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const bookmaker = settings.bookmaker;
         const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', limit: 20, lastEvaluatedKey: gameAnalysisKey });
         setGameAnalysis(prev => [...prev, ...(data.analyses || [])]);
         setGameAnalysisKey(data.lastEvaluatedKey || null);
@@ -187,9 +187,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const sport = settings.sport !== 'all' ? settings.sport : undefined;
+        const sport = settings.sport;
         const model = settings.model !== 'all' ? settings.model : undefined;
-        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const bookmaker = settings.bookmaker;
         const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', limit: 20, lastEvaluatedKey: propAnalysisKey });
         setPropAnalysis(prev => [...prev, ...(data.analyses || [])]);
         setPropAnalysisKey(data.lastEvaluatedKey || null);
@@ -207,8 +207,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const sport = settings.sport !== 'all' ? settings.sport : undefined;
-        const bookmaker = settings.bookmaker !== 'all' ? settings.bookmaker : undefined;
+        const sport = settings.sport;
+        const bookmaker = settings.bookmaker;
         // No model filter - get top insight across all models
         const data = await bettingApi.getTopInsight(token, { sport, bookmaker, type: 'game' });
         setTopInsight(data.top_insight);
@@ -227,17 +227,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     return true;
   });
 
-  // Apply sport filter using settings
-  if (settings.sport !== 'all') {
-    filteredGames = filteredGames.filter(game => game.sport === settings.sport);
-  }
-
-  // Apply bookmaker filter using settings
-  if (settings.bookmaker !== 'all') {
-    filteredGames = filteredGames.filter(game => 
-      Object.keys(game.odds || {}).includes(settings.bookmaker)
-    );
-  }
+  // Apply sport and bookmaker filters
+  filteredGames = filteredGames.filter(game => 
+    game.sport === settings.sport && 
+    Object.keys(game.odds || {}).includes(settings.bookmaker)
+  );
 
   // Get unique sports and bookmakers for filter options (keeping for potential future use)
   // const uniqueSports = Array.from(new Set(games.map(game => game.sport).filter(Boolean)));

@@ -14,6 +14,7 @@ import { AuthStack } from '../lib/auth-stack';
 import { AmplifyStack } from '../lib/amplify-stack';
 import { ComplianceStack } from '../lib/compliance-stack';
 import { CarpoolBetsPipelineStack } from '../lib/pipeline-stack';
+import { SeasonManagerStack } from '../lib/season-manager-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -80,6 +81,11 @@ if (environment === 'dev') {
   const insightGeneratorStack = new InsightGeneratorStack(app, StackNames.forEnvironment('dev', 'InsightGenerator'), {
     environment: 'dev',
     betsTable: dynamoStack.betsTable,
+    env: ENVIRONMENTS.dev,
+  });
+
+  new SeasonManagerStack(app, StackNames.forEnvironment('dev', 'SeasonManager'), {
+    environment: 'dev',
     env: ENVIRONMENTS.dev,
   });
 

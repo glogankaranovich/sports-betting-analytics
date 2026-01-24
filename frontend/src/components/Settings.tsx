@@ -30,6 +30,14 @@ const Settings: React.FC<SettingsProps> = ({
     hot_cold: 'Recent form and performance trends'
   };
 
+  const sportDisplayNames: Record<string, string> = {
+    'basketball_nba': 'NBA',
+    'americanfootball_nfl': 'NFL',
+    'baseball_mlb': 'MLB',
+    'icehockey_nhl': 'NHL',
+    'soccer_epl': 'EPL'
+  };
+
   return (
     <div className="predictions-section">
       <div className="settings-grid">
@@ -39,9 +47,10 @@ const Settings: React.FC<SettingsProps> = ({
             value={settings.sport} 
             onChange={(e) => handleChange('sport', e.target.value)}
           >
-            <option value="all">All Sports</option>
             {availableSports.map(sport => (
-              <option key={sport} value={sport}>{sport.replace('_', ' ').toUpperCase()}</option>
+              <option key={sport} value={sport}>
+                {sportDisplayNames[sport] || sport.replace('_', ' ').toUpperCase()}
+              </option>
             ))}
           </select>
         </div>
@@ -52,7 +61,6 @@ const Settings: React.FC<SettingsProps> = ({
             value={settings.bookmaker} 
             onChange={(e) => handleChange('bookmaker', e.target.value)}
           >
-            <option value="all">All Bookmakers</option>
             {availableBookmakers.map(bookmaker => (
               <option key={bookmaker} value={bookmaker}>{bookmaker}</option>
             ))}

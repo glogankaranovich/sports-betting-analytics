@@ -26,7 +26,7 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
   useEffect(() => {
-    if (token && settings.sport !== 'all') {
+    if (token) {
       fetchWeights();
     }
   }, [token, settings.sport]);
@@ -34,8 +34,7 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
   const fetchWeights = async () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const sport = settings.sport === 'all' ? 'basketball_nba' : settings.sport;
-      const res = await axios.get(`${API_URL}/analytics?type=weights&sport=${sport}&bet_type=game`, { headers });
+      const res = await axios.get(`${API_URL}/analytics?type=weights&sport=${settings.sport}&bet_type=game`, { headers });
       setWeights(res.data);
     } catch (err) {
       console.error('Failed to fetch model weights:', err);
