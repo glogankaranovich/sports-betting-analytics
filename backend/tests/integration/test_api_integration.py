@@ -151,65 +151,54 @@ def test_api_integration():
             f"✅ Authenticated bookmakers endpoint passed: Found {bookmakers_data['count']} bookmakers"
         )
 
-        # Test predictions endpoint
-        print("Testing /predictions endpoint with auth...")
-        auth_predictions_response = requests.get(
-            f"{api_url}/predictions?limit=5", headers=headers, timeout=10
+        # Test analyses endpoint
+        print("Testing /analyses endpoint with auth...")
+        auth_analyses_response = requests.get(
+            f"{api_url}/analyses?sport=basketball_nba&bookmaker=fanduel&model=consensus&limit=5",
+            headers=headers,
+            timeout=10,
         )
         assert (
-            auth_predictions_response.status_code == 200
-        ), f"Authenticated predictions request failed: {auth_predictions_response.status_code}"
+            auth_analyses_response.status_code == 200
+        ), f"Authenticated analyses request failed: {auth_analyses_response.status_code} - {auth_analyses_response.text}"
 
-        predictions_data = auth_predictions_response.json()
-        assert "predictions" in predictions_data, "Predictions data missing"
+        analyses_data = auth_analyses_response.json()
+        assert "analyses" in analyses_data, "Analyses data missing"
         print(
-            f"✅ Authenticated predictions endpoint passed: Found {predictions_data['count']} predictions"
+            f"✅ Authenticated analyses endpoint passed: Found {analyses_data['count']} analyses"
         )
 
-        if predictions_data["count"] > 0:
-            sample = predictions_data["predictions"][0]
+        if analyses_data["count"] > 0:
+            sample = analyses_data["analyses"][0]
             print(f"   Sample: {sample['home_team']} vs {sample['away_team']}")
-            print(f"   Home win probability: {sample['home_win_probability']}")
-            print(f"   Confidence: {sample['confidence_score']}")
+            print(f"   Prediction: {sample['prediction']}")
+            print(f"   Confidence: {sample['confidence']}")
 
-        # Test game predictions endpoint
-        print("Testing /game-predictions endpoint with auth...")
-        game_predictions_response = requests.get(
-            f"{api_url}/game-predictions?limit=5", headers=headers, timeout=10
+        # Test insights endpoint
+        print("Testing /insights endpoint with auth...")
+        insights_response = requests.get(
+            f"{api_url}/insights?sport=basketball_nba&bookmaker=fanduel&model=consensus&limit=5",
+            headers=headers,
+            timeout=10,
         )
         assert (
-            game_predictions_response.status_code == 200
-        ), f"Game predictions request failed: {game_predictions_response.status_code}"
+            insights_response.status_code == 200
+        ), f"Insights request failed: {insights_response.status_code} - {insights_response.text}"
 
-        game_predictions_data = game_predictions_response.json()
-        assert "predictions" in game_predictions_data, "Game predictions data missing"
-        print(
-            f"✅ Game predictions endpoint passed: Found {game_predictions_data['count']} game predictions"
-        )
-
-        # Test prop predictions endpoint
-        print("Testing /prop-predictions endpoint with auth...")
-        prop_predictions_response = requests.get(
-            f"{api_url}/prop-predictions?limit=5", headers=headers, timeout=10
-        )
-        assert (
-            prop_predictions_response.status_code == 200
-        ), f"Prop predictions request failed: {prop_predictions_response.status_code}"
-
-        prop_predictions_data = prop_predictions_response.json()
-        assert "predictions" in prop_predictions_data, "Prop predictions data missing"
-        print(
-            f"✅ Prop predictions endpoint passed: Found {prop_predictions_data['count']} prop predictions"
-        )
+        insights_data = insights_response.json()
+        assert "insights" in insights_data, "Insights data missing"
+        print(f"✅ Insights endpoint passed: Found {insights_data['count']} insights")
 
         # Test player props endpoint
         print("Testing /player-props endpoint with auth...")
         player_props_response = requests.get(
-            f"{api_url}/player-props?limit=5", headers=headers, timeout=10
+            f"{api_url}/player-props?sport=basketball_nba&limit=5",
+            headers=headers,
+            timeout=10,
         )
         assert (
             player_props_response.status_code == 200
-        ), f"Player props request failed: {player_props_response.status_code}"
+        ), f"Player props request failed: {player_props_response.status_code} - {player_props_response.text}"
 
         player_props_data = player_props_response.json()
         assert "props" in player_props_data, "Player props data missing"

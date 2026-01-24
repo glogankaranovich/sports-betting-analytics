@@ -307,7 +307,6 @@ def test_lambda_integration():
         print()
 
         print("✅ All collector integration tests passed!")
-        return True
 
     except Exception as e:
         print(f"❌ Integration test failed: {str(e)}")
