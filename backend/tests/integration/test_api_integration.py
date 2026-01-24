@@ -1,6 +1,7 @@
 import requests
 import os
 import boto3
+import pytest
 
 
 def get_cognito_token(
@@ -101,7 +102,7 @@ def test_api_integration():
         except Exception as e:
             print(f"❌ Failed to get JWT token: {e}")
             print("Note: Test user may not exist in this environment yet")
-            return True  # Skip authenticated tests but mark as passed
+            pytest.skip("Test user not configured in this environment")
 
         # Test protected endpoints with auth (should work)
         headers = {
@@ -217,11 +218,10 @@ def test_api_integration():
         )
 
         print("✅ All API integration tests passed!")
-        return True
 
     except Exception as e:
         print(f"❌ API integration test failed: {e}")
-        return False
+        raise
 
 
 if __name__ == "__main__":

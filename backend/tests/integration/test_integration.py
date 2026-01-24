@@ -74,14 +74,12 @@ def test_odds_collector_integration():
         f"✓ Verified {min(len(game_ids), 2)} processed games exist and were updated recently"
     )
 
-    return True
-
 
 def test_props_collector_integration():
     """Test props collector Lambda function"""
 
     environment = os.getenv("ENVIRONMENT", "dev")
-    lambda_function_name = f"odds-collector-{environment}"
+    lambda_function_name = f"props-collector-{environment}"
     lambda_client = boto3.client("lambda", region_name="us-east-1")
 
     print(f"Testing props collector: {lambda_function_name}")
@@ -99,8 +97,6 @@ def test_props_collector_integration():
 
     body = json.loads(payload["body"])
     print(f"✓ Props collection result: {body['message']}")
-
-    return True
 
 
 def test_prediction_generator_integration():
@@ -159,8 +155,6 @@ def test_prediction_generator_integration():
     else:
         print(f"✓ Prop analysis completed: {payload}")
 
-    return True
-
 
 def test_outcome_collector_integration():
     """Test outcome collector Lambda function"""
@@ -185,8 +179,6 @@ def test_outcome_collector_integration():
         print(f"✓ Outcome verification result: {payload['message']}")
     else:
         print(f"✓ Outcome verification completed: {payload}")
-
-    return True
 
 
 def test_api_handler_integration():
@@ -242,8 +234,6 @@ def test_api_handler_integration():
 
     except Exception as e:
         print(f"⚠️  API test failed: {e}")
-
-    return True
 
 
 def get_test_user_token():
