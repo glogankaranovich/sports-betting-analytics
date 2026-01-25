@@ -43,7 +43,14 @@ def test_analyze_game_with_away_injuries(model, mock_table, game_info, odds_item
     mock_table.query.side_effect = [
         {"Items": [{"injuries": []}]},  # Home team healthy
         {
-            "Items": [{"injuries": [{"status": "Out"}, {"status": "Out"}]}]
+            "Items": [
+                {
+                    "injuries": [
+                        {"status": "Out", "avg_minutes": 32},
+                        {"status": "Out", "avg_minutes": 28},
+                    ]
+                }
+            ]
         },  # Away team injured
     ]
 
@@ -59,7 +66,14 @@ def test_analyze_game_with_home_injuries(model, mock_table, game_info, odds_item
     """Test game analysis when home team has more injuries"""
     mock_table.query.side_effect = [
         {
-            "Items": [{"injuries": [{"status": "Out"}, {"status": "Out"}]}]
+            "Items": [
+                {
+                    "injuries": [
+                        {"status": "Out", "avg_minutes": 32},
+                        {"status": "Out", "avg_minutes": 28},
+                    ]
+                }
+            ]
         },  # Home injured
         {"Items": [{"injuries": []}]},  # Away healthy
     ]
@@ -139,16 +153,22 @@ def test_calculate_injury_impact_no_injuries(model):
 
 def test_calculate_injury_impact_multiple_injuries(model):
     """Test injury impact calculation with multiple injuries"""
-    injuries = [{"status": "Out"}, {"status": "Out"}, {"status": "Out"}]
+    injuries = [
+        {"status": "Out", "avg_minutes": 30},  # Starter
+        {"status": "Out", "avg_minutes": 20},  # Rotation
+        {"status": "Out", "avg_minutes": 10},  # Bench
+    ]
     impact = model._calculate_injury_impact(injuries)
-    assert abs(impact - 0.45) < 0.01  # 3 * 0.15
+    # 0.7*0.3 + 0.4*0.3 + 0.2*0.3 = 0.21 + 0.12 + 0.06 = 0.39
+    assert abs(impact - 0.39) < 0.01
 
 
 def test_calculate_injury_impact_max_cap(model):
     """Test injury impact is capped at 1.0"""
-    injuries = [{"status": "Out"}] * 10
+    # 4 star players injured should hit the cap
+    injuries = [{"status": "Out", "avg_minutes": 36}] * 4
     impact = model._calculate_injury_impact(injuries)
-    assert impact == 1.0
+    assert impact == 1.0  # 4 * 1.0 * 0.3 = 1.2, capped at 1.0
 
 
 def test_get_team_injuries_no_data(model, mock_table):

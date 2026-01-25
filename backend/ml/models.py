@@ -750,7 +750,7 @@ class HotColdModel(BaseAnalysisModel):
         """
         try:
             # Query for recent games where this team played
-            response = self.self.table.query(
+            response = self.table.query(
                 IndexName="AnalysisTimeGSI",
                 KeyConditionExpression="analysis_time_pk = :pk",
                 FilterExpression="(home_team = :team OR away_team = :team) AND attribute_exists(analysis_correct)",
@@ -921,6 +921,7 @@ class HotColdModel(BaseAnalysisModel):
         """
         Query recent player stats
         Returns average, games played, and over/under count
+        Weights recent games by minutes played for importance
         """
         try:
             # Normalize player name to match storage format
@@ -928,7 +929,7 @@ class HotColdModel(BaseAnalysisModel):
             pk = f"PLAYER_STATS#{sport}#{normalized_name}"
 
             # Query recent stats
-            response = self.self.table.query(
+            response = self.table.query(
                 KeyConditionExpression="pk = :pk",
                 ExpressionAttributeValues={":pk": pk},
                 Limit=lookback,
@@ -942,23 +943,33 @@ class HotColdModel(BaseAnalysisModel):
 
             # Extract stat based on market_key
             stat_field = self._map_market_to_stat(market_key)
-            values = []
+            weighted_sum = 0.0
+            total_weight = 0.0
+            games_count = 0
 
             for item in items:
                 stats = item.get("stats", {})
                 if stat_field in stats:
                     try:
                         value = float(stats[stat_field])
-                        values.append(value)
+                        minutes = float(stats.get("MIN", 20))  # Default 20 if missing
+
+                        # Weight by minutes played (more minutes = more reliable)
+                        # 30+ minutes = full weight, <10 minutes = 0.3 weight
+                        weight = min(minutes / 30.0, 1.0) if minutes > 0 else 0.3
+
+                        weighted_sum += value * weight
+                        total_weight += weight
+                        games_count += 1
                     except (ValueError, TypeError):
                         continue
 
-            if not values:
+            if games_count == 0 or total_weight == 0:
                 return {"games": 0, "average": 0, "over_count": 0}
 
-            avg = sum(values) / len(values)
+            weighted_avg = weighted_sum / total_weight
 
-            return {"games": len(values), "average": avg, "over_count": 0}
+            return {"games": games_count, "average": weighted_avg, "over_count": 0}
 
         except Exception as e:
             print(f"Error querying player stats: {e}")
@@ -1454,14 +1465,34 @@ class InjuryAwareModel(BaseAnalysisModel):
             return None
 
     def _calculate_injury_impact(self, injuries: List[Dict]) -> float:
-        """Calculate overall injury impact (0-1 scale)"""
+        """Calculate overall injury impact (0-1 scale) weighted by player importance"""
         if not injuries:
             return 0.0
 
-        # Weight by injury count (simplified)
-        # In production, would weight by player importance
-        impact = min(len(injuries) * 0.15, 1.0)
-        return impact
+        # Weight injuries by average minutes played
+        # Starters typically play 30+ minutes, bench players 10-20
+        total_impact = 0.0
+        for injury in injuries:
+            avg_minutes = injury.get("avg_minutes", 0)
+
+            # Convert minutes to importance weight (0-1 scale)
+            # 35+ minutes = 1.0 (star player)
+            # 25-35 minutes = 0.7 (starter)
+            # 15-25 minutes = 0.4 (rotation player)
+            # <15 minutes = 0.2 (bench player)
+            if avg_minutes >= 35:
+                weight = 1.0
+            elif avg_minutes >= 25:
+                weight = 0.7
+            elif avg_minutes >= 15:
+                weight = 0.4
+            else:
+                weight = 0.2
+
+            total_impact += weight * 0.3  # Each weighted injury adds up to 0.3
+
+        # Cap at 1.0
+        return min(total_impact, 1.0)
 
     def _get_current_spread(self, odds_items: List[Dict]) -> float:
         """Get current spread from odds items"""

@@ -95,20 +95,36 @@ class InjuryCollector:
         athlete_ref = injury_data.get("athlete", {}).get("$ref", "")
         athlete_id = athlete_ref.split("/")[-1].split("?")[0] if athlete_ref else None
 
-        # Fetch player name from athlete reference
+        # Fetch player name and stats from athlete reference
         player_name = None
+        avg_minutes = 0.0
         if athlete_ref:
             try:
                 athlete_response = requests.get(athlete_ref, timeout=5)
                 athlete_data = athlete_response.json()
                 player_name = athlete_data.get("displayName")
+
+                # Fetch player statistics for importance weighting
+                stats_ref = athlete_data.get("statistics", {}).get("$ref")
+                if stats_ref:
+                    stats_response = requests.get(stats_ref, timeout=5)
+                    stats_data = stats_response.json()
+
+                    # Extract average minutes from general stats
+                    for category in stats_data.get("splits", {}).get("categories", []):
+                        if category.get("name") == "general":
+                            for stat in category.get("stats", []):
+                                if stat.get("name") == "avgMinutes":
+                                    avg_minutes = float(stat.get("value", 0))
+                                    break
             except Exception as e:
-                print(f"Error fetching athlete name: {e}")
+                print(f"Error fetching athlete data: {e}")
 
         return {
             "injury_id": injury_data.get("id"),
             "athlete_id": athlete_id,
             "player_name": player_name,
+            "avg_minutes": avg_minutes,
             "status": injury_data.get("status"),
             "injury_type": details.get("type"),
             "location": details.get("location"),
@@ -164,6 +180,7 @@ class InjuryCollector:
                     "side": injury.get("side"),
                     "return_date": injury.get("return_date"),
                     "short_comment": injury.get("short_comment"),
+                    "avg_minutes": injury.get("avg_minutes", 0.0),
                     "updated_at": timestamp,
                     "ttl": ttl,
                 }
