@@ -15,7 +15,12 @@ class OutcomeCollector:
 
     def collect_recent_outcomes(self, days_back: int = 3) -> Dict[str, int]:
         """Collect outcomes for games from the last N days (max 3)"""
-        results = {"updated_analysis": 0, "updated_insights": 0}
+        results = {
+            "updated_analysis": 0,
+            "updated_insights": 0,
+            "stored_outcomes": 0,
+            "stored_prop_outcomes": 0,
+        }
 
         # Validate days_back (API only accepts 1-3)
         if days_back < 1 or days_back > 3:
@@ -26,6 +31,14 @@ class OutcomeCollector:
 
         for game in completed_games:
             try:
+                # Store game outcome for H2H queries
+                self._store_outcome(game)
+                results["stored_outcomes"] += 1
+
+                # Store prop outcomes for player tracking
+                prop_count = self._store_prop_outcomes(game)
+                results["stored_prop_outcomes"] += prop_count
+
                 # Update analysis with outcome
                 analysis_updates = self._update_analysis_outcomes(game)
                 results["updated_analysis"] += analysis_updates
@@ -76,6 +89,114 @@ class OutcomeCollector:
                 continue
 
         return completed_games
+
+    def _store_outcome(self, game: Dict[str, Any]) -> None:
+        """Store game outcome as separate record for H2H queries"""
+        try:
+            home_score = int(game.get("home_score", 0))
+            away_score = int(game.get("away_score", 0))
+            winner = game["home_team"] if home_score > away_score else game["away_team"]
+
+            # Normalize team names for consistent H2H queries
+            home_normalized = game["home_team"].lower().replace(" ", "_")
+            away_normalized = game["away_team"].lower().replace(" ", "_")
+
+            # Sort teams alphabetically for consistent H2H key
+            teams_sorted = sorted([home_normalized, away_normalized])
+            h2h_pk = f"H2H#{game['sport']}#{teams_sorted[0]}#{teams_sorted[1]}"
+            completed_at = game.get("completed_at", datetime.utcnow().isoformat())
+
+            self.table.put_item(
+                Item={
+                    "pk": f"OUTCOME#{game['sport']}#{game['id']}",
+                    "sk": "RESULT",
+                    "game_id": game["id"],
+                    "sport": game["sport"],
+                    "home_team": game["home_team"],
+                    "away_team": game["away_team"],
+                    "home_score": Decimal(str(home_score)),
+                    "away_score": Decimal(str(away_score)),
+                    "winner": winner,
+                    "completed_at": completed_at,
+                    "h2h_pk": h2h_pk,
+                    "h2h_sk": completed_at,
+                }
+            )
+            print(
+                f"Stored outcome: {game['home_team']} {home_score} - {away_score} {game['away_team']}"
+            )
+
+        except Exception as e:
+            print(f"Error storing outcome for game {game.get('id')}: {e}")
+            raise
+
+    def _store_prop_outcomes(self, game: Dict[str, Any]) -> int:
+        """Store prop outcomes for player performance tracking"""
+        try:
+            game_id = game["id"]
+            sport = game["sport"]
+
+            # Query for player stats from this game
+            response = self.table.query(
+                IndexName="GameIndex",
+                KeyConditionExpression="game_index_pk = :game_id",
+                ExpressionAttributeValues={":game_id": game_id},
+            )
+
+            stored_count = 0
+            for item in response.get("Items", []):
+                # Only process player stats records
+                if not item.get("pk", "").startswith("PLAYER_STATS"):
+                    continue
+
+                player_name = item.get("player_name")
+                stats = item.get("stats", {})
+
+                if not player_name or not stats:
+                    continue
+
+                # Store outcomes for common prop markets
+                prop_markets = {
+                    "player_points": "PTS",
+                    "player_rebounds": "REB",
+                    "player_assists": "AST",
+                    "player_threes": "3PM",
+                }
+
+                for market_key, stat_field in prop_markets.items():
+                    actual_value = stats.get(stat_field)
+                    if actual_value is None:
+                        continue
+
+                    # Normalize player name for PK
+                    player_normalized = player_name.lower().replace(" ", "_")
+
+                    self.table.put_item(
+                        Item={
+                            "pk": f"PROP_OUTCOME#{sport}#{game_id}#{player_normalized}",
+                            "sk": f"RESULT#{market_key}",
+                            "game_id": game_id,
+                            "sport": sport,
+                            "player_name": player_name,
+                            "market_key": market_key,
+                            "actual_value": Decimal(str(actual_value)),
+                            "completed_at": game.get(
+                                "completed_at", datetime.utcnow().isoformat()
+                            ),
+                            "game_index_pk": game_id,
+                            "game_index_sk": f"PROP_OUTCOME#{sport}#{player_normalized}#{market_key}",
+                        }
+                    )
+                    stored_count += 1
+
+            if stored_count > 0:
+                print(f"Stored {stored_count} prop outcomes for game {game_id}")
+
+            return stored_count
+
+        except Exception as e:
+            print(f"Error storing prop outcomes for game {game.get('id')}: {e}")
+            return 0
 
     def _update_analysis_outcomes(self, game: Dict[str, Any]) -> int:
         """Update analysis records with actual outcomes"""

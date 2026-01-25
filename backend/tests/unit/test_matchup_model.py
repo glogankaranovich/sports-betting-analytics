@@ -23,23 +23,21 @@ class TestMatchupModel:
     def test_strong_h2h_advantage(self, model, mock_table):
         """Test prediction when team has strong head-to-head advantage"""
         # Mock H2H data - home team won 8 of 10 recent games
-        mock_table.scan.return_value = {
-            "Items": [
-                {"winner": "Lakers", "home_team": "Lakers"},
-                {"winner": "Lakers", "home_team": "Lakers"},
-                {"winner": "Lakers", "away_team": "Lakers"},
-                {"winner": "Lakers", "home_team": "Lakers"},
-                {"winner": "Celtics", "away_team": "Celtics"},
-                {"winner": "Lakers", "home_team": "Lakers"},
-                {"winner": "Lakers", "away_team": "Lakers"},
-                {"winner": "Celtics", "home_team": "Celtics"},
-                {"winner": "Lakers", "home_team": "Lakers"},
-                {"winner": "Lakers", "away_team": "Lakers"},
-            ]
-        }
-
-        # Mock team stats
         mock_table.query.side_effect = [
+            {
+                "Items": [
+                    {"winner": "Lakers"},
+                    {"winner": "Lakers"},
+                    {"winner": "Lakers"},
+                    {"winner": "Lakers"},
+                    {"winner": "Celtics"},
+                    {"winner": "Lakers"},
+                    {"winner": "Lakers"},
+                    {"winner": "Celtics"},
+                    {"winner": "Lakers"},
+                    {"winner": "Lakers"},
+                ]
+            },
             {"Items": [{"points_per_game": 115, "points_allowed_per_game": 105}]},
             {"Items": [{"points_per_game": 108, "points_allowed_per_game": 110}]},
         ]
@@ -59,8 +57,8 @@ class TestMatchupModel:
 
     def test_no_historical_data(self, model, mock_table):
         """Test when no historical matchup data exists"""
-        mock_table.scan.return_value = {"Items": []}
         mock_table.query.side_effect = [
+            {"Items": []},  # No H2H data
             {"Items": [{"points_per_game": 110, "points_allowed_per_game": 108}]},
             {"Items": [{"points_per_game": 109, "points_allowed_per_game": 107}]},
         ]
@@ -80,12 +78,8 @@ class TestMatchupModel:
 
     def test_style_matchup_advantage(self, model, mock_table):
         """Test when style matchup favors one team"""
-        mock_table.scan.return_value = {"Items": []}
-
-        # Home team: high offense (125), good defense (95)
-        # Away team: low offense (90), poor defense (110)
-        # offense: 125 - 110 = +15, defense: 90 - 95 = -5, total = 10/20 = 0.5
         mock_table.query.side_effect = [
+            {"Items": []},  # No H2H data
             {"Items": [{"points_per_game": 125, "points_allowed_per_game": 95}]},
             {"Items": [{"points_per_game": 90, "points_allowed_per_game": 110}]},
         ]
@@ -105,17 +99,16 @@ class TestMatchupModel:
     def test_away_team_advantage(self, model, mock_table):
         """Test when away team has advantage"""
         # Mock H2H - away team dominated
-        mock_table.scan.return_value = {
-            "Items": [
-                {"winner": "Bucks", "away_team": "Bucks"},
-                {"winner": "Bucks", "home_team": "Bucks"},
-                {"winner": "Bucks", "away_team": "Bucks"},
-                {"winner": "Bucks", "away_team": "Bucks"},
-                {"winner": "Nets", "home_team": "Nets"},
-            ]
-        }
-
         mock_table.query.side_effect = [
+            {
+                "Items": [
+                    {"winner": "Bucks"},
+                    {"winner": "Bucks"},
+                    {"winner": "Bucks"},
+                    {"winner": "Bucks"},
+                    {"winner": "Nets"},
+                ]
+            },
             {"Items": [{"points_per_game": 105, "points_allowed_per_game": 112}]},
             {"Items": [{"points_per_game": 118, "points_allowed_per_game": 106}]},
         ]
@@ -133,8 +126,11 @@ class TestMatchupModel:
 
     def test_no_team_stats(self, model, mock_table):
         """Test graceful handling when team stats unavailable"""
-        mock_table.scan.return_value = {"Items": []}
-        mock_table.query.side_effect = [{"Items": []}, {"Items": []}]
+        mock_table.query.side_effect = [
+            {"Items": []},  # No H2H
+            {"Items": []},  # No home stats
+            {"Items": []},  # No away stats
+        ]
 
         game_info = {
             "sport": "basketball_nba",
@@ -215,17 +211,15 @@ class TestMatchupModel:
     def test_balanced_matchup(self, model, mock_table):
         """Test when matchup is evenly balanced"""
         # Even H2H record
-        mock_table.scan.return_value = {
-            "Items": [
-                {"winner": "Team A"},
-                {"winner": "Team B"},
-                {"winner": "Team A"},
-                {"winner": "Team B"},
-            ]
-        }
-
-        # Similar team stats
         mock_table.query.side_effect = [
+            {
+                "Items": [
+                    {"winner": "Team A"},
+                    {"winner": "Team B"},
+                    {"winner": "Team A"},
+                    {"winner": "Team B"},
+                ]
+            },
             {"Items": [{"points_per_game": 110, "points_allowed_per_game": 108}]},
             {"Items": [{"points_per_game": 109, "points_allowed_per_game": 109}]},
         ]

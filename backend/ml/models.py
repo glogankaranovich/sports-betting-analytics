@@ -1259,21 +1259,26 @@ class MatchupModel(BaseAnalysisModel):
     def _get_h2h_advantage(self, sport: str, home_team: str, away_team: str) -> float:
         """Get head-to-head advantage from historical games"""
         try:
-            # Query for recent games between these teams
+            # Normalize team names for H2H query
+            home_normalized = home_team.lower().replace(" ", "_")
+            away_normalized = away_team.lower().replace(" ", "_")
+
+            # Sort teams alphabetically for consistent H2H key
+            teams_sorted = sorted([home_normalized, away_normalized])
+            h2h_pk = f"H2H#{sport}#{teams_sorted[0]}#{teams_sorted[1]}"
+
+            # Query H2H index for recent games
+            response = self.table.query(
+                IndexName="H2HIndex",
+                KeyConditionExpression="h2h_pk = :pk",
+                ExpressionAttributeValues={":pk": h2h_pk},
+                ScanIndexForward=False,  # Most recent first
+                Limit=10,
+            )
+
             home_wins = 0
             away_wins = 0
             total_games = 0
-
-            # Search for historical outcomes
-            response = self.table.scan(
-                FilterExpression="begins_with(pk, :pk) AND (contains(home_team, :home) OR contains(away_team, :home)) AND (contains(home_team, :away) OR contains(away_team, :away))",
-                ExpressionAttributeValues={
-                    ":pk": f"OUTCOME#{sport}",
-                    ":home": home_team,
-                    ":away": away_team,
-                },
-                Limit=10,
-            )
 
             for item in response.get("Items", []):
                 winner = item.get("winner", "")

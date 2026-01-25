@@ -2,6 +2,7 @@ import unittest
 import sys
 import os
 from unittest.mock import Mock, patch
+from decimal import Decimal
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -27,6 +28,84 @@ class TestOutcomeCollector(unittest.TestCase):
         mock_boto3.resource.assert_called_once_with("dynamodb", region_name="us-east-1")
         mock_dynamodb.Table.assert_called_once_with(self.table_name)
         self.assertEqual(collector.odds_api_key, self.api_key)
+
+    @patch("outcome_collector.boto3")
+    def test_store_outcome(self, mock_boto3):
+        """Test storing game outcome with H2H indexing"""
+        mock_dynamodb = Mock()
+        mock_table = Mock()
+        mock_boto3.resource.return_value = mock_dynamodb
+        mock_dynamodb.Table.return_value = mock_table
+
+        collector = OutcomeCollector(self.table_name, self.api_key)
+
+        game = {
+            "id": "game123",
+            "sport": "basketball_nba",
+            "home_team": "Lakers",
+            "away_team": "Celtics",
+            "home_score": 112,
+            "away_score": 108,
+            "completed_at": "2026-01-25T10:00:00Z",
+        }
+
+        collector._store_outcome(game)
+
+        # Verify put_item was called
+        mock_table.put_item.assert_called_once()
+        call_args = mock_table.put_item.call_args[1]
+        item = call_args["Item"]
+
+        # Check basic fields
+        self.assertEqual(item["pk"], "OUTCOME#basketball_nba#game123")
+        self.assertEqual(item["sk"], "RESULT")
+        self.assertEqual(item["winner"], "Lakers")
+        self.assertEqual(item["home_score"], Decimal("112"))
+        self.assertEqual(item["away_score"], Decimal("108"))
+
+        # Check H2H fields (teams sorted alphabetically)
+        self.assertEqual(item["h2h_pk"], "H2H#basketball_nba#celtics#lakers")
+        self.assertEqual(item["h2h_sk"], "2026-01-25T10:00:00Z")
+
+    @patch("outcome_collector.boto3")
+    def test_store_prop_outcomes(self, mock_boto3):
+        """Test storing prop outcomes from player stats"""
+        mock_dynamodb = Mock()
+        mock_table = Mock()
+        mock_boto3.resource.return_value = mock_dynamodb
+        mock_dynamodb.Table.return_value = mock_table
+
+        # Mock player stats query
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "pk": "PLAYER_STATS#basketball_nba#lebron_james",
+                    "player_name": "LeBron James",
+                    "stats": {"PTS": 28, "REB": 10, "AST": 8, "3PM": 2},
+                }
+            ]
+        }
+
+        collector = OutcomeCollector(self.table_name, self.api_key)
+
+        game = {
+            "id": "game123",
+            "sport": "basketball_nba",
+            "completed_at": "2026-01-25T10:00:00Z",
+        }
+
+        count = collector._store_prop_outcomes(game)
+
+        # Should store 4 prop outcomes (points, rebounds, assists, threes)
+        self.assertEqual(count, 4)
+        self.assertEqual(mock_table.put_item.call_count, 4)
+
+        # Check one of the stored items
+        first_call = mock_table.put_item.call_args_list[0][1]
+        item = first_call["Item"]
+        self.assertEqual(item["pk"], "PROP_OUTCOME#basketball_nba#game123#lebron_james")
+        self.assertIn("RESULT#", item["sk"])
+        self.assertEqual(item["player_name"], "LeBron James")
 
     def test_determine_winner(self):
         """Test determining game winner"""
