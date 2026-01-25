@@ -213,10 +213,15 @@ class PlayerStatsCollector:
             boxscore = data.get("boxscore", {})
             players = boxscore.get("players", [])
 
+            # Get both team names for opponent tracking
+            teams = boxscore.get("teams", [])
+            team_names = {t.get("team", {}).get("displayName", "") for t in teams}
+
             all_player_stats = []
 
             for team_data in players:
                 team_name = team_data.get("team", {}).get("displayName", "")
+                opponent = next((t for t in team_names if t != team_name), "")
                 statistics = team_data.get("statistics", [])
 
                 for stat_group in statistics:
@@ -228,6 +233,7 @@ class PlayerStatsCollector:
                         stat_dict = {
                             "player_name": player_name,
                             "team": team_name,
+                            "opponent": opponent,
                         }
 
                         # Map stat names to values
@@ -249,19 +255,30 @@ class PlayerStatsCollector:
     ):
         """Store player stats in DynamoDB"""
         try:
+            # Get game from DynamoDB to extract game date
+            response = self.table.get_item(
+                Key={"pk": f"GAME#{game_id}", "sk": "LATEST"}
+            )
+            game_item = response.get("Item", {})
+            game_date = game_item.get("commence_time", datetime.utcnow().isoformat())[
+                :10
+            ]
+
             for stats in player_stats:
                 player_name = stats.get("player_name")
+                opponent = stats.get("opponent", "")
                 if not player_name:
                     continue
 
                 # Convert float values to Decimal
                 stats_decimal = self._convert_to_decimal(stats)
 
-                # Normalize player name: lowercase with underscores
+                # Normalize names: lowercase with underscores
                 normalized_name = player_name.lower().replace(" ", "_")
+                normalized_opponent = opponent.lower().replace(" ", "_")
 
                 pk = f"PLAYER_STATS#{sport}#{normalized_name}"
-                sk = datetime.utcnow().isoformat()
+                sk = f"{game_date}#{normalized_opponent}"
 
                 self.table.put_item(
                     Item={
@@ -272,8 +289,9 @@ class PlayerStatsCollector:
                         "game_index_sk": pk,
                         "sport": sport,
                         "player_name": player_name,
+                        "opponent": opponent,
                         "stats": stats_decimal,
-                        "collected_at": sk,
+                        "collected_at": datetime.utcnow().isoformat(),
                     }
                 )
 

@@ -65,11 +65,17 @@ class TestPlayerStatsCollector(unittest.TestCase):
     def test_store_player_stats(self, mock_boto3):
         mock_boto3.resource.return_value.Table.return_value = self.mock_table
 
+        # Mock get_item to return game data
+        self.mock_table.get_item.return_value = {
+            "Item": {"commence_time": "2026-01-25T19:00:00Z"}
+        }
+
         collector = PlayerStatsCollector()
         game_id = "test_game_123"
         player_stats = [
             {
                 "player_name": "Test Player",
+                "opponent": "Boston Celtics",
                 "PTS": "25",
                 "REB": "10",
                 "AST": "5",
@@ -83,6 +89,7 @@ class TestPlayerStatsCollector(unittest.TestCase):
         item = call_args["Item"]
 
         self.assertEqual(item["pk"], "PLAYER_STATS#basketball_nba#test_player")
+        self.assertEqual(item["sk"], "2026-01-25#boston_celtics")
         self.assertEqual(item["game_id"], game_id)
         self.assertEqual(item["game_index_pk"], game_id)
         self.assertEqual(
@@ -90,8 +97,8 @@ class TestPlayerStatsCollector(unittest.TestCase):
         )
         self.assertEqual(item["sport"], "basketball_nba")
         self.assertEqual(item["player_name"], "Test Player")
-        self.assertIn("sk", item)  # SK is timestamp
-        self.assertIn("collected_at", item)  # collected_at is timestamp
+        self.assertEqual(item["opponent"], "Boston Celtics")
+        self.assertIn("collected_at", item)
 
     @patch("player_stats_collector.boto3")
     def test_convert_to_decimal(self, mock_boto3):

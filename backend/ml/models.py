@@ -1196,9 +1196,65 @@ class MatchupModel(BaseAnalysisModel):
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
         """Analyze prop based on player matchup history"""
-        # Props require opponent-specific player stats which we don't collect yet
-        # TODO: Enhance player_stats_collector to include opponent info
-        return None
+        try:
+            player = prop_item.get("player_name")
+            if not player:
+                return None
+
+            sport = prop_item.get("sport")
+
+            # Get opponent from game info
+            game_id = prop_item.get("event_id")
+            game_response = self.table.get_item(
+                Key={"pk": f"GAME#{game_id}", "sk": "LATEST"}
+            )
+            game_item = game_response.get("Item", {})
+            home_team = game_item.get("home_team", "")
+            away_team = game_item.get("away_team", "")
+
+            # Determine opponent (player's team vs opponent)
+            player_team = prop_item.get("team", "")
+            opponent = away_team if player_team == home_team else home_team
+
+            # Get player's historical stats vs this opponent
+            vs_opponent_avg = self._get_player_vs_opponent_avg(
+                sport, player, opponent, prop_item.get("market_key")
+            )
+
+            if vs_opponent_avg is None:
+                return None
+
+            # Compare to prop line
+            prop_line = float(prop_item.get("point", 0))
+            diff = vs_opponent_avg - prop_line
+
+            # Calculate confidence based on difference
+            confidence = 0.5 + min(abs(diff) * 0.05, 0.25)
+
+            if diff > 2:
+                prediction = f"Over {prop_line}"
+                reasoning = f"Averages {vs_opponent_avg:.1f} vs {opponent}"
+            elif diff < -2:
+                prediction = f"Under {prop_line}"
+                reasoning = f"Averages {vs_opponent_avg:.1f} vs {opponent}"
+            else:
+                return None  # Not confident enough
+
+            return AnalysisResult(
+                game_id=game_id,
+                model="matchup",
+                analysis_type="prop",
+                sport=sport,
+                home_team=home_team,
+                away_team=away_team,
+                commence_time=game_item.get("commence_time"),
+                prediction=prediction,
+                confidence=confidence,
+                reasoning=reasoning,
+            )
+        except Exception as e:
+            print(f"Error analyzing prop matchup: {e}")
+            return None
 
     def _get_h2h_advantage(self, sport: str, home_team: str, away_team: str) -> float:
         """Get head-to-head advantage from historical games"""
@@ -1283,6 +1339,65 @@ class MatchupModel(BaseAnalysisModel):
 
         except Exception as e:
             print(f"Error getting team stats: {e}")
+            return None
+
+    def _get_player_vs_opponent_avg(
+        self, sport: str, player_name: str, opponent: str, stat_key: str
+    ) -> Optional[float]:
+        """Get player's average stat vs specific opponent"""
+        try:
+            normalized_player = player_name.lower().replace(" ", "_")
+            normalized_opponent = opponent.lower().replace(" ", "_")
+
+            # Query all player stats, then filter by opponent
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk",
+                ExpressionAttributeValues={
+                    ":pk": f"PLAYER_STATS#{sport}#{normalized_player}",
+                },
+                ScanIndexForward=False,
+                Limit=20,  # Get more, filter to last 5 vs opponent
+            )
+
+            items = response.get("Items", [])
+            if not items:
+                return None
+
+            # Filter for opponent in SK
+            opponent_games = [
+                item
+                for item in items
+                if normalized_opponent in item.get("sk", "").lower()
+            ][
+                :5
+            ]  # Last 5 vs this opponent
+
+            if not opponent_games:
+                return None
+
+            # Map prop key to stat name
+            stat_map = {
+                "player_points": "PTS",
+                "player_rebounds": "REB",
+                "player_assists": "AST",
+                "player_threes": "3PM",
+            }
+            stat_name = stat_map.get(stat_key, "PTS")
+
+            # Calculate average
+            total = 0
+            count = 0
+            for item in opponent_games:
+                stats = item.get("stats", {})
+                stat_value = stats.get(stat_name)
+                if stat_value:
+                    total += float(stat_value)
+                    count += 1
+
+            return total / count if count > 0 else None
+
+        except Exception as e:
+            print(f"Error getting player vs opponent avg: {e}")
             return None
 
 

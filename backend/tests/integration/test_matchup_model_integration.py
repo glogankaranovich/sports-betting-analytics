@@ -4,8 +4,11 @@ Tests that the matchup model generates analyses in dev environment
 """
 
 import boto3
+import pytest
+from decimal import Decimal
 
 
+@pytest.mark.readonly
 def test_matchup_model_integration():
     """Test that matchup model generates analyses"""
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -44,6 +47,83 @@ def test_matchup_model_integration():
         )
 
 
+@pytest.mark.writes
+def test_matchup_prop_with_opponent_data():
+    """Test Matchup model prop analysis with opponent-specific player stats"""
+    from ml.models import MatchupModel
+
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table = dynamodb.Table("carpool-bets-v2-dev")
+
+    # Create test data
+    test_game_id = "test_matchup_prop_game"
+    test_player = "test_matchup_player"
+
+    # Store test game
+    table.put_item(
+        Item={
+            "pk": f"GAME#{test_game_id}",
+            "sk": "LATEST",
+            "home_team": "Lakers",
+            "away_team": "Celtics",
+            "commence_time": "2026-01-25T19:00:00Z",
+            "sport": "basketball_nba",
+        }
+    )
+
+    # Store player stats vs Celtics (averages 28 pts)
+    for i, pts in enumerate([30, 28, 26, 29, 27]):
+        table.put_item(
+            Item={
+                "pk": f"PLAYER_STATS#basketball_nba#{test_player}",
+                "sk": f"2026-01-{20+i:02d}#celtics",
+                "game_id": f"game_{i}",
+                "game_index_pk": f"game_{i}",
+                "game_index_sk": f"PLAYER_STATS#basketball_nba#{test_player}",
+                "sport": "basketball_nba",
+                "player_name": "Test Matchup Player",
+                "opponent": "Celtics",
+                "stats": {"PTS": Decimal(str(pts)), "MIN": Decimal("35")},
+                "collected_at": "2026-01-25T10:00:00Z",
+            }
+        )
+
+    try:
+        # Test prop analysis
+        model = MatchupModel(dynamodb_table=table)
+
+        prop_item = {
+            "sport": "basketball_nba",
+            "player_name": "Test Matchup Player",
+            "market_key": "player_points",
+            "point": 24.5,
+            "event_id": test_game_id,
+            "team": "Lakers",
+        }
+
+        result = model.analyze_prop_odds(prop_item)
+
+        assert result is not None, "Should return analysis with opponent history"
+        assert "Over" in result.prediction, "Should predict Over (avg 28 vs line 24.5)"
+        assert result.confidence > 0.5, "Should have decent confidence"
+        assert "Celtics" in result.reasoning, "Should mention opponent"
+
+        print(f"✓ Matchup prop analysis: {result.prediction} ({result.confidence:.2f})")
+        print(f"  Reasoning: {result.reasoning}")
+
+    finally:
+        # Cleanup
+        table.delete_item(Key={"pk": f"GAME#{test_game_id}", "sk": "LATEST"})
+        for i in range(5):
+            table.delete_item(
+                Key={
+                    "pk": f"PLAYER_STATS#basketball_nba#{test_player}",
+                    "sk": f"2026-01-{20+i:02d}#celtics",
+                }
+            )
+
+
+@pytest.mark.readonly
 def test_all_models_exist():
     """Verify all 7 models are configured"""
     expected_models = [

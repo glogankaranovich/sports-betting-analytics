@@ -149,12 +149,64 @@ class TestMatchupModel:
         assert result is not None
         assert result.confidence >= 0.3
 
-    def test_prop_analysis_not_implemented(self, model):
-        """Test that prop analysis returns None (requires opponent-specific data)"""
+    def test_prop_analysis_with_opponent_history(self, model, mock_table):
+        """Test prop analysis using opponent-specific player stats"""
+        # Mock game lookup
+        mock_table.get_item.return_value = {
+            "Item": {
+                "home_team": "Lakers",
+                "away_team": "Celtics",
+                "commence_time": "2026-01-25T00:00:00Z",
+            }
+        }
+
+        # Mock player stats vs opponent - averages 28 pts vs Celtics
+        mock_table.query.return_value = {
+            "Items": [
+                {"sk": "2026-01-20#celtics", "stats": {"PTS": 30}},
+                {"sk": "2026-01-21#celtics", "stats": {"PTS": 28}},
+                {"sk": "2026-01-22#celtics", "stats": {"PTS": 26}},
+                {"sk": "2026-01-23#celtics", "stats": {"PTS": 29}},
+                {"sk": "2026-01-24#celtics", "stats": {"PTS": 27}},
+            ]
+        }
+
         prop_item = {
             "sport": "basketball_nba",
             "player_name": "LeBron James",
-            "prop_type": "points",
+            "market_key": "player_points",
+            "point": 24.5,
+            "event_id": "game123",
+            "team": "Lakers",
+        }
+
+        result = model.analyze_prop_odds(prop_item)
+
+        assert result is not None
+        assert "Over" in result.prediction
+        assert result.confidence > 0.5
+        assert "Celtics" in result.reasoning
+
+    def test_prop_analysis_no_history(self, model, mock_table):
+        """Test prop analysis when no opponent history exists"""
+        mock_table.get_item.return_value = {
+            "Item": {
+                "home_team": "Lakers",
+                "away_team": "Celtics",
+                "commence_time": "2026-01-25T00:00:00Z",
+            }
+        }
+
+        # No historical stats
+        mock_table.query.return_value = {"Items": []}
+
+        prop_item = {
+            "sport": "basketball_nba",
+            "description": "LeBron James Points",
+            "key": "player_points",
+            "point": 24.5,
+            "event_id": "game123",
+            "team": "Lakers",
         }
 
         result = model.analyze_prop_odds(prop_item)
