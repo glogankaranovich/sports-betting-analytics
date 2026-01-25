@@ -69,6 +69,14 @@ describe('DynamoDBStack', () => {
         {
           AttributeName: 'game_index_sk',
           AttributeType: 'S'
+        },
+        {
+          AttributeName: 'h2h_pk',
+          AttributeType: 'S'
+        },
+        {
+          AttributeName: 'h2h_sk',
+          AttributeType: 'S'
         }
       ],
       GlobalSecondaryIndexes: [
@@ -145,6 +153,22 @@ describe('DynamoDBStack', () => {
             },
             {
               AttributeName: 'game_index_sk',
+              KeyType: 'RANGE'
+            }
+          ],
+          Projection: {
+            ProjectionType: 'ALL'
+          }
+        },
+        {
+          IndexName: 'H2HIndex',
+          KeySchema: [
+            {
+              AttributeName: 'h2h_pk',
+              KeyType: 'HASH'
+            },
+            {
+              AttributeName: 'h2h_sk',
               KeyType: 'RANGE'
             }
           ],
