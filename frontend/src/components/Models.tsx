@@ -71,6 +71,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       name: 'Rest/Schedule Model',
       description: 'Rest days, back-to-backs, and home/away splits',
       methodology: 'Evaluates days of rest between games. Penalizes back-to-back situations. Factors in home court advantage and travel fatigue.'
+    },
+    matchup: {
+      name: 'Matchup Model',
+      description: 'Head-to-head history and style matchups',
+      methodology: 'Analyzes historical performance between teams. Evaluates offensive vs defensive matchups. Combines H2H records (60%) with style analysis (40%).'
     }
   };
 

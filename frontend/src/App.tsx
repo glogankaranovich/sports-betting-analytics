@@ -366,7 +366,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       <Settings 
         settings={settings}
         onSettingsChange={setSettings}
-        availableSports={['basketball_nba', 'americanfootball_nfl']}
+        availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
         availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
         token={token}
       />

@@ -81,7 +81,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       { key: 'soccer_epl', name: 'EPL', lambda: this.analysisGeneratorEPL }
     ];
     
-    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule'];
+    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup'];
     
     sports.forEach(sport => {
       models.forEach((model, index) => {
