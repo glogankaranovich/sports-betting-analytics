@@ -9,11 +9,16 @@ import { Construct } from 'constructs';
 export interface MonitoringStackProps extends cdk.StackProps {
   environment: string;
   oddsCollectorFunction: lambda.IFunction;
-  analysisGeneratorFunction: lambda.IFunction;
-  insightGeneratorFunction: lambda.IFunction;
+  propsCollectorFunction: lambda.IFunction;
+  scheduleCollectorFunction: lambda.IFunction;
+  analysisGeneratorFunctions: lambda.IFunction[];
+  insightGeneratorFunctions: lambda.IFunction[];
   playerStatsCollectorFunction: lambda.IFunction;
   teamStatsCollectorFunction: lambda.IFunction;
   outcomeCollectorFunction: lambda.IFunction;
+  modelAnalyticsFunction: lambda.IFunction;
+  seasonManagerFunction: lambda.IFunction;
+  complianceLoggerFunction: lambda.IFunction;
 }
 
 export class MonitoringStack extends cdk.Stack {
@@ -85,36 +90,92 @@ export class MonitoringStack extends cdk.Stack {
 
     // Create metrics for all functions
     const oddsMetrics = createLambdaMetrics(props.oddsCollectorFunction, 'OddsCollector');
-    const analysisMetrics = createLambdaMetrics(props.analysisGeneratorFunction, 'AnalysisGenerator');
-    const insightMetrics = createLambdaMetrics(props.insightGeneratorFunction, 'InsightGenerator');
+    const propsMetrics = createLambdaMetrics(props.propsCollectorFunction, 'PropsCollector');
+    const scheduleMetrics = createLambdaMetrics(props.scheduleCollectorFunction, 'ScheduleCollector');
     const playerStatsMetrics = createLambdaMetrics(props.playerStatsCollectorFunction, 'PlayerStatsCollector');
     const teamStatsMetrics = createLambdaMetrics(props.teamStatsCollectorFunction, 'TeamStatsCollector');
     const outcomeMetrics = createLambdaMetrics(props.outcomeCollectorFunction, 'OutcomeCollector');
+    const modelAnalyticsMetrics = createLambdaMetrics(props.modelAnalyticsFunction, 'ModelAnalytics');
+    const seasonManagerMetrics = createLambdaMetrics(props.seasonManagerFunction, 'SeasonManager');
+    const complianceMetrics = createLambdaMetrics(props.complianceLoggerFunction, 'ComplianceLogger');
+    
+    // Create metrics for analysis generators (one per sport)
+    const analysisMetrics = props.analysisGeneratorFunctions.flatMap((fn, i) => 
+      createLambdaMetrics(fn, `AnalysisGen${['NBA','NFL','MLB','NHL','EPL'][i]}`)
+    );
+    
+    // Create metrics for insight generators (one per sport)
+    const insightMetrics = props.insightGeneratorFunctions.flatMap((fn, i) => 
+      createLambdaMetrics(fn, `InsightGen${['NBA','NFL','MLB','NHL','EPL'][i]}`)
+    );
+
+    // Flatten metrics arrays
+    const allInvocations = [
+      oddsMetrics.invocations,
+      propsMetrics.invocations,
+      scheduleMetrics.invocations,
+      ...analysisMetrics.map(m => m.invocations),
+      ...insightMetrics.map(m => m.invocations),
+      playerStatsMetrics.invocations,
+      teamStatsMetrics.invocations,
+      outcomeMetrics.invocations,
+      modelAnalyticsMetrics.invocations,
+      seasonManagerMetrics.invocations,
+      complianceMetrics.invocations,
+    ];
+
+    const allErrors = [
+      oddsMetrics.errors,
+      propsMetrics.errors,
+      scheduleMetrics.errors,
+      ...analysisMetrics.map(m => m.errors),
+      ...insightMetrics.map(m => m.errors),
+      playerStatsMetrics.errors,
+      teamStatsMetrics.errors,
+      outcomeMetrics.errors,
+      modelAnalyticsMetrics.errors,
+      seasonManagerMetrics.errors,
+      complianceMetrics.errors,
+    ];
+
+    const allDurations = [
+      oddsMetrics.duration,
+      propsMetrics.duration,
+      scheduleMetrics.duration,
+      ...analysisMetrics.map(m => m.duration),
+      ...insightMetrics.map(m => m.duration),
+      playerStatsMetrics.duration,
+      teamStatsMetrics.duration,
+      outcomeMetrics.duration,
+      modelAnalyticsMetrics.duration,
+      seasonManagerMetrics.duration,
+      complianceMetrics.duration,
+    ];
+
+    const allThrottles = [
+      oddsMetrics.throttles,
+      propsMetrics.throttles,
+      scheduleMetrics.throttles,
+      ...analysisMetrics.map(m => m.throttles),
+      ...insightMetrics.map(m => m.throttles),
+      playerStatsMetrics.throttles,
+      teamStatsMetrics.throttles,
+      outcomeMetrics.throttles,
+      modelAnalyticsMetrics.throttles,
+      seasonManagerMetrics.throttles,
+      complianceMetrics.throttles,
+    ];
 
     // Add widgets to dashboard
     dashboard.addWidgets(
       new cloudwatch.GraphWidget({
         title: 'Lambda Invocations',
-        left: [
-          oddsMetrics.invocations,
-          analysisMetrics.invocations,
-          insightMetrics.invocations,
-          playerStatsMetrics.invocations,
-          teamStatsMetrics.invocations,
-          outcomeMetrics.invocations,
-        ],
+        left: allInvocations,
         width: 12,
       }),
       new cloudwatch.GraphWidget({
         title: 'Lambda Errors',
-        left: [
-          oddsMetrics.errors,
-          analysisMetrics.errors,
-          insightMetrics.errors,
-          playerStatsMetrics.errors,
-          teamStatsMetrics.errors,
-          outcomeMetrics.errors,
-        ],
+        left: allErrors,
         width: 12,
       })
     );
@@ -122,26 +183,12 @@ export class MonitoringStack extends cdk.Stack {
     dashboard.addWidgets(
       new cloudwatch.GraphWidget({
         title: 'Lambda Duration (ms)',
-        left: [
-          oddsMetrics.duration,
-          analysisMetrics.duration,
-          insightMetrics.duration,
-          playerStatsMetrics.duration,
-          teamStatsMetrics.duration,
-          outcomeMetrics.duration,
-        ],
+        left: allDurations,
         width: 12,
       }),
       new cloudwatch.GraphWidget({
         title: 'Lambda Throttles',
-        left: [
-          oddsMetrics.throttles,
-          analysisMetrics.throttles,
-          insightMetrics.throttles,
-          playerStatsMetrics.throttles,
-          teamStatsMetrics.throttles,
-          outcomeMetrics.throttles,
-        ],
+        left: allThrottles,
         width: 12,
       })
     );

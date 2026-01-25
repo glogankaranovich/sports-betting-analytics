@@ -32,19 +32,18 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastEvaluatedKey, setLastEvaluatedKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchInsights();
-  }, [settings]);
+  const [insightType, setInsightType] = useState<'game' | 'prop'>('game');
 
   const fetchInsights = useCallback(async () => {
+    if (!token) return;
+    
     try {
       setLoading(true);
       const data = await apiService.getInsights(token, {
         sport: settings.sport,
         model: settings.model,
         bookmaker: settings.bookmaker,
-        type: 'game',
+        type: insightType,
         limit: 20
       });
       setInsights(data.insights || []);
@@ -55,7 +54,11 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, settings]);
+  }, [token, settings, insightType]);
+
+  useEffect(() => {
+    fetchInsights();
+  }, [fetchInsights]);
 
   const loadMore = async () => {
     if (!lastEvaluatedKey || loadingMore) return;
@@ -66,7 +69,7 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
         sport: settings.sport,
         model: settings.model,
         bookmaker: settings.bookmaker,
-        type: 'game',
+        type: insightType,
         limit: 20,
         lastEvaluatedKey
       });
@@ -88,12 +91,26 @@ const BetInsights: React.FC<BetInsightsProps> = ({ token, settings }) => {
     <div className="predictions-section">
       <div className="games-header">
         <h2>Insights</h2>
+        <div className="tab-buttons">
+          <button 
+            className={insightType === 'game' ? 'active' : ''} 
+            onClick={() => setInsightType('game')}
+          >
+            Game Insights
+          </button>
+          <button 
+            className={insightType === 'prop' ? 'active' : ''} 
+            onClick={() => setInsightType('prop')}
+          >
+            Prop Insights
+          </button>
+        </div>
       </div>
 
       {/* All Insights */}
       <div className="games-grid">
-        {insights.map((insight: Insight, index: number) => (
-            <div key={`${insight.game_id}-${index}`} className="game-card">
+        {insights.map((insight: Insight) => (
+            <div key={`${insight.game_id}-${insight.model}-${insight.analysis_type}-${insight.bookmaker}`} className="game-card">
               <div className="game-info">
                 <div className="teams">
                   <h3>{insight.home_team && insight.away_team ? `${insight.away_team} @ ${insight.home_team}` : insight.player_name}</h3>

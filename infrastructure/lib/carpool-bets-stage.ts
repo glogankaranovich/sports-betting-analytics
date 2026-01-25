@@ -13,6 +13,8 @@ import { IntegrationTestRoleStack } from './integration-test-role-stack';
 import { AnalysisGeneratorStack } from './analysis-generator-stack';
 import { InsightGeneratorStack } from './insight-generator-stack';
 import { MonitoringStack } from './monitoring-stack';
+import { SeasonManagerStack } from './season-manager-stack';
+import { ScheduleCollectorStack } from './schedule-collector-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -84,22 +86,50 @@ export class CarpoolBetsStage extends cdk.Stage {
     });
 
     // Model analytics stack
-    new ModelAnalyticsStack(this, 'ModelAnalytics', {
+    const modelAnalyticsStack = new ModelAnalyticsStack(this, 'ModelAnalytics', {
       betsTable: dynamoStack.betsTable,
     });
 
+    // Season manager stack
+    const seasonManagerStack = new SeasonManagerStack(this, 'SeasonManager', {
+      environment: props.stage,
+    });
+
+    // Schedule collector stack
+    const scheduleCollectorStack = new ScheduleCollectorStack(this, 'ScheduleCollector', {
+      environment: props.stage,
+      betsTableName: `carpool-bets-v2-${props.stage}`,
+    });
+
     // Compliance stack
-    new ComplianceStack(this, 'Compliance', {});
+    const complianceStack = new ComplianceStack(this, 'Compliance', {});
 
     // Monitoring stack
     new MonitoringStack(this, 'Monitoring', {
       environment: props.stage,
       oddsCollectorFunction: oddsCollectorStack.oddsCollectorFunction,
-      analysisGeneratorFunction: analysisGeneratorStack.analysisGeneratorFunction,
-      insightGeneratorFunction: insightGeneratorStack.insightGeneratorFunction,
+      propsCollectorFunction: oddsCollectorStack.propsCollectorFunction,
+      scheduleCollectorFunction: scheduleCollectorStack.scheduleCollectorFunction,
+      analysisGeneratorFunctions: [
+        analysisGeneratorStack.analysisGeneratorNBA,
+        analysisGeneratorStack.analysisGeneratorNFL,
+        analysisGeneratorStack.analysisGeneratorMLB,
+        analysisGeneratorStack.analysisGeneratorNHL,
+        analysisGeneratorStack.analysisGeneratorEPL
+      ],
+      insightGeneratorFunctions: [
+        insightGeneratorStack.insightGeneratorNBA,
+        insightGeneratorStack.insightGeneratorNFL,
+        insightGeneratorStack.insightGeneratorMLB,
+        insightGeneratorStack.insightGeneratorNHL,
+        insightGeneratorStack.insightGeneratorEPL
+      ],
       playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
       teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,
       outcomeCollectorFunction: outcomeCollectorStack.outcomeCollectorFunction,
+      modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
+      seasonManagerFunction: seasonManagerStack.seasonManagerFunction,
+      complianceLoggerFunction: complianceStack.complianceLoggerFunction,
     });
 
     // Integration test role for pipeline access

@@ -11,9 +11,11 @@ export interface AnalysisGeneratorStackProps extends cdk.StackProps {
 }
 
 export class AnalysisGeneratorStack extends cdk.Stack {
-  public readonly analysisGeneratorFunction: lambda.Function;
-  public readonly analysisGeneratorFunction2: lambda.Function;
-  public readonly analysisGeneratorFunctionArn: cdk.CfnOutput;
+  public readonly analysisGeneratorNBA: lambda.Function;
+  public readonly analysisGeneratorNFL: lambda.Function;
+  public readonly analysisGeneratorMLB: lambda.Function;
+  public readonly analysisGeneratorNHL: lambda.Function;
+  public readonly analysisGeneratorEPL: lambda.Function;
 
   constructor(scope: Construct, id: string, props: AnalysisGeneratorStackProps) {
     super(scope, id, props);
@@ -30,82 +32,75 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       }
     };
 
-    this.analysisGeneratorFunction = new lambda.Function(this, 'AnalysisGeneratorFunction', {
-      ...functionProps,
-      functionName: `analysis-generator-1-${props.environment}`
-    });
-    this.analysisGeneratorFunction2 = new lambda.Function(this, 'AnalysisGeneratorFunction2', {
-      ...functionProps,
-      functionName: `analysis-generator-2-${props.environment}`
-    });
-
     const policy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      actions: [
-        'dynamodb:Scan',
-        'dynamodb:Query', 
-        'dynamodb:GetItem',
-        'dynamodb:PutItem',
-        'dynamodb:UpdateItem'
-      ],
+      actions: ['dynamodb:Scan', 'dynamodb:Query', 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem'],
       resources: [
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}`,
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}/index/*`
       ]
     });
 
-    this.analysisGeneratorFunction.addToRolePolicy(policy);
-    this.analysisGeneratorFunction2.addToRolePolicy(policy);
-
-    // EventBridge schedules to run daily at 7 PM ET (12 AM UTC) - after odds collection
+    // Create one Lambda per sport (12 rules each: 6 models × 2 bet types)
+    this.analysisGeneratorNBA = new lambda.Function(this, 'AnalysisGeneratorNBA', {
+      ...functionProps,
+      functionName: `analysis-generator-nba-${props.environment}`
+    });
+    this.analysisGeneratorNBA.addToRolePolicy(policy);
     
-    // Split into 2 Lambdas by bet type to avoid IAM policy size limit
-    // Lambda 1: Game analyses (all sports) - 30 rules
-    // Lambda 2: Prop analyses (all sports) - 30 rules
+    this.analysisGeneratorNFL = new lambda.Function(this, 'AnalysisGeneratorNFL', {
+      ...functionProps,
+      functionName: `analysis-generator-nfl-${props.environment}`
+    });
+    this.analysisGeneratorNFL.addToRolePolicy(policy);
     
-    // All sports
-    const sports = {
-      'basketball_nba': { start: 10, end: 6 },
-      'americanfootball_nfl': { start: 9, end: 2 },
-      'baseball_mlb': { start: 3, end: 10 },
-      'icehockey_nhl': { start: 10, end: 6 },
-      'soccer_epl': { start: 8, end: 5 }
-    };
+    this.analysisGeneratorMLB = new lambda.Function(this, 'AnalysisGeneratorMLB', {
+      ...functionProps,
+      functionName: `analysis-generator-mlb-${props.environment}`
+    });
+    this.analysisGeneratorMLB.addToRolePolicy(policy);
+    
+    this.analysisGeneratorNHL = new lambda.Function(this, 'AnalysisGeneratorNHL', {
+      ...functionProps,
+      functionName: `analysis-generator-nhl-${props.environment}`
+    });
+    this.analysisGeneratorNHL.addToRolePolicy(policy);
+    
+    this.analysisGeneratorEPL = new lambda.Function(this, 'AnalysisGeneratorEPL', {
+      ...functionProps,
+      functionName: `analysis-generator-epl-${props.environment}`
+    });
+    this.analysisGeneratorEPL.addToRolePolicy(policy);
+    
+    // Create EventBridge rules
+    const sports = [
+      { key: 'basketball_nba', name: 'NBA', lambda: this.analysisGeneratorNBA },
+      { key: 'americanfootball_nfl', name: 'NFL', lambda: this.analysisGeneratorNFL },
+      { key: 'baseball_mlb', name: 'MLB', lambda: this.analysisGeneratorMLB },
+      { key: 'icehockey_nhl', name: 'NHL', lambda: this.analysisGeneratorNHL },
+      { key: 'soccer_epl', name: 'EPL', lambda: this.analysisGeneratorEPL }
+    ];
     
     const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule'];
     
-    // Lambda 1: Game analyses for all sports (30 rules)
-    Object.entries(sports).forEach(([sport, season]) => {
-      const sportName = sport.split('_')[1].toUpperCase();
-      
+    sports.forEach(sport => {
       models.forEach((model, index) => {
-        new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}GameAnalysis`, {
+        new events.Rule(this, `Daily${sport.name}${model.charAt(0).toUpperCase() + model.slice(1)}GameAnalysis`, {
           schedule: events.Schedule.cron({ minute: `${index * 2}`, hour: '0' }),
-          description: `Generate ${model} ${sportName} game analyses at 7:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`,
-          targets: [new targets.LambdaFunction(this.analysisGeneratorFunction, {
-            event: events.RuleTargetInput.fromObject({ model, bet_type: 'games', sport })
+          description: `Generate ${model} ${sport.name} game analyses at 7:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`,
+          targets: [new targets.LambdaFunction(sport.lambda, {
+            event: events.RuleTargetInput.fromObject({ model, bet_type: 'games', sport: sport.key })
           })]
         });
-      });
-    });
-    
-    // Lambda 2: Prop analyses for all sports (30 rules)
-    Object.entries(sports).forEach(([sport, season]) => {
-      const sportName = sport.split('_')[1].toUpperCase();
-      
-      models.forEach((model, index) => {
-        new events.Rule(this, `Daily${sportName}${model.charAt(0).toUpperCase() + model.slice(1)}PropAnalysis`, {
-          schedule: events.Schedule.cron({ minute: `${10 + (index * 2)}`, hour: '0' }),
-          description: `Generate ${model} ${sportName} prop analyses at 7:${10 + (index * 2)} PM ET`,
-          targets: [new targets.LambdaFunction(this.analysisGeneratorFunction2, {
-            event: events.RuleTargetInput.fromObject({ model, bet_type: 'props', sport })
-          })]
-        });
-      });
-    });
 
-    this.analysisGeneratorFunctionArn = new cdk.CfnOutput(this, 'AnalysisGeneratorFunctionArn', {
-      value: this.analysisGeneratorFunction.functionArn
+        new events.Rule(this, `Daily${sport.name}${model.charAt(0).toUpperCase() + model.slice(1)}PropAnalysis`, {
+          schedule: events.Schedule.cron({ minute: `${10 + (index * 2)}`, hour: '0' }),
+          description: `Generate ${model} ${sport.name} prop analyses at 7:${10 + (index * 2)} PM ET`,
+          targets: [new targets.LambdaFunction(sport.lambda, {
+            event: events.RuleTargetInput.fromObject({ model, bet_type: 'props', sport: sport.key })
+          })]
+        });
+      });
     });
   }
 }

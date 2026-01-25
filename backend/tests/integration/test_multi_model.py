@@ -10,7 +10,7 @@ import os
 def test_multi_model_analysis():
     """Test that all three models generate analyses correctly"""
     environment = os.getenv("ENVIRONMENT", "dev")
-    lambda_function_name = f"analysis-generator-1-{environment}"
+    lambda_function_name = f"analysis-generator-nba-{environment}"
     lambda_client = boto3.client("lambda", region_name="us-east-1")
 
     models = ["consensus", "value", "momentum"]
@@ -52,12 +52,11 @@ def test_multi_model_analysis():
         # Small delay between invocations
         time.sleep(1)
 
-        # Test prop analysis (Lambda 2 handles props after split)
+        # Test prop analysis (same Lambda handles both games and props)
         payload["bet_type"] = "props"
-        lambda_function_name_props = f"analysis-generator-2-{environment}"
 
         response = lambda_client.invoke(
-            FunctionName=lambda_function_name_props,
+            FunctionName=lambda_function_name,
             InvocationType="RequestResponse",
             Payload=json.dumps(payload),
         )

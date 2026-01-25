@@ -68,7 +68,7 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  new ModelAnalyticsStack(app, StackNames.forEnvironment('dev', 'ModelAnalytics'), {
+  const modelAnalyticsStack = new ModelAnalyticsStack(app, StackNames.forEnvironment('dev', 'ModelAnalytics'), {
     betsTable: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,
   });
@@ -85,29 +85,46 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  new SeasonManagerStack(app, StackNames.forEnvironment('dev', 'SeasonManager'), {
+  const seasonManagerStack = new SeasonManagerStack(app, StackNames.forEnvironment('dev', 'SeasonManager'), {
     environment: 'dev',
     env: ENVIRONMENTS.dev,
   });
 
-  new ScheduleCollectorStack(app, StackNames.forEnvironment('dev', 'ScheduleCollector'), {
+  const scheduleCollectorStack = new ScheduleCollectorStack(app, StackNames.forEnvironment('dev', 'ScheduleCollector'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
   });
 
-  new ComplianceStack(app, StackNames.forEnvironment('dev', 'Compliance'), {
+  const complianceStack = new ComplianceStack(app, StackNames.forEnvironment('dev', 'Compliance'), {
     env: ENVIRONMENTS.dev,
   });
 
   new MonitoringStack(app, StackNames.forEnvironment('dev', 'Monitoring'), {
     environment: 'dev',
     oddsCollectorFunction: oddsCollectorStack.oddsCollectorFunction,
-    analysisGeneratorFunction: analysisGeneratorStack.analysisGeneratorFunction,
-    insightGeneratorFunction: insightGeneratorStack.insightGeneratorFunction,
+    propsCollectorFunction: oddsCollectorStack.propsCollectorFunction,
+    scheduleCollectorFunction: scheduleCollectorStack.scheduleCollectorFunction,
+    analysisGeneratorFunctions: [
+      analysisGeneratorStack.analysisGeneratorNBA,
+      analysisGeneratorStack.analysisGeneratorNFL,
+      analysisGeneratorStack.analysisGeneratorMLB,
+      analysisGeneratorStack.analysisGeneratorNHL,
+      analysisGeneratorStack.analysisGeneratorEPL
+    ],
+    insightGeneratorFunctions: [
+      insightGeneratorStack.insightGeneratorNBA,
+      insightGeneratorStack.insightGeneratorNFL,
+      insightGeneratorStack.insightGeneratorMLB,
+      insightGeneratorStack.insightGeneratorNHL,
+      insightGeneratorStack.insightGeneratorEPL
+    ],
     playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
     teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,
     outcomeCollectorFunction: outcomeCollectorStack.outcomeCollectorFunction,
+    modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
+    seasonManagerFunction: seasonManagerStack.seasonManagerFunction,
+    complianceLoggerFunction: complianceStack.complianceLoggerFunction,
     env: ENVIRONMENTS.dev,
   });
 } else {

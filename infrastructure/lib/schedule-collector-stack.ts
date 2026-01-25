@@ -19,7 +19,15 @@ export class ScheduleCollectorStack extends cdk.Stack {
     this.scheduleCollectorFunction = new lambda.Function(this, 'ScheduleCollectorFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'schedule_collector.lambda_handler',
-      code: lambda.Code.fromAsset('../backend'),
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ],
+        },
+      }),
       timeout: cdk.Duration.minutes(5),
       memorySize: 512,
       environment: {

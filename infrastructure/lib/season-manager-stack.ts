@@ -10,10 +10,12 @@ export interface SeasonManagerStackProps extends cdk.StackProps {
 }
 
 export class SeasonManagerStack extends cdk.Stack {
+  public readonly seasonManagerFunction: lambda.Function;
+
   constructor(scope: Construct, id: string, props: SeasonManagerStackProps) {
     super(scope, id, props);
 
-    const seasonManagerFunction = new lambda.Function(this, 'SeasonManagerFunction', {
+    this.seasonManagerFunction = new lambda.Function(this, 'SeasonManagerFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'season_manager.lambda_handler',
       code: lambda.Code.fromAsset('../backend'),
@@ -24,7 +26,7 @@ export class SeasonManagerStack extends cdk.Stack {
       }
     });
 
-    seasonManagerFunction.addToRolePolicy(new iam.PolicyStatement({
+    this.seasonManagerFunction.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
       actions: [
         'events:ListRules',
@@ -43,11 +45,11 @@ export class SeasonManagerStack extends cdk.Stack {
         day: '1'
       }),
       description: 'Check and update sport season rules monthly',
-      targets: [new targets.LambdaFunction(seasonManagerFunction)]
+      targets: [new targets.LambdaFunction(this.seasonManagerFunction)]
     });
 
     new cdk.CfnOutput(this, 'SeasonManagerFunctionArn', {
-      value: seasonManagerFunction.functionArn
+      value: this.seasonManagerFunction.functionArn
     });
   }
 }

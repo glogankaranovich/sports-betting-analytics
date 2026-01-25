@@ -8,6 +8,7 @@ import { Construct } from 'constructs';
 export class ComplianceStack extends cdk.Stack {
   public readonly complianceTable: dynamodb.Table;
   public readonly complianceApi: apigateway.RestApi;
+  public readonly complianceLoggerFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -23,7 +24,7 @@ export class ComplianceStack extends cdk.Stack {
     });
 
     // Lambda function for compliance logging
-    const complianceLoggerFunction = new lambda.Function(this, 'ComplianceLoggerFunction', {
+    this.complianceLoggerFunction = new lambda.Function(this, 'ComplianceLoggerFunction', {
       runtime: lambda.Runtime.PYTHON_3_9,
       handler: 'compliance_logger.lambda_handler',
       code: lambda.Code.fromAsset('../backend'),
@@ -34,7 +35,7 @@ export class ComplianceStack extends cdk.Stack {
     });
 
     // Grant DynamoDB permissions
-    this.complianceTable.grantReadWriteData(complianceLoggerFunction);
+    this.complianceTable.grantReadWriteData(this.complianceLoggerFunction);
 
     // API Gateway for compliance endpoints
     this.complianceApi = new apigateway.RestApi(this, 'ComplianceApi', {
@@ -51,7 +52,7 @@ export class ComplianceStack extends cdk.Stack {
     const complianceResource = this.complianceApi.root.addResource('compliance');
     const logResource = complianceResource.addResource('log');
 
-    logResource.addMethod('POST', new apigateway.LambdaIntegration(complianceLoggerFunction));
+    logResource.addMethod('POST', new apigateway.LambdaIntegration(this.complianceLoggerFunction));
 
     // Output the API URL
     new cdk.CfnOutput(this, 'ComplianceApiUrl', {

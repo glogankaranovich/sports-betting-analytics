@@ -103,7 +103,7 @@ def test_prediction_generator_integration():
     """Test prediction generator Lambda function"""
 
     environment = os.getenv("ENVIRONMENT", "dev")
-    lambda_function_name = f"analysis-generator-1-{environment}"
+    lambda_function_name = f"analysis-generator-nba-{environment}"
     lambda_client = boto3.client("lambda", region_name="us-east-1")
 
     print(f"Testing analysis generator: {lambda_function_name}")
@@ -132,11 +132,10 @@ def test_prediction_generator_integration():
     else:
         print(f"✓ Game analysis completed: {payload}")
 
-    # Test prop analysis (Lambda 2 handles props after split)
+    # Test prop analysis (same Lambda handles both games and props now)
     print("Testing prop analysis with limit=2...")
-    lambda_function_name_props = f"analysis-generator-2-{environment}"
     response = lambda_client.invoke(
-        FunctionName=lambda_function_name_props,
+        FunctionName=lambda_function_name,
         InvocationType="RequestResponse",
         Payload=json.dumps(
             {
