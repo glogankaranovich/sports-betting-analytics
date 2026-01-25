@@ -15,6 +15,7 @@ import { InsightGeneratorStack } from './insight-generator-stack';
 import { MonitoringStack } from './monitoring-stack';
 import { SeasonManagerStack } from './season-manager-stack';
 import { ScheduleCollectorStack } from './schedule-collector-stack';
+import { InjuryCollectorStack } from './injury-collector-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -101,6 +102,12 @@ export class CarpoolBetsStage extends cdk.Stage {
       betsTableName: `carpool-bets-v2-${props.stage}`,
     });
 
+    // Injury collector stack
+    const injuryCollectorStack = new InjuryCollectorStack(this, 'InjuryCollector', {
+      environment: props.stage,
+      betsTableName: `carpool-bets-v2-${props.stage}`,
+    });
+
     // Compliance stack
     const complianceStack = new ComplianceStack(this, 'Compliance', {});
 
@@ -126,6 +133,7 @@ export class CarpoolBetsStage extends cdk.Stage {
       ],
       playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
       teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,
+      injuryCollectorFunction: injuryCollectorStack.injuryCollectorFunction,
       outcomeCollectorFunction: outcomeCollectorStack.outcomeCollectorFunction,
       modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
       seasonManagerFunction: seasonManagerStack.seasonManagerFunction,

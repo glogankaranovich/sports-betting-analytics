@@ -76,6 +76,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       name: 'Matchup Model',
       description: 'Head-to-head history and style matchups',
       methodology: 'Analyzes historical performance between teams. Evaluates offensive vs defensive matchups. Combines H2H records (60%) with style analysis (40%).'
+    },
+    injury_aware: {
+      name: 'Injury-Aware Model',
+      description: 'Adjusts predictions based on player injuries',
+      methodology: 'Queries injury reports from ESPN. Calculates injury impact scores for each team. Warns against props for injured players (Out/Doubtful). Factors team injury differentials into game predictions.'
     }
   };
 

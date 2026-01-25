@@ -15,6 +15,7 @@ export interface MonitoringStackProps extends cdk.StackProps {
   insightGeneratorFunctions: lambda.IFunction[];
   playerStatsCollectorFunction: lambda.IFunction;
   teamStatsCollectorFunction: lambda.IFunction;
+  injuryCollectorFunction: lambda.IFunction;
   outcomeCollectorFunction: lambda.IFunction;
   modelAnalyticsFunction: lambda.IFunction;
   seasonManagerFunction: lambda.IFunction;

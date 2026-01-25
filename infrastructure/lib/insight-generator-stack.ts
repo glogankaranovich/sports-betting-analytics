@@ -74,7 +74,7 @@ export class InsightGeneratorStack extends cdk.Stack {
       { key: 'soccer_epl', name: 'EPL', lambda: this.insightGeneratorEPL }
     ];
     
-    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup'];
+    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware'];
     
     sports.forEach(sport => {
       models.forEach((model, index) => {

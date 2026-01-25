@@ -16,6 +16,7 @@ import { ComplianceStack } from '../lib/compliance-stack';
 import { CarpoolBetsPipelineStack } from '../lib/pipeline-stack';
 import { SeasonManagerStack } from '../lib/season-manager-stack';
 import { ScheduleCollectorStack } from '../lib/schedule-collector-stack';
+import { InjuryCollectorStack } from '../lib/injury-collector-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -96,6 +97,12 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
+  const injuryCollectorStack = new InjuryCollectorStack(app, StackNames.forEnvironment('dev', 'InjuryCollector'), {
+    environment: 'dev',
+    betsTableName: 'carpool-bets-v2-dev',
+    env: ENVIRONMENTS.dev,
+  });
+
   const complianceStack = new ComplianceStack(app, StackNames.forEnvironment('dev', 'Compliance'), {
     env: ENVIRONMENTS.dev,
   });
@@ -121,6 +128,7 @@ if (environment === 'dev') {
     ],
     playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
     teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,
+    injuryCollectorFunction: injuryCollectorStack.injuryCollectorFunction,
     outcomeCollectorFunction: outcomeCollectorStack.outcomeCollectorFunction,
     modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     seasonManagerFunction: seasonManagerStack.seasonManagerFunction,
