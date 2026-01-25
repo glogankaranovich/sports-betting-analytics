@@ -1130,6 +1130,151 @@ class RestScheduleModel(BaseAnalysisModel):
             return None
 
 
+class MatchupModel(BaseAnalysisModel):
+    """Model that analyzes head-to-head history and style matchups"""
+
+    def __init__(self, dynamodb_table=None):
+        """Initialize with optional DynamoDB table"""
+        self.table = dynamodb_table
+        if not self.table:
+            import boto3
+            import os
+
+            dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+            table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
+            self.table = dynamodb.Table(table_name)
+
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        """Analyze game based on matchup history and team styles"""
+        sport = game_info.get("sport")
+        home_team = game_info.get("home_team")
+        away_team = game_info.get("away_team")
+
+        # Get head-to-head history
+        h2h_advantage = self._get_h2h_advantage(sport, home_team, away_team)
+
+        # Get style matchup
+        style_advantage = self._get_style_matchup(sport, home_team, away_team)
+
+        # Combined advantage
+        total_advantage = (h2h_advantage * 0.6) + (style_advantage * 0.4)
+
+        # Calculate confidence
+        confidence = 0.5 + (abs(total_advantage) * 0.1)
+        confidence = max(0.3, min(0.85, confidence))
+
+        # Make prediction
+        pick = home_team if total_advantage > 0 else away_team
+
+        reasoning = f"H2H: {h2h_advantage:.1f}, Style: {style_advantage:.1f}"
+
+        return AnalysisResult(
+            game_id=game_id,
+            model="matchup",
+            analysis_type="game",
+            sport=sport,
+            home_team=home_team,
+            away_team=away_team,
+            commence_time=game_info.get("commence_time"),
+            prediction=pick,
+            confidence=confidence,
+            reasoning=reasoning,
+        )
+
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        """Analyze prop based on player matchup history"""
+        # Props require opponent-specific player stats which we don't collect yet
+        # TODO: Enhance player_stats_collector to include opponent info
+        return None
+
+    def _get_h2h_advantage(self, sport: str, home_team: str, away_team: str) -> float:
+        """Get head-to-head advantage from historical games"""
+        try:
+            # Query for recent games between these teams
+            home_wins = 0
+            away_wins = 0
+            total_games = 0
+
+            # Search for historical outcomes
+            response = self.table.scan(
+                FilterExpression="begins_with(pk, :pk) AND (contains(home_team, :home) OR contains(away_team, :home)) AND (contains(home_team, :away) OR contains(away_team, :away))",
+                ExpressionAttributeValues={
+                    ":pk": f"OUTCOME#{sport}",
+                    ":home": home_team,
+                    ":away": away_team,
+                },
+                Limit=10,
+            )
+
+            for item in response.get("Items", []):
+                winner = item.get("winner", "")
+                if winner == home_team:
+                    home_wins += 1
+                elif winner == away_team:
+                    away_wins += 1
+                total_games += 1
+
+            if total_games == 0:
+                return 0.0
+
+            # Calculate advantage (-2 to +2 scale)
+            win_rate = home_wins / total_games
+            return (win_rate - 0.5) * 4
+
+        except Exception as e:
+            print(f"Error getting H2H advantage: {e}")
+            return 0.0
+
+    def _get_style_matchup(self, sport: str, home_team: str, away_team: str) -> float:
+        """Analyze style matchup between teams"""
+        try:
+            home_stats = self._get_team_stats(sport, home_team)
+            away_stats = self._get_team_stats(sport, away_team)
+
+            if not home_stats or not away_stats:
+                return 0.0
+
+            # Compare offensive vs defensive ratings
+            home_offense = home_stats.get("points_per_game", 0)
+            home_defense = home_stats.get("points_allowed_per_game", 999)
+            away_offense = away_stats.get("points_per_game", 0)
+            away_defense = away_stats.get("points_allowed_per_game", 999)
+
+            # Home advantage calculation:
+            # Positive if home offense beats away defense AND home defense beats away offense
+            # Home offense vs away defense (higher offense vs lower defense = advantage)
+            offense_matchup = home_offense - away_defense
+            # Home defense vs away offense (lower defense vs higher offense = advantage)
+            defense_matchup = away_offense - home_defense
+
+            # Combine (both should be positive for home advantage)
+            return (offense_matchup + defense_matchup) / 20
+
+        except Exception as e:
+            print(f"Error getting style matchup: {e}")
+            return 0.0
+
+    def _get_team_stats(self, sport: str, team: str) -> Optional[Dict]:
+        """Get recent team statistics"""
+        try:
+            team_key = team.lower().replace(" ", "_")
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk",
+                ExpressionAttributeValues={":pk": f"TEAM_STATS#{sport}#{team_key}"},
+                ScanIndexForward=False,
+                Limit=1,
+            )
+
+            items = response.get("Items", [])
+            return items[0] if items else None
+
+        except Exception as e:
+            print(f"Error getting team stats: {e}")
+            return None
+
+
 class ModelFactory:
     """Factory for creating analysis models"""
 
@@ -1140,6 +1285,7 @@ class ModelFactory:
         "contrarian": ContrarianModel,
         "hot_cold": HotColdModel,
         "rest_schedule": RestScheduleModel,
+        "matchup": MatchupModel,
     }
 
     @classmethod
