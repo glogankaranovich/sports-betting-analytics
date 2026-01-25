@@ -1427,9 +1427,31 @@ class InjuryAwareModel(BaseAnalysisModel):
 
     def _get_player_injury_status(self, player_name: str, sport: str) -> Dict:
         """Check if a specific player is injured"""
-        # Would need to scan injury reports for player name
-        # Simplified for now
-        return None
+        try:
+            # Normalize player name to match storage format
+            normalized_name = player_name.lower().replace(" ", "_")
+            pk = f"PLAYER_INJURY#{sport}#{normalized_name}"
+
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND sk = :sk",
+                ExpressionAttributeValues={":pk": pk, ":sk": "LATEST"},
+                Limit=1,
+            )
+
+            items = response.get("Items", [])
+            if items:
+                item = items[0]
+                return {
+                    "status": item.get("status"),
+                    "injury_type": item.get("injury_type"),
+                    "return_date": item.get("return_date"),
+                }
+
+            return None
+
+        except Exception as e:
+            print(f"Error checking player injury status: {e}")
+            return None
 
     def _calculate_injury_impact(self, injuries: List[Dict]) -> float:
         """Calculate overall injury impact (0-1 scale)"""

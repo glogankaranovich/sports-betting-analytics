@@ -5,7 +5,7 @@ Injury Collector - Fetches player injury reports from ESPN API
 import os
 import boto3
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List
 
 
@@ -95,9 +95,20 @@ class InjuryCollector:
         athlete_ref = injury_data.get("athlete", {}).get("$ref", "")
         athlete_id = athlete_ref.split("/")[-1].split("?")[0] if athlete_ref else None
 
+        # Fetch player name from athlete reference
+        player_name = None
+        if athlete_ref:
+            try:
+                athlete_response = requests.get(athlete_ref, timeout=5)
+                athlete_data = athlete_response.json()
+                player_name = athlete_data.get("displayName")
+            except Exception as e:
+                print(f"Error fetching athlete name: {e}")
+
         return {
             "injury_id": injury_data.get("id"),
             "athlete_id": athlete_id,
+            "player_name": player_name,
             "status": injury_data.get("status"),
             "injury_type": details.get("type"),
             "location": details.get("location"),
@@ -114,8 +125,10 @@ class InjuryCollector:
     ):
         """Store injury data in DynamoDB"""
         timestamp = datetime.now(timezone.utc).isoformat()
+        ttl = int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp())
 
-        item = {
+        # Store team-level injury report
+        team_item = {
             "pk": f"INJURIES#{sport}#{team_id}",
             "sk": f"REPORT#{timestamp}",
             "sport": sport,
@@ -124,9 +137,37 @@ class InjuryCollector:
             "injuries": injuries,
             "injury_count": len(injuries),
             "collected_at": timestamp,
+            "ttl": ttl,
         }
+        self.table.put_item(Item=team_item)
 
-        self.table.put_item(Item=item)
+        # Store individual player injury records for fast lookup
+        for injury in injuries:
+            athlete_id = injury.get("athlete_id")
+            player_name = injury.get("player_name")
+            if athlete_id and player_name:
+                # Normalize player name for consistent querying
+                normalized_name = player_name.lower().replace(" ", "_")
+
+                player_item = {
+                    "pk": f"PLAYER_INJURY#{sport}#{normalized_name}",
+                    "sk": "LATEST",
+                    "sport": sport,
+                    "athlete_id": athlete_id,
+                    "player_name": player_name,
+                    "team_id": team_id,
+                    "team_name": team_name,
+                    "status": injury.get("status"),
+                    "injury_type": injury.get("injury_type"),
+                    "location": injury.get("location"),
+                    "detail": injury.get("detail"),
+                    "side": injury.get("side"),
+                    "return_date": injury.get("return_date"),
+                    "short_comment": injury.get("short_comment"),
+                    "updated_at": timestamp,
+                    "ttl": ttl,
+                }
+                self.table.put_item(Item=player_item)
 
 
 def lambda_handler(event, context):

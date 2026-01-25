@@ -5,7 +5,7 @@ Fetches team schedules from ESPN API and stores in DynamoDB
 import os
 import boto3
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 
 dynamodb = boto3.resource("dynamodb")
@@ -138,6 +138,10 @@ class ScheduleCollector:
                 )
                 rest_days = (curr_date - prev_date).days - 1
 
+            # Calculate TTL: 7 days after game date
+            game_date = datetime.fromisoformat(game["game_date"].replace("Z", "+00:00"))
+            ttl = int((game_date + timedelta(days=7)).timestamp())
+
             # Store in DynamoDB
             self.table.put_item(
                 Item={
@@ -150,6 +154,7 @@ class ScheduleCollector:
                     "sport": sport,
                     "team": team_name,
                     "collected_at": datetime.utcnow().isoformat(),
+                    "ttl": ttl,
                 }
             )
 
