@@ -56,9 +56,6 @@ def lambda_handler(event, context):
             return handle_health()
         elif path == "/games":
             return handle_get_games(query_params)
-        elif path.startswith("/games/"):
-            game_id = path.split("/")[-1]
-            return handle_get_game(game_id)
         elif path == "/analyses":
             return handle_get_analyses(query_params)
         elif path == "/insights":
@@ -185,27 +182,6 @@ def handle_get_games(query_params: Dict[str, str]):
         return create_response(200, result)
     except Exception as e:
         return create_response(500, {"error": f"Error fetching games: {str(e)}"})
-
-
-def handle_get_game(game_id: str):
-    """Get all betting data for a specific game"""
-    try:
-        response = table.query(
-            KeyConditionExpression=boto3.dynamodb.conditions.Key("pk").eq(game_id)
-        )
-
-        game_data = response.get("Items", [])
-
-        if not game_data:
-            return create_response(404, {"error": "Game not found"})
-
-        game_data = decimal_to_float(game_data)
-
-        return create_response(
-            200, {"game_id": game_id, "bookmakers": game_data, "count": len(game_data)}
-        )
-    except Exception as e:
-        return create_response(500, {"error": f"Error fetching game: {str(e)}"})
 
 
 def handle_get_sports():
