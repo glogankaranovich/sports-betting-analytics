@@ -26,24 +26,41 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
 }) => {
   const [props, setProps] = useState<PlayerProp[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastEvaluatedKey, setLastEvaluatedKey] = useState<string | null>(null);
+  const [currentPropPage, setCurrentPropPage] = useState(1);
+  const propsPerPage = 20;
   const [filters, setFilters] = useState({
     sport: '',
     bookmaker: '',
-    prop_type: ''
+    prop_type: '',
+    player_name: ''
   });
+  const [propsSort, setPropsSort] = useState<'player' | 'time'>('player');
+  const [propsSortDir, setPropsSortDir] = useState<'asc' | 'desc'>('asc');
 
   const propTypeLabels: { [key: string]: string } = {
+    // NFL
     'player_pass_tds': 'Passing TDs',
     'player_pass_yds': 'Passing Yards',
     'player_rush_yds': 'Rushing Yards',
     'player_receptions': 'Receptions',
     'player_reception_yds': 'Receiving Yards',
+    // NBA
     'player_points': 'Points',
     'player_rebounds': 'Rebounds',
-    'player_assists': 'Assists'
+    'player_assists': 'Assists',
+    'player_threes': '3-Pointers Made',
+    'player_blocks': 'Blocks',
+    'player_steals': 'Steals'
+  };
+
+  const getSportPropTypes = (sport: string) => {
+    if (sport === 'basketball_nba') {
+      return ['player_points', 'player_rebounds', 'player_assists'];
+    } else if (sport === 'americanfootball_nfl') {
+      return ['player_pass_tds', 'player_pass_yds', 'player_rush_yds', 'player_receptions', 'player_reception_yds'];
+    }
+    return Object.keys(propTypeLabels);
   };
 
   const fetchPlayerProps = useCallback(async () => {
@@ -62,12 +79,11 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
         sport: settings.sport,
         bookmaker: settings.bookmaker,
         prop_type: filters.prop_type || undefined,
-        limit: 20
+        fetchAll: true
       };
       
       const response = await bettingApi.getPlayerProps(token, filterParams);
       setProps(response.props || []);
-      setLastEvaluatedKey(response.lastEvaluatedKey || null);
       setError(null);
     } catch (err) {
       setError('Failed to fetch player props');
@@ -78,36 +94,9 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
     }
   }, [settings.sport, settings.bookmaker, filters]);
 
-  const loadMore = async () => {
-    if (!lastEvaluatedKey || loadingMore) return;
-    
-    try {
-      setLoadingMore(true);
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      
-      if (!token) return;
-      
-      const filterParams = {
-        sport: settings.sport,
-        bookmaker: settings.bookmaker,
-        prop_type: filters.prop_type || undefined,
-        limit: 20,
-        lastEvaluatedKey
-      };
-      
-      const response = await bettingApi.getPlayerProps(token, filterParams);
-      setProps(prev => [...prev, ...(response.props || [])]);
-      setLastEvaluatedKey(response.lastEvaluatedKey || null);
-    } catch (err) {
-      console.error('Error loading more props:', err);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
   // Reset to first page when filters change
   useEffect(() => {
+    setCurrentPropPage(1);
     onPageChange(1);
   }, [filters, onPageChange]);
 
@@ -128,7 +117,30 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
     return acc;
   }, {} as { [key: string]: PlayerProp[] });
 
-  const groupedPropsArray = Object.entries(groupedProps);
+  const groupedPropsArray = Object.entries(groupedProps)
+    .filter(([key, propGroup]) => {
+      if (!filters.player_name) return true;
+      const playerName = propGroup[0]?.player_name || '';
+      return playerName.toLowerCase().includes(filters.player_name.toLowerCase());
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      if (propsSort === 'player') {
+        const playerA = a[1][0]?.player_name || '';
+        const playerB = b[1][0]?.player_name || '';
+        comparison = playerA.localeCompare(playerB);
+      } else {
+        const timeA = new Date(a[1][0]?.commence_time || 0).getTime();
+        const timeB = new Date(b[1][0]?.commence_time || 0).getTime();
+        comparison = timeA - timeB;
+      }
+      return propsSortDir === 'desc' ? -comparison : comparison;
+    });
+  
+  // Client-side pagination
+  const totalPages = Math.ceil(groupedPropsArray.length / propsPerPage);
+  const startIndex = (currentPropPage - 1) * propsPerPage;
+  const paginatedProps = groupedPropsArray.slice(startIndex, startIndex + propsPerPage);
 
   if (loading) return <div className="loading">Loading player props...</div>;
   if (error) return <div className="error">{error}</div>;
@@ -138,21 +150,44 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
       <div className="games-header">
         <h2>Prop Bets</h2>
         <div className="filters">
+          <input
+            type="text"
+            placeholder="Filter by player..."
+            value={filters.player_name}
+            onChange={(e) => setFilters({...filters, player_name: e.target.value})}
+            className="filter-select"
+          />
           <select 
             className="filter-select"
             value={filters.prop_type} 
             onChange={(e) => setFilters({...filters, prop_type: e.target.value})}
           >
             <option key="all-props" value="">All Prop Types</option>
-            {Object.entries(propTypeLabels).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
+            {getSportPropTypes(settings.sport).map((key) => (
+              <option key={key} value={key}>{propTypeLabels[key]}</option>
             ))}
+          </select>
+          <select 
+            className="filter-select"
+            value={propsSort} 
+            onChange={(e) => setPropsSort(e.target.value as 'player' | 'time')}
+          >
+            <option value="player">Sort by Player</option>
+            <option value="time">Sort by Time</option>
+          </select>
+          <select 
+            className="filter-select"
+            value={propsSortDir} 
+            onChange={(e) => setPropsSortDir(e.target.value as 'asc' | 'desc')}
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
           </select>
         </div>
       </div>
 
       <div className="games-grid">
-        {groupedPropsArray.map(([key, propGroup]) => {
+        {paginatedProps.map(([key, propGroup]) => {
           const [eventId, playerName, marketKey] = key.split('-');
           const firstProp = propGroup[0];
           
@@ -206,22 +241,22 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
         })}
       </div>
 
-      {lastEvaluatedKey && (
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+      {totalPages > 1 && (
+        <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
           <button 
-            onClick={loadMore} 
-            disabled={loadingMore}
-            style={{
-              padding: '10px 20px',
-              fontSize: '16px',
-              cursor: loadingMore ? 'not-allowed' : 'pointer',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px'
-            }}
+            onClick={() => setCurrentPropPage(p => Math.max(1, p - 1))} 
+            disabled={currentPropPage === 1}
+            style={{ padding: '8px 16px', cursor: currentPropPage === 1 ? 'not-allowed' : 'pointer' }}
           >
-            {loadingMore ? 'Loading...' : 'Load More'}
+            Previous
+          </button>
+          <span>Page {currentPropPage} of {totalPages} ({groupedPropsArray.length} props)</span>
+          <button 
+            onClick={() => setCurrentPropPage(p => Math.min(totalPages, p + 1))} 
+            disabled={currentPropPage === totalPages}
+            style={{ padding: '8px 16px', cursor: currentPropPage === totalPages ? 'not-allowed' : 'pointer' }}
+          >
+            Next
           </button>
         </div>
       )}

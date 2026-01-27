@@ -74,28 +74,28 @@ export class AnalysisGeneratorStack extends cdk.Stack {
     
     // Create EventBridge rules
     const sports = [
-      { key: 'basketball_nba', name: 'NBA', lambda: this.analysisGeneratorNBA },
-      { key: 'americanfootball_nfl', name: 'NFL', lambda: this.analysisGeneratorNFL },
-      { key: 'baseball_mlb', name: 'MLB', lambda: this.analysisGeneratorMLB },
-      { key: 'icehockey_nhl', name: 'NHL', lambda: this.analysisGeneratorNHL },
-      { key: 'soccer_epl', name: 'EPL', lambda: this.analysisGeneratorEPL }
+      { key: 'basketball_nba', name: 'NBA', lambda: this.analysisGeneratorNBA, months: '10-6' },
+      { key: 'americanfootball_nfl', name: 'NFL', lambda: this.analysisGeneratorNFL, months: '9-2' },
+      { key: 'baseball_mlb', name: 'MLB', lambda: this.analysisGeneratorMLB, months: '3-10' },
+      { key: 'icehockey_nhl', name: 'NHL', lambda: this.analysisGeneratorNHL, months: '10-6' },
+      { key: 'soccer_epl', name: 'EPL', lambda: this.analysisGeneratorEPL, months: '8-5' }
     ];
     
     const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware'];
     
     sports.forEach(sport => {
       models.forEach((model, index) => {
-        new events.Rule(this, `Daily${sport.name}${model.charAt(0).toUpperCase() + model.slice(1)}GameAnalysis`, {
-          schedule: events.Schedule.cron({ minute: `${index * 2}`, hour: '0' }),
-          description: `Generate ${model} ${sport.name} game analyses at 7:${index * 2 < 10 ? '0' : ''}${index * 2} PM ET`,
+        new events.Rule(this, `${sport.name}${model}GameAnalysis`, {
+          schedule: events.Schedule.cron({ minute: `${index * 2}`, hour: '18', month: sport.months }),
+          description: `Generate ${model} ${sport.name} game analyses at 18:${index * 2} UTC`,
           targets: [new targets.LambdaFunction(sport.lambda, {
             event: events.RuleTargetInput.fromObject({ model, bet_type: 'games', sport: sport.key })
           })]
         });
 
-        new events.Rule(this, `Daily${sport.name}${model.charAt(0).toUpperCase() + model.slice(1)}PropAnalysis`, {
-          schedule: events.Schedule.cron({ minute: `${10 + (index * 2)}`, hour: '0' }),
-          description: `Generate ${model} ${sport.name} prop analyses at 7:${10 + (index * 2)} PM ET`,
+        new events.Rule(this, `${sport.name}${model}PropAnalysis`, {
+          schedule: events.Schedule.cron({ minute: `${20 + index * 2}`, hour: '18', month: sport.months }),
+          description: `Generate ${model} ${sport.name} prop analyses at 18:${20 + index * 2} UTC`,
           targets: [new targets.LambdaFunction(sport.lambda, {
             event: events.RuleTargetInput.fromObject({ model, bet_type: 'props', sport: sport.key })
           })]

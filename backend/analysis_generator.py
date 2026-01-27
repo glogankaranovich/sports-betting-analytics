@@ -177,16 +177,23 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
 def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
     """Generate prop analysis using the provided model with pagination"""
     try:
+        from datetime import datetime, timedelta
+
         props = []
         last_evaluated_key = None
         total_items_processed = 0
+        three_hours_ago = (datetime.utcnow() - timedelta(hours=3)).isoformat()
 
         while True:
             query_kwargs = {
                 "IndexName": "ActiveBetsIndexV2",
-                "KeyConditionExpression": "active_bet_pk = :pk",
-                "FilterExpression": "attribute_exists(latest)",
-                "ExpressionAttributeValues": {":pk": f"PROP#{sport}"},
+                "KeyConditionExpression": "active_bet_pk = :pk AND commence_time >= :time",
+                "FilterExpression": "latest = :latest",
+                "ExpressionAttributeValues": {
+                    ":pk": f"PROP#{sport}",
+                    ":time": three_hours_ago,
+                    ":latest": True,
+                },
             }
 
             if last_evaluated_key:
@@ -194,24 +201,29 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
 
             response = table.query(**query_kwargs)
 
+            batch_size = len(response["Items"])
             props.extend(response["Items"])
-            total_items_processed += len(response["Items"])
+            total_items_processed += batch_size
 
             last_evaluated_key = response.get("LastEvaluatedKey")
+
+            print(
+                f"Processed batch of {batch_size} items, total: {total_items_processed}"
+            )
+
             if not last_evaluated_key:
                 break
 
-            print(f"Processed {total_items_processed} prop items")
-
         print(f"Total prop items processed: {total_items_processed}")
 
-        # Group props by event_id, player, and market (across all bookmakers)
+        # Group props by event_id, player, market, AND point (across all bookmakers)
         grouped_props = {}
         for item in props:
             key = (
                 item.get("event_id"),
                 item.get("player_name"),
                 item.get("market_key"),
+                item.get("point"),  # Include point in grouping key
             )
             if key not in grouped_props:
                 grouped_props[key] = {

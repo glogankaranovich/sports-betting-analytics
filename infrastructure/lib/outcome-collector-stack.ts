@@ -62,17 +62,14 @@ export class OutcomeCollectorStack extends cdk.Stack {
     // Secrets Manager permissions
     oddsApiSecret.grantRead(this.outcomeCollectorFunction);
 
-    // EventBridge rule to trigger daily at 3 AM ET (8 AM UTC)
-    const dailyRule = new events.Rule(this, 'DailyOutcomeCollection', {
-      schedule: events.Schedule.cron({
-        minute: '0',
-        hour: '8',
-      }),
-      description: 'Trigger outcome collection daily at 3 AM ET'
+    // EventBridge rules to trigger every 2 hours to catch completed games
+    const outcomeHours = ['0', '2', '4', '6', '8', '10', '12', '14', '16', '18', '20', '22'];
+    outcomeHours.forEach(hour => {
+      new events.Rule(this, `OutcomeCollection${hour}`, {
+        schedule: events.Schedule.cron({ minute: '0', hour }),
+        description: `Trigger outcome collection at ${hour}:00 UTC`
+      }).addTarget(new targets.LambdaFunction(this.outcomeCollectorFunction));
     });
-
-    // Add Lambda as target
-    dailyRule.addTarget(new targets.LambdaFunction(this.outcomeCollectorFunction));
 
     // Output
     new cdk.CfnOutput(this, 'OutcomeCollectorFunctionName', {

@@ -21,12 +21,11 @@ export const bettingApi = {
     return response.data;
   },
 
-  async getGames(token?: string, sport?: string, bookmaker?: string, lastEvaluatedKey?: string): Promise<ApiResponse> {
+  async getGames(token?: string, sport?: string, bookmaker?: string, fetchAll: boolean = true): Promise<ApiResponse> {
     const params = new URLSearchParams();
     if (sport) params.append('sport', sport);
     if (bookmaker) params.append('bookmaker', bookmaker);
-    if (lastEvaluatedKey) params.append('lastEvaluatedKey', lastEvaluatedKey);
-    params.append('limit', '20');
+    if (fetchAll) params.append('fetch_all', 'true');
     
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     
@@ -44,14 +43,13 @@ export const bettingApi = {
     return response.data;
   },
 
-  async getAnalyses(token: string, filters: { sport?: string; model?: string; bookmaker?: string; type?: string; limit?: number; lastEvaluatedKey?: string } = {}): Promise<any> {
+  async getAnalyses(token: string, filters: { sport?: string; model?: string; bookmaker?: string; type?: string; fetchAll?: boolean } = {}): Promise<any> {
     const params = new URLSearchParams();
     if (filters.sport) params.append('sport', filters.sport);
     if (filters.model) params.append('model', filters.model);
     if (filters.bookmaker) params.append('bookmaker', filters.bookmaker);
     if (filters.type) params.append('type', filters.type);
-    if (filters.limit) params.append('limit', filters.limit.toString());
-    if (filters.lastEvaluatedKey) params.append('lastEvaluatedKey', filters.lastEvaluatedKey);
+    if (filters.fetchAll) params.append('fetch_all', 'true');
     
     const headers = { Authorization: `Bearer ${token}` };
     
@@ -59,14 +57,13 @@ export const bettingApi = {
     return response.data;
   },
 
-  async getInsights(token: string, filters: { sport?: string; model?: string; bookmaker?: string; type?: string; limit?: number; lastEvaluatedKey?: string } = {}): Promise<any> {
+  async getInsights(token: string, filters: { sport?: string; model?: string; bookmaker?: string; type?: string; fetchAll?: boolean } = {}): Promise<any> {
     const params = new URLSearchParams();
     if (filters.sport) params.append('sport', filters.sport);
     if (filters.model) params.append('model', filters.model);
     if (filters.bookmaker) params.append('bookmaker', filters.bookmaker);
     if (filters.type) params.append('type', filters.type);
-    if (filters.limit) params.append('limit', filters.limit.toString());
-    if (filters.lastEvaluatedKey) params.append('lastEvaluatedKey', filters.lastEvaluatedKey);
+    if (filters.fetchAll) params.append('fetch_all', 'true');
     
     const headers = { Authorization: `Bearer ${token}` };
     
@@ -113,16 +110,14 @@ export const bettingApi = {
     bookmaker?: string;
     player?: string;
     prop_type?: string;
-    limit?: number;
-    lastEvaluatedKey?: string;
+    fetchAll?: boolean;
   }): Promise<PlayerPropsResponse> {
     const params = new URLSearchParams();
     if (filters?.sport) params.append('sport', filters.sport);
     if (filters?.bookmaker) params.append('bookmaker', filters.bookmaker);
     if (filters?.player) params.append('player', filters.player);
     if (filters?.prop_type) params.append('prop_type', filters.prop_type);
-    if (filters?.limit) params.append('limit', filters.limit.toString());
-    if (filters?.lastEvaluatedKey) params.append('lastEvaluatedKey', filters.lastEvaluatedKey);
+    if (filters?.fetchAll) params.append('fetch_all', 'true');
     
     const response = await api.get(`/player-props?${params.toString()}`, {
       headers: { Authorization: token }

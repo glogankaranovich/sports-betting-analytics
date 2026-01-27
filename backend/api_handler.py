@@ -96,7 +96,13 @@ def handle_get_games(query_params: Dict[str, str]):
     """Get all games with latest odds using GSI query"""
     sport = query_params.get("sport")
     bookmaker = query_params.get("bookmaker")
-    limit = int(query_params.get("limit", "20"))
+    fetch_all = query_params.get("fetch_all", "false").lower() == "true"
+
+    if fetch_all:
+        limit = 10000
+    else:
+        limit = int(query_params.get("limit", "20"))
+
     last_evaluated_key = query_params.get("lastEvaluatedKey")
 
     if not sport:
@@ -106,9 +112,9 @@ def handle_get_games(query_params: Dict[str, str]):
     display_bookmakers = {"fanatics", "fanduel", "draftkings", "betmgm"}
 
     try:
-        # Parse pagination token if provided
+        # Parse pagination token if provided (only for paginated requests)
         exclusive_start_key = None
-        if last_evaluated_key:
+        if last_evaluated_key and not fetch_all:
             try:
                 exclusive_start_key = json.loads(last_evaluated_key)
             except Exception:
@@ -122,6 +128,8 @@ def handle_get_games(query_params: Dict[str, str]):
             filter_expr = filter_expr & boto3.dynamodb.conditions.Attr(
                 "sk"
             ).begins_with(f"{bookmaker}#")
+
+        three_hours_ago = (datetime.utcnow() - timedelta(hours=3)).isoformat()
 
         query_kwargs = {
             "IndexName": "ActiveBetsIndexV2",
@@ -171,12 +179,14 @@ def handle_get_games(query_params: Dict[str, str]):
                         "outcomes"
                     ]
 
-        games = list(games_dict.values())[:limit]
+        games = list(games_dict.values())
+        if not fetch_all:
+            games = games[:limit]
         games = decimal_to_float(games)
 
         result = {"games": games, "count": len(games), "sport_filter": sport}
 
-        if "LastEvaluatedKey" in response:
+        if not fetch_all and "LastEvaluatedKey" in response:
             result["lastEvaluatedKey"] = json.dumps(response["LastEvaluatedKey"])
 
         return create_response(200, result)
@@ -223,7 +233,13 @@ def handle_get_player_props(query_params: Dict[str, str]):
     sport = query_params.get("sport")
     bookmaker = query_params.get("bookmaker")
     prop_type = query_params.get("prop_type")
-    limit = int(query_params.get("limit", "20"))
+    fetch_all = query_params.get("fetch_all", "false").lower() == "true"
+
+    if fetch_all:
+        limit = 10000
+    else:
+        limit = int(query_params.get("limit", "20"))
+
     last_evaluated_key = query_params.get("lastEvaluatedKey")
 
     if not sport:
@@ -234,7 +250,7 @@ def handle_get_player_props(query_params: Dict[str, str]):
 
     try:
         exclusive_start_key = None
-        if last_evaluated_key:
+        if last_evaluated_key and not fetch_all:
             try:
                 exclusive_start_key = json.loads(last_evaluated_key)
             except Exception:
@@ -294,11 +310,14 @@ def handle_get_player_props(query_params: Dict[str, str]):
 
             current_key = response.get("LastEvaluatedKey")
 
-            if not current_key or len(props) >= limit:
+            if not current_key or (not fetch_all and len(props) >= limit):
                 break
 
-        props = props[:limit]
-        pagination_key = current_key if len(props) >= limit else None
+        if not fetch_all:
+            props = props[:limit]
+        pagination_key = (
+            current_key if (not fetch_all and len(props) >= limit) else None
+        )
 
         props = decimal_to_float(props)
 
@@ -312,7 +331,7 @@ def handle_get_player_props(query_params: Dict[str, str]):
             },
         }
 
-        if pagination_key:
+        if pagination_key and not fetch_all:
             result["lastEvaluatedKey"] = json.dumps(pagination_key)
 
         return create_response(200, result)
@@ -346,18 +365,25 @@ def handle_compliance_log(event_body: Dict[str, Any]):
 
 
 def handle_get_analyses(query_params: Dict[str, str]):
-    """Get ML analyses using AnalysisGSI"""
+    """Get ML analyses using GSI1 sorted by confidence"""
     try:
         sport = query_params.get("sport", "basketball_nba")
         model = query_params.get("model")
         bookmaker = query_params.get("bookmaker")
         analysis_type = query_params.get("type", "game")  # "game" or "prop"
-        limit = int(query_params.get("limit", "20"))
+        fetch_all = query_params.get("fetch_all", "false").lower() == "true"
+
+        # If fetch_all, don't use limit from query params
+        if fetch_all:
+            limit = 10000  # High limit to get everything
+        else:
+            limit = int(query_params.get("limit", "20"))
+
         last_evaluated_key_str = query_params.get("lastEvaluatedKey")
 
-        # Parse lastEvaluatedKey if provided
+        # Parse lastEvaluatedKey if provided (only for paginated requests)
         last_evaluated_key = None
-        if last_evaluated_key_str:
+        if last_evaluated_key_str and not fetch_all:
             try:
                 last_evaluated_key = json.loads(last_evaluated_key_str)
             except Exception:
@@ -374,7 +400,7 @@ def handle_get_analyses(query_params: Dict[str, str]):
         # Time filtering - show analyses from 3 hours ago onwards
         three_hours_ago = (datetime.utcnow() - timedelta(hours=3)).isoformat()
 
-        # Query using AnalysisTimeGSI for chronological ordering
+        # Query using AnalysisTimeGSI
         query_kwargs = {
             "IndexName": "AnalysisTimeGSI",
             "KeyConditionExpression": boto3.dynamodb.conditions.Key(
@@ -385,7 +411,7 @@ def handle_get_analyses(query_params: Dict[str, str]):
             "Limit": limit,
         }
 
-        if last_evaluated_key:
+        if last_evaluated_key and not fetch_all:
             query_kwargs["ExclusiveStartKey"] = last_evaluated_key
 
         response = table.query(**query_kwargs)
@@ -412,6 +438,10 @@ def handle_get_analyses(query_params: Dict[str, str]):
             if item.get("player_name"):
                 analysis["player_name"] = item.get("player_name")
 
+            # Add market_key for prop analyses
+            if item.get("market_key"):
+                analysis["market_key"] = item.get("market_key")
+
             analyses.append(analysis)
 
         analyses = decimal_to_float(analyses)
@@ -424,8 +454,8 @@ def handle_get_analyses(query_params: Dict[str, str]):
             "bookmaker_filter": bookmaker,
         }
 
-        # Add pagination token if there are more results
-        if response.get("LastEvaluatedKey"):
+        # Add pagination token only if not fetching all and there are more results
+        if not fetch_all and response.get("LastEvaluatedKey"):
             result["lastEvaluatedKey"] = json.dumps(response["LastEvaluatedKey"])
 
         return create_response(200, result)
@@ -466,7 +496,7 @@ def handle_get_insights(query_params: Dict[str, str]):
             ).eq(analysis_pk)
             & boto3.dynamodb.conditions.Key("commence_time").gte(three_hours_ago),
             "ScanIndexForward": False,  # Most recent first
-            "Limit": limit * 2,  # Get more than needed to sort by confidence
+            "Limit": limit * 3,  # Get more than needed to sort by confidence
         }
 
         if last_evaluated_key:

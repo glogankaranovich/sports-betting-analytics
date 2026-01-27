@@ -18,6 +18,20 @@ import './amplify-theme.css';
 import './App.css';
 
 function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
+  const propTypeLabels: { [key: string]: string } = {
+    'player_pass_tds': 'Passing TDs',
+    'player_pass_yds': 'Passing Yards',
+    'player_rush_yds': 'Rushing Yards',
+    'player_receptions': 'Receptions',
+    'player_reception_yds': 'Receiving Yards',
+    'player_points': 'Points',
+    'player_rebounds': 'Rebounds',
+    'player_assists': 'Assists',
+    'player_threes': '3-Pointers Made',
+    'player_blocks': 'Blocks',
+    'player_steals': 'Steals'
+  };
+
   const [games, setGames] = useState<Game[]>([]);
   const [gameAnalysis, setGameAnalysis] = useState<any[]>([]);
   const [propAnalysis, setPropAnalysis] = useState<any[]>([]);
@@ -26,8 +40,18 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights' | 'models'>('games');
   const [currentPage, setCurrentPage] = useState(1);
+  const [propAnalysisPage, setPropAnalysisPage] = useState(1);
+  const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
+  const [gameAnalysisSort, setGameAnalysisSort] = useState<'confidence' | 'time'>('confidence');
+  const [gameAnalysisSortDir, setGameAnalysisSortDir] = useState<'asc' | 'desc'>('desc');
+  const [propAnalysisSort, setPropAnalysisSort] = useState<'confidence' | 'time'>('confidence');
+  const [propAnalysisSortDir, setPropAnalysisSortDir] = useState<'asc' | 'desc'>('desc');
+  const [teamFilter, setTeamFilter] = useState<string>('');
+  const [playerFilter, setPlayerFilter] = useState<string>('');
+  const [gamesSort, setGamesSort] = useState<'time' | 'team'>('time');
+  const [gamesSortDir, setGamesSortDir] = useState<'asc' | 'desc'>('asc');
   const [token, setToken] = useState<string>('');
   const [settings, setSettings] = useState({
     sport: 'basketball_nba',
@@ -93,27 +117,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     }
   }, [settings.sport, settings.bookmaker]);
 
-  const loadMoreGames = async () => {
-    if (!gamesKey || loadingMoreGames) return;
-    
-    try {
-      setLoadingMoreGames(true);
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      
-      if (token) {
-        const sport = settings.sport;
-        const bookmaker = settings.bookmaker;
-        const data = await bettingApi.getGames(token, sport, bookmaker, gamesKey);
-        setGames(prev => [...prev, ...(data.games || [])]);
-        setGamesKey(data.lastEvaluatedKey || null);
-      }
-    } catch (err) {
-      console.error('Error loading more games:', err);
-    } finally {
-      setLoadingMoreGames(false);
-    }
-  };
 
   const fetchGameAnalysis = useCallback(async () => {
     try {
@@ -124,9 +127,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const sport = settings.sport;
         const model = settings.model !== 'all' ? settings.model : undefined;
         const bookmaker = settings.bookmaker;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', limit: 20 });
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', fetchAll: true });
         setGameAnalysis(data.analyses || []);
-        setGameAnalysisKey(data.lastEvaluatedKey || null);
+        setGameAnalysisKey(null); // No pagination with fetch_all
       }
     } catch (err) {
       console.error('Error fetching game analysis:', err);
@@ -135,7 +138,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   const fetchPropAnalysis = useCallback(async () => {
     try {
-      console.log('fetchPropAnalysis called');
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
       
@@ -143,11 +145,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const sport = settings.sport;
         const model = settings.model !== 'all' ? settings.model : undefined;
         const bookmaker = settings.bookmaker;
-        console.log('Fetching prop analyses with:', { sport, model, bookmaker, type: 'prop' });
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', limit: 20 });
-        console.log('Prop analyses response:', data);
+        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', fetchAll: true });
         setPropAnalysis(data.analyses || []);
-        setPropAnalysisKey(data.lastEvaluatedKey || null);
+        setPropAnalysisKey(null); // No pagination with fetch_all
       }
     } catch (err) {
       console.error('Error fetching prop analysis:', err);
@@ -155,51 +155,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     }
   }, [settings.sport, settings.model, settings.bookmaker]);
 
-  const loadMoreGameAnalysis = async () => {
-    if (!gameAnalysisKey || loadingMoreGame) return;
-    
-    try {
-      setLoadingMoreGame(true);
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      
-      if (token) {
-        const sport = settings.sport;
-        const model = settings.model !== 'all' ? settings.model : undefined;
-        const bookmaker = settings.bookmaker;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', limit: 20, lastEvaluatedKey: gameAnalysisKey });
-        setGameAnalysis(prev => [...prev, ...(data.analyses || [])]);
-        setGameAnalysisKey(data.lastEvaluatedKey || null);
-      }
-    } catch (err) {
-      console.error('Error loading more game analysis:', err);
-    } finally {
-      setLoadingMoreGame(false);
-    }
-  };
 
-  const loadMorePropAnalysis = async () => {
-    if (!propAnalysisKey || loadingMoreProp) return;
-    
-    try {
-      setLoadingMoreProp(true);
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      
-      if (token) {
-        const sport = settings.sport;
-        const model = settings.model !== 'all' ? settings.model : undefined;
-        const bookmaker = settings.bookmaker;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', limit: 20, lastEvaluatedKey: propAnalysisKey });
-        setPropAnalysis(prev => [...prev, ...(data.analyses || [])]);
-        setPropAnalysisKey(data.lastEvaluatedKey || null);
-      }
-    } catch (err) {
-      console.error('Error loading more prop analysis:', err);
-    } finally {
-      setLoadingMoreProp(false);
-    }
-  };
 
   const fetchTopInsight = useCallback(async () => {
     try {
@@ -416,6 +372,13 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             <div className="games-header">
               <h2>Available Games</h2>
               <div className="filters">
+                <input
+                  type="text"
+                  placeholder="Filter by team..."
+                  value={teamFilter}
+                  onChange={(e) => setTeamFilter(e.target.value)}
+                  className="filter-select"
+                />
                 <select 
                   className="filter-select"
                   value={marketFilter} 
@@ -426,13 +389,45 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   <option key="spreads" value="spreads">Spread</option>
                   <option key="totals" value="totals">Total</option>
                 </select>
+                <select 
+                  className="filter-select"
+                  value={gamesSort} 
+                  onChange={(e) => setGamesSort(e.target.value as 'time' | 'team')}
+                >
+                  <option value="time">Sort by Time</option>
+                  <option value="team">Sort by Team</option>
+                </select>
+                <select 
+                  className="filter-select"
+                  value={gamesSortDir} 
+                  onChange={(e) => setGamesSortDir(e.target.value as 'asc' | 'desc')}
+                >
+                  <option value="asc">Ascending</option>
+                  <option value="desc">Descending</option>
+                </select>
               </div>
             </div>
             
             <div className="games-grid">
               {(() => {
                 const allGameCards = generateGameCards();
-                return allGameCards.map((cardData: any) => {
+                return allGameCards
+                  .filter((cardData: any) => {
+                    if (!teamFilter) return true;
+                    const filter = teamFilter.toLowerCase();
+                    return cardData.game.home_team?.toLowerCase().includes(filter) || 
+                           cardData.game.away_team?.toLowerCase().includes(filter);
+                  })
+                  .sort((a: any, b: any) => {
+                    let comparison = 0;
+                    if (gamesSort === 'time') {
+                      comparison = new Date(a.game.commence_time).getTime() - new Date(b.game.commence_time).getTime();
+                    } else {
+                      comparison = a.game.home_team.localeCompare(b.game.home_team);
+                    }
+                    return gamesSortDir === 'desc' ? -comparison : comparison;
+                  })
+                  .map((cardData: any) => {
                   const { game, markets, key } = cardData;
                   const marketLabels: Record<string, string> = { h2h: 'Moneyline', spreads: 'Spread', totals: 'Total' };
                   
@@ -473,25 +468,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               })()}
             </div>
             
-            {gamesKey && (
-              <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                <button 
-                  onClick={loadMoreGames} 
-                  disabled={loadingMoreGames}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '16px',
-                    cursor: loadingMoreGames ? 'not-allowed' : 'pointer',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px'
-                  }}
-                >
-                  {loadingMoreGames ? 'Loading...' : 'Load More'}
-                </button>
-              </div>
-            )}
             
             {games.length === 0 && (
               <div className="no-data">No games found for current filters</div>
@@ -503,10 +479,52 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <div className="predictions-section">
             <div className="games-header">
               <h2>Game Analysis</h2>
+              <div className="filters">
+                <input
+                  type="text"
+                  placeholder="Filter by team..."
+                  value={teamFilter}
+                  onChange={(e) => setTeamFilter(e.target.value)}
+                  className="filter-select"
+                />
+                <select 
+                  className="filter-select"
+                  value={gameAnalysisSort} 
+                  onChange={(e) => setGameAnalysisSort(e.target.value as 'confidence' | 'time')}
+                >
+                  <option value="confidence">Sort by Confidence</option>
+                  <option value="time">Sort by Time</option>
+                </select>
+                <select 
+                  className="filter-select"
+                  value={gameAnalysisSortDir} 
+                  onChange={(e) => setGameAnalysisSortDir(e.target.value as 'asc' | 'desc')}
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              </div>
             </div>
             <div className="games-grid">
               {gameAnalysis.length > 0 ? (
-                gameAnalysis.map((analysis: any, index: number) => (
+                gameAnalysis
+                  .filter((analysis: any) => {
+                    if (!teamFilter) return true;
+                    const filter = teamFilter.toLowerCase();
+                    return analysis.home_team?.toLowerCase().includes(filter) || 
+                           analysis.away_team?.toLowerCase().includes(filter);
+                  })
+                  .sort((a: any, b: any) => {
+                    let comparison = 0;
+                    if (gameAnalysisSort === 'confidence') {
+                      comparison = b.confidence - a.confidence;
+                    } else {
+                      comparison = new Date(b.commence_time).getTime() - new Date(a.commence_time).getTime();
+                    }
+                    return gameAnalysisSortDir === 'asc' ? -comparison : comparison;
+                  })
+                  .slice((gameAnalysisPage - 1) * itemsPerPage, gameAnalysisPage * itemsPerPage)
+                  .map((analysis: any, index: number) => (
                   <div key={index} className="game-card">
                     <div className="game-info">
                       <div className="teams">
@@ -538,22 +556,22 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               }
             </div>
             
-            {gameAnalysisKey && (
-              <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            {gameAnalysis.length > itemsPerPage && (
+              <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
                 <button 
-                  onClick={loadMoreGameAnalysis} 
-                  disabled={loadingMoreGame}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '16px',
-                    cursor: loadingMoreGame ? 'not-allowed' : 'pointer',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px'
-                  }}
+                  onClick={() => setGameAnalysisPage(p => Math.max(1, p - 1))} 
+                  disabled={gameAnalysisPage === 1}
+                  style={{ padding: '8px 16px', cursor: gameAnalysisPage === 1 ? 'not-allowed' : 'pointer' }}
                 >
-                  {loadingMoreGame ? 'Loading...' : 'Load More'}
+                  Previous
+                </button>
+                <span>Page {gameAnalysisPage} of {Math.ceil(gameAnalysis.length / itemsPerPage)} ({gameAnalysis.length} analyses)</span>
+                <button 
+                  onClick={() => setGameAnalysisPage(p => Math.min(Math.ceil(gameAnalysis.length / itemsPerPage), p + 1))} 
+                  disabled={gameAnalysisPage === Math.ceil(gameAnalysis.length / itemsPerPage)}
+                  style={{ padding: '8px 16px', cursor: gameAnalysisPage === Math.ceil(gameAnalysis.length / itemsPerPage) ? 'not-allowed' : 'pointer' }}
+                >
+                  Next
                 </button>
               </div>
             )}
@@ -568,15 +586,78 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <div className="predictions-section">
             <div className="games-header">
               <h2>Player Prop Analysis</h2>
-
+              <div className="filters">
+                <input
+                  type="text"
+                  placeholder="Filter by player..."
+                  value={playerFilter}
+                  onChange={(e) => setPlayerFilter(e.target.value)}
+                  className="filter-select"
+                />
+                <select 
+                  className="filter-select"
+                  value={marketFilter} 
+                  onChange={(e) => setMarketFilter(e.target.value)}
+                >
+                  <option value="all">All Prop Types</option>
+                  {settings.sport === 'basketball_nba' && (
+                    <>
+                      <option value="player_points">Points</option>
+                      <option value="player_rebounds">Rebounds</option>
+                      <option value="player_assists">Assists</option>
+                    </>
+                  )}
+                  {settings.sport === 'americanfootball_nfl' && (
+                    <>
+                      <option value="player_pass_tds">Passing TDs</option>
+                      <option value="player_pass_yds">Passing Yards</option>
+                      <option value="player_rush_yds">Rushing Yards</option>
+                      <option value="player_receptions">Receptions</option>
+                      <option value="player_reception_yds">Receiving Yards</option>
+                    </>
+                  )}
+                </select>
+                <select 
+                  className="filter-select"
+                  value={propAnalysisSort} 
+                  onChange={(e) => setPropAnalysisSort(e.target.value as 'confidence' | 'time')}
+                >
+                  <option value="confidence">Sort by Confidence</option>
+                  <option value="time">Sort by Time</option>
+                </select>
+                <select 
+                  className="filter-select"
+                  value={propAnalysisSortDir} 
+                  onChange={(e) => setPropAnalysisSortDir(e.target.value as 'asc' | 'desc')}
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              </div>
             </div>
             <div className="games-grid">
               {propAnalysis.length > 0 ? (
-                propAnalysis.map((analysis: any, index: number) => (
+                propAnalysis
+                  .filter((analysis: any) => {
+                    if (marketFilter !== 'all' && analysis.market_key !== marketFilter) return false;
+                    if (!playerFilter) return true;
+                    return analysis.player_name?.toLowerCase().includes(playerFilter.toLowerCase());
+                  })
+                  .sort((a: any, b: any) => {
+                    let comparison = 0;
+                    if (propAnalysisSort === 'confidence') {
+                      comparison = b.confidence - a.confidence;
+                    } else {
+                      comparison = new Date(b.commence_time).getTime() - new Date(a.commence_time).getTime();
+                    }
+                    return propAnalysisSortDir === 'asc' ? -comparison : comparison;
+                  })
+                  .slice((propAnalysisPage - 1) * itemsPerPage, propAnalysisPage * itemsPerPage)
+                  .map((analysis: any, index: number) => (
                   <div key={index} className="game-card">
                     <div className="game-info">
                       <div className="teams">
-                        <h3>{analysis.player_name}</h3>
+                        <h3>{analysis.player_name}{analysis.market_key ? ` - ${propTypeLabels[analysis.market_key] || analysis.market_key}` : ''}</h3>
                         <div className="sport-tag">{formatSport(analysis.sport)}</div>
                         <p className="game-time">{new Date(analysis.commence_time).toLocaleString()}</p>
                       </div>
@@ -605,22 +686,22 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               }
             </div>
             
-            {propAnalysisKey && (
-              <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            {propAnalysis.length > itemsPerPage && (
+              <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
                 <button 
-                  onClick={loadMorePropAnalysis} 
-                  disabled={loadingMoreProp}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '16px',
-                    cursor: loadingMoreProp ? 'not-allowed' : 'pointer',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px'
-                  }}
+                  onClick={() => setPropAnalysisPage(p => Math.max(1, p - 1))} 
+                  disabled={propAnalysisPage === 1}
+                  style={{ padding: '8px 16px', cursor: propAnalysisPage === 1 ? 'not-allowed' : 'pointer' }}
                 >
-                  {loadingMoreProp ? 'Loading...' : 'Load More'}
+                  Previous
+                </button>
+                <span>Page {propAnalysisPage} of {Math.ceil(propAnalysis.length / itemsPerPage)} ({propAnalysis.length} analyses)</span>
+                <button 
+                  onClick={() => setPropAnalysisPage(p => Math.min(Math.ceil(propAnalysis.length / itemsPerPage), p + 1))} 
+                  disabled={propAnalysisPage === Math.ceil(propAnalysis.length / itemsPerPage)}
+                  style={{ padding: '8px 16px', cursor: propAnalysisPage === Math.ceil(propAnalysis.length / itemsPerPage) ? 'not-allowed' : 'pointer' }}
+                >
+                  Next
                 </button>
               </div>
             )}
