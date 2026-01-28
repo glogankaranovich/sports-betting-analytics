@@ -71,16 +71,14 @@ export const bettingApi = {
     return response.data;
   },
 
-  async getTopInsight(token: string, filters: { sport?: string; model?: string; bookmaker?: string; type?: string } = {}): Promise<any> {
+  async getTopAnalysis(token: string, filters: { sport?: string; bookmaker?: string } = {}): Promise<any> {
     const params = new URLSearchParams();
     if (filters.sport) params.append('sport', filters.sport);
-    if (filters.model) params.append('model', filters.model);
     if (filters.bookmaker) params.append('bookmaker', filters.bookmaker);
-    if (filters.type) params.append('type', filters.type);
     
     const headers = { Authorization: `Bearer ${token}` };
     
-    const response = await api.get(`/top-insight?${params.toString()}`, { headers });
+    const response = await api.get(`/top-analysis?${params.toString()}`, { headers });
     return response.data;
   },
 

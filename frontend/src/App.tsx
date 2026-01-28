@@ -34,6 +34,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
   const [gameAnalysis, setGameAnalysis] = useState<any[]>([]);
   const [propAnalysis, setPropAnalysis] = useState<any[]>([]);
+  const [topInsight, setTopInsight] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'models'>('games');
@@ -151,7 +152,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     }
   }, [settings.sport, settings.model, settings.bookmaker]);
 
+  const fetchTopAnalysis = useCallback(async () => {
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (token) {
+        const data = await bettingApi.getTopAnalysis(token, { 
+          sport: settings.sport, 
+          bookmaker: settings.bookmaker 
+        });
+        setTopInsight(data.top_analysis);
+      }
+    } catch (err) {
+      console.error('Error fetching top analysis:', err);
+    }
+  }, [settings.sport, settings.bookmaker]);
 
+  useEffect(() => {
+    if (token) {
+      fetchTopAnalysis();
+    }
+  }, [token, fetchTopAnalysis]);
 
   // Games are already grouped by game_id from the API
   let filteredGames = games.filter(game => {
@@ -265,6 +287,38 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </button>
         </div>
       </header>
+      
+      {topInsight && (
+        <div className="top-insight-banner">
+          <div className="top-insight-header">
+            <h2>🎯 Top Analysis</h2>
+            <span className="insight-badge">Highest Confidence</span>
+          </div>
+          <div className="top-insight-content">
+            <div className="insight-game-info">
+              <h3>{topInsight.away_team} @ {topInsight.home_team}</h3>
+              <p className="game-time">{new Date(topInsight.commence_time).toLocaleString()}</p>
+            </div>
+            <div className="insight-prediction">
+              <div className="prediction-box">
+                <span className="prediction-label">Prediction: </span>
+                <span className="prediction-value">{topInsight.prediction}</span>
+              </div>
+              <div className="confidence">
+                <span className="confidence-label">Confidence</span>
+                <span className="confidence-value">{(topInsight.confidence * 100).toFixed(0)}%</span>
+              </div>
+            </div>
+            <div className="insight-details">
+              <p className="reasoning">{topInsight.reasoning}</p>
+              <div className="insight-meta">
+                <span>Model: {topInsight.model}</span>
+                {topInsight.player_name && <span>Player: {topInsight.player_name}</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <Settings 
         settings={settings}

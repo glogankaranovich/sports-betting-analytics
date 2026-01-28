@@ -58,6 +58,8 @@ def lambda_handler(event, context):
             return handle_get_games(query_params)
         elif path == "/analyses":
             return handle_get_analyses(query_params)
+        elif path == "/top-analysis":
+            return handle_get_top_analysis(query_params)
         elif path == "/player-props":
             return handle_get_player_props(query_params)
         elif path == "/sports":
@@ -458,6 +460,80 @@ def handle_get_analyses(query_params: Dict[str, str]):
 
     except Exception as e:
         return create_response(500, {"error": f"Error fetching analyses: {str(e)}"})
+
+
+def handle_get_top_analysis(query_params: Dict[str, str]):
+    """Get single top analysis with highest confidence across all models"""
+    try:
+        sport = query_params.get("sport", "basketball_nba")
+        bookmaker = query_params.get("bookmaker", "fanduel")
+        current_time = datetime.utcnow().isoformat()
+
+        all_analyses = []
+        models = [
+            "consensus",
+            "value",
+            "momentum",
+            "contrarian",
+            "hot_cold",
+            "rest_schedule",
+            "matchup",
+            "injury_aware",
+        ]
+        analysis_types = ["game", "prop"]
+
+        for model in models:
+            for analysis_type in analysis_types:
+                analysis_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{analysis_type}"
+                response = table.query(
+                    IndexName="AnalysisTimeGSI",
+                    KeyConditionExpression=boto3.dynamodb.conditions.Key(
+                        "analysis_time_pk"
+                    ).eq(analysis_pk)
+                    & boto3.dynamodb.conditions.Key("commence_time").gte(current_time),
+                    ScanIndexForward=False,
+                    Limit=10,
+                )
+                all_analyses.extend(response.get("Items", []))
+
+        if not all_analyses:
+            return create_response(
+                200, {"top_analysis": None, "sport": sport, "bookmaker": bookmaker}
+            )
+
+        all_analyses.sort(key=lambda x: float(x.get("confidence", 0)), reverse=True)
+        top = all_analyses[0]
+
+        top_analysis = {
+            "game_id": top.get("game_id"),
+            "model": top.get("model"),
+            "analysis_type": top.get("analysis_type"),
+            "sport": top.get("sport"),
+            "bookmaker": top.get("bookmaker"),
+            "prediction": top.get("prediction"),
+            "confidence": float(top.get("confidence", 0)),
+            "reasoning": top.get("reasoning"),
+            "home_team": top.get("home_team"),
+            "away_team": top.get("away_team"),
+            "commence_time": top.get("commence_time"),
+        }
+
+        if top.get("player_name"):
+            top_analysis["player_name"] = top.get("player_name")
+        if top.get("market_key"):
+            top_analysis["market_key"] = top.get("market_key")
+
+        return create_response(
+            200,
+            {
+                "top_analysis": decimal_to_float(top_analysis),
+                "sport": sport,
+                "bookmaker": bookmaker,
+            },
+        )
+
+    except Exception as e:
+        return create_response(500, {"error": f"Error fetching top analysis: {str(e)}"})
 
 
 def handle_get_analytics(query_params: Dict[str, str]):

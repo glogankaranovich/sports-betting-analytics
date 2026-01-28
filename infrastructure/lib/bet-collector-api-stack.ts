@@ -133,12 +133,9 @@ export class BetCollectorApiStack extends cdk.Stack {
     const analyses = betCollectorApi.root.addResource('analyses');
     analyses.addMethod('GET', lambdaIntegration, methodOptions);
 
-    // Insights endpoints (protected)
-    const insights = betCollectorApi.root.addResource('insights');
-    insights.addMethod('GET', lambdaIntegration, methodOptions);
-    
-    const topInsight = betCollectorApi.root.addResource('top-insight');
-    topInsight.addMethod('GET', lambdaIntegration, methodOptions);
+    // Top analysis endpoint (protected)
+    const topAnalysis = betCollectorApi.root.addResource('top-analysis');
+    topAnalysis.addMethod('GET', lambdaIntegration, methodOptions);
 
     // Analytics endpoint (protected)
     const analytics = betCollectorApi.root.addResource('analytics');
