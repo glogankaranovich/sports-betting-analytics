@@ -83,24 +83,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
     
     const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware'];
     
-    sports.forEach(sport => {
-      models.forEach((model, index) => {
-        new events.Rule(this, `${sport.name}${model}GameAnalysis`, {
-          schedule: events.Schedule.cron({ minute: `${index * 2}`, hour: '18', month: sport.months }),
-          description: `Generate ${model} ${sport.name} game analyses at 18:${index * 2} UTC`,
-          targets: [new targets.LambdaFunction(sport.lambda, {
-            event: events.RuleTargetInput.fromObject({ model, bet_type: 'games', sport: sport.key })
-          })]
-        });
-
-        new events.Rule(this, `${sport.name}${model}PropAnalysis`, {
-          schedule: events.Schedule.cron({ minute: `${20 + index * 2}`, hour: '18', month: sport.months }),
-          description: `Generate ${model} ${sport.name} prop analyses at 18:${20 + index * 2} UTC`,
-          targets: [new targets.LambdaFunction(sport.lambda, {
-            event: events.RuleTargetInput.fromObject({ model, bet_type: 'props', sport: sport.key })
-          })]
-        });
-      });
-    });
+    // Note: EventBridge schedules are created in sport-specific schedule stacks
+    // to avoid hitting CloudFormation's 500 resource limit per stack
   }
 }

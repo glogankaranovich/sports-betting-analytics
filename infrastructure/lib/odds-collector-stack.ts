@@ -88,40 +88,7 @@ export class OddsCollectorStack extends cdk.Stack {
     oddsApiSecret.grantRead(this.oddsCollectorFunction);
     oddsApiSecret.grantRead(this.propsCollectorFunction);
 
-    // Sports configuration with seasons
-    const sportsConfig = [
-      { key: 'basketball_nba', name: 'NBA', months: '10-6' },
-      { key: 'americanfootball_nfl', name: 'NFL', months: '9-2' },
-      { key: 'baseball_mlb', name: 'MLB', months: '3-10' },
-      { key: 'icehockey_nhl', name: 'NHL', months: '10-6' },
-      { key: 'soccer_epl', name: 'EPL', months: '8-5' }
-    ];
-
-    // Create EventBridge rules for game odds - run every 4 hours during season
-    const oddsHours = ['14', '18', '22', '2'];  // 10 AM, 2 PM, 6 PM, 10 PM ET
-    sportsConfig.forEach(sport => {
-      oddsHours.forEach((hour, index) => {
-        new events.Rule(this, `${sport.name}OddsRule${hour}`, {
-          schedule: events.Schedule.cron({ minute: '0', hour, month: sport.months }),
-          description: `Collect ${sport.name} game odds at ${hour}:00 UTC during season`,
-          targets: [new targets.LambdaFunction(this.oddsCollectorFunction, {
-            event: events.RuleTargetInput.fromObject({ sport: sport.key })
-          })]
-        });
-      });
-    });
-
-    // Create EventBridge rules for props - run every 4 hours during season
-    sportsConfig.forEach(sport => {
-      oddsHours.forEach((hour, index) => {
-        new events.Rule(this, `${sport.name}PropsRule${hour}`, {
-          schedule: events.Schedule.cron({ minute: '15', hour, month: sport.months }),
-          description: `Collect ${sport.name} player props at ${hour}:15 UTC during season`,
-          targets: [new targets.LambdaFunction(this.propsCollectorFunction, {
-            event: events.RuleTargetInput.fromObject({ sport: sport.key, props_only: true })
-          })]
-        });
-      });
-    });
+    // Note: EventBridge schedules are created in sport-specific schedule stacks
+    // to avoid hitting CloudFormation's 500 resource limit per stack
   }
 }

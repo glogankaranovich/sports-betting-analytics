@@ -27,9 +27,10 @@ describe('OddsCollectorStack', () => {
     });
   });
 
-  test('EventBridge schedules are enabled for automated collection', () => {
-    // Verify 40 EventBridge rules exist (5 sports x 2 types x 4 times per day)
-    template.resourceCountIs('AWS::Events::Rule', 40);
+  test('EventBridge schedules moved to sport-specific stacks', () => {
+    // EventBridge rules are now in OddsCollectorScheduleStack to avoid 500 resource limit
+    // This stack should have 0 EventBridge rules
+    template.resourceCountIs('AWS::Events::Rule', 0);
   });
 
   test('creates IAM policy for Lambda permissions', () => {
