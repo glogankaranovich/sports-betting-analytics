@@ -12,7 +12,6 @@ export interface MonitoringStackProps extends cdk.StackProps {
   propsCollectorFunction: lambda.IFunction;
   scheduleCollectorFunction: lambda.IFunction;
   analysisGeneratorFunctions: lambda.IFunction[];
-  insightGeneratorFunctions: lambda.IFunction[];
   playerStatsCollectorFunction: lambda.IFunction;
   teamStatsCollectorFunction: lambda.IFunction;
   injuryCollectorFunction: lambda.IFunction;
@@ -104,11 +103,6 @@ export class MonitoringStack extends cdk.Stack {
     const analysisMetrics = props.analysisGeneratorFunctions.flatMap((fn, i) => 
       createLambdaMetrics(fn, `AnalysisGen${['NBA','NFL','MLB','NHL','EPL'][i]}`)
     );
-    
-    // Create metrics for insight generators (one per sport)
-    const insightMetrics = props.insightGeneratorFunctions.flatMap((fn, i) => 
-      createLambdaMetrics(fn, `InsightGen${['NBA','NFL','MLB','NHL','EPL'][i]}`)
-    );
 
     // Flatten metrics arrays
     const allInvocations = [
@@ -116,7 +110,6 @@ export class MonitoringStack extends cdk.Stack {
       propsMetrics.invocations,
       scheduleMetrics.invocations,
       ...analysisMetrics.map(m => m.invocations),
-      ...insightMetrics.map(m => m.invocations),
       playerStatsMetrics.invocations,
       teamStatsMetrics.invocations,
       outcomeMetrics.invocations,
@@ -130,7 +123,6 @@ export class MonitoringStack extends cdk.Stack {
       propsMetrics.errors,
       scheduleMetrics.errors,
       ...analysisMetrics.map(m => m.errors),
-      ...insightMetrics.map(m => m.errors),
       playerStatsMetrics.errors,
       teamStatsMetrics.errors,
       outcomeMetrics.errors,
@@ -144,7 +136,6 @@ export class MonitoringStack extends cdk.Stack {
       propsMetrics.duration,
       scheduleMetrics.duration,
       ...analysisMetrics.map(m => m.duration),
-      ...insightMetrics.map(m => m.duration),
       playerStatsMetrics.duration,
       teamStatsMetrics.duration,
       outcomeMetrics.duration,
@@ -158,7 +149,6 @@ export class MonitoringStack extends cdk.Stack {
       propsMetrics.throttles,
       scheduleMetrics.throttles,
       ...analysisMetrics.map(m => m.throttles),
-      ...insightMetrics.map(m => m.throttles),
       playerStatsMetrics.throttles,
       teamStatsMetrics.throttles,
       outcomeMetrics.throttles,

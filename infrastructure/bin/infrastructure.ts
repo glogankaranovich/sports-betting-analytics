@@ -8,7 +8,6 @@ import { PlayerStatsCollectorStack } from '../lib/player-stats-collector-stack';
 import { TeamStatsCollectorStack } from '../lib/team-stats-collector-stack';
 import { ModelAnalyticsStack } from '../lib/model-analytics-stack';
 import { AnalysisGeneratorStack } from '../lib/analysis-generator-stack';
-import { InsightGeneratorStack } from '../lib/insight-generator-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { AmplifyStack } from '../lib/amplify-stack';
@@ -80,12 +79,6 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  const insightGeneratorStack = new InsightGeneratorStack(app, StackNames.forEnvironment('dev', 'InsightGenerator'), {
-    environment: 'dev',
-    betsTable: dynamoStack.betsTable,
-    env: ENVIRONMENTS.dev,
-  });
-
   const seasonManagerStack = new SeasonManagerStack(app, StackNames.forEnvironment('dev', 'SeasonManager'), {
     environment: 'dev',
     env: ENVIRONMENTS.dev,
@@ -118,13 +111,6 @@ if (environment === 'dev') {
       analysisGeneratorStack.analysisGeneratorMLB,
       analysisGeneratorStack.analysisGeneratorNHL,
       analysisGeneratorStack.analysisGeneratorEPL
-    ],
-    insightGeneratorFunctions: [
-      insightGeneratorStack.insightGeneratorNBA,
-      insightGeneratorStack.insightGeneratorNFL,
-      insightGeneratorStack.insightGeneratorMLB,
-      insightGeneratorStack.insightGeneratorNHL,
-      insightGeneratorStack.insightGeneratorEPL
     ],
     playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
     teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,

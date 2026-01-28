@@ -4,7 +4,6 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 import { bettingApi } from './services/api';
 import { Game } from './types/betting';
 import PlayerProps from './components/PlayerProps';
-import BetInsights from './components/BetInsights';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
@@ -35,10 +34,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [games, setGames] = useState<Game[]>([]);
   const [gameAnalysis, setGameAnalysis] = useState<any[]>([]);
   const [propAnalysis, setPropAnalysis] = useState<any[]>([]);
-  const [topInsight, setTopInsight] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'insights' | 'models'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'models'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const [propAnalysisPage, setPropAnalysisPage] = useState(1);
   const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
@@ -76,7 +74,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           fetchGames();
           fetchGameAnalysis();
           fetchPropAnalysis();
-          fetchTopInsight();
         }
       } catch (error) {
         console.error('Error getting auth session:', error);
@@ -92,7 +89,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       fetchGames();
       fetchGameAnalysis();
       fetchPropAnalysis();
-      fetchTopInsight();
     }
   }, [settings, token]);
 
@@ -156,23 +152,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   }, [settings.sport, settings.model, settings.bookmaker]);
 
 
-
-  const fetchTopInsight = useCallback(async () => {
-    try {
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      
-      if (token) {
-        const sport = settings.sport;
-        const bookmaker = settings.bookmaker;
-        // No model filter - get top insight across all models
-        const data = await bettingApi.getTopInsight(token, { sport, bookmaker, type: 'game' });
-        setTopInsight(data.top_insight);
-      }
-    } catch (err) {
-      console.error('Error fetching top insight:', err);
-    }
-  }, [settings.sport, settings.bookmaker]);
 
   // Games are already grouped by game_id from the API
   let filteredGames = games.filter(game => {
@@ -278,7 +257,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             fetchGames();
             fetchGameAnalysis();
             fetchPropAnalysis();
-            fetchTopInsight();
           }}>
             Refresh Data
           </button>
@@ -287,37 +265,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </button>
         </div>
       </header>
-      
-      {topInsight && (
-        <div className="top-insight-banner">
-          <div className="top-insight-header">
-            <h2>🎯 Top Insight</h2>
-            <span className="insight-badge">Highest Confidence</span>
-          </div>
-          <div className="top-insight-content">
-            <div className="insight-game-info">
-              <h3>{topInsight.away_team} @ {topInsight.home_team}</h3>
-              <p className="game-time">{new Date(topInsight.commence_time).toLocaleString()}</p>
-            </div>
-            <div className="insight-prediction">
-              <div className="prediction-box">
-                <span className="prediction-label">Analysis Outcome: </span>
-                <span className="prediction-value">{topInsight.prediction}</span>
-              </div>
-              <div className="confidence">
-                <span className="confidence-label">Confidence</span>
-                <span className="confidence-value">{(topInsight.confidence * 100).toFixed(0)}%</span>
-              </div>
-            </div>
-            <div className="insight-details">
-              <p className="reasoning">{topInsight.reasoning}</p>
-              <div className="insight-meta">
-                <span>Model: {topInsight.model}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       
       <Settings 
         settings={settings}
@@ -352,12 +299,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onClick={() => handleTabChange('prop-analysis')}
           >
             Prop Analysis
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'insights' ? 'active' : ''}`}
-            onClick={() => handleTabChange('insights')}
-          >
-            Insights
           </button>
           <button 
             className={`tab-button ${activeTab === 'models' ? 'active' : ''}`}
@@ -721,10 +662,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onPageChange={setCurrentPage}
             settings={settings}
           />
-        )}
-
-        {activeTab === 'insights' && (
-          <BetInsights token={token} settings={settings} />
         )}
 
         {activeTab === 'models' && (

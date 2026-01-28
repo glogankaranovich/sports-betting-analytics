@@ -91,33 +91,6 @@ def test_analyses_endpoint(api_config):
     assert "count" in data
 
 
-def test_insights_endpoint(api_config):
-    """Test /insights endpoint"""
-    response = requests.get(
-        f"{api_config['api_url']}/insights?sport=basketball_nba&bookmaker=fanduel&model=consensus&limit=5",
-        headers=api_config["headers"],
-        timeout=10,
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "insights" in data
-    assert "count" in data
-
-
-def test_top_insight_endpoint(api_config):
-    """Test /top-insight endpoint"""
-    response = requests.get(
-        f"{api_config['api_url']}/top-insight?sport=basketball_nba&bookmaker=fanduel&model=consensus",
-        headers=api_config["headers"],
-        timeout=10,
-    )
-    assert response.status_code in [200, 404]  # 404 if no insights available
-    if response.status_code == 200:
-        data = response.json()
-        # Response has 'top_insight' key, not 'insight'
-        assert "top_insight" in data or "message" in data
-
-
 def test_player_props_endpoint(api_config):
     """Test /player-props endpoint"""
     response = requests.get(

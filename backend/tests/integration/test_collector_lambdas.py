@@ -216,21 +216,6 @@ def test_all_analysis_generators_exist():
     print("✓ All 5 analysis generators exist")
 
 
-def test_all_insight_generators_exist():
-    """Verify all 5 insight generator Lambda functions exist."""
-    response = lambda_client.list_functions()
-    function_names = [func["FunctionName"] for func in response["Functions"]]
-
-    sports = ["nba", "nfl", "mlb", "nhl", "epl"]
-    for sport in sports:
-        found = any(
-            f"insight-generator-{sport}" in name.lower() for name in function_names
-        )
-        assert found, f"Insight generator for {sport} not found"
-
-    print("✓ All 5 insight generators exist")
-
-
 def test_all_lambdas_have_monitoring():
     """Verify all Lambda functions are being monitored."""
     # Get all Lambda functions

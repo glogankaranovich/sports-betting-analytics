@@ -123,39 +123,6 @@ class TestOutcomeCollector(unittest.TestCase):
         game3 = {"home_score": None, "away_score": "105"}
         self.assertFalse(collector._determine_winner(game3))
 
-    def test_determine_bet_outcome(self):
-        """Test determining bet outcome"""
-        collector = OutcomeCollector(self.table_name, self.api_key)
-
-        # Home team moneyline bet - home wins
-        rec1 = {"bet_type": "moneyline", "team_or_player": "Lakers (Home)"}
-        self.assertTrue(collector._determine_bet_outcome(rec1, True))
-
-        # Home team moneyline bet - home loses
-        self.assertFalse(collector._determine_bet_outcome(rec1, False))
-
-        # Away team moneyline bet - away wins (home loses)
-        rec2 = {"bet_type": "moneyline", "team_or_player": "Warriors"}
-        self.assertTrue(collector._determine_bet_outcome(rec2, False))
-
-    def test_calculate_roi(self):
-        """Test ROI calculation"""
-        collector = OutcomeCollector(self.table_name, self.api_key)
-
-        # Winning bet
-        rec1 = {"recommended_bet_amount": 100, "potential_payout": 150}
-        roi_win = collector._calculate_roi(rec1, True)
-        self.assertEqual(roi_win, 0.5)  # 50% profit
-
-        # Losing bet
-        roi_loss = collector._calculate_roi(rec1, False)
-        self.assertEqual(roi_loss, -1.0)  # Lost entire bet
-
-        # Zero bet amount
-        rec2 = {"recommended_bet_amount": 0, "potential_payout": 150}
-        roi_zero = collector._calculate_roi(rec2, True)
-        self.assertEqual(roi_zero, 0.0)
-
     def test_map_sport_name(self):
         """Test sport name mapping - returns api_sport directly"""
         collector = OutcomeCollector(self.table_name, self.api_key)

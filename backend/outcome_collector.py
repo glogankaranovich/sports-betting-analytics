@@ -17,7 +17,6 @@ class OutcomeCollector:
         """Collect outcomes for games from the last N days (max 3)"""
         results = {
             "updated_analysis": 0,
-            "updated_insights": 0,
             "stored_outcomes": 0,
             "stored_prop_outcomes": 0,
         }
@@ -42,10 +41,6 @@ class OutcomeCollector:
                 # Update analysis with outcome
                 analysis_updates = self._update_analysis_outcomes(game)
                 results["updated_analysis"] += analysis_updates
-
-                # Update insights with outcome
-                insight_updates = self._update_insight_outcomes(game)
-                results["updated_insights"] += insight_updates
 
             except Exception as e:
                 print(f"Error processing game {game.get('id', 'unknown')}: {e}")
@@ -429,46 +424,6 @@ class OutcomeCollector:
 
         return None
 
-    def _update_insight_outcomes(self, game: Dict[str, Any]) -> int:
-        """Update insight records with actual outcomes"""
-        updates = 0
-
-        try:
-            # Query for insights for this game
-            response = self.table.scan(
-                FilterExpression="begins_with(pk, :pk_prefix) AND game_id = :game_id",
-                ExpressionAttributeValues={
-                    ":pk_prefix": "INSIGHT#",
-                    ":game_id": game["id"],
-                },
-            )
-
-            for item in response.get("Items", []):
-                # Determine if the insight won
-                home_won = self._determine_winner(game)
-                bet_won = self._determine_bet_outcome(item, home_won)
-
-                # Calculate ROI if bet won
-                roi = self._calculate_roi(item, bet_won)
-
-                # Update the insight record
-                self.table.update_item(
-                    Key={"pk": item["pk"], "sk": item["sk"]},
-                    UpdateExpression="SET actual_outcome = :outcome, bet_won = :won, actual_roi = :roi, outcome_verified_at = :verified",
-                    ExpressionAttributeValues={
-                        ":outcome": home_won,
-                        ":won": bet_won,
-                        ":roi": Decimal(str(roi)),
-                        ":verified": datetime.utcnow().isoformat(),
-                    },
-                )
-                updates += 1
-
-        except Exception as e:
-            print(f"Error updating insights for game {game['id']}: {e}")
-
-        return updates
-
     def _determine_winner(self, game: Dict[str, Any]) -> bool:
         """Determine if home team won"""
         home_score = game.get("home_score")
@@ -478,35 +433,6 @@ class OutcomeCollector:
             return False  # Default if scores unavailable
 
         return int(home_score) > int(away_score)
-
-    def _determine_bet_outcome(self, insight: Dict[str, Any], home_won: bool) -> bool:
-        """Determine if the recommended bet won"""
-        bet_type = insight.get("bet_type", "")
-        team_or_player = insight.get("team_or_player", "")
-
-        # Simple moneyline logic (expand for other bet types)
-        if bet_type == "moneyline":
-            if "home" in team_or_player.lower():
-                return home_won
-            else:
-                return not home_won
-
-        # Default to False for unsupported bet types
-        return False
-
-    def _calculate_roi(self, insight: Dict[str, Any], bet_won: bool) -> float:
-        """Calculate ROI for the insight"""
-        if not bet_won:
-            return -1.0  # Lost entire bet
-
-        bet_amount = float(insight.get("recommended_bet_amount", 0))
-        potential_payout = float(insight.get("potential_payout", 0))
-
-        if bet_amount == 0:
-            return 0.0
-
-        profit = potential_payout - bet_amount
-        return profit / bet_amount
 
     def _map_sport_name(self, api_sport: str) -> str:
         """Keep sport names consistent with storage format"""

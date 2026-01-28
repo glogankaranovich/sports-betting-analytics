@@ -174,21 +174,6 @@ def test_api_integration():
             print(f"   Prediction: {sample['prediction']}")
             print(f"   Confidence: {sample['confidence']}")
 
-        # Test insights endpoint
-        print("Testing /insights endpoint with auth...")
-        insights_response = requests.get(
-            f"{api_url}/insights?sport=basketball_nba&bookmaker=fanduel&model=consensus&limit=5",
-            headers=headers,
-            timeout=10,
-        )
-        assert (
-            insights_response.status_code == 200
-        ), f"Insights request failed: {insights_response.status_code} - {insights_response.text}"
-
-        insights_data = insights_response.json()
-        assert "insights" in insights_data, "Insights data missing"
-        print(f"✅ Insights endpoint passed: Found {insights_data['count']} insights")
-
         # Test player props endpoint
         print("Testing /player-props endpoint with auth...")
         player_props_response = requests.get(

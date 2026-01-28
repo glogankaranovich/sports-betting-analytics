@@ -11,7 +11,6 @@ import { AuthStack } from './auth-stack';
 import { ComplianceStack } from './compliance-stack';
 import { IntegrationTestRoleStack } from './integration-test-role-stack';
 import { AnalysisGeneratorStack } from './analysis-generator-stack';
-import { InsightGeneratorStack } from './insight-generator-stack';
 import { MonitoringStack } from './monitoring-stack';
 import { SeasonManagerStack } from './season-manager-stack';
 import { ScheduleCollectorStack } from './schedule-collector-stack';
@@ -80,12 +79,6 @@ export class CarpoolBetsStage extends cdk.Stage {
       betsTableName: `carpool-bets-v2-${props.stage}`,
     });
 
-    // Insight generator stack
-    const insightGeneratorStack = new InsightGeneratorStack(this, 'InsightGenerator', {
-      environment: props.stage,
-      betsTable: dynamoStack.betsTable,
-    });
-
     // Model analytics stack
     const modelAnalyticsStack = new ModelAnalyticsStack(this, 'ModelAnalytics', {
       betsTable: dynamoStack.betsTable,
@@ -123,13 +116,6 @@ export class CarpoolBetsStage extends cdk.Stage {
         analysisGeneratorStack.analysisGeneratorMLB,
         analysisGeneratorStack.analysisGeneratorNHL,
         analysisGeneratorStack.analysisGeneratorEPL
-      ],
-      insightGeneratorFunctions: [
-        insightGeneratorStack.insightGeneratorNBA,
-        insightGeneratorStack.insightGeneratorNFL,
-        insightGeneratorStack.insightGeneratorMLB,
-        insightGeneratorStack.insightGeneratorNHL,
-        insightGeneratorStack.insightGeneratorEPL
       ],
       playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
       teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,

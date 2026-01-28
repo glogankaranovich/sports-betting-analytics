@@ -112,25 +112,6 @@ def test_pagination():
         print("   ℹ️  No pagination token (fewer results than limit)")
 
     print(f"\n{'='*60}")
-    print("Testing /insights endpoint pagination")
-    print(f"{'='*60}")
-
-    # Test insights pagination
-    url = f"{api_url}/insights?sport=basketball_nba&bookmaker=fanduel&model=consensus&type=game&limit=2"
-    print("\n1. Fetching first page (limit=2)...")
-    response = requests.get(url, headers=headers, timeout=10)
-
-    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-    data = response.json()
-
-    print(f"   ✓ Status: {response.status_code}")
-    print(f"   ✓ Insights count: {data.get('count')}")
-    print(f"   ✓ Has lastEvaluatedKey: {'lastEvaluatedKey' in data}")
-
-    assert "insights" in data, "Response should have 'insights' key"
-    assert "count" in data, "Response should have 'count' key"
-
-    print(f"\n{'='*60}")
     print("Testing /analyses endpoint with prop type")
     print(f"{'='*60}")
 
