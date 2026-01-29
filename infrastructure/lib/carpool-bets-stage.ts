@@ -106,30 +106,20 @@ export class CarpoolBetsStage extends cdk.Stage {
     // Compliance stack
     const complianceStack = new ComplianceStack(this, 'Compliance', {});
 
-    // Sport-specific schedule stacks to avoid CloudFormation 500 resource limit
-    const sports = [
-      { key: 'basketball_nba', name: 'NBA', months: '10-6', analysisLambda: analysisGeneratorStack.analysisGeneratorNBA },
-      { key: 'americanfootball_nfl', name: 'NFL', months: '9-2', analysisLambda: analysisGeneratorStack.analysisGeneratorNFL },
-      { key: 'baseball_mlb', name: 'MLB', months: '3-10', analysisLambda: analysisGeneratorStack.analysisGeneratorMLB },
-      { key: 'icehockey_nhl', name: 'NHL', months: '10-6', analysisLambda: analysisGeneratorStack.analysisGeneratorNHL },
-      { key: 'soccer_epl', name: 'EPL', months: '8-5', analysisLambda: analysisGeneratorStack.analysisGeneratorEPL }
-    ];
+    // Schedule stacks - simplified to avoid Lambda permission limit
+    new OddsCollectorScheduleStack(this, 'OddsSchedule', {
+      environment: props.stage,
+      oddsCollectorFunction: oddsCollectorStack.oddsCollectorFunction,
+      propsCollectorFunction: oddsCollectorStack.propsCollectorFunction,
+    });
 
-    sports.forEach(sport => {
-      // Odds collector schedules
-      new OddsCollectorScheduleStack(this, `OddsSchedule${sport.name}`, {
-        environment: props.stage,
-        sport: { key: sport.key, name: sport.name, months: sport.months },
-        oddsCollectorFunction: oddsCollectorStack.oddsCollectorFunction,
-        propsCollectorFunction: oddsCollectorStack.propsCollectorFunction,
-      });
-
-      // Analysis generator schedules
-      new AnalysisGeneratorScheduleStack(this, `AnalysisSchedule${sport.name}`, {
-        environment: props.stage,
-        sport: { key: sport.key, name: sport.name, months: sport.months },
-        analysisGeneratorFunction: sport.analysisLambda,
-      });
+    new AnalysisGeneratorScheduleStack(this, 'AnalysisSchedule', {
+      environment: props.stage,
+      analysisGeneratorNBA: analysisGeneratorStack.analysisGeneratorNBA,
+      analysisGeneratorNFL: analysisGeneratorStack.analysisGeneratorNFL,
+      analysisGeneratorMLB: analysisGeneratorStack.analysisGeneratorMLB,
+      analysisGeneratorNHL: analysisGeneratorStack.analysisGeneratorNHL,
+      analysisGeneratorEPL: analysisGeneratorStack.analysisGeneratorEPL,
     });
 
     // Monitoring stack

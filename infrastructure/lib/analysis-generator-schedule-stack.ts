@@ -6,40 +6,31 @@ import { Construct } from 'constructs';
 
 export interface AnalysisGeneratorScheduleStackProps extends cdk.StackProps {
   environment: string;
-  sport: { key: string; name: string; months: string };
-  analysisGeneratorFunction: lambda.IFunction;
+  analysisGeneratorNBA: lambda.IFunction;
+  analysisGeneratorNFL: lambda.IFunction;
+  analysisGeneratorMLB: lambda.IFunction;
+  analysisGeneratorNHL: lambda.IFunction;
+  analysisGeneratorEPL: lambda.IFunction;
 }
 
 export class AnalysisGeneratorScheduleStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: AnalysisGeneratorScheduleStackProps) {
     super(scope, id, props);
 
-    const { sport, analysisGeneratorFunction } = props;
+    const sports = [
+      { name: 'NBA', lambda: props.analysisGeneratorNBA },
+      { name: 'NFL', lambda: props.analysisGeneratorNFL },
+      { name: 'MLB', lambda: props.analysisGeneratorMLB },
+      { name: 'NHL', lambda: props.analysisGeneratorNHL },
+      { name: 'EPL', lambda: props.analysisGeneratorEPL }
+    ];
 
-    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware'];
-    
-    // Run analysis every 4 hours, 30 minutes after odds collection
-    const analysisHours = ['0', '4', '8', '12', '16', '20'];
-    
-    analysisHours.forEach(hour => {
-      models.forEach((model, index) => {
-        // Game analysis
-        new events.Rule(this, `${model}GameAnalysis${hour}`, {
-          schedule: events.Schedule.cron({ minute: `${30 + index * 2}`, hour, month: sport.months }),
-          description: `Generate ${model} ${sport.name} game analyses at ${hour}:${30 + index * 2} UTC`,
-          targets: [new targets.LambdaFunction(analysisGeneratorFunction, {
-            event: events.RuleTargetInput.fromObject({ model, bet_type: 'games', sport: sport.key })
-          })]
-        });
-
-        // Prop analysis
-        new events.Rule(this, `${model}PropAnalysis${hour}`, {
-          schedule: events.Schedule.cron({ minute: `${46 + index * 2}`, hour, month: sport.months }),
-          description: `Generate ${model} ${sport.name} prop analyses at ${hour}:${46 + index * 2} UTC`,
-          targets: [new targets.LambdaFunction(analysisGeneratorFunction, {
-            event: events.RuleTargetInput.fromObject({ model, bet_type: 'props', sport: sport.key })
-          })]
-        });
+    // Analysis generation - every 4 hours for each sport
+    sports.forEach(sport => {
+      new events.Rule(this, `AnalysisRule${sport.name}`, {
+        schedule: events.Schedule.rate(cdk.Duration.hours(4)),
+        description: `Generate ${sport.name} analyses every 4 hours`,
+        targets: [new targets.LambdaFunction(sport.lambda)]
       });
     });
   }

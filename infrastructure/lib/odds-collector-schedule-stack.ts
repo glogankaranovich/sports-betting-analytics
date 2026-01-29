@@ -6,7 +6,6 @@ import { Construct } from 'constructs';
 
 export interface OddsCollectorScheduleStackProps extends cdk.StackProps {
   environment: string;
-  sport: { key: string; name: string; months: string };
   oddsCollectorFunction: lambda.IFunction;
   propsCollectorFunction: lambda.IFunction;
 }
@@ -15,27 +14,32 @@ export class OddsCollectorScheduleStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: OddsCollectorScheduleStackProps) {
     super(scope, id, props);
 
-    const { sport, oddsCollectorFunction, propsCollectorFunction } = props;
+    const { oddsCollectorFunction, propsCollectorFunction } = props;
 
-    // Run every 2 hours
-    const hours = ['0', '2', '4', '6', '8', '10', '12', '14', '16', '18', '20', '22'];
+    const sports = [
+      { key: 'basketball_nba', name: 'NBA' },
+      { key: 'americanfootball_nfl', name: 'NFL' },
+      { key: 'baseball_mlb', name: 'MLB' },
+      { key: 'icehockey_nhl', name: 'NHL' },
+      { key: 'soccer_epl', name: 'EPL' }
+    ];
 
-    // Odds collection rules
-    hours.forEach(hour => {
-      new events.Rule(this, `OddsRule${hour}`, {
-        schedule: events.Schedule.cron({ minute: '0', hour, month: sport.months }),
-        description: `Collect ${sport.name} game odds at ${hour}:00 UTC`,
+    // Odds collection - every 2 hours for each sport
+    sports.forEach(sport => {
+      new events.Rule(this, `OddsRule${sport.name}`, {
+        schedule: events.Schedule.rate(cdk.Duration.hours(2)),
+        description: `Collect ${sport.name} game odds every 2 hours`,
         targets: [new targets.LambdaFunction(oddsCollectorFunction, {
           event: events.RuleTargetInput.fromObject({ sport: sport.key })
         })]
       });
     });
 
-    // Props collection rules
-    hours.forEach(hour => {
-      new events.Rule(this, `PropsRule${hour}`, {
-        schedule: events.Schedule.cron({ minute: '15', hour, month: sport.months }),
-        description: `Collect ${sport.name} props at ${hour}:15 UTC`,
+    // Props collection - every 2 hours for each sport (offset by 15 min)
+    sports.forEach(sport => {
+      new events.Rule(this, `PropsRule${sport.name}`, {
+        schedule: events.Schedule.rate(cdk.Duration.hours(2)),
+        description: `Collect ${sport.name} props every 2 hours`,
         targets: [new targets.LambdaFunction(propsCollectorFunction, {
           event: events.RuleTargetInput.fromObject({ sport: sport.key, props_only: true })
         })]

@@ -16,6 +16,8 @@ import { CarpoolBetsPipelineStack } from '../lib/pipeline-stack';
 import { SeasonManagerStack } from '../lib/season-manager-stack';
 import { ScheduleCollectorStack } from '../lib/schedule-collector-stack';
 import { InjuryCollectorStack } from '../lib/injury-collector-stack';
+import { OddsCollectorScheduleStack } from '../lib/odds-collector-schedule-stack';
+import { AnalysisGeneratorScheduleStack } from '../lib/analysis-generator-schedule-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -97,6 +99,24 @@ if (environment === 'dev') {
   });
 
   const complianceStack = new ComplianceStack(app, StackNames.forEnvironment('dev', 'Compliance'), {
+    env: ENVIRONMENTS.dev,
+  });
+
+  // Schedule stacks - simplified to avoid Lambda permission limit
+  new OddsCollectorScheduleStack(app, StackNames.forEnvironment('dev', 'OddsSchedule'), {
+    environment: 'dev',
+    oddsCollectorFunction: oddsCollectorStack.oddsCollectorFunction,
+    propsCollectorFunction: oddsCollectorStack.propsCollectorFunction,
+    env: ENVIRONMENTS.dev,
+  });
+
+  new AnalysisGeneratorScheduleStack(app, StackNames.forEnvironment('dev', 'AnalysisSchedule'), {
+    environment: 'dev',
+    analysisGeneratorNBA: analysisGeneratorStack.analysisGeneratorNBA,
+    analysisGeneratorNFL: analysisGeneratorStack.analysisGeneratorNFL,
+    analysisGeneratorMLB: analysisGeneratorStack.analysisGeneratorMLB,
+    analysisGeneratorNHL: analysisGeneratorStack.analysisGeneratorNHL,
+    analysisGeneratorEPL: analysisGeneratorStack.analysisGeneratorEPL,
     env: ENVIRONMENTS.dev,
   });
 

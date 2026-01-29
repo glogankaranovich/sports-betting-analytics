@@ -71,6 +71,8 @@ def lambda_handler(event, context):
             return handle_get_bookmakers()
         elif path == "/analytics":
             return handle_get_analytics(query_params)
+        elif path == "/model-performance":
+            return handle_get_model_performance(query_params)
         else:
             return create_response(404, {"error": "Endpoint not found"})
 
@@ -603,3 +605,43 @@ def handle_get_analytics(query_params: Dict[str, str]):
     except Exception as e:
         print(f"Error in analytics endpoint: {str(e)}")
         return create_response(500, {"error": f"Error fetching analytics: {str(e)}"})
+
+
+def handle_get_model_performance(query_params: Dict[str, str]):
+    """Get model performance metrics"""
+    try:
+        from model_performance import ModelPerformanceTracker
+
+        tracker = ModelPerformanceTracker(table_name)
+        sport = query_params.get("sport", "basketball_nba")
+        model = query_params.get("model")
+        days = int(query_params.get("days", 30))
+
+        if model:
+            # Get performance for specific model
+            performance = tracker.get_model_performance(model, sport, days)
+            return create_response(
+                200,
+                {
+                    "model": model,
+                    "sport": sport,
+                    "days": days,
+                    "performance": decimal_to_float(performance),
+                },
+            )
+        else:
+            # Get performance for all models
+            performance = tracker.get_all_models_performance(sport, days)
+            return create_response(
+                200,
+                {
+                    "sport": sport,
+                    "days": days,
+                    "models": decimal_to_float(performance),
+                },
+            )
+
+    except Exception as e:
+        return create_response(
+            500, {"error": f"Error fetching model performance: {str(e)}"}
+        )
