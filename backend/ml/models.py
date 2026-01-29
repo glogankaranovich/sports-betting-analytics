@@ -1,11 +1,22 @@
 """
 ML Models for Sports Betting Analytics
+
+Error Handling Strategy:
+- All models use try/except blocks to catch errors gracefully
+- Errors are logged with logger.error() including exception details
+- analyze_game_odds() and analyze_prop_odds() return None on error
+- Helper methods return safe defaults (0.0, None, empty dict) on error
+- This ensures one model's failure doesn't break the entire analysis pipeline
 """
 
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import math
+import logging
 from datetime import datetime
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -199,7 +210,7 @@ class ConsensusModel(BaseAnalysisModel):
             )
 
         except Exception as e:
-            print(f"Error analyzing prop odds: {e}")
+            logger.error(f"Error analyzing prop odds: {e}", exc_info=True)
             return None
 
 
@@ -324,7 +335,7 @@ class ValueModel(BaseAnalysisModel):
             )
 
         except Exception as e:
-            print(f"Error analyzing prop odds: {e}")
+            logger.error(f"Error analyzing prop odds: {e}", exc_info=True)
             return None
 
 
@@ -450,7 +461,7 @@ class MomentumModel(BaseAnalysisModel):
             )
 
         except Exception as e:
-            print(f"Error analyzing prop odds: {e}")
+            logger.error(f"Error analyzing prop odds: {e}", exc_info=True)
             return None
 
 
@@ -659,7 +670,7 @@ class ContrarianModel(BaseAnalysisModel):
             )
 
         except Exception as e:
-            print(f"Error analyzing contrarian prop odds: {e}")
+            logger.error(f"Error analyzing contrarian prop odds: {e}", exc_info=True)
             return None
 
 
@@ -792,7 +803,7 @@ class HotColdModel(BaseAnalysisModel):
             return {"wins": wins, "losses": losses, "games": wins + losses}
 
         except Exception as e:
-            print(f"Error querying recent record: {e}")
+            logger.error(f"Error querying recent record: {e}", exc_info=True)
             # Return neutral record on error
             return {"wins": 5, "losses": 5, "games": 10}
 
@@ -912,7 +923,7 @@ class HotColdModel(BaseAnalysisModel):
             )
 
         except Exception as e:
-            print(f"Error analyzing hot/cold prop odds: {e}")
+            logger.error(f"Error analyzing hot/cold prop odds: {e}", exc_info=True)
             return None
 
     def _get_recent_player_stats(
@@ -972,7 +983,7 @@ class HotColdModel(BaseAnalysisModel):
             return {"games": games_count, "average": weighted_avg, "over_count": 0}
 
         except Exception as e:
-            print(f"Error querying player stats: {e}")
+            logger.error(f"Error querying player stats: {e}", exc_info=True)
             return {"games": 0, "average": 0, "over_count": 0}
 
     def _map_market_to_stat(self, market_key: str) -> str:
@@ -1116,7 +1127,7 @@ class RestScheduleModel(BaseAnalysisModel):
             return score
 
         except Exception as e:
-            print(f"Error getting rest score: {e}")
+            logger.error(f"Error getting rest score: {e}", exc_info=True)
             return 0.0
 
     def _get_player_team(self, sport: str, player_name: str) -> Optional[str]:
@@ -1137,7 +1148,7 @@ class RestScheduleModel(BaseAnalysisModel):
             return None
 
         except Exception as e:
-            print(f"Error getting player team: {e}")
+            logger.error(f"Error getting player team: {e}", exc_info=True)
             return None
 
 
@@ -1253,7 +1264,7 @@ class MatchupModel(BaseAnalysisModel):
                 reasoning=reasoning,
             )
         except Exception as e:
-            print(f"Error analyzing prop matchup: {e}")
+            logger.error(f"Error analyzing prop matchup: {e}", exc_info=True)
             return None
 
     def _get_h2h_advantage(self, sport: str, home_team: str, away_team: str) -> float:
@@ -1296,7 +1307,7 @@ class MatchupModel(BaseAnalysisModel):
             return (win_rate - 0.5) * 4
 
         except Exception as e:
-            print(f"Error getting H2H advantage: {e}")
+            logger.error(f"Error getting H2H advantage: {e}", exc_info=True)
             return 0.0
 
     def _get_style_matchup(self, sport: str, home_team: str, away_team: str) -> float:
@@ -1325,7 +1336,7 @@ class MatchupModel(BaseAnalysisModel):
             return (offense_matchup + defense_matchup) / 20
 
         except Exception as e:
-            print(f"Error getting style matchup: {e}")
+            logger.error(f"Error getting style matchup: {e}", exc_info=True)
             return 0.0
 
     def _get_team_stats(self, sport: str, team: str) -> Optional[Dict]:
@@ -1343,7 +1354,7 @@ class MatchupModel(BaseAnalysisModel):
             return items[0] if items else None
 
         except Exception as e:
-            print(f"Error getting team stats: {e}")
+            logger.error(f"Error getting team stats: {e}", exc_info=True)
             return None
 
     def _get_player_vs_opponent_avg(
@@ -1402,7 +1413,7 @@ class MatchupModel(BaseAnalysisModel):
             return total / count if count > 0 else None
 
         except Exception as e:
-            print(f"Error getting player vs opponent avg: {e}")
+            logger.error(f"Error getting player vs opponent avg: {e}", exc_info=True)
             return None
 
 
@@ -1524,7 +1535,7 @@ class InjuryAwareModel(BaseAnalysisModel):
             )
 
         except Exception as e:
-            print(f"Error analyzing injury-aware prop: {e}")
+            logger.error(f"Error analyzing injury-aware prop: {e}", exc_info=True)
             return None
 
     def _get_team_injuries(self, team: str, sport: str) -> List[Dict]:
@@ -1553,7 +1564,7 @@ class InjuryAwareModel(BaseAnalysisModel):
             return []
 
         except Exception as e:
-            print(f"Error getting team injuries: {e}")
+            logger.error(f"Error getting team injuries: {e}", exc_info=True)
             return []
 
     def _get_player_injury_status(self, player_name: str, sport: str) -> Dict:
@@ -1581,7 +1592,7 @@ class InjuryAwareModel(BaseAnalysisModel):
             return None
 
         except Exception as e:
-            print(f"Error checking player injury status: {e}")
+            logger.error(f"Error checking player injury status: {e}", exc_info=True)
             return None
 
     def _calculate_injury_impact(self, injuries: List[Dict]) -> float:
