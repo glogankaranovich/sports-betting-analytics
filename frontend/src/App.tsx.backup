@@ -37,9 +37,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [topInsight, setTopInsight] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'bet-analysis' | 'models'>('bet-analysis');
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props'>('games');
-  const [activeModelTab, setActiveModelTab] = useState<'overview' | 'performance' | 'comparison'>('overview');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'models'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const [propAnalysisPage, setPropAnalysisPage] = useState(1);
   const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
@@ -65,9 +63,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [loadingMoreProp, setLoadingMoreProp] = useState(false);
   const [gamesKey, setGamesKey] = useState<string | null>(null);
   const [loadingMoreGames, setLoadingMoreGames] = useState(false);
-
-  const availableSports = ['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl'];
-  const availableBookmakers = ['draftkings', 'fanduel', 'betmgm', 'caesars'];
 
   useEffect(() => {
     const initializeData = async () => {
@@ -270,46 +265,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   if (error) return <div className="error">Error: {error}</div>;
 
   return (
-    <div className="app-container">
-      {/* Side Navigation */}
-      <nav className="side-nav">
-        <div className="logo-container">
+    <div className="App">
+      <header className="App-header">
+        <div className="header-left">
           <img src={logo} alt="Carpool Bets" className="logo" />
-        </div>
-        
-        <div className="nav-section">
-          <button 
-            className={`nav-item ${activeSection === 'bet-analysis' ? 'active' : ''}`}
-            onClick={() => setActiveSection('bet-analysis')}
-          >
-            <span className="nav-icon">📊</span>
-            <span>Bet Analysis</span>
-          </button>
-          <button 
-            className={`nav-item ${activeSection === 'models' ? 'active' : ''}`}
-            onClick={() => setActiveSection('models')}
-          >
-            <span className="nav-icon">🤖</span>
-            <span>Models</span>
-          </button>
-        </div>
-
-        <div className="nav-footer">
-          <button onClick={signOut} className="sign-out-button">
-            Sign Out
-          </button>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="main-content">
-        <header className="content-header">
-          <div>
-            <h1>{activeSection === 'bet-analysis' ? 'Bet Analysis' : 'Model Performance'}</h1>
-            <div className="user-info">
-              {user?.signInDetails?.loginId} • {process.env.REACT_APP_STAGE}
-            </div>
+          <div className="header-info">
+            <span>Welcome, {user?.signInDetails?.loginId}</span>
+            <span>Environment: {process.env.REACT_APP_STAGE}</span>
           </div>
+        </div>
+        <div className="header-actions">
           <button className="btn btn-secondary" onClick={() => {
             fetchGames();
             fetchGameAnalysis();
@@ -317,11 +282,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           }}>
             Refresh Data
           </button>
-        </header>
-
-        <div className="content-body">
-          {activeSection === 'bet-analysis' && (
-            <>
+          <button className="btn btn-primary" onClick={signOut}>
+            Sign Out
+          </button>
+        </div>
+      </header>
       
       {topInsight && (
         <div className="top-insight-banner">
@@ -354,12 +319,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </div>
         </div>
       )}
-
+      
       <Settings 
         settings={settings}
         onSettingsChange={setSettings}
-        availableSports={availableSports}
-        availableBookmakers={availableBookmakers}
+        availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+        availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
         token={token}
       />
       
@@ -388,6 +353,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onClick={() => handleTabChange('prop-analysis')}
           >
             Prop Analysis
+          </button>
+          <button 
+            className={`tab-button ${activeTab === 'models' ? 'active' : ''}`}
+            onClick={() => handleTabChange('models')}
+          >
+            Models
           </button>
         </div>
 
@@ -746,45 +717,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             settings={settings}
           />
         )}
-      </main>
-            </>
-          )}
 
-          {activeSection === 'models' && (
-            <>
-              <div className="tabs">
-                <button 
-                  className={activeModelTab === 'overview' ? 'active' : ''}
-                  onClick={() => setActiveModelTab('overview')}
-                >
-                  Overview
-                </button>
-                <button 
-                  className={activeModelTab === 'performance' ? 'active' : ''}
-                  onClick={() => setActiveModelTab('performance')}
-                >
-                  Performance
-                </button>
-                <button 
-                  className={activeModelTab === 'comparison' ? 'active' : ''}
-                  onClick={() => setActiveModelTab('comparison')}
-                >
-                  Comparison
-                </button>
-              </div>
-
-              <div className="tab-content">
-                {activeModelTab === 'overview' && <Models token={token} settings={settings} />}
-                {activeModelTab === 'performance' && <ModelAnalytics token={token} />}
-                {activeModelTab === 'comparison' && (
-                  <div style={{padding: '20px', textAlign: 'center', color: 'rgba(255,255,255,0.6)'}}>
-                    Model comparison coming soon...
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+        {activeTab === 'models' && (
+          <Models token={token} settings={settings} />
+        )}
       </main>
     </div>
   );
