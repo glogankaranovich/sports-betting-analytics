@@ -67,7 +67,7 @@ export class MonitoringStack extends cdk.Stack {
       const errorAlarm = new cloudwatch.Alarm(this, `${name}ErrorAlarm`, {
         metric: errors,
         threshold: 1,
-        evaluationPeriods: 1,
+        evaluationPeriods: 10,
         alarmDescription: `${name} has errors`,
         alarmName: `${props.environment}-${name}-Errors`,
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
@@ -78,7 +78,7 @@ export class MonitoringStack extends cdk.Stack {
       const throttleAlarm = new cloudwatch.Alarm(this, `${name}ThrottleAlarm`, {
         metric: throttles,
         threshold: 1,
-        evaluationPeriods: 1,
+        evaluationPeriods: 10,
         alarmDescription: `${name} is being throttled`,
         alarmName: `${props.environment}-${name}-Throttles`,
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
