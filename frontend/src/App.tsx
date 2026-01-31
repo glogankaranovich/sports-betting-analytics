@@ -143,6 +143,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const model = settings.model !== 'all' ? settings.model : undefined;
         const bookmaker = settings.bookmaker;
         const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', fetchAll: true });
+        console.log('Prop analysis response:', data);
+        console.log('Number of prop analyses:', data.analyses?.length || 0);
         setPropAnalysis(data.analyses || []);
         setPropAnalysisKey(null); // No pagination with fetch_all
       }
