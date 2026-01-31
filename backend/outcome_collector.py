@@ -196,77 +196,108 @@ class OutcomeCollector:
     def _update_analysis_outcomes(self, game: Dict[str, Any]) -> int:
         """Update analysis records with actual outcomes"""
         updates = 0
+        sport = game["sport"]
+        game_id = game["id"]
 
         try:
-            # Query for analyses for this game using the correct pattern
-            # Analysis items have PK like "ANALYSIS#sport#game_id#bookmaker"
-            response = self.table.scan(
-                FilterExpression="begins_with(pk, :pk_prefix) AND game_id = :game_id",
-                ExpressionAttributeValues={
-                    ":pk_prefix": "ANALYSIS#",
-                    ":game_id": game["id"],
-                },
-            )
+            # Query AnalysisTimeGSI for each model/bet_type combination
+            models = [
+                "consensus",
+                "value",
+                "momentum",
+                "contrarian",
+                "hot_cold",
+                "rest_schedule",
+                "matchup",
+                "injury_aware",
+            ]
+            bet_types = ["game", "prop"]
+            bookmakers = ["fanduel"]
 
-            for item in response.get("Items", []):
-                # Determine actual outcome based on analysis type
-                if item.get("analysis_type") == "game":
-                    home_won = self._determine_winner(game)
+            for model in models:
+                for bet_type in bet_types:
+                    for bookmaker in bookmakers:
+                        pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{bet_type}"
 
-                    # Check if analysis was correct
-                    analysis_result = item.get(
-                        "prediction", ""
-                    )  # Note: field is still called 'prediction' in DB
-                    analysis_correct = self._check_game_analysis_accuracy(
-                        analysis_result, home_won, game
-                    )
+                        response = self.table.query(
+                            IndexName="AnalysisTimeGSI",
+                            KeyConditionExpression="analysis_time_pk = :pk",
+                            FilterExpression="game_id = :game_id",
+                            ExpressionAttributeValues={
+                                ":pk": pk,
+                                ":game_id": game_id,
+                            },
+                        )
 
-                    verified_at = datetime.utcnow().isoformat()
-                    model = item.get("model", "consensus")
-                    sport = item.get("sport")
-                    verified_pk = f"VERIFIED#{model}#{sport}#game"
-
-                    # Update the analysis record
-                    self.table.update_item(
-                        Key={"pk": item["pk"], "sk": item["sk"]},
-                        UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
-                        ExpressionAttributeValues={
-                            ":home_won": home_won,
-                            ":correct": analysis_correct,
-                            ":verified": verified_at,
-                            ":vpk": verified_pk,
-                            ":vsk": verified_at,
-                        },
-                    )
-                    updates += 1
-
-                elif item.get("analysis_type") == "prop":
-                    # Get player stats for prop verification
-                    prop_correct = self._check_prop_analysis_accuracy(item, game)
-
-                    print(
-                        f"Prop verification: {item.get('player_name')} {item.get('market_key')} {item.get('prediction')} = {prop_correct}"
-                    )
-
-                    verified_at = datetime.utcnow().isoformat()
-                    model = item.get("model", "consensus")
-                    sport = item.get("sport")
-                    verified_pk = f"VERIFIED#{model}#{sport}#prop"
-
-                    self.table.update_item(
-                        Key={"pk": item["pk"], "sk": item["sk"]},
-                        UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
-                        ExpressionAttributeValues={
-                            ":verified": verified_at,
-                            ":correct": prop_correct,
-                            ":vpk": verified_pk,
-                            ":vsk": verified_at,
-                        },
-                    )
-                    updates += 1
+                        updates += self._process_analysis_items(
+                            response.get("Items", []), game
+                        )
 
         except Exception as e:
             print(f"Error updating analyses for game {game['id']}: {e}")
+
+        return updates
+
+    def _process_analysis_items(
+        self, items: List[Dict[str, Any]], game: Dict[str, Any]
+    ) -> int:
+        """Process analysis items and update with outcomes"""
+        updates = 0
+
+        for item in items:
+            # Determine actual outcome based on analysis type
+            if item.get("analysis_type") == "game":
+                home_won = self._determine_winner(game)
+
+                # Check if analysis was correct
+                analysis_result = item.get("prediction", "")
+                analysis_correct = self._check_game_analysis_accuracy(
+                    analysis_result, home_won, game
+                )
+
+                verified_at = datetime.utcnow().isoformat()
+                model = item.get("model", "consensus")
+                sport = item.get("sport")
+                verified_pk = f"VERIFIED#{model}#{sport}#game"
+
+                # Update the analysis record
+                self.table.update_item(
+                    Key={"pk": item["pk"], "sk": item["sk"]},
+                    UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
+                    ExpressionAttributeValues={
+                        ":home_won": home_won,
+                        ":correct": analysis_correct,
+                        ":verified": verified_at,
+                        ":vpk": verified_pk,
+                        ":vsk": verified_at,
+                    },
+                )
+                updates += 1
+
+            elif item.get("analysis_type") == "prop":
+                # Get player stats for prop verification
+                prop_correct = self._check_prop_analysis_accuracy(item, game)
+
+                print(
+                    f"Prop verification: {item.get('player_name')} {item.get('market_key')} {item.get('prediction')} = {prop_correct}"
+                )
+
+                verified_at = datetime.utcnow().isoformat()
+                model = item.get("model", "consensus")
+                sport = item.get("sport")
+                verified_pk = f"VERIFIED#{model}#{sport}#prop"
+
+                self.table.update_item(
+                    Key={"pk": item["pk"], "sk": item["sk"]},
+                    UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
+                    ExpressionAttributeValues={
+                        ":verified": verified_at,
+                        ":correct": prop_correct,
+                        ":vpk": verified_pk,
+                        ":vsk": verified_at,
+                    },
+                )
+                updates += 1
 
         return updates
 
