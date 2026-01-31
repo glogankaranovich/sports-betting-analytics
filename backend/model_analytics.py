@@ -201,25 +201,49 @@ class ModelAnalytics:
         return result
 
     def _get_verified_analyses(self) -> List[Dict[str, Any]]:
-        """Get all analyses with verified outcomes"""
-        response = self.table.scan(
-            FilterExpression="begins_with(pk, :pk) AND attribute_exists(outcome_verified_at) AND attribute_exists(analysis_correct)",
-            ExpressionAttributeValues={":pk": "ANALYSIS#"},
-        )
-
-        # Map analysis fields for consistency
+        """Get all analyses with verified outcomes using GSI"""
         items = []
-        for item in response.get("Items", []):
-            items.append(
-                {
-                    "model": item.get("model", "unknown"),
-                    "sport": item.get("sport", "unknown"),
-                    "bet_type": item.get("analysis_type", "unknown"),  # game or prop
-                    "confidence": item.get("confidence", 0),
-                    "analysis_correct": item.get("analysis_correct", False),
-                    "outcome_verified_at": item.get("outcome_verified_at"),
-                }
-            )
+        models = [
+            "consensus",
+            "value",
+            "momentum",
+            "contrarian",
+            "hot_cold",
+            "rest_schedule",
+            "matchup",
+            "injury_aware",
+        ]
+        sports = [
+            "basketball_nba",
+            "americanfootball_nfl",
+            "baseball_mlb",
+            "icehockey_nhl",
+            "soccer_epl",
+        ]
+        bet_types = ["game", "prop"]
+
+        for model in models:
+            for sport in sports:
+                for bet_type in bet_types:
+                    pk = f"VERIFIED#{model}#{sport}#{bet_type}"
+
+                    response = self.table.query(
+                        IndexName="VerifiedAnalysisGSI",
+                        KeyConditionExpression="verified_analysis_pk = :pk",
+                        ExpressionAttributeValues={":pk": pk},
+                    )
+
+                    for item in response.get("Items", []):
+                        items.append(
+                            {
+                                "model": item.get("model", "unknown"),
+                                "sport": item.get("sport", "unknown"),
+                                "bet_type": item.get("analysis_type", "unknown"),
+                                "confidence": item.get("confidence", 0),
+                                "analysis_correct": item.get("analysis_correct", False),
+                                "outcome_verified_at": item.get("outcome_verified_at"),
+                            }
+                        )
 
         return items
 
