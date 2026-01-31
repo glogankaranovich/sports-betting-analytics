@@ -247,6 +247,113 @@ class ModelAnalytics:
 
         return items
 
+    def compute_and_store_all_analytics(self):
+        """Compute all analytics and store in DynamoDB"""
+        from datetime import datetime
+        from decimal import Decimal
+
+        def convert_floats(obj):
+            """Convert floats to Decimal for DynamoDB"""
+            if isinstance(obj, float):
+                return Decimal(str(obj))
+            elif isinstance(obj, dict):
+                return {k: convert_floats(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_floats(v) for v in obj]
+            return obj
+
+        timestamp = datetime.utcnow().isoformat()
+
+        # Compute all metrics
+        summary = convert_floats(self.get_model_performance_summary())
+        comparison = convert_floats(self.get_model_comparison())
+
+        # Store summary
+        self.table.put_item(
+            Item={
+                "pk": "ANALYTICS#summary",
+                "sk": timestamp,
+                "data": summary,
+                "computed_at": timestamp,
+            }
+        )
+
+        # Store comparison
+        self.table.put_item(
+            Item={
+                "pk": "ANALYTICS#comparison",
+                "sk": timestamp,
+                "data": comparison,
+                "computed_at": timestamp,
+            }
+        )
+
+        # Store per-model metrics
+        models = [
+            "consensus",
+            "value",
+            "momentum",
+            "contrarian",
+            "hot_cold",
+            "rest_schedule",
+            "matchup",
+            "injury_aware",
+        ]
+        for model in models:
+            by_sport = convert_floats(self.get_model_performance_by_sport(model))
+            by_bet_type = convert_floats(self.get_model_performance_by_bet_type(model))
+            confidence = convert_floats(self.get_model_confidence_analysis(model))
+
+            self.table.put_item(
+                Item={
+                    "pk": f"ANALYTICS#by_sport#{model}",
+                    "sk": timestamp,
+                    "data": by_sport,
+                    "computed_at": timestamp,
+                }
+            )
+
+            self.table.put_item(
+                Item={
+                    "pk": f"ANALYTICS#by_bet_type#{model}",
+                    "sk": timestamp,
+                    "data": by_bet_type,
+                    "computed_at": timestamp,
+                }
+            )
+
+            self.table.put_item(
+                Item={
+                    "pk": f"ANALYTICS#confidence#{model}",
+                    "sk": timestamp,
+                    "data": confidence,
+                    "computed_at": timestamp,
+                }
+            )
+
+        print(f"Stored analytics for {len(models)} models")
+
+    def get_cached_analytics(self, metric_key: str):
+        """Get cached analytics from DynamoDB"""
+        response = self.table.query(
+            KeyConditionExpression="pk = :pk",
+            ExpressionAttributeValues={":pk": f"ANALYTICS#{metric_key}"},
+            ScanIndexForward=False,
+            Limit=1,
+        )
+
+        items = response.get("Items", [])
+        if items:
+            return items[0].get("data", {})
+
+        # Fallback to computing if cache miss
+        print(f"Cache miss for {metric_key}, computing on-demand")
+        if metric_key == "summary":
+            return self.get_model_performance_summary()
+        elif metric_key == "comparison":
+            return self.get_model_comparison()
+        return {}
+
 
 def lambda_handler(event, context):
     """Lambda handler for model analytics"""
@@ -260,16 +367,30 @@ def lambda_handler(event, context):
 
         # Get query parameters
         query_params = event.get("queryStringParameters") or {}
+
+        # If no query params, this is a scheduled run - compute and store all analytics
+        if not query_params:
+            analytics.compute_and_store_all_analytics()
+            return {
+                "statusCode": 200,
+                "body": {"message": "Analytics computed and stored"},
+            }
+
+        # Otherwise, read from cached analytics
         metric_type = query_params.get("type", "summary")
         model = query_params.get("model")
 
         # Route to appropriate metric
         if metric_type == "summary":
-            data = analytics.get_model_performance_summary()
+            data = analytics.get_cached_analytics("summary")
         elif metric_type == "by_sport":
-            data = analytics.get_model_performance_by_sport(model)
+            data = analytics.get_cached_analytics(
+                f"by_sport#{model}" if model else "by_sport"
+            )
         elif metric_type == "by_bet_type":
-            data = analytics.get_model_performance_by_bet_type(model)
+            data = analytics.get_cached_analytics(
+                f"by_bet_type#{model}" if model else "by_bet_type"
+            )
         elif metric_type == "over_time":
             if not model:
                 return {
@@ -277,16 +398,16 @@ def lambda_handler(event, context):
                     "body": {"error": "model parameter required for over_time"},
                 }
             days = int(query_params.get("days", 30))
-            data = analytics.get_model_performance_over_time(model, days)
+            data = analytics.get_cached_analytics(f"over_time#{model}#{days}")
         elif metric_type == "comparison":
-            data = analytics.get_model_comparison()
+            data = analytics.get_cached_analytics("comparison")
         elif metric_type == "confidence":
             if not model:
                 return {
                     "statusCode": 400,
                     "body": {"error": "model parameter required for confidence"},
                 }
-            data = analytics.get_model_confidence_analysis(model)
+            data = analytics.get_cached_analytics(f"confidence#{model}")
         else:
             return {
                 "statusCode": 400,

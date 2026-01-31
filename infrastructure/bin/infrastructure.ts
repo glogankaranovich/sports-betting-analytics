@@ -18,6 +18,7 @@ import { ScheduleCollectorStack } from '../lib/schedule-collector-stack';
 import { InjuryCollectorStack } from '../lib/injury-collector-stack';
 import { OddsCollectorScheduleStack } from '../lib/odds-collector-schedule-stack';
 import { AnalysisGeneratorScheduleStack } from '../lib/analysis-generator-schedule-stack';
+import { ModelAnalyticsScheduleStack } from '../lib/model-analytics-schedule-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -139,6 +140,11 @@ if (environment === 'dev') {
     modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     seasonManagerFunction: seasonManagerStack.seasonManagerFunction,
     complianceLoggerFunction: complianceStack.complianceLoggerFunction,
+    env: ENVIRONMENTS.dev,
+  });
+
+  new ModelAnalyticsScheduleStack(app, StackNames.forEnvironment('dev', 'ModelAnalyticsSchedule'), {
+    modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     env: ENVIRONMENTS.dev,
   });
 } else {

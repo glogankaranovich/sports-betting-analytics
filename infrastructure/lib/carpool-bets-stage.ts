@@ -13,6 +13,7 @@ import { IntegrationTestRoleStack } from './integration-test-role-stack';
 import { AnalysisGeneratorStack } from './analysis-generator-stack';
 import { OddsCollectorScheduleStack } from './odds-collector-schedule-stack';
 import { AnalysisGeneratorScheduleStack } from './analysis-generator-schedule-stack';
+import { ModelAnalyticsScheduleStack } from './model-analytics-schedule-stack';
 import { MonitoringStack } from './monitoring-stack';
 import { SeasonManagerStack } from './season-manager-stack';
 import { ScheduleCollectorStack } from './schedule-collector-stack';
@@ -142,6 +143,10 @@ export class CarpoolBetsStage extends cdk.Stage {
       modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
       seasonManagerFunction: seasonManagerStack.seasonManagerFunction,
       complianceLoggerFunction: complianceStack.complianceLoggerFunction,
+    });
+
+    new ModelAnalyticsScheduleStack(this, 'ModelAnalyticsSchedule', {
+      modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     });
 
     // Integration test role for pipeline access

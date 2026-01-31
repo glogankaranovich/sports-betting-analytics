@@ -39,8 +39,8 @@ export class ModelAnalyticsStack extends cdk.Stack {
       }
     );
 
-    // Grant DynamoDB read permissions
-    props.betsTable.grantReadData(this.modelAnalyticsFunction);
+    // Grant DynamoDB read/write permissions
+    props.betsTable.grantReadWriteData(this.modelAnalyticsFunction);
 
     // Output
     new cdk.CfnOutput(this, "ModelAnalyticsFunctionName", {
