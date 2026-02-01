@@ -33,6 +33,18 @@ interface TimeSeriesData {
   accuracy: number;
 }
 
+interface RecentPrediction {
+  sport: string;
+  bet_type: string;
+  game: string;
+  prediction: string;
+  player_name?: string;
+  market_key?: string;
+  correct: boolean;
+  confidence: number;
+  verified_at: string;
+}
+
 interface ModelWeights {
   sport: string;
   bet_type: string;
@@ -151,8 +163,10 @@ const PerformanceChart: React.FC<{ data: TimeSeriesData[] }> = ({ data }) => {
 export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedModel = 'consensus' }) => {
   const [summary, setSummary] = useState<Record<string, ModelSummary>>({});
   const [byBetType, setByBetType] = useState<Record<string, Record<string, BetTypeStats>>>({});
+  const [bySport, setBySport] = useState<Record<string, Record<string, BetTypeStats>>>({});
   const [confidence, setConfidence] = useState<Record<string, ConfidenceStats>>({});
   const [overTime, setOverTime] = useState<TimeSeriesData[]>([]);
+  const [recentPredictions, setRecentPredictions] = useState<RecentPrediction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,17 +181,21 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
       setLoading(true);
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [summaryRes, betTypeRes, confidenceRes, overTimeRes] = await Promise.all([
+      const [summaryRes, betTypeRes, bySportRes, confidenceRes, overTimeRes, predictionsRes] = await Promise.all([
         axios.get(`${API_URL}/analytics?type=summary`, { headers }),
         axios.get(`${API_URL}/analytics?type=by_bet_type&model=${selectedModel}`, { headers }),
+        axios.get(`${API_URL}/analytics?type=by_sport&model=${selectedModel}`, { headers }),
         axios.get(`${API_URL}/analytics?type=confidence&model=${selectedModel}`, { headers }),
         axios.get(`${API_URL}/analytics?type=over_time&model=${selectedModel}&days=30`, { headers }),
+        axios.get(`${API_URL}/analytics?type=recent_predictions&model=${selectedModel}&limit=20`, { headers }),
       ]);
 
       setSummary(summaryRes.data);
       setByBetType(betTypeRes.data);
+      setBySport(bySportRes.data);
       setConfidence(confidenceRes.data);
       setOverTime(overTimeRes.data || []);
+      setRecentPredictions(predictionsRes.data || []);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch analytics');
@@ -268,6 +286,60 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
         <div className="analytics-card">
           <h3>Performance Over Time (Last 30 Days)</h3>
           <PerformanceChart data={overTime} />
+        </div>
+      )}
+
+      {/* Performance by Sport */}
+      {Object.keys(bySport[selectedModel] || {}).length > 0 && (
+        <div className="analytics-card">
+          <h3>Performance by Sport</h3>
+          <div className="sport-grid">
+            {Object.entries(bySport[selectedModel] || {}).map(([sport, stats]) => (
+              <div key={sport} className="sport-card">
+                <h4>{sport.replace('_', ' ').toUpperCase()}</h4>
+                <div className="sport-accuracy">{stats.accuracy.toFixed(1)}%</div>
+                <div className="sport-record">{stats.correct}/{stats.total}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Model Leaderboard */}
+      <div className="analytics-card">
+        <h3>Model Leaderboard</h3>
+        <div className="leaderboard">
+          {Object.values(summary).sort((a, b) => b.accuracy - a.accuracy).map((model, index) => (
+            <div key={model.model_name} className="leaderboard-row">
+              <div className="rank">#{index + 1}</div>
+              <div className="model-name">{model.model_name}</div>
+              <div className="model-accuracy">{model.accuracy.toFixed(1)}%</div>
+              <div className="model-record">{model.correct_analyses}/{model.total_analyses}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Predictions */}
+      {recentPredictions.length > 0 && (
+        <div className="analytics-card">
+          <h3>Recent Predictions</h3>
+          <div className="predictions-list">
+            {recentPredictions.map((pred, index) => (
+              <div key={index} className={`prediction-row ${pred.correct ? 'correct' : 'incorrect'}`}>
+                <div className="prediction-result">{pred.correct ? '✓' : '✗'}</div>
+                <div className="prediction-details">
+                  <div className="prediction-game">
+                    {pred.bet_type === 'prop' ? pred.player_name : pred.game}
+                  </div>
+                  <div className="prediction-text">{pred.prediction}</div>
+                  <div className="prediction-meta">
+                    {pred.sport.replace('_', ' ')} • {pred.bet_type === 'prop' ? pred.market_key?.replace('player_', '') : 'Game'} • Confidence: {(pred.confidence * 100).toFixed(0)}%
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -426,6 +498,141 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
 
         .error {
           color: #ff6b6b;
+        }
+
+        .sport-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 16px;
+        }
+
+        .sport-card {
+          background: rgba(0, 0, 0, 0.2);
+          padding: 20px;
+          border-radius: 8px;
+          text-align: center;
+        }
+
+        .sport-card h4 {
+          margin: 0 0 12px 0;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .sport-accuracy {
+          font-size: 32px;
+          font-weight: bold;
+          color: #4CAF50;
+          margin-bottom: 8px;
+        }
+
+        .sport-record {
+          color: rgba(255, 255, 255, 0.6);
+          font-size: 14px;
+        }
+
+        .leaderboard {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .leaderboard-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 16px;
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 8px;
+          transition: all 0.2s;
+        }
+
+        .leaderboard-row:hover {
+          background: rgba(0, 0, 0, 0.3);
+        }
+
+        .rank {
+          font-size: 24px;
+          font-weight: bold;
+          color: #4CAF50;
+          min-width: 50px;
+        }
+
+        .model-name {
+          flex: 1;
+          font-size: 16px;
+          text-transform: capitalize;
+        }
+
+        .model-accuracy {
+          font-size: 20px;
+          font-weight: bold;
+          color: #4CAF50;
+          min-width: 80px;
+          text-align: right;
+        }
+
+        .model-record {
+          color: rgba(255, 255, 255, 0.6);
+          min-width: 80px;
+          text-align: right;
+        }
+
+        .predictions-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .prediction-row {
+          display: flex;
+          gap: 16px;
+          padding: 16px;
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 8px;
+          border-left: 4px solid transparent;
+        }
+
+        .prediction-row.correct {
+          border-left-color: #4CAF50;
+        }
+
+        .prediction-row.incorrect {
+          border-left-color: #ff6b6b;
+        }
+
+        .prediction-result {
+          font-size: 24px;
+          min-width: 40px;
+          text-align: center;
+        }
+
+        .prediction-row.correct .prediction-result {
+          color: #4CAF50;
+        }
+
+        .prediction-row.incorrect .prediction-result {
+          color: #ff6b6b;
+        }
+
+        .prediction-details {
+          flex: 1;
+        }
+
+        .prediction-game {
+          font-weight: bold;
+          margin-bottom: 4px;
+        }
+
+        .prediction-text {
+          color: rgba(255, 255, 255, 0.9);
+          margin-bottom: 4px;
+        }
+
+        .prediction-meta {
+          color: rgba(255, 255, 255, 0.5);
+          font-size: 12px;
+          text-transform: capitalize;
         }
       `}</style>
     </div>

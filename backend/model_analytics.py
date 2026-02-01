@@ -200,6 +200,55 @@ class ModelAnalytics:
 
         return result
 
+    def get_recent_predictions(
+        self, model: str, limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Get recent verified predictions for a model"""
+        predictions = []
+        sports = [
+            "basketball_nba",
+            "americanfootball_nfl",
+            "baseball_mlb",
+            "icehockey_nhl",
+            "soccer_epl",
+        ]
+        bet_types = ["game", "prop"]
+
+        for sport in sports:
+            for bet_type in bet_types:
+                pk = f"VERIFIED#{model}#{sport}#{bet_type}"
+
+                response = self.table.query(
+                    IndexName="VerifiedAnalysisGSI",
+                    KeyConditionExpression="verified_analysis_pk = :pk",
+                    ExpressionAttributeValues={":pk": pk},
+                    ScanIndexForward=False,
+                    Limit=limit,
+                )
+
+                for item in response.get("Items", []):
+                    predictions.append(
+                        {
+                            "sport": item.get("sport"),
+                            "bet_type": item.get("analysis_type"),
+                            "game": f"{item.get('away_team', '')} @ {item.get('home_team', '')}".strip()
+                            if item.get("home_team")
+                            else item.get("player_name", "Unknown"),
+                            "prediction": item.get("prediction"),
+                            "player_name": item.get("player_name"),
+                            "market_key": item.get("market_key"),
+                            "correct": item.get("analysis_correct"),
+                            "confidence": float(item.get("confidence", 0))
+                            if item.get("confidence")
+                            else 0,
+                            "verified_at": item.get("outcome_verified_at"),
+                        }
+                    )
+
+        # Sort by verified_at and return most recent
+        predictions.sort(key=lambda x: x.get("verified_at", ""), reverse=True)
+        return predictions[:limit]
+
     def _get_verified_analyses(self) -> List[Dict[str, Any]]:
         """Get all analyses with verified outcomes using GSI"""
         items = []
@@ -424,6 +473,16 @@ def lambda_handler(event, context):
                     "body": {"error": "model parameter required for confidence"},
                 }
             data = analytics.get_cached_analytics(f"confidence#{model}")
+        elif metric_type == "recent_predictions":
+            if not model:
+                return {
+                    "statusCode": 400,
+                    "body": {
+                        "error": "model parameter required for recent_predictions"
+                    },
+                }
+            limit = int(query_params.get("limit", 20))
+            data = analytics.get_recent_predictions(model, limit)
         else:
             return {
                 "statusCode": 400,

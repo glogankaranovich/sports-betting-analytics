@@ -10,7 +10,7 @@ import { ModelAnalytics } from './components/ModelAnalytics';
 import Models from './components/Models';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
-import logo from './assets/carpool_bets_2.png';
+import logo from './assets/logo_2.png';
 import './amplifyConfig'; // Initialize Amplify
 import '@aws-amplify/ui-react/styles.css';
 import './amplify-theme.css';

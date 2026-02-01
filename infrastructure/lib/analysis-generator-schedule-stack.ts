@@ -40,6 +40,7 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
             description: `Generate ${sport.name} ${betType} analyses using ${model} model every 2 hours`,
             targets: [new targets.LambdaFunction(sport.lambda, {
               event: events.RuleTargetInput.fromObject({
+                sport: this.getSportKey(sport.name),
                 model: model,
                 bet_type: betType
               })
@@ -48,5 +49,16 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
         });
       });
     });
+  }
+
+  private getSportKey(sportName: string): string {
+    const sportMap: Record<string, string> = {
+      'NBA': 'basketball_nba',
+      'NFL': 'americanfootball_nfl',
+      'MLB': 'baseball_mlb',
+      'NHL': 'icehockey_nhl',
+      'EPL': 'soccer_epl'
+    };
+    return sportMap[sportName] || sportName;
   }
 }

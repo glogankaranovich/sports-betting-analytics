@@ -51,7 +51,13 @@ class OutcomeCollector:
     def _get_completed_games(self, days_back: int) -> List[Dict[str, Any]]:
         """Get completed games from The Odds API"""
         completed_games = []
-        sports = ["americanfootball_nfl", "basketball_nba"]
+        sports = [
+            "americanfootball_nfl",
+            "basketball_nba",
+            "baseball_mlb",
+            "icehockey_nhl",
+            "soccer_epl",
+        ]
 
         for sport in sports:
             try:
