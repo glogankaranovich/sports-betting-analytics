@@ -199,7 +199,7 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
       {/* Overall Summary */}
       {currentModel && (
         <div className="analytics-card">
-          <h3>Overall Performance</h3>
+          <h3>All-Time Performance</h3>
           <div className="stats-grid">
             <div className="stat">
               <div className="stat-value">{currentModel.accuracy.toFixed(1)}%</div>

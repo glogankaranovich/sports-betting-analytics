@@ -307,6 +307,9 @@ class ModelAnalytics:
             by_sport = convert_floats(self.get_model_performance_by_sport(model))
             by_bet_type = convert_floats(self.get_model_performance_by_bet_type(model))
             confidence = convert_floats(self.get_model_confidence_analysis(model))
+            over_time = convert_floats(
+                self.get_model_performance_over_time(model, days=30)
+            )
 
             self.table.put_item(
                 Item={
@@ -331,6 +334,15 @@ class ModelAnalytics:
                     "pk": f"ANALYTICS#confidence#{model}",
                     "sk": timestamp,
                     "data": confidence,
+                    "computed_at": timestamp,
+                }
+            )
+
+            self.table.put_item(
+                Item={
+                    "pk": f"ANALYTICS#over_time#{model}#30",
+                    "sk": timestamp,
+                    "data": over_time,
                     "computed_at": timestamp,
                 }
             )

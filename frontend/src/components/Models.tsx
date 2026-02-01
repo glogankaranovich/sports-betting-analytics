@@ -22,7 +22,8 @@ interface ModelWeights {
 }
 
 const Models: React.FC<ModelsProps> = ({ token, settings }) => {
-  const [weights, setWeights] = useState<ModelWeights | null>(null);
+  const [gameWeights, setGameWeights] = useState<ModelWeights | null>(null);
+  const [propWeights, setPropWeights] = useState<ModelWeights | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,8 +37,12 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
     try {
       setLoading(true);
       const headers = { Authorization: `Bearer ${token}` };
-      const res = await axios.get(`${API_URL}/analytics?type=weights&sport=${settings.sport}&bet_type=game`, { headers });
-      setWeights(res.data);
+      const [gameRes, propRes] = await Promise.all([
+        axios.get(`${API_URL}/analytics?type=weights&sport=${settings.sport}&bet_type=game`, { headers }),
+        axios.get(`${API_URL}/analytics?type=weights&sport=${settings.sport}&bet_type=prop`, { headers })
+      ]);
+      setGameWeights(gameRes.data);
+      setPropWeights(propRes.data);
     } catch (err) {
       console.error('Failed to fetch model weights:', err);
     } finally {
@@ -131,7 +136,8 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
 
       <div className="models-grid">
         {Object.entries(modelInfo).map(([modelKey, info]) => {
-          const modelData = weights?.model_weights[modelKey];
+          const gameData = gameWeights?.model_weights[modelKey];
+          const propData = propWeights?.model_weights[modelKey];
           
           return (
             <div key={modelKey} className="model-card">
@@ -139,15 +145,29 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
               <p className="model-desc">{info.description}</p>
               <p className="model-method">{info.methodology}</p>
               
-              {modelData && modelData.recent_accuracy !== null ? (
+              {gameData && gameData.recent_accuracy !== null ? (
                 <div className="model-stats">
-                  <div className="stat-row">
-                    <span className="stat-label">Recent Accuracy:</span>
-                    <span className="stat-value">{(modelData.recent_accuracy * 100).toFixed(1)}%</span>
+                  <div className="stat-section">
+                    <div className="stat-section-title">Game Bets</div>
+                    <div className="stat-row">
+                      <span className="stat-label">30-Day Accuracy:</span>
+                      <span className="stat-value">{(gameData.recent_accuracy * 100).toFixed(1)}%</span>
+                    </div>
+                    <div className="stat-row">
+                      <span className="stat-label">Weight:</span>
+                      <span className="stat-value">{(gameData.weight * 100).toFixed(1)}%</span>
+                    </div>
                   </div>
-                  <div className="stat-row">
-                    <span className="stat-label">Current Weight:</span>
-                    <span className="stat-value">{(modelData.weight * 100).toFixed(1)}%</span>
+                  <div className="stat-section">
+                    <div className="stat-section-title">Prop Bets</div>
+                    <div className="stat-row">
+                      <span className="stat-label">30-Day Accuracy:</span>
+                      <span className="stat-value">{propData?.recent_accuracy !== null && propData?.recent_accuracy !== undefined ? (propData.recent_accuracy * 100).toFixed(1) + '%' : 'N/A'}</span>
+                    </div>
+                    <div className="stat-row">
+                      <span className="stat-label">Weight:</span>
+                      <span className="stat-value">{propData?.weight !== undefined ? (propData.weight * 100).toFixed(1) + '%' : 'N/A'}</span>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -218,6 +238,21 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
           padding: 16px;
           border-radius: 8px;
           margin-bottom: 16px;
+        }
+        .stat-section {
+          margin-bottom: 12px;
+        }
+        .stat-section:last-child {
+          margin-bottom: 0;
+        }
+        .stat-section-title {
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 12px;
+          font-weight: bold;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+          padding-bottom: 4px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         .stat-row {
           display: flex;
