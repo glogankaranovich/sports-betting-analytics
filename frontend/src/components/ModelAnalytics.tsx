@@ -48,6 +48,7 @@ interface ModelWeights {
 
 interface ModelAnalyticsProps {
   token: string;
+  selectedModel?: string;
 }
 
 const PerformanceChart: React.FC<{ data: TimeSeriesData[] }> = ({ data }) => {
@@ -147,7 +148,7 @@ const PerformanceChart: React.FC<{ data: TimeSeriesData[] }> = ({ data }) => {
   );
 };
 
-export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token }) => {
+export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedModel = 'consensus' }) => {
   const [summary, setSummary] = useState<Record<string, ModelSummary>>({});
   const [byBetType, setByBetType] = useState<Record<string, Record<string, BetTypeStats>>>({});
   const [confidence, setConfidence] = useState<Record<string, ConfidenceStats>>({});
@@ -168,9 +169,9 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token }) => {
 
       const [summaryRes, betTypeRes, confidenceRes, overTimeRes] = await Promise.all([
         axios.get(`${API_URL}/analytics?type=summary`, { headers }),
-        axios.get(`${API_URL}/analytics?type=by_bet_type`, { headers }),
-        axios.get(`${API_URL}/analytics?type=confidence&model=consensus`, { headers }),
-        axios.get(`${API_URL}/analytics?type=over_time&model=consensus&days=30`, { headers }),
+        axios.get(`${API_URL}/analytics?type=by_bet_type&model=${selectedModel}`, { headers }),
+        axios.get(`${API_URL}/analytics?type=confidence&model=${selectedModel}`, { headers }),
+        axios.get(`${API_URL}/analytics?type=over_time&model=${selectedModel}&days=30`, { headers }),
       ]);
 
       setSummary(summaryRes.data);
@@ -188,32 +189,32 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token }) => {
   if (loading) return <div className="loading">Loading analytics...</div>;
   if (error) return <div className="error">{error}</div>;
 
-  const consensusModel = summary['consensus'];
-  const consensusBetTypes = byBetType['consensus'] || {};
+  const currentModel = summary[selectedModel];
+  const currentBetTypes = byBetType[selectedModel] || {};
 
   return (
     <div className="analytics-container">
-      <h2>Model Performance Analytics</h2>
+      <h2>{selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} Model Performance</h2>
 
       {/* Overall Summary */}
-      {consensusModel && (
+      {currentModel && (
         <div className="analytics-card">
           <h3>Overall Performance</h3>
           <div className="stats-grid">
             <div className="stat">
-              <div className="stat-value">{consensusModel.accuracy.toFixed(1)}%</div>
+              <div className="stat-value">{currentModel.accuracy.toFixed(1)}%</div>
               <div className="stat-label">Accuracy</div>
             </div>
             <div className="stat">
-              <div className="stat-value">{consensusModel.total_analyses}</div>
+              <div className="stat-value">{currentModel.total_analyses}</div>
               <div className="stat-label">Total Analyses</div>
             </div>
             <div className="stat">
-              <div className="stat-value">{consensusModel.correct_analyses}</div>
+              <div className="stat-value">{currentModel.correct_analyses}</div>
               <div className="stat-label">Correct</div>
             </div>
             <div className="stat">
-              <div className="stat-value">{consensusModel.incorrect_analyses}</div>
+              <div className="stat-value">{currentModel.incorrect_analyses}</div>
               <div className="stat-label">Incorrect</div>
             </div>
           </div>
@@ -224,7 +225,7 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token }) => {
       <div className="analytics-card">
         <h3>Performance by Bet Type</h3>
         <div className="bet-type-grid">
-          {Object.entries(consensusBetTypes).map(([betType, stats]) => (
+          {Object.entries(currentBetTypes).map(([betType, stats]) => (
             <div key={betType} className="bet-type-card">
               <h4>{betType === 'game' ? 'Game Bets' : 'Prop Bets'}</h4>
               <div className="accuracy-circle" style={{ 

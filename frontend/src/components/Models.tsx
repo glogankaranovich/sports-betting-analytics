@@ -98,7 +98,7 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
         <button onClick={() => setSelectedModel(null)} className="back-button">
           ← Back to Models
         </button>
-        <ModelAnalytics token={token} />
+        <ModelAnalytics token={token} selectedModel={selectedModel} />
         <style>{`
           .back-button {
             margin-bottom: 20px;
