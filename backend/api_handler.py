@@ -539,48 +539,31 @@ def handle_get_top_analysis(query_params: Dict[str, str]):
 
 
 def handle_get_analytics(query_params: Dict[str, str]):
-    """Get model analytics data"""
+    """Get model analytics data from Lambda"""
     try:
-        from model_analytics import ModelAnalytics
-
-        analytics = ModelAnalytics(table_name)
         metric_type = query_params.get("type", "summary")
-        model = query_params.get("model")
 
-        # Route to appropriate metric
-        if metric_type == "summary":
-            data = analytics.get_model_performance_summary()
-        elif metric_type == "by_sport":
-            data = analytics.get_model_performance_by_sport(model)
-        elif metric_type == "by_bet_type":
-            data = analytics.get_model_performance_by_bet_type(model)
-        elif metric_type == "over_time":
-            if not model:
-                return create_response(
-                    400, {"error": "model parameter required for over_time"}
-                )
-            days = int(query_params.get("days", 30))
-            data = analytics.get_model_performance_over_time(model, days)
-        elif metric_type == "comparison":
-            data = analytics.get_model_comparison()
-        elif metric_type == "confidence":
-            if not model:
-                return create_response(
-                    400, {"error": "model parameter required for confidence"}
-                )
-            data = analytics.get_model_confidence_analysis(model)
-        elif metric_type == "weights":
+        # Handle weights separately (not cached)
+        if metric_type == "weights":
             from ml.dynamic_weighting import DynamicModelWeighting
 
             weighting = DynamicModelWeighting()
             sport = query_params.get("sport", "basketball_nba")
             bet_type = query_params.get("bet_type", "game")
 
-            # Get weights and performance metrics for all models
-            weights = weighting.get_model_weights(sport, bet_type)
-
+            all_models = [
+                "consensus",
+                "value",
+                "momentum",
+                "contrarian",
+                "hot_cold",
+                "rest_schedule",
+                "matchup",
+                "injury_aware",
+            ]
+            weights = weighting.get_model_weights(sport, bet_type, models=all_models)
             model_metrics = {}
-            for model_name in ["consensus", "value", "momentum"]:
+            for model_name in all_models:
                 accuracy = weighting.get_recent_accuracy(model_name, sport, bet_type)
                 brier = weighting.get_recent_brier_score(model_name, sport, bet_type)
                 model_metrics[model_name] = {
@@ -595,16 +578,38 @@ def handle_get_analytics(query_params: Dict[str, str]):
                 "lookback_days": weighting.lookback_days,
                 "model_weights": model_metrics,
             }
-        else:
+            return create_response(200, decimal_to_float(data))
+
+        # All other analytics types go through Lambda
+        import boto3
+
+        lambda_client = boto3.client("lambda", region_name="us-east-1")
+        function_name = os.getenv("MODEL_ANALYTICS_FUNCTION")
+
+        if not function_name:
             return create_response(
-                400, {"error": f"Unknown metric type: {metric_type}"}
+                500, {"error": "MODEL_ANALYTICS_FUNCTION not configured"}
             )
 
-        return create_response(200, decimal_to_float(data))
+        # Invoke model analytics Lambda with query params
+        response = lambda_client.invoke(
+            FunctionName=function_name,
+            InvocationType="RequestResponse",
+            Payload=json.dumps({"queryStringParameters": query_params}),
+        )
+
+        payload = json.loads(response["Payload"].read())
+
+        if payload.get("statusCode") == 200:
+            return create_response(200, payload.get("body", {}))
+        else:
+            return create_response(
+                payload.get("statusCode", 500), payload.get("body", {})
+            )
 
     except Exception as e:
-        print(f"Error in analytics endpoint: {str(e)}")
-        return create_response(500, {"error": f"Error fetching analytics: {str(e)}"})
+        print(f"Error invoking model analytics: {str(e)}")
+        return create_response(500, {"error": str(e)})
 
 
 def handle_get_model_performance(query_params: Dict[str, str]):

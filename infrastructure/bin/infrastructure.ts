@@ -45,10 +45,16 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
+  const modelAnalyticsStack = new ModelAnalyticsStack(app, StackNames.forEnvironment('dev', 'ModelAnalytics'), {
+    betsTable: dynamoStack.betsTable,
+    env: ENVIRONMENTS.dev,
+  });
+
   new BetCollectorApiStack(app, StackNames.forEnvironment('dev', 'BetCollectorApi'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
     userPool: authStack.userPool,
+    modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     env: ENVIRONMENTS.dev,
   });
 
@@ -68,11 +74,6 @@ if (environment === 'dev') {
   const teamStatsCollectorStack = new TeamStatsCollectorStack(app, StackNames.forEnvironment('dev', 'TeamStatsCollector'), {
     environment: 'dev',
     table: dynamoStack.betsTable,
-    env: ENVIRONMENTS.dev,
-  });
-
-  const modelAnalyticsStack = new ModelAnalyticsStack(app, StackNames.forEnvironment('dev', 'ModelAnalytics'), {
-    betsTable: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,
   });
 

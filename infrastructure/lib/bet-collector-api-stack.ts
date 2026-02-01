@@ -12,6 +12,7 @@ export interface BetCollectorApiStackProps extends cdk.StackProps {
   environment: string;
   betsTableName: string;
   userPool?: cognito.UserPool;
+  modelAnalyticsFunction?: lambda.IFunction;
 }
 
 export class BetCollectorApiStack extends cdk.Stack {
@@ -36,7 +37,8 @@ export class BetCollectorApiStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         DYNAMODB_TABLE: props.betsTableName,
-        ENVIRONMENT: props.environment
+        ENVIRONMENT: props.environment,
+        MODEL_ANALYTICS_FUNCTION: props.modelAnalyticsFunction?.functionName || '',
       }
     });
 
@@ -54,6 +56,11 @@ export class BetCollectorApiStack extends cdk.Stack {
         `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}/index/*`
       ]
     }));
+
+    // Grant Lambda invoke permissions for model analytics
+    if (props.modelAnalyticsFunction) {
+      props.modelAnalyticsFunction.grantInvoke(betCollectorApiFunction);
+    }
 
     // API Gateway for bet collector
     const betCollectorApi = new apigateway.RestApi(this, 'BetCollectorApi', {

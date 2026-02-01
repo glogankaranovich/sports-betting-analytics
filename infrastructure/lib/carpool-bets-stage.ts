@@ -47,11 +47,17 @@ export class CarpoolBetsStage extends cdk.Stage {
       betsTableName: `carpool-bets-v2-${props.stage}`,
     });
 
+    // Model analytics stack
+    const modelAnalyticsStack = new ModelAnalyticsStack(this, 'ModelAnalytics', {
+      betsTable: dynamoStack.betsTable,
+    });
+
     // Bet collector API stack
     const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
       environment: props.stage,
       betsTableName: `carpool-bets-v2-${props.stage}`,
       userPool: authStack.userPool,
+      modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     });
 
     // Add explicit dependency to ensure DynamoDB deploys before BetCollectorApi
@@ -80,11 +86,6 @@ export class CarpoolBetsStage extends cdk.Stage {
     const analysisGeneratorStack = new AnalysisGeneratorStack(this, 'AnalysisGenerator', {
       environment: props.stage,
       betsTableName: `carpool-bets-v2-${props.stage}`,
-    });
-
-    // Model analytics stack
-    const modelAnalyticsStack = new ModelAnalyticsStack(this, 'ModelAnalytics', {
-      betsTable: dynamoStack.betsTable,
     });
 
     // Season manager stack

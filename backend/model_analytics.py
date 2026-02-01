@@ -233,6 +233,10 @@ class ModelAnalytics:
                         ExpressionAttributeValues={":pk": pk},
                     )
 
+                    count = len(response.get("Items", []))
+                    if count > 0:
+                        print(f"Found {count} verified analyses for {pk}")
+
                     for item in response.get("Items", []):
                         items.append(
                             {

@@ -24,6 +24,7 @@ interface ModelWeights {
 const Models: React.FC<ModelsProps> = ({ token, settings }) => {
   const [weights, setWeights] = useState<ModelWeights | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (token) {
@@ -33,11 +34,14 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
 
   const fetchWeights = async () => {
     try {
+      setLoading(true);
       const headers = { Authorization: `Bearer ${token}` };
       const res = await axios.get(`${API_URL}/analytics?type=weights&sport=${settings.sport}&bet_type=game`, { headers });
       setWeights(res.data);
     } catch (err) {
       console.error('Failed to fetch model weights:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,6 +87,10 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       methodology: 'Queries injury reports from ESPN. Calculates injury impact scores for each team. Warns against props for injured players (Out/Doubtful). Factors team injury differentials into game predictions.'
     }
   };
+
+  if (loading) {
+    return <div className="loading">Loading model data...</div>;
+  }
 
   if (selectedModel) {
     return (
