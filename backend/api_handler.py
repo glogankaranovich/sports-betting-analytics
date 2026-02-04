@@ -29,7 +29,7 @@ def create_response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "Content-Type, Authorization",
         },
         "body": json.dumps(body, default=str),
@@ -73,6 +73,21 @@ def lambda_handler(event, context):
             return handle_get_analytics(query_params)
         elif path == "/model-performance":
             return handle_get_model_performance(query_params)
+        elif path == "/user-models" and http_method == "GET":
+            return handle_list_user_models(query_params)
+        elif path == "/user-models" and http_method == "POST":
+            body = json.loads(event.get("body", "{}"))
+            return handle_create_user_model(body)
+        elif path.startswith("/user-models/") and http_method == "GET":
+            model_id = path.split("/")[-1]
+            return handle_get_user_model(model_id, query_params)
+        elif path.startswith("/user-models/") and http_method == "PUT":
+            model_id = path.split("/")[-1]
+            body = json.loads(event.get("body", "{}"))
+            return handle_update_user_model(model_id, body)
+        elif path.startswith("/user-models/") and http_method == "DELETE":
+            model_id = path.split("/")[-1]
+            return handle_delete_user_model(model_id, query_params)
         else:
             return create_response(404, {"error": "Endpoint not found"})
 
@@ -676,3 +691,150 @@ def handle_get_model_performance(query_params: Dict[str, str]):
         return create_response(
             500, {"error": f"Error fetching model performance: {str(e)}"}
         )
+
+
+# User Models API Handlers
+def handle_list_user_models(query_params: Dict[str, str]):
+    """List all models for a user"""
+    try:
+        from user_models import UserModel
+
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id parameter required"})
+
+        models = UserModel.list_by_user(user_id)
+        return create_response(200, {"models": [decimal_to_float(m) for m in models]})
+    except Exception as e:
+        return create_response(500, {"error": f"Error listing models: {str(e)}"})
+
+
+def handle_create_user_model(body: Dict[str, Any]):
+    """Create a new user model"""
+    try:
+        from user_models import UserModel, validate_model_config
+
+        # Validate required fields
+        required = ["user_id", "name", "sport", "bet_types", "data_sources"]
+        for field in required:
+            if field not in body:
+                return create_response(
+                    400, {"error": f"Missing required field: {field}"}
+                )
+
+        # Validate model configuration
+        is_valid, error = validate_model_config(body)
+        if not is_valid:
+            return create_response(400, {"error": error})
+
+        # Create model
+        model = UserModel(
+            user_id=body["user_id"],
+            name=body["name"],
+            description=body.get("description", ""),
+            sport=body["sport"],
+            bet_types=body["bet_types"],
+            data_sources=body["data_sources"],
+            min_confidence=body.get("min_confidence", 0.6),
+            status=body.get("status", "active"),
+        )
+        model.save()
+
+        return create_response(
+            201,
+            {
+                "message": "Model created successfully",
+                "model": decimal_to_float(model.to_dynamodb()),
+            },
+        )
+    except Exception as e:
+        return create_response(500, {"error": f"Error creating model: {str(e)}"})
+
+
+def handle_get_user_model(model_id: str, query_params: Dict[str, str]):
+    """Get a specific user model"""
+    try:
+        from user_models import UserModel
+
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id parameter required"})
+
+        model = UserModel.get(user_id, model_id)
+        if not model:
+            return create_response(404, {"error": "Model not found"})
+
+        return create_response(200, {"model": decimal_to_float(model.to_dynamodb())})
+    except Exception as e:
+        return create_response(500, {"error": f"Error fetching model: {str(e)}"})
+
+
+def handle_update_user_model(model_id: str, body: Dict[str, Any]):
+    """Update an existing user model"""
+    try:
+        from user_models import UserModel, validate_model_config
+
+        user_id = body.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id required in body"})
+
+        # Get existing model
+        model = UserModel.get(user_id, model_id)
+        if not model:
+            return create_response(404, {"error": "Model not found"})
+
+        # Update fields
+        if "name" in body:
+            model.name = body["name"]
+        if "description" in body:
+            model.description = body["description"]
+        if "data_sources" in body:
+            # Validate new configuration
+            test_config = {
+                "user_id": user_id,
+                "name": model.name,
+                "sport": model.sport,
+                "bet_types": model.bet_types,
+                "data_sources": body["data_sources"],
+            }
+            is_valid, error = validate_model_config(test_config)
+            if not is_valid:
+                return create_response(400, {"error": error})
+            model.data_sources = body["data_sources"]
+        if "min_confidence" in body:
+            model.min_confidence = body["min_confidence"]
+        if "status" in body:
+            model.status = body["status"]
+
+        model.save()
+
+        return create_response(
+            200,
+            {
+                "message": "Model updated successfully",
+                "model": decimal_to_float(model.to_dynamodb()),
+            },
+        )
+    except Exception as e:
+        return create_response(500, {"error": f"Error updating model: {str(e)}"})
+
+
+def handle_delete_user_model(model_id: str, query_params: Dict[str, str]):
+    """Delete a user model"""
+    try:
+        from user_models import UserModel
+
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id parameter required"})
+
+        # Get model to verify it exists
+        model = UserModel.get(user_id, model_id)
+        if not model:
+            return create_response(404, {"error": "Model not found"})
+
+        model.delete()
+
+        return create_response(200, {"message": "Model deleted successfully"})
+    except Exception as e:
+        return create_response(500, {"error": f"Error deleting model: {str(e)}"})
