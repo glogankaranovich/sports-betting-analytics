@@ -129,6 +129,35 @@ export const bettingApi = {
     });
     return response.data;
   },
+
+  // User Models API
+  async getUserModels(token: string, userId: string): Promise<any> {
+    const response = await api.get(`/user-models?user_id=${userId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  async createUserModel(token: string, modelData: any): Promise<any> {
+    const response = await api.post('/user-models', modelData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  async updateUserModel(token: string, modelId: string, modelData: any): Promise<any> {
+    const response = await api.put(`/user-models/${modelId}`, modelData, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
+  async deleteUserModel(token: string, modelId: string, userId: string): Promise<any> {
+    const response = await api.delete(`/user-models/${modelId}?user_id=${userId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
 };
 
 export const apiService = bettingApi;

@@ -2,15 +2,16 @@
   max-width: 600px;
   margin: 0 auto;
   padding: 24px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .model-builder h2 {
   margin: 0 0 24px 0;
   font-size: 24px;
-  color: #1a1a1a;
+  color: #ffffff;
 }
 
 .form-group {
@@ -21,22 +22,29 @@
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: #333;
+  color: #e2e8f0;
 }
 
 .form-group input[type="text"],
 .form-group select {
   width: 100%;
   padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
   font-size: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
 }
 
 .form-group input[type="text"]:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: #00d4ff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.form-group input[type="text"]::placeholder {
+  color: #a0aec0;
 }
 
 .checkbox-group {
@@ -51,6 +59,7 @@
   gap: 8px;
   cursor: pointer;
   font-weight: normal;
+  color: #e2e8f0;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -62,17 +71,18 @@
 .divider {
   margin: 32px 0 20px 0;
   padding-bottom: 8px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
   font-weight: 600;
   font-size: 16px;
-  color: #555;
+  color: #00d4ff;
 }
 
 .data-source {
   margin-bottom: 20px;
   padding: 16px;
-  background: #f8f9fa;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .data-source .checkbox-label {
@@ -86,7 +96,7 @@
 .source-description {
   margin: 4px 0 0 0;
   font-size: 13px;
-  color: #666;
+  color: #a0aec0;
 }
 
 .weight-control {
@@ -100,7 +110,7 @@
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: #ddd;
+  background: rgba(255, 255, 255, 0.1);
   outline: none;
   -webkit-appearance: none;
 }
@@ -111,49 +121,53 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #007bff;
+  background: #00d4ff;
   cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 212, 255, 0.3);
 }
 
 .weight-slider::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #007bff;
+  background: #00d4ff;
   cursor: pointer;
   border: none;
+  box-shadow: 0 2px 4px rgba(0, 212, 255, 0.3);
 }
 
 .weight-value {
   min-width: 45px;
   text-align: right;
   font-weight: 600;
-  color: #333;
+  color: #00d4ff;
 }
 
 .total-weight {
   margin: 24px 0;
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
   font-size: 16px;
   text-align: center;
 }
 
 .total-weight.valid {
-  background: #d4edda;
-  color: #155724;
+  background: rgba(72, 187, 120, 0.2);
+  color: #48bb78;
+  border: 1px solid rgba(72, 187, 120, 0.3);
 }
 
 .total-weight.invalid {
-  background: #f8d7da;
-  color: #721c24;
+  background: rgba(245, 101, 101, 0.2);
+  color: #f56565;
+  border: 1px solid rgba(245, 101, 101, 0.3);
 }
 
 .help-text {
   margin: 8px 0 0 0;
   font-size: 13px;
-  color: #666;
+  color: #a0aec0;
 }
 
 .button-group {
@@ -167,7 +181,7 @@
 .btn-secondary {
   padding: 10px 24px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -175,26 +189,30 @@
 }
 
 .btn-primary {
-  background: #007bff;
+  background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
 }
 
 .btn-primary:disabled {
-  background: #ccc;
+  background: rgba(255, 255, 255, 0.1);
+  color: #a0aec0;
   cursor: not-allowed;
 }
 
 .btn-secondary {
-  background: #6c757d;
-  color: white;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .btn-secondary:hover {
-  background: #545b62;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 @media (max-width: 768px) {

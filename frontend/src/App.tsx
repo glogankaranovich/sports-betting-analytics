@@ -8,6 +8,7 @@ import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
 import Models from './components/Models';
+import { UserModels } from './components/UserModels';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -41,7 +42,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [loadingGameAnalysis, setLoadingGameAnalysis] = useState(true);
   const [loadingPropAnalysis, setLoadingPropAnalysis] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'models'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'system-models' | 'my-models'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const [propAnalysisPage, setPropAnalysisPage] = useState(1);
   const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
@@ -451,12 +452,21 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </button>
           <button 
             role="tab"
-            aria-selected={activeTab === 'models'}
-            aria-controls="models-panel"
-            className={`tab-button ${activeTab === 'models' ? 'active' : ''}`}
-            onClick={() => handleTabChange('models')}
+            aria-selected={activeTab === 'system-models'}
+            aria-controls="system-models-panel"
+            className={`tab-button ${activeTab === 'system-models' ? 'active' : ''}`}
+            onClick={() => handleTabChange('system-models')}
           >
-            Models
+            System Models
+          </button>
+          <button 
+            role="tab"
+            aria-selected={activeTab === 'my-models'}
+            aria-controls="my-models-panel"
+            className={`tab-button ${activeTab === 'my-models' ? 'active' : ''}`}
+            onClick={() => handleTabChange('my-models')}
+          >
+            My Models
           </button>
         </nav>
 
@@ -832,8 +842,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           />
         )}
 
-        {activeTab === 'models' && (
+        {activeTab === 'system-models' && (
           <Models token={token} settings={settings} />
+        )}
+
+        {activeTab === 'my-models' && (
+          <UserModels token={token} />
         )}
       </main>
     </div>

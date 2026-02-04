@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ModelAnalytics } from './ModelAnalytics';
+import { bettingApi } from '../services/api';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://lpykx3ka6a.execute-api.us-east-1.amazonaws.com/prod';
 
@@ -12,6 +13,22 @@ interface ModelsProps {
 
 const Models: React.FC<ModelsProps> = ({ token, settings }) => {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [modelStats, setModelStats] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (token) {
+      fetchModelStats();
+    }
+  }, [token]);
+
+  const fetchModelStats = async () => {
+    try {
+      const data = await bettingApi.getAnalytics(token);
+      setModelStats(data);
+    } catch (error) {
+      console.error('Error fetching model stats:', error);
+    }
+  };
 
   const modelInfo: Record<string, { name: string; description: string; methodology: string }> = {
     consensus: {
@@ -93,18 +110,26 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
 
   return (
     <div className="models-container">
-      <h2>Model Comparison</h2>
+      <h2>System Models</h2>
       <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '30px' }}>
-        Compare different analysis models and their recent performance
+        Built-in prediction models with proven track records. View detailed analytics and performance metrics for each model.
       </p>
 
       <div className="models-grid">
         {Object.entries(modelInfo).map(([modelKey, info]) => {
+          const stats = modelStats[modelKey];
+          const accuracy = stats?.accuracy ? stats.accuracy.toFixed(1) : null;
+          
           return (
             <div key={modelKey} className="model-card">
               <h3>{info.name}</h3>
               <p className="model-desc">{info.description}</p>
               <p className="model-method">{info.methodology}</p>
+              {accuracy && (
+                <div className="model-stats">
+                  <span className="accuracy">{accuracy}% Overall Accuracy</span>
+                </div>
+              )}
               
               <button 
                 className="view-details-btn"
@@ -141,14 +166,25 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
           min-height: 320px;
         }
         .model-card:hover {
-          border-color: rgba(76, 175, 80, 0.5);
+          border-color: rgba(0, 212, 255, 0.5);
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
         }
         .model-card h3 {
           margin: 0 0 12px 0;
-          color: #4CAF50;
+          color: #00d4ff;
           font-size: 20px;
+        }
+        .model-stats {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 12px;
+          padding: 8px 0;
+        }
+        .accuracy {
+          font-size: 16px;
+          font-weight: 700;
+          color: #00d4ff;
         }
         .model-desc {
           color: rgba(255, 255, 255, 0.8);
@@ -212,7 +248,7 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
         .view-details-btn {
           width: 100%;
           padding: 10px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
           border: none;
           border-radius: 6px;
           color: white;
@@ -222,6 +258,8 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
         }
         .view-details-btn:hover {
           transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+        }
           box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
         }
       `}</style>
