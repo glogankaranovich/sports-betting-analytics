@@ -152,9 +152,36 @@ export class BetCollectorApiStack extends cdk.Stack {
     const analytics = betCollectorApi.root.addResource('analytics');
     analytics.addMethod('GET', lambdaIntegration, methodOptions);
 
-    // Model performance endpoint (protected)
+    # Model performance endpoint (protected)
     const modelPerformance = betCollectorApi.root.addResource('model-performance');
     modelPerformance.addMethod('GET', lambdaIntegration, methodOptions);
+
+    // AI Agent Lambda
+    const aiAgentFunction = new lambda.Function(this, 'AIAgentFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'ai_agent.lambda_handler',
+      code: lambda.Code.fromAsset('../backend'),
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 512,
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+      },
+    });
+
+    // Grant Bedrock access
+    aiAgentFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['bedrock:InvokeModel'],
+        resources: ['arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0'],
+      })
+    );
+
+    // AI Agent endpoint (protected)
+    const aiAgent = betCollectorApi.root.addResource('ai-agent');
+    const chat = aiAgent.addResource('chat');
+    chat.addMethod('POST', new apigateway.LambdaIntegration(aiAgentFunction), methodOptions);
 
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {
       value: betCollectorApi.url,
