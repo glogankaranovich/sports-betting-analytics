@@ -16,6 +16,7 @@ from api_handler import (  # noqa: E402
     handle_get_user_model,
     handle_update_user_model,
     handle_delete_user_model,
+    handle_get_user_model_performance,
 )
 
 
@@ -141,6 +142,23 @@ class TestUserModelsAPI(unittest.TestCase):
 
         self.assertEqual(result["statusCode"], 200)
         mock_instance.delete.assert_called_once()
+
+    @patch("user_models.ModelPrediction")
+    def test_get_user_model_performance(self, mock_prediction):
+        """Test getting model performance metrics"""
+        mock_prediction.get_performance.return_value = {
+            "total_predictions": 10,
+            "correct": 7,
+            "incorrect": 3,
+            "accuracy": 0.7,
+        }
+
+        result = handle_get_user_model_performance("model1")
+
+        self.assertEqual(result["statusCode"], 200)
+        body = json.loads(result["body"])
+        self.assertEqual(body["performance"]["accuracy"], 0.7)
+        mock_prediction.get_performance.assert_called_once_with("model1")
 
 
 if __name__ == "__main__":

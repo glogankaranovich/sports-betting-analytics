@@ -88,6 +88,9 @@ def lambda_handler(event, context):
         elif path.startswith("/user-models/") and http_method == "DELETE":
             model_id = path.split("/")[-1]
             return handle_delete_user_model(model_id, query_params)
+        elif path.startswith("/user-models/") and "/performance" in path:
+            model_id = path.split("/")[2]
+            return handle_get_user_model_performance(model_id)
         else:
             return create_response(404, {"error": "Endpoint not found"})
 
@@ -838,3 +841,19 @@ def handle_delete_user_model(model_id: str, query_params: Dict[str, str]):
         return create_response(200, {"message": "Model deleted successfully"})
     except Exception as e:
         return create_response(500, {"error": f"Error deleting model: {str(e)}"})
+
+
+def handle_get_user_model_performance(model_id: str):
+    """Get performance metrics for a user model"""
+    try:
+        from user_models import ModelPrediction
+
+        performance = ModelPrediction.get_performance(model_id)
+
+        return create_response(
+            200, {"model_id": model_id, "performance": decimal_to_float(performance)}
+        )
+    except Exception as e:
+        return create_response(
+            500, {"error": f"Error fetching model performance: {str(e)}"}
+        )

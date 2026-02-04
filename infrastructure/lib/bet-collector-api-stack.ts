@@ -165,6 +165,9 @@ export class BetCollectorApiStack extends cdk.Stack {
     userModelById.addMethod('GET', lambdaIntegration, methodOptions);    // Get model
     userModelById.addMethod('PUT', lambdaIntegration, methodOptions);    // Update model
     userModelById.addMethod('DELETE', lambdaIntegration, methodOptions); // Delete model
+    
+    const userModelPerformance = userModelById.addResource('performance');
+    userModelPerformance.addMethod('GET', lambdaIntegration, methodOptions); // Get model performance
 
     // Grant user models table permissions
     betCollectorApiFunction.addToRolePolicy(new iam.PolicyStatement({
