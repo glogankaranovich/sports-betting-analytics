@@ -161,6 +161,9 @@ export class BetCollectorApiStack extends cdk.Stack {
     userModels.addMethod('GET', lambdaIntegration, methodOptions);  // List models
     userModels.addMethod('POST', lambdaIntegration, methodOptions); // Create model
     
+    const userModelPredictions = userModels.addResource('predictions');
+    userModelPredictions.addMethod('GET', lambdaIntegration, methodOptions); // Get all predictions
+    
     const userModelById = userModels.addResource('{model_id}');
     userModelById.addMethod('GET', lambdaIntegration, methodOptions);    // Get model
     userModelById.addMethod('PUT', lambdaIntegration, methodOptions);    // Update model

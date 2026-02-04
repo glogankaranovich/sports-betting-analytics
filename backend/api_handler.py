@@ -4,6 +4,7 @@ import os
 from decimal import Decimal
 from typing import Dict, Any
 from datetime import datetime, timedelta
+from user_models import UserModel, ModelPrediction
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -75,6 +76,8 @@ def lambda_handler(event, context):
             return handle_get_model_performance(query_params)
         elif path == "/user-models" and http_method == "GET":
             return handle_list_user_models(query_params)
+        elif path == "/user-models/predictions" and http_method == "GET":
+            return handle_get_user_model_predictions(query_params)
         elif path == "/user-models" and http_method == "POST":
             body = json.loads(event.get("body", "{}"))
             return handle_create_user_model(body)
@@ -857,3 +860,41 @@ def handle_get_user_model_performance(model_id: str):
         return create_response(
             500, {"error": f"Error fetching model performance: {str(e)}"}
         )
+
+
+def handle_get_user_model_predictions(query_params: Dict[str, str]):
+    """Get predictions for user's models"""
+    try:
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id is required"})
+
+        # Get all user's models
+        models = UserModel.list_by_user(user_id)
+
+        # Get predictions for each model
+        all_predictions = []
+        for model in models:
+            predictions = ModelPrediction.list_by_model(model.model_id, limit=50)
+            for pred in predictions:
+                all_predictions.append(
+                    {
+                        "model_id": pred.model_id,
+                        "model_name": model.name,
+                        "game_id": pred.game_id,
+                        "sport": pred.sport,
+                        "prediction": pred.prediction,
+                        "confidence": pred.confidence,
+                        "reasoning": pred.reasoning,
+                        "bet_type": pred.bet_type,
+                        "home_team": pred.home_team,
+                        "away_team": pred.away_team,
+                        "commence_time": pred.commence_time,
+                        "outcome": pred.outcome,
+                        "created_at": pred.created_at,
+                    }
+                )
+
+        return create_response(200, {"predictions": decimal_to_float(all_predictions)})
+    except Exception as e:
+        return create_response(500, {"error": f"Error fetching predictions: {str(e)}"})
