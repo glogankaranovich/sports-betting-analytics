@@ -35,11 +35,11 @@ export class OddsCollectorScheduleStack extends cdk.Stack {
       });
     });
 
-    // Props collection - every 4 hours for each sport
+    // Props collection - every 8 hours for each sport (reduced to save API calls)
     sports.forEach(sport => {
       new events.Rule(this, `PropsRule${sport.name}`, {
-        schedule: events.Schedule.rate(cdk.Duration.hours(4)),
-        description: `Collect ${sport.name} props every 4 hours`,
+        schedule: events.Schedule.rate(cdk.Duration.hours(8)),
+        description: `Collect ${sport.name} props every 8 hours`,
         targets: [new targets.LambdaFunction(propsCollectorFunction, {
           event: events.RuleTargetInput.fromObject({ sport: sport.key, props_only: true })
         })]

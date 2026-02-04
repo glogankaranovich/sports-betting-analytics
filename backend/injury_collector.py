@@ -22,6 +22,7 @@ class InjuryCollector:
             "americanfootball_nfl": ("football", "nfl"),
             "baseball_mlb": ("baseball", "mlb"),
             "icehockey_nhl": ("hockey", "nhl"),
+            "soccer_epl": ("soccer", "eng.1"),
         }
 
         if sport not in sport_mapping:

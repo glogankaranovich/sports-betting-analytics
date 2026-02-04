@@ -139,22 +139,29 @@ class TestOutcomeCollector(unittest.TestCase):
         mock_table = Mock()
         mock_boto3.resource.return_value.Table.return_value = mock_table
 
-        # Mock scan response with new schema
-        mock_table.scan.return_value = {
-            "Items": [
-                {
-                    "pk": "ANALYSIS#basketball_nba#game123#fanduel",
-                    "sk": "consensus#game#LATEST",
-                    "analysis_type": "game",
-                    "prediction": "Lakers +2.5",
-                    "game_id": "game123",
+        # Mock query to return item only for consensus/game combination
+        def mock_query(**kwargs):
+            pk = kwargs.get("ExpressionAttributeValues", {}).get(":pk", "")
+            if "consensus" in pk and "game" in pk:
+                return {
+                    "Items": [
+                        {
+                            "pk": "ANALYSIS#basketball_nba#fanduel#consensus#game",
+                            "sk": "LATEST",
+                            "analysis_type": "game",
+                            "prediction": "Lakers +2.5",
+                            "game_id": "game123",
+                        }
+                    ]
                 }
-            ]
-        }
+            return {"Items": []}
+
+        mock_table.query.side_effect = mock_query
 
         collector = OutcomeCollector(self.table_name, self.api_key)
         game = {
             "id": "game123",
+            "sport": "basketball_nba",
             "home_team": "Lakers",
             "away_team": "Warriors",
             "home_score": "120",
@@ -163,9 +170,9 @@ class TestOutcomeCollector(unittest.TestCase):
 
         updates = collector._update_analysis_outcomes(game)
 
-        # Verify scan and update were called
-        mock_table.scan.assert_called_once()
-        mock_table.update_item.assert_called_once()
+        # Verify query and update were called
+        self.assertGreater(mock_table.query.call_count, 0)
+        self.assertEqual(mock_table.update_item.call_count, 1)
         self.assertEqual(updates, 1)
 
 

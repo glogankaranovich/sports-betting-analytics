@@ -28,71 +28,80 @@ class TestModelAnalytics(unittest.TestCase):
     def test_get_model_performance_summary(self, mock_boto3):
         mock_boto3.resource.return_value.Table.return_value = self.mock_table
 
-        self.mock_table.scan.return_value = {
-            "Items": [
+        # Track which PKs return data
+        test_data = {
+            "VERIFIED#momentum#basketball_nba#game": [
                 {
-                    "model": "odds_movement",
+                    "model": "momentum",
                     "sport": "basketball_nba",
+                    "analysis_type": "game",
                     "analysis_correct": True,
                     "outcome_verified_at": "2025-01-01T00:00:00Z",
                 },
                 {
-                    "model": "odds_movement",
+                    "model": "momentum",
                     "sport": "basketball_nba",
+                    "analysis_type": "game",
                     "analysis_correct": False,
-                    "outcome_verified_at": "2025-01-01T00:00:00Z",
-                },
-                {
-                    "model": "team_stats",
-                    "sport": "americanfootball_nfl",
-                    "analysis_correct": True,
                     "outcome_verified_at": "2025-01-01T00:00:00Z",
                 },
             ]
         }
 
+        def mock_query(**kwargs):
+            pk = kwargs.get("ExpressionAttributeValues", {}).get(":pk", "")
+            return {"Items": test_data.get(pk, [])}
+
+        self.mock_table.query.side_effect = mock_query
+
         analytics = ModelAnalytics(self.table_name)
         summary = analytics.get_model_performance_summary()
 
-        self.assertIn("odds_movement", summary)
-        self.assertEqual(summary["odds_movement"]["total_analyses"], 2)
-        self.assertEqual(summary["odds_movement"]["correct_analyses"], 1)
-        self.assertEqual(summary["odds_movement"]["accuracy"], 50.0)
-
-        self.assertIn("team_stats", summary)
-        self.assertEqual(summary["team_stats"]["total_analyses"], 1)
-        self.assertEqual(summary["team_stats"]["correct_analyses"], 1)
-        self.assertEqual(summary["team_stats"]["accuracy"], 100.0)
+        self.assertIn("momentum", summary)
+        self.assertEqual(summary["momentum"]["total_analyses"], 2)
+        self.assertEqual(summary["momentum"]["correct_analyses"], 1)
+        self.assertEqual(summary["momentum"]["accuracy"], 50.0)
 
     @patch("model_analytics.boto3")
     def test_get_model_performance_by_sport(self, mock_boto3):
         mock_boto3.resource.return_value.Table.return_value = self.mock_table
 
-        self.mock_table.scan.return_value = {
-            "Items": [
+        # Track which PKs return data
+        test_data = {
+            "VERIFIED#momentum#basketball_nba#game": [
                 {
-                    "model": "odds_movement",
+                    "model": "momentum",
                     "sport": "basketball_nba",
+                    "analysis_type": "game",
                     "analysis_correct": True,
                     "outcome_verified_at": "2025-01-01T00:00:00Z",
                 },
+            ],
+            "VERIFIED#value#basketball_nba#game": [
                 {
-                    "model": "team_stats",
+                    "model": "value",
                     "sport": "basketball_nba",
+                    "analysis_type": "game",
                     "analysis_correct": True,
                     "outcome_verified_at": "2025-01-01T00:00:00Z",
                 },
-            ]
+            ],
         }
+
+        def mock_query(**kwargs):
+            pk = kwargs.get("ExpressionAttributeValues", {}).get(":pk", "")
+            return {"Items": test_data.get(pk, [])}
+
+        self.mock_table.query.side_effect = mock_query
 
         analytics = ModelAnalytics(self.table_name)
         summary = analytics.get_model_performance_by_sport()
 
-        self.assertIn("odds_movement", summary)
-        self.assertIn("basketball_nba", summary["odds_movement"])
-        self.assertEqual(summary["odds_movement"]["basketball_nba"]["total"], 1)
-        self.assertEqual(summary["odds_movement"]["basketball_nba"]["correct"], 1)
-        self.assertEqual(summary["odds_movement"]["basketball_nba"]["accuracy"], 100.0)
+        self.assertIn("momentum", summary)
+        self.assertIn("basketball_nba", summary["momentum"])
+        self.assertEqual(summary["momentum"]["basketball_nba"]["total"], 1)
+        self.assertEqual(summary["momentum"]["basketball_nba"]["correct"], 1)
+        self.assertEqual(summary["momentum"]["basketball_nba"]["accuracy"], 100.0)
 
 
 if __name__ == "__main__":

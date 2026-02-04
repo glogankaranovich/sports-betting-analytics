@@ -80,6 +80,48 @@ export class PlayerStatsCollectorStack extends cdk.Stack {
       event: events.RuleTargetInput.fromObject({ sport: 'americanfootball_nfl' })
     }));
 
+    // EventBridge schedule to run daily at 2 AM ET (7 AM UTC) during MLB season (Mar-Oct)
+    const dailyMlbRule = new events.Rule(this, 'DailyMlbStatsCollection', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '7',
+        month: '3-10',
+      }),
+      description: 'Collect MLB player stats daily at 2 AM ET during MLB season'
+    });
+
+    dailyMlbRule.addTarget(new targets.LambdaFunction(this.playerStatsCollectorFunction, {
+      event: events.RuleTargetInput.fromObject({ sport: 'baseball_mlb' })
+    }));
+
+    // EventBridge schedule to run daily at 2 AM ET (7 AM UTC) during NHL season (Oct-Jun)
+    const dailyNhlRule = new events.Rule(this, 'DailyNhlStatsCollection', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '7',
+        month: '10-6',
+      }),
+      description: 'Collect NHL player stats daily at 2 AM ET during NHL season'
+    });
+
+    dailyNhlRule.addTarget(new targets.LambdaFunction(this.playerStatsCollectorFunction, {
+      event: events.RuleTargetInput.fromObject({ sport: 'icehockey_nhl' })
+    }));
+
+    // EventBridge schedule to run daily at 2 AM ET (7 AM UTC) during EPL season (Aug-May)
+    const dailyEplRule = new events.Rule(this, 'DailyEplStatsCollection', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '7',
+        month: '8-5',
+      }),
+      description: 'Collect EPL player stats daily at 2 AM ET during EPL season'
+    });
+
+    dailyEplRule.addTarget(new targets.LambdaFunction(this.playerStatsCollectorFunction, {
+      event: events.RuleTargetInput.fromObject({ sport: 'soccer_epl' })
+    }));
+
     // Output
     new cdk.CfnOutput(this, 'PlayerStatsCollectorFunctionArn', {
       value: this.playerStatsCollectorFunction.functionArn,

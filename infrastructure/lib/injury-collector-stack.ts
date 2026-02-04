@@ -85,6 +85,15 @@ export class InjuryCollectorStack extends cdk.Stack {
       })]
     });
 
+    // EPL injuries - daily at 1 AM ET (6 AM UTC) during season (Aug-May)
+    new events.Rule(this, 'DailyEplInjuryCollection', {
+      schedule: events.Schedule.cron({ minute: '0', hour: '6', month: '8-5' }),
+      description: 'Collect EPL injury reports daily at 1 AM ET',
+      targets: [new targets.LambdaFunction(this.injuryCollectorFunction, {
+        event: events.RuleTargetInput.fromObject({ sport: 'soccer_epl' })
+      })]
+    });
+
     new cdk.CfnOutput(this, 'InjuryCollectorFunctionArn', {
       value: this.injuryCollectorFunction.functionArn,
       description: 'Injury Collector Lambda Function ARN',

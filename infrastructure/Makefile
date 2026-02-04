@@ -23,7 +23,8 @@ help:
 	@echo "  make list-stacks - List stacks in all accounts"
 	@echo "  make pipeline-status - Check pipeline status"
 	@echo "  make pipeline-history - Show pipeline execution history"
-	@echo "  make verify-dev  - Verify dev resources exist"
+	@echo "  make verify-dev  - Verify dev resources exist (quick smoke test)"
+	@echo "  make verify-dev-all - Run all integration tests (comprehensive)"
 	@echo ""
 	@echo "🧹 Cleanup:"
 	@echo "  make clean       - Clean build artifacts"
@@ -73,6 +74,11 @@ deploy-stack: build
 verify-dev: 
 	@echo "🧪 Running integration tests..."
 	cd ../backend && AWS_PROFILE=sports-betting-dev ENVIRONMENT=dev python3 tests/integration/test_integration.py
+
+# Run all integration tests against dev environment
+verify-dev-all:
+	@echo "🧪 Running all integration tests..."
+	cd ../backend && AWS_PROFILE=sports-betting-dev ENVIRONMENT=dev python3 -m pytest tests/integration/ -v
 
 # Deploy pipeline (for beta/prod automation)
 deploy-pipeline: clean build test

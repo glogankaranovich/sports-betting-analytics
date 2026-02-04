@@ -19,6 +19,7 @@ import { InjuryCollectorStack } from '../lib/injury-collector-stack';
 import { OddsCollectorScheduleStack } from '../lib/odds-collector-schedule-stack';
 import { AnalysisGeneratorScheduleStack } from '../lib/analysis-generator-schedule-stack';
 import { ModelAnalyticsScheduleStack } from '../lib/model-analytics-schedule-stack';
+import { UserModelsStack } from '../lib/user-models-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -101,6 +102,10 @@ if (environment === 'dev') {
   });
 
   const complianceStack = new ComplianceStack(app, StackNames.forEnvironment('dev', 'Compliance'), {
+    env: ENVIRONMENTS.dev,
+  });
+
+  const userModelsStack = new UserModelsStack(app, StackNames.forEnvironment('dev', 'UserModels'), {
     env: ENVIRONMENTS.dev,
   });
 
