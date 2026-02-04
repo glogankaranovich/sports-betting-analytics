@@ -5,6 +5,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
 export class UserModelsStack extends cdk.Stack {
@@ -97,9 +98,17 @@ export class UserModelsStack extends cdk.Stack {
     this.userModelsTable.grantReadData(this.modelExecutorFunction);
     this.modelPredictionsTable.grantWriteData(this.modelExecutorFunction);
     
-    // Grant read access to bets table
+    // Grant read access to bets table and its GSIs
     const betsTable = dynamodb.Table.fromTableName(this, 'BetsTable', 'carpool-bets-v2-dev');
     betsTable.grantReadData(this.modelExecutorFunction);
+    
+    // Explicitly grant access to GSI
+    this.modelExecutorFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:Query'],
+      resources: [
+        `arn:aws:dynamodb:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:table/carpool-bets-v2-dev/index/*`
+      ],
+    }));
 
     // Connect SQS to Lambda (batch size 10)
     this.modelExecutorFunction.addEventSource(
