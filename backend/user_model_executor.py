@@ -91,7 +91,7 @@ def calculate_prediction(model: UserModel, game_data: Dict) -> Dict:
 
         # Get normalized score (0-1) from data source
         score = evaluator(game_data)
-        weight = config.get("weight", 0)
+        weight = float(config.get("weight", 0))
 
         source_scores[source_name] = score
         total_score += score * weight
@@ -101,7 +101,7 @@ def calculate_prediction(model: UserModel, game_data: Dict) -> Dict:
     confidence = total_score / total_weight if total_weight > 0 else 0
 
     # Check minimum confidence threshold
-    if confidence < model.min_confidence:
+    if confidence < float(model.min_confidence):
         return None
 
     # Determine prediction based on score
@@ -117,7 +117,7 @@ def calculate_prediction(model: UserModel, game_data: Dict) -> Dict:
     for source, score in sorted(
         source_scores.items(), key=lambda x: x[1], reverse=True
     ):
-        weight = model.data_sources[source]["weight"]
+        weight = float(model.data_sources[source]["weight"])
         reasoning_parts.append(f"{source}: {score:.2f} (weight: {weight:.0%})")
 
     reasoning = f"Prediction based on: {', '.join(reasoning_parts[:3])}"
