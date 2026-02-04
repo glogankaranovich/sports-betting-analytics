@@ -156,6 +156,34 @@ export class BetCollectorApiStack extends cdk.Stack {
     const modelPerformance = betCollectorApi.root.addResource('model-performance');
     modelPerformance.addMethod('GET', lambdaIntegration, methodOptions);
 
+    // User models endpoints (protected)
+    const userModels = betCollectorApi.root.addResource('user-models');
+    userModels.addMethod('GET', lambdaIntegration, methodOptions);  // List models
+    userModels.addMethod('POST', lambdaIntegration, methodOptions); // Create model
+    
+    const userModelById = userModels.addResource('{model_id}');
+    userModelById.addMethod('GET', lambdaIntegration, methodOptions);    // Get model
+    userModelById.addMethod('PUT', lambdaIntegration, methodOptions);    // Update model
+    userModelById.addMethod('DELETE', lambdaIntegration, methodOptions); // Delete model
+
+    // Grant user models table permissions
+    betCollectorApiFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'dynamodb:Query',
+        'dynamodb:GetItem',
+        'dynamodb:PutItem',
+        'dynamodb:UpdateItem',
+        'dynamodb:DeleteItem'
+      ],
+      resources: [
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-UserModels`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-UserModels/index/*`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-ModelPredictions`,
+        `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-ModelPredictions/index/*`
+      ]
+    }));
+
     // AI Agent Lambda
     const aiAgentFunction = new lambda.Function(this, 'AIAgentFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
