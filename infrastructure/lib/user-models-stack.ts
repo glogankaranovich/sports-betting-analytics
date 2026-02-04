@@ -96,6 +96,10 @@ export class UserModelsStack extends cdk.Stack {
     // Grant permissions to executor
     this.userModelsTable.grantReadData(this.modelExecutorFunction);
     this.modelPredictionsTable.grantWriteData(this.modelExecutorFunction);
+    
+    // Grant read access to bets table
+    const betsTable = dynamodb.Table.fromTableName(this, 'BetsTable', 'carpool-bets-v2-dev');
+    betsTable.grantReadData(this.modelExecutorFunction);
 
     // Connect SQS to Lambda (batch size 10)
     this.modelExecutorFunction.addEventSource(
