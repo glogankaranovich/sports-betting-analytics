@@ -102,7 +102,7 @@ def test_user_models_e2e():
     )
     print(f"✓ Executor executed: {response['StatusCode']}")
 
-    # 6. Check for predictions (may not exist if no games available)
+    # 6. Check for predictions (0 expected with placeholder evaluators)
     print("\n6. Checking for predictions...")
     pred_table = dynamodb.Table("Dev-UserModels-ModelPredictions")
     response = pred_table.query(
@@ -111,7 +111,9 @@ def test_user_models_e2e():
         Limit=5,
     )
     pred_count = len(response.get("Items", []))
-    print(f"✓ Predictions found: {pred_count}")
+    print(
+        f"✓ Predictions found: {pred_count} (0 expected - placeholder evaluators return 0.5 confidence)"
+    )
 
     # 7. Cleanup
     print("\n7. Cleaning up test model...")

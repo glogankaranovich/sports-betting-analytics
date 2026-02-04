@@ -159,6 +159,7 @@ def get_upcoming_games(sport: str, bet_types: List[str]) -> List[Dict]:
             "commence_time": item.get("commence_time"),
         }
 
+    print(f"Found {len(games)} upcoming games for {sport}")
     return list(games.values())
 
 
@@ -180,6 +181,7 @@ def process_model(model_id: str, user_id: str):
         # Calculate prediction
         result = calculate_prediction(model, game)
         if not result:
+            print(f"Skipped game {game['game_id']}: low confidence or too close")
             continue  # Skip low-confidence predictions
 
         # Create prediction record
