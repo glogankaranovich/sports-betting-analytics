@@ -129,9 +129,37 @@ def get_upcoming_games(sport: str, bet_types: List[str]) -> List[Dict]:
     """
     Get upcoming games for the sport
     """
-    # Query games from DynamoDB
-    # For now, return empty list (will implement after connecting to existing data)
-    return []
+    from datetime import datetime, timedelta
+    from boto3.dynamodb.conditions import Key
+
+    now = datetime.utcnow()
+    future = now + timedelta(days=7)
+
+    games = {}
+
+    # Query using ActiveBetsIndexV2 to get upcoming games
+    response = bets_table.query(
+        IndexName="ActiveBetsIndexV2",
+        KeyConditionExpression=Key("active_bet_pk").eq(f"GAME#{sport}")
+        & Key("commence_time").between(now.isoformat(), future.isoformat()),
+        FilterExpression="attribute_exists(latest)",
+        Limit=100,
+    )
+
+    for item in response.get("Items", []):
+        game_id = item.get("pk", "")[5:]  # Remove GAME# prefix
+        if not game_id or game_id in games:
+            continue
+
+        games[game_id] = {
+            "game_id": game_id,
+            "sport": sport,
+            "home_team": item.get("home_team", "Unknown"),
+            "away_team": item.get("away_team", "Unknown"),
+            "commence_time": item.get("commence_time"),
+        }
+
+    return list(games.values())
 
 
 def process_model(model_id: str, user_id: str):
