@@ -152,7 +152,7 @@ export class BetCollectorApiStack extends cdk.Stack {
     const analytics = betCollectorApi.root.addResource('analytics');
     analytics.addMethod('GET', lambdaIntegration, methodOptions);
 
-    # Model performance endpoint (protected)
+    // Model performance endpoint (protected)
     const modelPerformance = betCollectorApi.root.addResource('model-performance');
     modelPerformance.addMethod('GET', lambdaIntegration, methodOptions);
 

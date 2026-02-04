@@ -35,6 +35,22 @@ body {
   padding: 0.5rem 0;
   overflow: hidden;
   white-space: nowrap;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .ticker-bar {
+    padding: 0.4rem 0;
+  }
+  
+  .ticker-item {
+    padding: 0 1rem;
+    font-size: 0.8rem;
+  }
+  
+  .ticker-label {
+    font-size: 0.75rem;
+  }
 }
 
 .ticker-bar::before {
@@ -105,6 +121,12 @@ body {
   transform: scale(1.05);
 }
 
+@media (max-width: 768px) {
+  .logo {
+    height: 50px;
+  }
+}
+
 .header-info {
   display: flex;
   flex-direction: column;
@@ -133,6 +155,20 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.9rem;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.btn:focus {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .btn {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.85rem;
+  }
 }
 
 .btn-primary {
@@ -280,6 +316,19 @@ main {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .filters {
+    width: 100%;
+    gap: 0.5rem;
+  }
+  
+  .filter-select {
+    flex: 1;
+    min-width: 120px;
+  }
 }
 
 .filter-select {
@@ -322,6 +371,12 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .games-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .game-card {
@@ -504,6 +559,8 @@ main {
   gap: 0;
   margin-bottom: 2rem;
   border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tab-button {
@@ -516,6 +573,31 @@ main {
   cursor: pointer;
   border-bottom: 3px solid transparent;
   transition: all 0.3s ease;
+  white-space: nowrap;
+  min-height: 44px;
+}
+
+.tab-button:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-button:focus {
+  outline: 2px solid #00d4ff;
+  outline-offset: -2px;
+}
+
+.tab-button.active {
+  color: #00d4ff;
+  border-bottom-color: #00d4ff;
+  background: rgba(0, 212, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+  .tab-button {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
 }
 
 .tab-button:hover {
@@ -619,11 +701,70 @@ main {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Skeleton Loaders */
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  min-height: 200px;
+}
+
+.skeleton-line {
+  height: 16px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+}
+
+.skeleton-line.title {
+  height: 24px;
+  width: 60%;
+  margin-bottom: 16px;
+}
+
+.skeleton-line.short {
+  width: 40%;
+}
+
+.skeleton-line.medium {
+  width: 70%;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 768px) {
   .App-header {
     flex-direction: column;
     align-items: stretch;
     text-align: center;
+    padding: 1rem;
+  }
+  
+  .header-left {
+    flex-direction: column;
+    gap: 0.5rem;
   }
   
   .header-info {
@@ -632,6 +773,7 @@ main {
   
   .header-actions {
     justify-content: center;
+    flex-wrap: wrap;
   }
   
   main {

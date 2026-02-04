@@ -8,6 +8,7 @@ import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
 import Models from './components/Models';
+import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import logo from './assets/logo_2.png';
@@ -36,6 +37,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [propAnalysis, setPropAnalysis] = useState<any[]>([]);
   const [topInsight, setTopInsight] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingGames, setLoadingGames] = useState(true);
+  const [loadingGameAnalysis, setLoadingGameAnalysis] = useState(true);
+  const [loadingPropAnalysis, setLoadingPropAnalysis] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'models'>('games');
   const [currentPage, setCurrentPage] = useState(1);
@@ -96,7 +100,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   const fetchGames = useCallback(async () => {
     try {
+      setLoadingGames(true);
       setLoading(true);
+      setError(null);
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
       
@@ -107,10 +113,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         setGames(data.games || []);
         setGamesKey(data.lastEvaluatedKey || null);
       }
-    } catch (err) {
-      setError('Failed to fetch games');
-      console.error(err);
+    } catch (err: any) {
+      const message = err?.message || 'Unable to load games. Please check your connection and try again.';
+      setError(message);
+      console.error('Error fetching games:', err);
     } finally {
+      setLoadingGames(false);
       setLoading(false);
     }
   }, [settings.sport, settings.bookmaker]);
@@ -118,6 +126,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   const fetchGameAnalysis = useCallback(async () => {
     try {
+      setLoadingGameAnalysis(true);
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
       
@@ -131,11 +140,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       }
     } catch (err) {
       console.error('Error fetching game analysis:', err);
+    } finally {
+      setLoadingGameAnalysis(false);
     }
   }, [settings.sport, settings.model, settings.bookmaker]);
 
   const fetchPropAnalysis = useCallback(async () => {
     try {
+      setLoadingPropAnalysis(true);
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
       
@@ -151,7 +163,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       }
     } catch (err) {
       console.error('Error fetching prop analysis:', err);
-      setPropAnalysis([]);
+    } finally {
+      setLoadingPropAnalysis(false);
     }
   }, [settings.sport, settings.model, settings.bookmaker]);
 
@@ -283,7 +296,39 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   };
 
   if (loading) return <div className="loading">Loading games...</div>;
-  if (error) return <div className="error">Error: {error}</div>;
+  if (error) return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '50vh',
+      padding: '2rem',
+      textAlign: 'center'
+    }}>
+      <div style={{
+        background: 'rgba(255, 107, 107, 0.1)',
+        border: '1px solid rgba(255, 107, 107, 0.3)',
+        borderRadius: '12px',
+        padding: '2rem',
+        maxWidth: '500px'
+      }}>
+        <h2 style={{ color: '#ff6b6b', marginBottom: '1rem' }}>Unable to Load Data</h2>
+        <p style={{ color: '#e2e8f0', marginBottom: '1.5rem' }}>{error}</p>
+        <button 
+          onClick={() => {
+            setError(null);
+            fetchGames();
+            fetchGameAnalysis();
+            fetchPropAnalysis();
+          }}
+          className="btn btn-primary"
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="App">
@@ -367,53 +412,70 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       />
       
       <main>
-        <div className="tab-navigation">
+        <nav className="tab-navigation" role="tablist" aria-label="Main navigation">
           <button 
+            role="tab"
+            aria-selected={activeTab === 'games'}
+            aria-controls="games-panel"
             className={`tab-button ${activeTab === 'games' ? 'active' : ''}`}
             onClick={() => handleTabChange('games')}
           >
             Game Bets
           </button>
           <button 
+            role="tab"
+            aria-selected={activeTab === 'player-props'}
+            aria-controls="player-props-panel"
             className={`tab-button ${activeTab === 'player-props' ? 'active' : ''}`}
             onClick={() => handleTabChange('player-props')}
           >
             Prop Bets
           </button>
           <button 
+            role="tab"
+            aria-selected={activeTab === 'game-analysis'}
+            aria-controls="game-analysis-panel"
             className={`tab-button ${activeTab === 'game-analysis' ? 'active' : ''}`}
             onClick={() => handleTabChange('game-analysis')}
           >
             Game Analysis
           </button>
           <button 
+            role="tab"
+            aria-selected={activeTab === 'prop-analysis'}
+            aria-controls="prop-analysis-panel"
             className={`tab-button ${activeTab === 'prop-analysis' ? 'active' : ''}`}
             onClick={() => handleTabChange('prop-analysis')}
           >
             Prop Analysis
           </button>
           <button 
+            role="tab"
+            aria-selected={activeTab === 'models'}
+            aria-controls="models-panel"
             className={`tab-button ${activeTab === 'models' ? 'active' : ''}`}
             onClick={() => handleTabChange('models')}
           >
             Models
           </button>
-        </div>
+        </nav>
 
         {activeTab === 'games' && (
-          <>
+          <div role="tabpanel" id="games-panel" aria-labelledby="games-tab">
             <div className="games-header">
               <h2>Available Games</h2>
               <div className="filters">
                 <input
                   type="text"
                   placeholder="Filter by team..."
+                  aria-label="Filter games by team name"
                   value={teamFilter}
                   onChange={(e) => setTeamFilter(e.target.value)}
                   className="filter-select"
                 />
                 <select 
                   className="filter-select"
+                  aria-label="Filter by bet type"
                   value={marketFilter} 
                   onChange={(e) => setMarketFilter(e.target.value)}
                 >
@@ -424,6 +486,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </select>
                 <select 
                   className="filter-select"
+                  aria-label="Sort games by"
                   value={gamesSort} 
                   onChange={(e) => setGamesSort(e.target.value as 'time' | 'team')}
                 >
@@ -441,6 +504,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               </div>
             </div>
             
+            {loadingGames ? (
+              <GamesGridSkeleton count={6} />
+            ) : (
             <div className="games-grid">
               {(() => {
                 const allGameCards = generateGameCards();
@@ -500,12 +566,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 });
               })()}
             </div>
+            )}
             
-            
-            {games.length === 0 && (
+            {!loadingGames && games.length === 0 && (
               <div className="no-data">No games found for current filters</div>
             )}
-          </>
+          </div>
         )}
 
         {activeTab === 'game-analysis' && (
@@ -538,79 +604,84 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </select>
               </div>
             </div>
-            <div className="games-grid">
-              {gameAnalysis.length > 0 ? (
-                gameAnalysis
-                  .filter((analysis: any) => {
-                    if (!teamFilter) return true;
-                    const filter = teamFilter.toLowerCase();
-                    return analysis.home_team?.toLowerCase().includes(filter) || 
-                           analysis.away_team?.toLowerCase().includes(filter);
-                  })
-                  .sort((a: any, b: any) => {
-                    let comparison = 0;
-                    if (gameAnalysisSort === 'confidence') {
-                      comparison = b.confidence - a.confidence;
-                    } else {
-                      comparison = new Date(b.commence_time).getTime() - new Date(a.commence_time).getTime();
-                    }
-                    return gameAnalysisSortDir === 'asc' ? -comparison : comparison;
-                  })
-                  .slice((gameAnalysisPage - 1) * itemsPerPage, gameAnalysisPage * itemsPerPage)
-                  .map((analysis: any, index: number) => (
-                  <div key={index} className="game-card">
-                    <div className="game-info">
-                      <div className="teams">
-                        <h3>{analysis.away_team} @ {analysis.home_team}</h3>
-                        <div className="sport-tag">{formatSport(analysis.sport)}</div>
-                      </div>
-                    </div>
-                    <div className="analysis-info">
-                      <div className="analysis-row">
-                        <span className="analysis-label">Analysis Outcome: </span>
-                        <span className="analysis-value">{analysis.prediction}</span>
-                      </div>
-                      <div className="confidence-row">
-                        <span className="confidence-label">Confidence: </span>
-                        <span className="confidence-value">{(analysis.confidence * 100).toFixed(0)}%</span>
-                      </div>
-                      <div className="reasoning">
-                        <span className="reasoning-label">Reasoning: </span>
-                        <span className="reasoning-value">{analysis.reasoning}</span>
-                      </div>
-                    </div>
-                    <div className="game-meta">
-                      <span className="model">Model: {analysis.model}</span>
-                      <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
-                    </div>
+            {loadingGameAnalysis ? (
+              <AnalysisGridSkeleton count={4} />
+            ) : (
+              <>
+                <div className="games-grid">
+                  {gameAnalysis.length > 0 ? (
+                    gameAnalysis
+                      .filter((analysis: any) => {
+                        if (!teamFilter) return true;
+                        const filter = teamFilter.toLowerCase();
+                        return analysis.home_team?.toLowerCase().includes(filter) || 
+                               analysis.away_team?.toLowerCase().includes(filter);
+                      })
+                      .sort((a: any, b: any) => {
+                        let comparison = 0;
+                        if (gameAnalysisSort === 'confidence') {
+                          comparison = b.confidence - a.confidence;
+                        } else {
+                          comparison = new Date(b.commence_time).getTime() - new Date(a.commence_time).getTime();
+                        }
+                        return gameAnalysisSortDir === 'asc' ? -comparison : comparison;
+                      })
+                      .slice((gameAnalysisPage - 1) * itemsPerPage, gameAnalysisPage * itemsPerPage)
+                      .map((analysis: any, index: number) => (
+                        <div key={index} className="game-card">
+                          <div className="game-info">
+                            <div className="teams">
+                              <h3>{analysis.away_team} @ {analysis.home_team}</h3>
+                              <div className="sport-tag">{formatSport(analysis.sport)}</div>
+                            </div>
+                          </div>
+                          <div className="analysis-info">
+                            <div className="analysis-row">
+                              <span className="analysis-label">Analysis Outcome: </span>
+                              <span className="analysis-value">{analysis.prediction}</span>
+                            </div>
+                            <div className="confidence-row">
+                              <span className="confidence-label">Confidence: </span>
+                              <span className="confidence-value">{(analysis.confidence * 100).toFixed(0)}%</span>
+                            </div>
+                            <div className="reasoning">
+                              <span className="reasoning-label">Reasoning: </span>
+                              <span className="reasoning-value">{analysis.reasoning}</span>
+                            </div>
+                          </div>
+                          <div className="game-meta">
+                            <span className="model">Model: {analysis.model}</span>
+                            <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))
+                  ) : null}
+                </div>
+                
+                {gameAnalysis.length > itemsPerPage && (
+                  <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
+                    <button 
+                      onClick={() => setGameAnalysisPage(p => Math.max(1, p - 1))} 
+                      disabled={gameAnalysisPage === 1}
+                      style={{ padding: '8px 16px', cursor: gameAnalysisPage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <span>Page {gameAnalysisPage} of {Math.ceil(gameAnalysis.length / itemsPerPage)} ({gameAnalysis.length} analyses)</span>
+                    <button 
+                      onClick={() => setGameAnalysisPage(p => Math.min(Math.ceil(gameAnalysis.length / itemsPerPage), p + 1))} 
+                      disabled={gameAnalysisPage === Math.ceil(gameAnalysis.length / itemsPerPage)}
+                      style={{ padding: '8px 16px', cursor: gameAnalysisPage === Math.ceil(gameAnalysis.length / itemsPerPage) ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
                   </div>
-                ))
-              ) : null
-              }
-            </div>
-            
-            {gameAnalysis.length > itemsPerPage && (
-              <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
-                <button 
-                  onClick={() => setGameAnalysisPage(p => Math.max(1, p - 1))} 
-                  disabled={gameAnalysisPage === 1}
-                  style={{ padding: '8px 16px', cursor: gameAnalysisPage === 1 ? 'not-allowed' : 'pointer' }}
-                >
-                  Previous
-                </button>
-                <span>Page {gameAnalysisPage} of {Math.ceil(gameAnalysis.length / itemsPerPage)} ({gameAnalysis.length} analyses)</span>
-                <button 
-                  onClick={() => setGameAnalysisPage(p => Math.min(Math.ceil(gameAnalysis.length / itemsPerPage), p + 1))} 
-                  disabled={gameAnalysisPage === Math.ceil(gameAnalysis.length / itemsPerPage)}
-                  style={{ padding: '8px 16px', cursor: gameAnalysisPage === Math.ceil(gameAnalysis.length / itemsPerPage) ? 'not-allowed' : 'pointer' }}
-                >
-                  Next
-                </button>
-              </div>
-            )}
-            
-            {gameAnalysis.length === 0 && (
-              <div className="no-data">No game analysis items found for current filters</div>
+                )}
+                
+                {gameAnalysis.length === 0 && (
+                  <div className="no-data">No game analysis items found for current filters</div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -668,64 +739,67 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </select>
               </div>
             </div>
-            <div className="games-grid">
-              {propAnalysis.length > 0 ? (
-                propAnalysis
-                  .filter((analysis: any) => {
-                    if (marketFilter !== 'all' && analysis.market_key !== marketFilter) return false;
-                    if (!playerFilter) return true;
-                    return analysis.player_name?.toLowerCase().includes(playerFilter.toLowerCase());
-                  })
-                  .sort((a: any, b: any) => {
-                    let comparison = 0;
-                    if (propAnalysisSort === 'confidence') {
-                      comparison = b.confidence - a.confidence;
-                    } else {
-                      comparison = new Date(b.commence_time).getTime() - new Date(a.commence_time).getTime();
-                    }
-                    return propAnalysisSortDir === 'asc' ? -comparison : comparison;
-                  })
-                  .slice((propAnalysisPage - 1) * itemsPerPage, propAnalysisPage * itemsPerPage)
-                  .map((analysis: any, index: number) => (
-                  <div key={index} className="game-card">
-                    <div className="game-info">
-                      <div className="teams">
-                        <h3>{analysis.player_name}{analysis.market_key ? ` - ${propTypeLabels[analysis.market_key] || analysis.market_key}` : ''}</h3>
-                        <div className="sport-tag">{formatSport(analysis.sport)}</div>
-                        <p className="game-time">{new Date(analysis.commence_time).toLocaleString()}</p>
-                      </div>
-                    </div>
-                    <div className="prediction-info">
-                      <div className="prediction-box">
-                        <span className="prediction-label">Analysis Outcome: </span>
-                        <span className="prediction-value">{analysis.prediction}</span>
-                      </div>
-                      <div className="confidence">
-                        <span className="confidence-label">Confidence</span>
-                        <span className="confidence-value">{(analysis.confidence * 100).toFixed(0)}%</span>
-                      </div>
-                    </div>
-                    <div className="reasoning">
-                      <span className="reasoning-label">Reasoning: </span>
-                      <span>{analysis.reasoning}</span>
-                    </div>
-                    <div className="game-meta">
-                      <span className="model">Model: {analysis.model}</span>
-                      <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))
-              ) : null
-              }
-            </div>
-            
-            {propAnalysis.length > itemsPerPage && (
-              <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
-                <button 
-                  onClick={() => setPropAnalysisPage(p => Math.max(1, p - 1))} 
-                  disabled={propAnalysisPage === 1}
-                  style={{ padding: '8px 16px', cursor: propAnalysisPage === 1 ? 'not-allowed' : 'pointer' }}
-                >
+            {loadingPropAnalysis ? (
+              <AnalysisGridSkeleton count={4} />
+            ) : (
+              <>
+                <div className="games-grid">
+                  {propAnalysis.length > 0 ? (
+                    propAnalysis
+                      .filter((analysis: any) => {
+                        if (marketFilter !== 'all' && analysis.market_key !== marketFilter) return false;
+                        if (!playerFilter) return true;
+                        return analysis.player_name?.toLowerCase().includes(playerFilter.toLowerCase());
+                      })
+                      .sort((a: any, b: any) => {
+                        let comparison = 0;
+                        if (propAnalysisSort === 'confidence') {
+                          comparison = b.confidence - a.confidence;
+                        } else {
+                          comparison = new Date(b.commence_time).getTime() - new Date(a.commence_time).getTime();
+                        }
+                        return propAnalysisSortDir === 'asc' ? -comparison : comparison;
+                      })
+                      .slice((propAnalysisPage - 1) * itemsPerPage, propAnalysisPage * itemsPerPage)
+                      .map((analysis: any, index: number) => (
+                        <div key={index} className="game-card">
+                          <div className="game-info">
+                            <div className="teams">
+                              <h3>{analysis.player_name}{analysis.market_key ? ` - ${propTypeLabels[analysis.market_key] || analysis.market_key}` : ''}</h3>
+                              <div className="sport-tag">{formatSport(analysis.sport)}</div>
+                              <p className="game-time">{new Date(analysis.commence_time).toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="prediction-info">
+                            <div className="prediction-box">
+                              <span className="prediction-label">Analysis Outcome: </span>
+                              <span className="prediction-value">{analysis.prediction}</span>
+                            </div>
+                            <div className="confidence">
+                              <span className="confidence-label">Confidence</span>
+                              <span className="confidence-value">{(analysis.confidence * 100).toFixed(0)}%</span>
+                            </div>
+                          </div>
+                          <div className="reasoning">
+                            <span className="reasoning-label">Reasoning: </span>
+                            <span>{analysis.reasoning}</span>
+                          </div>
+                          <div className="game-meta">
+                            <span className="model">Model: {analysis.model}</span>
+                            <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))
+                  ) : null}
+                </div>
+                
+                {propAnalysis.length > itemsPerPage && (
+                  <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', alignItems: 'center' }}>
+                    <button 
+                      onClick={() => setPropAnalysisPage(p => Math.max(1, p - 1))} 
+                      disabled={propAnalysisPage === 1}
+                      style={{ padding: '8px 16px', cursor: propAnalysisPage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
                   Previous
                 </button>
                 <span>Page {propAnalysisPage} of {Math.ceil(propAnalysis.length / itemsPerPage)} ({propAnalysis.length} analyses)</span>
@@ -741,6 +815,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             
             {propAnalysis.length === 0 && (
               <div className="no-data">No prop analysis items found for current filters</div>
+            )}
+              </>
             )}
           </div>
         )}
