@@ -65,7 +65,7 @@ export class OutcomeCollectorStack extends cdk.Stack {
 
     // EventBridge rule to trigger every 2 hours to catch completed games
     new events.Rule(this, 'OutcomeCollectionSchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.hours(2)),
+      schedule: events.Schedule.rate(cdk.Duration.hours(4)),
       description: 'Trigger outcome collection every 2 hours',
       targets: [new targets.LambdaFunction(this.outcomeCollectorFunction)]
     });

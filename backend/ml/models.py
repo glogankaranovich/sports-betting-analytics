@@ -1772,6 +1772,130 @@ class InjuryAwareModel(BaseAnalysisModel):
         return team_mapping.get(sport, {}).get(team_name)
 
 
+class EnsembleModel(BaseAnalysisModel):
+    """Ensemble model: Weighted combination of all models using dynamic weighting"""
+
+    def __init__(self):
+        super().__init__()
+        from ml.dynamic_weighting import DynamicModelWeighting
+
+        self.weighting = DynamicModelWeighting()
+        self.models = {
+            "value": ValueModel(),
+            "momentum": MomentumModel(),
+            "contrarian": ContrarianModel(),
+            "hot_cold": HotColdModel(),
+            "rest_schedule": RestScheduleModel(),
+            "matchup": MatchupModel(),
+            "injury_aware": InjuryAwareModel(),
+        }
+
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        """Combine predictions from all models using dynamic weights"""
+        try:
+            sport = game_info.get("sport")
+
+            # Get predictions from all models
+            predictions = {}
+            for model_name, model in self.models.items():
+                result = model.analyze_game_odds(game_id, odds_items, game_info)
+                if result:
+                    predictions[model_name] = result
+
+            if not predictions:
+                return None
+
+            # Get dynamic weights for each model
+            weights = self.weighting.get_model_weights(
+                sport, "game", list(predictions.keys())
+            )
+
+            # Calculate weighted average confidence
+            weighted_confidence = sum(
+                predictions[model].confidence * weights[model]
+                for model in predictions.keys()
+            )
+
+            # Use the prediction from the highest weighted model
+            best_model = max(weights.items(), key=lambda x: x[1])[0]
+            best_prediction = predictions[best_model]
+
+            # Combine reasoning from top 3 models
+            top_models = sorted(weights.items(), key=lambda x: x[1], reverse=True)[:3]
+            reasoning_parts = [
+                f"{model} ({weight*100:.1f}%): {predictions[model].reasoning}"
+                for model, weight in top_models
+                if model in predictions
+            ]
+
+            return AnalysisResult(
+                game_id=game_id,
+                model="ensemble",
+                analysis_type="game",
+                sport=sport,
+                home_team=game_info.get("home_team"),
+                away_team=game_info.get("away_team"),
+                commence_time=game_info.get("commence_time"),
+                prediction=best_prediction.prediction,
+                confidence=weighted_confidence,
+                reasoning=f"Ensemble of {len(predictions)} models. "
+                + " | ".join(reasoning_parts),
+            )
+        except Exception as e:
+            logger.error(f"Error in Ensemble game analysis: {e}")
+            return None
+
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        """Combine prop predictions from all models using dynamic weights"""
+        try:
+            sport = prop_item.get("sport")
+
+            # Get predictions from all models
+            predictions = {}
+            for model_name, model in self.models.items():
+                result = model.analyze_prop_odds(prop_item)
+                if result:
+                    predictions[model_name] = result
+
+            if not predictions:
+                return None
+
+            # Get dynamic weights for each model
+            weights = self.weighting.get_model_weights(
+                sport, "prop", list(predictions.keys())
+            )
+
+            # Calculate weighted average confidence
+            weighted_confidence = sum(
+                predictions[model].confidence * weights[model]
+                for model in predictions.keys()
+            )
+
+            # Use the prediction from the highest weighted model
+            best_model = max(weights.items(), key=lambda x: x[1])[0]
+            best_prediction = predictions[best_model]
+
+            return AnalysisResult(
+                game_id=best_prediction.game_id,
+                model="ensemble",
+                analysis_type="prop",
+                sport=sport,
+                home_team=best_prediction.home_team,
+                away_team=best_prediction.away_team,
+                commence_time=best_prediction.commence_time,
+                player_name=best_prediction.player_name,
+                market_key=best_prediction.market_key,
+                prediction=best_prediction.prediction,
+                confidence=weighted_confidence,
+                reasoning=f"Ensemble prediction (weighted confidence from {len(predictions)} models)",
+            )
+        except Exception as e:
+            logger.error(f"Error in Ensemble prop analysis: {e}")
+            return None
+
+
 class ModelFactory:
     """Factory for creating analysis models"""
 
@@ -1784,6 +1908,7 @@ class ModelFactory:
         "rest_schedule": RestScheduleModel,
         "matchup": MatchupModel,
         "injury_aware": InjuryAwareModel,
+        "ensemble": EnsembleModel,
     }
 
     @classmethod

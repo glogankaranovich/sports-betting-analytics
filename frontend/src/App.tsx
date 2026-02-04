@@ -63,6 +63,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [loadingMoreProp, setLoadingMoreProp] = useState(false);
   const [gamesKey, setGamesKey] = useState<string | null>(null);
   const [loadingMoreGames, setLoadingMoreGames] = useState(false);
+  const [modelLeaderboard, setModelLeaderboard] = useState<any[]>([]);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -171,11 +172,29 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     }
   }, [settings.sport, settings.bookmaker]);
 
+  const fetchModelLeaderboard = useCallback(async () => {
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (token) {
+        const data = await bettingApi.getAnalytics(token);
+        const leaderboard = Object.values(data)
+          .filter((model: any) => model.sports_covered?.includes(settings.sport))
+          .sort((a: any, b: any) => b.accuracy - a.accuracy);
+        setModelLeaderboard(leaderboard);
+      }
+    } catch (err) {
+      console.error('Error fetching model leaderboard:', err);
+    }
+  }, [settings.sport]);
+
   useEffect(() => {
     if (token) {
       fetchTopAnalysis();
+      fetchModelLeaderboard();
     }
-  }, [token, fetchTopAnalysis]);
+  }, [token, settings.sport, fetchTopAnalysis, fetchModelLeaderboard]);
 
   // Games are already grouped by game_id from the API
   let filteredGames = games.filter(game => {
@@ -276,6 +295,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             <span>Environment: {process.env.REACT_APP_STAGE}</span>
           </div>
         </div>
+        
         <div className="header-actions">
           <button className="btn btn-secondary" onClick={() => {
             fetchGames();
@@ -290,37 +310,53 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         </div>
       </header>
       
-      {topInsight && (
-        <div className="top-insight-banner">
-          <div className="top-insight-header">
-            <h2>🎯 Top Analysis</h2>
-            <span className="insight-badge">Highest Confidence</span>
-          </div>
-          <div className="top-insight-content">
-            <div className="insight-game-info">
-              <h3>{topInsight.away_team} @ {topInsight.home_team}</h3>
-              <p className="game-time">{new Date(topInsight.commence_time).toLocaleString()}</p>
-            </div>
-            <div className="insight-prediction">
-              <div className="prediction-box">
-                <span className="prediction-label">Prediction: </span>
-                <span className="prediction-value">{topInsight.prediction}</span>
-              </div>
-              <div className="confidence">
-                <span className="confidence-label">Confidence</span>
-                <span className="confidence-value">{(topInsight.confidence * 100).toFixed(0)}%</span>
-              </div>
-            </div>
-            <div className="insight-details">
-              <p className="reasoning">{topInsight.reasoning}</p>
-              <div className="insight-meta">
-                <span>Model: {topInsight.model}</span>
-                {topInsight.player_name && <span>Player: {topInsight.player_name}</span>}
-              </div>
-            </div>
+      {(topInsight || modelLeaderboard.length > 0) && (
+        <div className="ticker-bar">
+          <div className="ticker-content">
+            {topInsight && (
+              <>
+                <div className="ticker-item ticker-label">TOP ANALYSIS:</div>
+                <div className="ticker-item">
+                  🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence
+                </div>
+              </>
+            )}
+            {modelLeaderboard.length > 0 && (
+              <>
+                <div className="ticker-item ticker-label">
+                  MODEL LEADERBOARD ({settings.sport.split('_').pop()?.toUpperCase()}):
+                </div>
+                {modelLeaderboard.map((model: any, index: number) => (
+                  <div key={model.model_name} className="ticker-item">
+                    🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% ({model.correct_analyses}/{model.total_analyses})
+                  </div>
+                ))}
+              </>
+            )}
+            {topInsight && (
+              <>
+                <div className="ticker-item ticker-label">TOP ANALYSIS:</div>
+                <div className="ticker-item">
+                  🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence
+                </div>
+              </>
+            )}
+            {modelLeaderboard.length > 0 && (
+              <>
+                <div className="ticker-item ticker-label">
+                  MODEL LEADERBOARD ({settings.sport.split('_').pop()?.toUpperCase()}):
+                </div>
+                {modelLeaderboard.map((model: any, index: number) => (
+                  <div key={`dup-${model.model_name}`} className="ticker-item">
+                    🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% ({model.correct_analyses}/{model.total_analyses})
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         </div>
       )}
+      
       
       <Settings 
         settings={settings}

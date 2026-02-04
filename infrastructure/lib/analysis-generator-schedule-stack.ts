@@ -25,7 +25,7 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
       { name: 'EPL', lambda: props.analysisGeneratorEPL }
     ];
 
-    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware'];
+    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware', 'ensemble'];
     const betTypes = ['games', 'props'];
 
     // Analysis generation - every 2 hours for each sport
@@ -36,7 +36,7 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
           const minuteOffset = (modelIndex * betTypes.length + betTypeIndex) * 1;
           
           new events.Rule(this, `AnalysisRule${sport.name}${model}${betType}`, {
-            schedule: events.Schedule.rate(cdk.Duration.hours(2)),
+            schedule: events.Schedule.rate(cdk.Duration.hours(4)),
             description: `Generate ${sport.name} ${betType} analyses using ${model} model every 2 hours`,
             targets: [new targets.LambdaFunction(sport.lambda, {
               event: events.RuleTargetInput.fromObject({

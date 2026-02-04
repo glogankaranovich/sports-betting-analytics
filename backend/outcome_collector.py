@@ -216,6 +216,7 @@ class OutcomeCollector:
                 "rest_schedule",
                 "matchup",
                 "injury_aware",
+                "ensemble",
             ]
             bet_types = ["game", "prop"]
             bookmakers = ["fanduel"]

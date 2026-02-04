@@ -13,7 +13,7 @@ export class ModelAnalyticsScheduleStack extends cdk.Stack {
     super(scope, id, props);
 
     new events.Rule(this, 'AnalyticsRule', {
-      schedule: events.Schedule.rate(cdk.Duration.hours(2)),
+      schedule: events.Schedule.rate(cdk.Duration.hours(4)),
       targets: [new targets.LambdaFunction(props.modelAnalyticsFunction)],
     });
   }

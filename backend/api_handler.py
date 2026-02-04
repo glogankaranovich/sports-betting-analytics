@@ -539,9 +539,11 @@ def handle_get_top_analysis(query_params: Dict[str, str]):
 
 
 def handle_get_analytics(query_params: Dict[str, str]):
-    """Get model analytics data from Lambda"""
+    """Get model analytics data from DynamoDB cache"""
     try:
+        print(f"Analytics request - query_params: {query_params}")
         metric_type = query_params.get("type", "summary")
+        print(f"Metric type: {metric_type}")
 
         # Handle weights separately (not cached)
         if metric_type == "weights":
@@ -580,32 +582,56 @@ def handle_get_analytics(query_params: Dict[str, str]):
             }
             return create_response(200, decimal_to_float(data))
 
-        # All other analytics types go through Lambda
-        import boto3
+        # Read cached analytics from DynamoDB
+        model = query_params.get("model")
 
-        lambda_client = boto3.client("lambda", region_name="us-east-1")
-        function_name = os.getenv("MODEL_ANALYTICS_FUNCTION")
-
-        if not function_name:
-            return create_response(
-                500, {"error": "MODEL_ANALYTICS_FUNCTION not configured"}
-            )
-
-        # Invoke model analytics Lambda with query params
-        response = lambda_client.invoke(
-            FunctionName=function_name,
-            InvocationType="RequestResponse",
-            Payload=json.dumps({"queryStringParameters": query_params}),
-        )
-
-        payload = json.loads(response["Payload"].read())
-
-        if payload.get("statusCode") == 200:
-            return create_response(200, payload.get("body", {}))
+        # Build partition key for query
+        if metric_type == "summary":
+            pk = "ANALYTICS#summary"
+        elif metric_type in [
+            "by_sport",
+            "by_bet_type",
+            "confidence",
+            "over_time",
+            "recent_predictions",
+        ]:
+            if not model:
+                return create_response(
+                    400, {"error": f"model parameter required for {metric_type}"}
+                )
+            pk = f"ANALYTICS#{metric_type}"
         else:
             return create_response(
-                payload.get("statusCode", 500), payload.get("body", {})
+                400, {"error": f"Unknown metric type: {metric_type}"}
             )
+
+        print(f"Querying DynamoDB - pk: {pk}, model: {model}")
+
+        # Query DynamoDB for cached analytics (get latest by timestamp)
+        if model and metric_type != "summary":
+            response = table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={":pk": pk, ":sk": model},
+                ScanIndexForward=False,
+                Limit=1,
+            )
+        else:
+            response = table.query(
+                KeyConditionExpression="pk = :pk",
+                ExpressionAttributeValues={":pk": pk},
+                ScanIndexForward=False,
+                Limit=1,
+            )
+
+        print(f"DynamoDB response - Count: {response.get('Count')}")
+
+        if not response.get("Items"):
+            return create_response(
+                404, {"error": f"No cached data found for {metric_type}"}
+            )
+
+        data = response["Items"][0].get("data", {})
+        return create_response(200, decimal_to_float(data))
 
     except Exception as e:
         print(f"Error invoking model analytics: {str(e)}")

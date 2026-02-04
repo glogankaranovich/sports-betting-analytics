@@ -249,6 +249,82 @@ class ModelAnalytics:
         predictions.sort(key=lambda x: x.get("verified_at", ""), reverse=True)
         return predictions[:limit]
 
+    def get_confidence_distribution(self, model: str) -> Dict[str, Any]:
+        """Get confidence distribution for a model's predictions"""
+        analyses = self._get_verified_analyses()
+        analyses = [a for a in analyses if a.get("model") == model]
+
+        buckets = {"0-20": 0, "20-40": 0, "40-60": 0, "60-80": 0, "80-100": 0}
+        correct_by_bucket = {"0-20": 0, "20-40": 0, "40-60": 0, "60-80": 0, "80-100": 0}
+
+        for analysis in analyses:
+            confidence = float(analysis.get("confidence", 0)) * 100
+            correct = analysis.get("analysis_correct", False)
+
+            if confidence < 20:
+                bucket = "0-20"
+            elif confidence < 40:
+                bucket = "20-40"
+            elif confidence < 60:
+                bucket = "40-60"
+            elif confidence < 80:
+                bucket = "60-80"
+            else:
+                bucket = "80-100"
+
+            buckets[bucket] += 1
+            if correct:
+                correct_by_bucket[bucket] += 1
+
+        result = {}
+        for bucket, total in buckets.items():
+            correct = correct_by_bucket[bucket]
+            result[bucket] = {
+                "total": total,
+                "correct": correct,
+                "accuracy": round((correct / total) * 100, 2) if total > 0 else 0.0,
+            }
+
+        return result
+
+    def get_performance_over_time(
+        self, model: str, days: int = 30
+    ) -> List[Dict[str, Any]]:
+        """Get model performance over time"""
+        from collections import defaultdict
+
+        analyses = self._get_verified_analyses()
+        analyses = [a for a in analyses if a.get("model") == model]
+
+        # Group by date
+        by_date = defaultdict(lambda: {"total": 0, "correct": 0})
+
+        for analysis in analyses:
+            verified_at = analysis.get("outcome_verified_at", "")
+            if not verified_at:
+                continue
+
+            date = verified_at.split("T")[0]  # Extract date part
+            by_date[date]["total"] += 1
+            if analysis.get("analysis_correct", False):
+                by_date[date]["correct"] += 1
+
+        # Convert to list and sort
+        result = []
+        for date, stats in sorted(by_date.items(), reverse=True)[:days]:
+            result.append(
+                {
+                    "date": date,
+                    "total": stats["total"],
+                    "correct": stats["correct"],
+                    "accuracy": round((stats["correct"] / stats["total"]) * 100, 2)
+                    if stats["total"] > 0
+                    else 0.0,
+                }
+            )
+
+        return sorted(result, key=lambda x: x["date"])
+
     def _get_verified_analyses(self) -> List[Dict[str, Any]]:
         """Get all analyses with verified outcomes using GSI"""
         items = []
@@ -300,104 +376,6 @@ class ModelAnalytics:
 
         return items
 
-    def compute_and_store_all_analytics(self):
-        """Compute all analytics and store in DynamoDB"""
-        from datetime import datetime
-        from decimal import Decimal
-
-        def convert_floats(obj):
-            """Convert floats to Decimal for DynamoDB"""
-            if isinstance(obj, float):
-                return Decimal(str(obj))
-            elif isinstance(obj, dict):
-                return {k: convert_floats(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_floats(v) for v in obj]
-            return obj
-
-        timestamp = datetime.utcnow().isoformat()
-
-        # Compute all metrics
-        summary = convert_floats(self.get_model_performance_summary())
-        comparison = convert_floats(self.get_model_comparison())
-
-        # Store summary
-        self.table.put_item(
-            Item={
-                "pk": "ANALYTICS#summary",
-                "sk": timestamp,
-                "data": summary,
-                "computed_at": timestamp,
-            }
-        )
-
-        # Store comparison
-        self.table.put_item(
-            Item={
-                "pk": "ANALYTICS#comparison",
-                "sk": timestamp,
-                "data": comparison,
-                "computed_at": timestamp,
-            }
-        )
-
-        # Store per-model metrics
-        models = [
-            "consensus",
-            "value",
-            "momentum",
-            "contrarian",
-            "hot_cold",
-            "rest_schedule",
-            "matchup",
-            "injury_aware",
-        ]
-        for model in models:
-            by_sport = convert_floats(self.get_model_performance_by_sport(model))
-            by_bet_type = convert_floats(self.get_model_performance_by_bet_type(model))
-            confidence = convert_floats(self.get_model_confidence_analysis(model))
-            over_time = convert_floats(
-                self.get_model_performance_over_time(model, days=30)
-            )
-
-            self.table.put_item(
-                Item={
-                    "pk": f"ANALYTICS#by_sport#{model}",
-                    "sk": timestamp,
-                    "data": by_sport,
-                    "computed_at": timestamp,
-                }
-            )
-
-            self.table.put_item(
-                Item={
-                    "pk": f"ANALYTICS#by_bet_type#{model}",
-                    "sk": timestamp,
-                    "data": by_bet_type,
-                    "computed_at": timestamp,
-                }
-            )
-
-            self.table.put_item(
-                Item={
-                    "pk": f"ANALYTICS#confidence#{model}",
-                    "sk": timestamp,
-                    "data": confidence,
-                    "computed_at": timestamp,
-                }
-            )
-
-            self.table.put_item(
-                Item={
-                    "pk": f"ANALYTICS#over_time#{model}#30",
-                    "sk": timestamp,
-                    "data": over_time,
-                    "computed_at": timestamp,
-                }
-            )
-
-        print(f"Stored analytics for {len(models)} models")
-
     def get_cached_analytics(self, metric_key: str):
         """Get cached analytics from DynamoDB"""
         response = self.table.query(
@@ -418,6 +396,102 @@ class ModelAnalytics:
         elif metric_key == "comparison":
             return self.get_model_comparison()
         return {}
+
+    def compute_and_store_all_analytics(self):
+        """Compute and store all analytics metrics"""
+        from datetime import datetime
+        from decimal import Decimal
+        import json
+
+        def convert_to_decimal(obj):
+            """Convert floats to Decimal for DynamoDB"""
+            return json.loads(json.dumps(obj), parse_float=Decimal)
+
+        timestamp = datetime.now().isoformat()
+
+        models = [
+            "consensus",
+            "value",
+            "momentum",
+            "contrarian",
+            "hot_cold",
+            "rest_schedule",
+            "matchup",
+            "injury_aware",
+            "ensemble",
+        ]
+
+        # Store summary
+        summary = self.get_model_performance_summary()
+        self.table.put_item(
+            Item={
+                "pk": "ANALYTICS#summary",
+                "sk": timestamp,
+                "data": convert_to_decimal(summary),
+                "computed_at": timestamp,
+            }
+        )
+
+        # Store by_sport for each model
+        by_sport_all = self.get_model_performance_by_sport()
+        for model in models:
+            if model in by_sport_all:
+                self.table.put_item(
+                    Item={
+                        "pk": "ANALYTICS#by_sport",
+                        "sk": f"{model}#{timestamp}",
+                        "data": convert_to_decimal(by_sport_all[model]),
+                        "computed_at": timestamp,
+                    }
+                )
+
+        # Store by_bet_type for each model
+        by_bet_type_all = self.get_model_performance_by_bet_type()
+        for model in models:
+            if model in by_bet_type_all:
+                self.table.put_item(
+                    Item={
+                        "pk": "ANALYTICS#by_bet_type",
+                        "sk": f"{model}#{timestamp}",
+                        "data": convert_to_decimal(by_bet_type_all[model]),
+                        "computed_at": timestamp,
+                    }
+                )
+
+        # Store confidence, over_time, and recent_predictions for each model
+        for model in models:
+            confidence = self.get_confidence_distribution(model)
+            self.table.put_item(
+                Item={
+                    "pk": "ANALYTICS#confidence",
+                    "sk": f"{model}#{timestamp}",
+                    "data": convert_to_decimal(confidence),
+                    "computed_at": timestamp,
+                }
+            )
+
+            over_time = self.get_performance_over_time(model, 30)
+            self.table.put_item(
+                Item={
+                    "pk": "ANALYTICS#over_time",
+                    "sk": f"{model}#30#{timestamp}",
+                    "data": convert_to_decimal(over_time),
+                    "computed_at": timestamp,
+                }
+            )
+
+            recent = self.get_recent_predictions(model, 20)
+            self.table.put_item(
+                Item={
+                    "pk": "ANALYTICS#recent_predictions",
+                    "sk": f"{model}#20#{timestamp}",
+                    "data": convert_to_decimal(recent),
+                    "computed_at": timestamp,
+                }
+            )
+
+        print(f"Stored all analytics for {len(models)} models")
+        return {"models": len(models)}
 
 
 def lambda_handler(event, context):

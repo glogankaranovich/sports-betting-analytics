@@ -66,6 +66,10 @@ export class BetCollectorApiStack extends cdk.Stack {
     const betCollectorApi = new apigateway.RestApi(this, 'BetCollectorApi', {
       restApiName: `Bet Collector API - ${props.environment}`,
       description: `API for accessing collected betting data in ${props.environment} environment`,
+      deploy: true,
+      deployOptions: {
+        stageName: 'prod',
+      },
       defaultCorsPreflightOptions: {
         allowOrigins: ['http://localhost:3000', 'https://*.amplifyapp.com'],
         allowMethods: apigateway.Cors.ALL_METHODS,

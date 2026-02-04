@@ -122,6 +122,13 @@ export const bettingApi = {
     });
     return response.data;
   },
+
+  async getAnalytics(token: string): Promise<any> {
+    const response = await api.get('/analytics', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
 };
 
 export const apiService = bettingApi;

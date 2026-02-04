@@ -25,8 +25,57 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
   gap: 1rem;
+}
+
+.ticker-bar {
+  background: linear-gradient(90deg, rgba(0, 212, 255, 0.1), rgba(72, 187, 120, 0.1));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ticker-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    rgba(26, 26, 46, 1) 0%, 
+    transparent 5%, 
+    transparent 95%, 
+    rgba(26, 26, 46, 1) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ticker-content {
+  display: inline-flex;
+  animation: scroll 60s linear infinite;
+}
+
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.ticker-item {
+  display: inline-block;
+  padding: 0 2rem;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+
+.ticker-label {
+  font-weight: 700;
+  color: #00d4ff;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
 }
 
 .header-left {
@@ -104,6 +153,105 @@ body {
 
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Scoreboard Bar - Fixed Header */
+.scoreboard-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem 2rem;
+  display: flex;
+  gap: 2rem;
+  overflow-x: auto;
+}
+
+.scoreboard-section {
+  flex: 1;
+  min-width: 300px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scoreboard-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #a0aec0;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.scoreboard-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.top-analysis-compact .scoreboard-content {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.analysis-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  flex: 1;
+}
+
+.analysis-prediction {
+  font-weight: 500;
+  color: #00d4ff;
+  font-size: 0.9rem;
+}
+
+.analysis-confidence {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #48bb78;
+  min-width: 50px;
+  text-align: right;
+}
+
+.leaderboard-grid {
+  gap: 0.5rem;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.leaderboard-item .rank {
+  font-weight: 700;
+  color: #ffd700;
+  min-width: 30px;
+}
+
+.leaderboard-item .model-name {
+  flex: 1;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.leaderboard-item .accuracy {
+  font-weight: 600;
+  color: #48bb78;
+  min-width: 50px;
+  text-align: right;
 }
 
 main {

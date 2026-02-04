@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState } from 'react';
 import { ModelAnalytics } from './ModelAnalytics';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://lpykx3ka6a.execute-api.us-east-1.amazonaws.com/prod';
@@ -11,50 +10,19 @@ interface ModelsProps {
   };
 }
 
-interface ModelWeights {
-  model_weights: {
-    [model: string]: {
-      weight: number;
-      recent_accuracy: number | null;
-      recent_brier_score: number | null;
-    };
-  };
-}
-
 const Models: React.FC<ModelsProps> = ({ token, settings }) => {
-  const [gameWeights, setGameWeights] = useState<ModelWeights | null>(null);
-  const [propWeights, setPropWeights] = useState<ModelWeights | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (token) {
-      fetchWeights();
-    }
-  }, [token, settings.sport]);
-
-  const fetchWeights = async () => {
-    try {
-      setLoading(true);
-      const headers = { Authorization: `Bearer ${token}` };
-      const [gameRes, propRes] = await Promise.all([
-        axios.get(`${API_URL}/analytics?type=weights&sport=${settings.sport}&bet_type=game`, { headers }),
-        axios.get(`${API_URL}/analytics?type=weights&sport=${settings.sport}&bet_type=prop`, { headers })
-      ]);
-      setGameWeights(gameRes.data);
-      setPropWeights(propRes.data);
-    } catch (err) {
-      console.error('Failed to fetch model weights:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const modelInfo: Record<string, { name: string; description: string; methodology: string }> = {
     consensus: {
       name: 'Consensus Model',
       description: 'Balanced approach using bookmaker consensus',
       methodology: 'Averages odds across all bookmakers to identify market consensus. Higher confidence when bookmakers agree strongly.'
+    },
+    ensemble: {
+      name: 'Ensemble Model',
+      description: 'Intelligent combination of all models using dynamic weighting',
+      methodology: 'Combines predictions from all models weighted by their recent 30-day performance. Automatically adjusts weights based on accuracy. Uses the highest-weighted model\'s prediction with ensemble confidence.'
     },
     value: {
       name: 'Value Model',
@@ -92,10 +60,6 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       methodology: 'Queries injury reports from ESPN. Calculates injury impact scores for each team. Warns against props for injured players (Out/Doubtful). Factors team injury differentials into game predictions.'
     }
   };
-
-  if (loading) {
-    return <div className="loading">Loading model data...</div>;
-  }
 
   if (selectedModel) {
     return (
@@ -136,43 +100,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
 
       <div className="models-grid">
         {Object.entries(modelInfo).map(([modelKey, info]) => {
-          const gameData = gameWeights?.model_weights[modelKey];
-          const propData = propWeights?.model_weights[modelKey];
-          
           return (
             <div key={modelKey} className="model-card">
               <h3>{info.name}</h3>
               <p className="model-desc">{info.description}</p>
               <p className="model-method">{info.methodology}</p>
-              
-              {gameData && gameData.recent_accuracy !== null ? (
-                <div className="model-stats">
-                  <div className="stat-section">
-                    <div className="stat-section-title">Game Bets</div>
-                    <div className="stat-row">
-                      <span className="stat-label">30-Day Accuracy:</span>
-                      <span className="stat-value">{(gameData.recent_accuracy * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="stat-row">
-                      <span className="stat-label">Weight:</span>
-                      <span className="stat-value">{(gameData.weight * 100).toFixed(1)}%</span>
-                    </div>
-                  </div>
-                  <div className="stat-section">
-                    <div className="stat-section-title">Prop Bets</div>
-                    <div className="stat-row">
-                      <span className="stat-label">30-Day Accuracy:</span>
-                      <span className="stat-value">{propData?.recent_accuracy !== null && propData?.recent_accuracy !== undefined ? (propData.recent_accuracy * 100).toFixed(1) + '%' : 'N/A'}</span>
-                    </div>
-                    <div className="stat-row">
-                      <span className="stat-label">Weight:</span>
-                      <span className="stat-value">{propData?.weight !== undefined ? (propData.weight * 100).toFixed(1) + '%' : 'N/A'}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="no-data">No recent performance data</div>
-              )}
               
               <button 
                 className="view-details-btn"

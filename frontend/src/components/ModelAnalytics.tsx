@@ -162,8 +162,8 @@ const PerformanceChart: React.FC<{ data: TimeSeriesData[] }> = ({ data }) => {
 
 export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedModel = 'consensus' }) => {
   const [summary, setSummary] = useState<Record<string, ModelSummary>>({});
-  const [byBetType, setByBetType] = useState<Record<string, Record<string, BetTypeStats>>>({});
-  const [bySport, setBySport] = useState<Record<string, Record<string, BetTypeStats>>>({});
+  const [byBetType, setByBetType] = useState<Record<string, BetTypeStats>>({});
+  const [bySport, setBySport] = useState<Record<string, BetTypeStats>>({});
   const [confidence, setConfidence] = useState<Record<string, ConfidenceStats>>({});
   const [overTime, setOverTime] = useState<TimeSeriesData[]>([]);
   const [recentPredictions, setRecentPredictions] = useState<RecentPrediction[]>([]);
@@ -208,7 +208,7 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
   if (error) return <div className="error">{error}</div>;
 
   const currentModel = summary[selectedModel];
-  const currentBetTypes = byBetType[selectedModel] || {};
+  const currentBetTypes = byBetType;
 
   return (
     <div className="analytics-container">
@@ -259,6 +259,28 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
         </div>
       </div>
 
+      {/* By Sport */}
+      {Object.keys(bySport).length > 0 && (
+        <div className="analytics-card">
+          <h3>Performance by Sport</h3>
+          <div className="bet-type-grid">
+            {Object.entries(bySport).map(([sport, stats]) => (
+              <div key={sport} className="bet-type-card">
+                <h4>{sport.split('_').pop()?.toUpperCase()}</h4>
+                <div className="accuracy-circle" style={{ 
+                  background: `conic-gradient(#4caf50 ${stats.accuracy * 3.6}deg, #e0e0e0 0deg)` 
+                }}>
+                  <div className="accuracy-text">{stats.accuracy.toFixed(1)}%</div>
+                </div>
+                <div className="bet-type-stats">
+                  <div>{stats.correct} / {stats.total} correct</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Confidence Analysis */}
       <div className="analytics-card">
         <h3>Accuracy by Confidence Level</h3>
@@ -304,21 +326,6 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
           </div>
         </div>
       )}
-
-      {/* Model Leaderboard */}
-      <div className="analytics-card">
-        <h3>Model Leaderboard</h3>
-        <div className="leaderboard">
-          {Object.values(summary).sort((a, b) => b.accuracy - a.accuracy).map((model, index) => (
-            <div key={model.model_name} className="leaderboard-row">
-              <div className="rank">#{index + 1}</div>
-              <div className="model-name">{model.model_name}</div>
-              <div className="model-accuracy">{model.accuracy.toFixed(1)}%</div>
-              <div className="model-record">{model.correct_analyses}/{model.total_analyses}</div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Recent Predictions */}
       {recentPredictions.length > 0 && (
