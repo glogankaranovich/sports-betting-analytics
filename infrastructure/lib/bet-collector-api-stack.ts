@@ -21,6 +21,27 @@ export class BetCollectorApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: BetCollectorApiStackProps) {
     super(scope, id, props);
 
+    // Create managed policy for DynamoDB access (avoids inline policy size limit)
+    const dynamoDbPolicy = new iam.ManagedPolicy(this, 'BetCollectorDynamoDbPolicy', {
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'dynamodb:Scan',
+            'dynamodb:Query',
+            'dynamodb:GetItem',
+            'dynamodb:PutItem',
+            'dynamodb:UpdateItem',
+            'dynamodb:DeleteItem'
+          ],
+          resources: [
+            `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}*`,
+            `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-*`
+          ]
+        })
+      ]
+    });
+
     // Lambda function for bet collector API
     const betCollectorApiFunction = new lambda.Function(this, 'BetCollectorApiFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
@@ -42,20 +63,8 @@ export class BetCollectorApiStack extends cdk.Stack {
       }
     });
 
-    // Grant DynamoDB permissions
-    betCollectorApiFunction.addToRolePolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'dynamodb:Scan',
-        'dynamodb:Query',
-        'dynamodb:GetItem',
-        'dynamodb:PutItem'
-      ],
-      resources: [
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/${props.betsTableName}/index/*`
-      ]
-    }));
+    // Attach managed policy
+    betCollectorApiFunction.role?.addManagedPolicy(dynamoDbPolicy);
 
     // Grant Lambda invoke permissions for model analytics
     if (props.modelAnalyticsFunction) {
@@ -156,39 +165,46 @@ export class BetCollectorApiStack extends cdk.Stack {
     const modelPerformance = betCollectorApi.root.addResource('model-performance');
     modelPerformance.addMethod('GET', lambdaIntegration, methodOptions);
 
-    // User models endpoints (protected)
+    // Separate Lambda for user models to avoid policy size limits
+    const userModelsFunction = new lambda.Function(this, 'UserModelsApiFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'api_handler.lambda_handler',
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ]
+        }
+      }),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+      }
+    });
+
+    // Attach managed policy
+    userModelsFunction.role?.addManagedPolicy(dynamoDbPolicy);
+
+    const userModelsIntegration = new apigateway.LambdaIntegration(userModelsFunction);
+
+    // User models endpoints (protected, using separate Lambda)
     const userModels = betCollectorApi.root.addResource('user-models');
-    userModels.addMethod('GET', lambdaIntegration, methodOptions);  // List models
-    userModels.addMethod('POST', lambdaIntegration, methodOptions); // Create model
+    userModels.addMethod('GET', userModelsIntegration, methodOptions);  // List models
+    userModels.addMethod('POST', userModelsIntegration, methodOptions); // Create model
     
     const userModelPredictions = userModels.addResource('predictions');
-    userModelPredictions.addMethod('GET', lambdaIntegration, methodOptions); // Get all predictions
+    userModelPredictions.addMethod('GET', userModelsIntegration, methodOptions); // Get all predictions
     
     const userModelById = userModels.addResource('{model_id}');
-    userModelById.addMethod('GET', lambdaIntegration, methodOptions);    // Get model
-    userModelById.addMethod('PUT', lambdaIntegration, methodOptions);    // Update model
-    userModelById.addMethod('DELETE', lambdaIntegration, methodOptions); // Delete model
+    userModelById.addMethod('GET', userModelsIntegration, methodOptions);    // Get model
+    userModelById.addMethod('PUT', userModelsIntegration, methodOptions);    // Update model
+    userModelById.addMethod('DELETE', userModelsIntegration, methodOptions); // Delete model
     
     const userModelPerformance = userModelById.addResource('performance');
-    userModelPerformance.addMethod('GET', lambdaIntegration, methodOptions); // Get model performance
-
-    // Grant user models table permissions
-    betCollectorApiFunction.addToRolePolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'dynamodb:Query',
-        'dynamodb:GetItem',
-        'dynamodb:PutItem',
-        'dynamodb:UpdateItem',
-        'dynamodb:DeleteItem'
-      ],
-      resources: [
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-UserModels`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-UserModels/index/*`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-ModelPredictions`,
-        `arn:aws:dynamodb:${this.region}:${this.account}:table/Dev-UserModels-ModelPredictions/index/*`
-      ]
-    }));
+    userModelPerformance.addMethod('GET', userModelsIntegration, methodOptions); // Get model performance
 
     // AI Agent Lambda
     const aiAgentFunction = new lambda.Function(this, 'AIAgentFunction', {
