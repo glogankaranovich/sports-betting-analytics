@@ -138,6 +138,13 @@ export const bettingApi = {
     return response.data;
   },
 
+  async getUserModelPredictions(token: string, userId: string): Promise<any> {
+    const response = await api.get(`/user-models/predictions?user_id=${userId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+  },
+
   async createUserModel(token: string, modelData: any): Promise<any> {
     const response = await api.post('/user-models', modelData, {
       headers: { Authorization: `Bearer ${token}` }
