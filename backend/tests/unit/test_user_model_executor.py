@@ -10,6 +10,8 @@ from user_model_executor import (
     evaluate_recent_form,
     evaluate_rest_schedule,
     evaluate_head_to_head,
+    evaluate_player_stats,
+    evaluate_player_injury,
     process_model,
 )
 from user_models import UserModel
@@ -349,6 +351,75 @@ class TestDataSourceEvaluators(unittest.TestCase):
         score = evaluate_head_to_head(self.game_data)
         self.assertEqual(score, 0.5)
 
+    def test_evaluate_player_stats(self):
+        """Test player stats evaluator returns normalized score"""
+        score = evaluate_player_stats(self.game_data)
+        self.assertGreaterEqual(score, 0)
+        self.assertLessEqual(score, 1)
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_player_stats_with_data(self, mock_table):
+        """Test player stats with recent player data"""
+        mock_table.query.return_value = {
+            "Items": [
+                {"points": 25, "rebounds": 8, "assists": 6},
+                {"points": 28, "rebounds": 7, "assists": 5},
+            ]
+        }
+        prop_data = {
+            **self.game_data,
+            "bet_type": "props",
+            "player_name": "LeBron James",
+        }
+        score = evaluate_player_stats(prop_data)
+        self.assertGreater(score, 0.5)  # Has recent activity
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_player_stats_no_data(self, mock_table):
+        """Test player stats with no historical data"""
+        mock_table.query.return_value = {"Items": []}
+        prop_data = {
+            **self.game_data,
+            "bet_type": "props",
+            "player_name": "Unknown Player",
+        }
+        score = evaluate_player_stats(prop_data)
+        self.assertEqual(score, 0.5)
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_player_stats_not_prop(self, mock_table):
+        """Test player stats returns neutral for non-prop bets"""
+        score = evaluate_player_stats(self.game_data)  # h2h bet
+        self.assertEqual(score, 0.5)
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_player_stats_error(self, mock_table):
+        """Test player stats handles errors gracefully"""
+        mock_table.query.side_effect = Exception("DynamoDB error")
+        prop_data = {
+            **self.game_data,
+            "bet_type": "props",
+            "player_name": "LeBron James",
+        }
+        score = evaluate_player_stats(prop_data)
+        self.assertEqual(score, 0.5)
+
+    def test_evaluate_player_injury(self):
+        """Test player injury evaluator returns normalized score"""
+        prop_data = {
+            **self.game_data,
+            "bet_type": "props",
+            "player_name": "LeBron James",
+        }
+        score = evaluate_player_injury(prop_data)
+        self.assertGreaterEqual(score, 0)
+        self.assertLessEqual(score, 1)
+
+    def test_evaluate_player_injury_not_prop(self):
+        """Test player injury returns neutral for non-prop bets"""
+        score = evaluate_player_injury(self.game_data)  # h2h bet
+        self.assertEqual(score, 0.5)
+
     @patch("user_model_executor.bets_table")
     def test_evaluate_team_stats_with_data(self, mock_table):
         """Test team stats evaluator with real data"""
@@ -489,12 +560,12 @@ class TestCalculatePrediction(unittest.TestCase):
 
 class TestProcessModel(unittest.TestCase):
     @patch("user_model_executor.UserModel.get")
-    @patch("user_model_executor.get_upcoming_games")
+    @patch("user_model_executor.get_upcoming_bets")
     @patch("user_model_executor.ModelPrediction")
     def test_process_model_creates_predictions(
-        self, mock_prediction_class, mock_get_games, mock_get_model
+        self, mock_prediction_class, mock_get_bets, mock_get_model
     ):
-        """Test that process_model creates predictions for upcoming games"""
+        """Test that process_model creates predictions for upcoming bets"""
         # Setup mock model
         mock_model = Mock()
         mock_model.model_id = "model123"
@@ -506,8 +577,8 @@ class TestProcessModel(unittest.TestCase):
         mock_model.min_confidence = 0.5
         mock_get_model.return_value = mock_model
 
-        # Setup mock games
-        mock_get_games.return_value = [
+        # Setup mock bets
+        mock_get_bets.return_value = [
             {
                 "game_id": "game1",
                 "home_team": "Lakers",
@@ -550,17 +621,18 @@ class TestProcessModel(unittest.TestCase):
         mock_get_model.assert_called_once()
 
 
-class TestGetUpcomingGames(unittest.TestCase):
+class TestGetUpcomingBets(unittest.TestCase):
     @patch("user_model_executor.bets_table")
-    def test_get_upcoming_games_returns_games(self, mock_table):
-        """Test get_upcoming_games returns formatted game data"""
-        from user_model_executor import get_upcoming_games
+    def test_get_upcoming_bets_returns_games(self, mock_table):
+        """Test get_upcoming_bets returns formatted game data"""
+        from user_model_executor import get_upcoming_bets
 
         mock_table.query.return_value = {
             "Items": [
                 {
                     "pk": "GAME#game123",
-                    "game_id": "game123",
+                    "sk": "fanduel#h2h#LATEST",
+                    "market_key": "h2h",
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "commence_time": "2026-02-10T19:00:00Z",
@@ -568,29 +640,32 @@ class TestGetUpcomingGames(unittest.TestCase):
             ]
         }
 
-        games = get_upcoming_games("basketball_nba", ["h2h"])
+        bets = get_upcoming_bets("basketball_nba", ["h2h"])
 
-        self.assertEqual(len(games), 1)
-        self.assertEqual(games[0]["game_id"], "game123")
-        self.assertEqual(games[0]["home_team"], "Lakers")
+        self.assertEqual(len(bets), 1)
+        self.assertEqual(bets[0]["game_id"], "game123")
+        self.assertEqual(bets[0]["bet_type"], "h2h")
+        self.assertEqual(bets[0]["home_team"], "Lakers")
 
     @patch("user_model_executor.bets_table")
-    def test_get_upcoming_games_deduplicates(self, mock_table):
-        """Test get_upcoming_games removes duplicate games"""
-        from user_model_executor import get_upcoming_games
+    def test_get_upcoming_bets_filters_by_type(self, mock_table):
+        """Test get_upcoming_bets filters by bet_types"""
+        from user_model_executor import get_upcoming_bets
 
         mock_table.query.return_value = {
             "Items": [
                 {
                     "pk": "GAME#game123",
-                    "game_id": "game123",
+                    "sk": "fanduel#h2h#LATEST",
+                    "market_key": "h2h",
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "commence_time": "2026-02-10T19:00:00Z",
                 },
                 {
-                    "pk": "GAME#game123",  # Duplicate
-                    "game_id": "game123",
+                    "pk": "GAME#game123",
+                    "sk": "fanduel#spreads#LATEST",
+                    "market_key": "spreads",
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "commence_time": "2026-02-10T19:00:00Z",
@@ -598,20 +673,46 @@ class TestGetUpcomingGames(unittest.TestCase):
             ]
         }
 
-        games = get_upcoming_games("basketball_nba", ["h2h"])
+        bets = get_upcoming_bets("basketball_nba", ["h2h"])  # Only h2h
 
-        self.assertEqual(len(games), 1)  # Should deduplicate
+        self.assertEqual(len(bets), 1)
+        self.assertEqual(bets[0]["bet_type"], "h2h")
 
     @patch("user_model_executor.bets_table")
-    def test_get_upcoming_games_empty(self, mock_table):
-        """Test get_upcoming_games handles empty results"""
-        from user_model_executor import get_upcoming_games
+    def test_get_upcoming_bets_includes_props(self, mock_table):
+        """Test get_upcoming_bets includes props when requested"""
+        from user_model_executor import get_upcoming_bets
+
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "pk": "GAME#game123",
+                    "sk": "LeBron James#fanduel#player_points#LATEST",
+                    "market_key": "player_points",
+                    "bookmaker": "fanduel",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "commence_time": "2026-02-10T19:00:00Z",
+                }
+            ]
+        }
+
+        bets = get_upcoming_bets("basketball_nba", ["props"])
+
+        self.assertEqual(len(bets), 1)
+        self.assertEqual(bets[0]["bet_type"], "props")
+        self.assertEqual(bets[0]["player_name"], "LeBron James")
+
+    @patch("user_model_executor.bets_table")
+    def test_get_upcoming_bets_empty(self, mock_table):
+        """Test get_upcoming_bets handles empty results"""
+        from user_model_executor import get_upcoming_bets
 
         mock_table.query.return_value = {"Items": []}
 
-        games = get_upcoming_games("basketball_nba", ["h2h"])
+        bets = get_upcoming_bets("basketball_nba", ["h2h"])
 
-        self.assertEqual(len(games), 0)
+        self.assertEqual(len(bets), 0)
 
 
 if __name__ == "__main__":

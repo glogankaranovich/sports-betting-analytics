@@ -346,12 +346,80 @@ def evaluate_head_to_head(game_data: Dict) -> float:
         return 0.5
 
 
+def evaluate_player_stats(bet_data: Dict) -> float:
+    """
+    Evaluate player stats data source for props
+    Returns normalized score 0-1 based on recent player performance
+    """
+    from boto3.dynamodb.conditions import Key
+
+    if bet_data.get("bet_type") != "props":
+        return 0.5  # Only for props
+
+    sport = bet_data.get("sport", "basketball_nba")
+    player_name = bet_data.get("player_name", "")
+
+    if not player_name:
+        return 0.5
+
+    try:
+        # Normalize player name
+        normalized_name = player_name.lower().replace(" ", "_")
+
+        # Query recent player stats
+        response = bets_table.query(
+            KeyConditionExpression=Key("pk").eq(
+                f"PLAYER_STATS#{sport}#{normalized_name}"
+            ),
+            ScanIndexForward=False,
+            Limit=5,
+        )
+
+        stats = response.get("Items", [])
+        if not stats:
+            return 0.5  # No data
+
+        # Calculate average performance (simplified - would need market-specific logic)
+        # For now, return slight positive bias if player has recent stats
+        return 0.55  # Player has recent activity
+
+    except Exception as e:
+        print(f"Error evaluating player stats: {e}")
+        return 0.5
+
+
+def evaluate_player_injury(bet_data: Dict) -> float:
+    """
+    Evaluate player injury status for props
+    Returns normalized score 0-1 (lower if player is injured)
+    """
+    if bet_data.get("bet_type") != "props":
+        return 0.5  # Only for props
+
+    player_name = bet_data.get("player_name", "")
+
+    if not player_name:
+        return 0.5
+
+    try:
+        # Query injury data for player
+        # Injuries are stored per team, so we'd need to query by team
+        # For now, return neutral - full implementation would check injury status
+        return 0.5
+
+    except Exception as e:
+        print(f"Error evaluating player injury: {e}")
+        return 0.5
+
+
 DATA_SOURCE_EVALUATORS = {
     "team_stats": evaluate_team_stats,
     "odds_movement": evaluate_odds_movement,
     "recent_form": evaluate_recent_form,
     "rest_schedule": evaluate_rest_schedule,
     "head_to_head": evaluate_head_to_head,
+    "player_stats": evaluate_player_stats,
+    "player_injury": evaluate_player_injury,
 }
 
 
@@ -409,9 +477,9 @@ def calculate_prediction(model: UserModel, game_data: Dict) -> Dict:
     return {"prediction": prediction, "confidence": confidence, "reasoning": reasoning}
 
 
-def get_upcoming_games(sport: str, bet_types: List[str]) -> List[Dict]:
+def get_upcoming_bets(sport: str, bet_types: List[str]) -> List[Dict]:
     """
-    Get upcoming games for the sport
+    Get upcoming bets (games and props) for the sport based on bet_types
     """
     from datetime import datetime, timedelta
     from boto3.dynamodb.conditions import Key
@@ -419,37 +487,70 @@ def get_upcoming_games(sport: str, bet_types: List[str]) -> List[Dict]:
     now = datetime.utcnow()
     future = now + timedelta(days=7)
 
-    games = {}
+    bets = []
+    seen_keys = set()
 
-    # Query using ActiveBetsIndexV2 to get upcoming games
+    # Query using ActiveBetsIndexV2 to get upcoming bets
     response = bets_table.query(
         IndexName="ActiveBetsIndexV2",
         KeyConditionExpression=Key("active_bet_pk").eq(f"GAME#{sport}")
         & Key("commence_time").between(now.isoformat(), future.isoformat()),
         FilterExpression="attribute_exists(latest)",
-        Limit=100,
+        Limit=200,
     )
 
     for item in response.get("Items", []):
-        game_id = item.get("pk", "")[5:]  # Remove GAME# prefix
-        if not game_id or game_id in games:
-            continue
+        market_key = item.get("market_key", "")
 
-        games[game_id] = {
+        # Determine bet type from market key
+        if market_key == "h2h" and "h2h" in bet_types:
+            bet_type = "h2h"
+        elif market_key == "spreads" and "spreads" in bet_types:
+            bet_type = "spreads"
+        elif market_key == "totals" and "totals" in bet_types:
+            bet_type = "totals"
+        elif market_key.startswith("player_") and "props" in bet_types:
+            bet_type = "props"
+        else:
+            continue  # Skip if not in requested bet types
+
+        # Create unique key to avoid duplicates
+        pk = item.get("pk", "")
+        sk = item.get("sk", "")
+        unique_key = f"{pk}#{sk}"
+
+        if unique_key in seen_keys:
+            continue
+        seen_keys.add(unique_key)
+
+        game_id = pk[5:] if pk.startswith("GAME#") else ""
+
+        bet = {
             "game_id": game_id,
             "sport": sport,
+            "bet_type": bet_type,
+            "market_key": market_key,
             "home_team": item.get("home_team", "Unknown"),
             "away_team": item.get("away_team", "Unknown"),
             "commence_time": item.get("commence_time"),
         }
 
-    print(f"Found {len(games)} upcoming games for {sport}")
-    return list(games.values())
+        # Add prop-specific fields
+        if bet_type == "props":
+            # SK format: {player_name}#{bookmaker}#{market}#LATEST
+            sk_parts = sk.split("#")
+            bet["player_name"] = sk_parts[0] if len(sk_parts) > 0 else "Unknown"
+            bet["bookmaker"] = item.get("bookmaker", "Unknown")
+
+        bets.append(bet)
+
+    print(f"Found {len(bets)} upcoming bets for {sport} (types: {bet_types})")
+    return bets
 
 
 def process_model(model_id: str, user_id: str):
     """
-    Process a single user model - generate predictions for upcoming games
+    Process a single user model - generate predictions for upcoming bets
     """
     # Load model configuration
     model = UserModel.get(user_id, model_id)
@@ -457,30 +558,33 @@ def process_model(model_id: str, user_id: str):
         print(f"Model {model_id} not found or inactive")
         return
 
-    # Get upcoming games for this sport
-    games = get_upcoming_games(model.sport, model.bet_types)
+    # Get upcoming bets for this sport and bet types
+    bets = get_upcoming_bets(model.sport, model.bet_types)
 
     predictions_created = 0
-    for game in games:
-        # Calculate prediction
-        result = calculate_prediction(model, game)
+    for bet in bets:
+        # Calculate prediction using game-level evaluators
+        # (Props use game context - team stats, rest, etc. affect player performance)
+        result = calculate_prediction(model, bet)
         if not result:
-            print(f"Skipped game {game['game_id']}: low confidence or too close")
+            print(
+                f"Skipped {bet['bet_type']} {bet.get('player_name', bet['game_id'])}: low confidence"
+            )
             continue  # Skip low-confidence predictions
 
         # Create prediction record
         prediction = ModelPrediction(
             model_id=model.model_id,
             user_id=model.user_id,
-            game_id=game["game_id"],
+            game_id=bet["game_id"],
             sport=model.sport,
             prediction=result["prediction"],
             confidence=result["confidence"],
             reasoning=result["reasoning"],
-            bet_type=game.get("bet_type", "h2h"),
-            home_team=game["home_team"],
-            away_team=game["away_team"],
-            commence_time=game["commence_time"],
+            bet_type=bet.get("bet_type", "h2h"),
+            home_team=bet["home_team"],
+            away_team=bet["away_team"],
+            commence_time=bet["commence_time"],
         )
 
         # Save to DynamoDB

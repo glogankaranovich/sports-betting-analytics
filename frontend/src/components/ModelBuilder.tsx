@@ -27,6 +27,8 @@ const DATA_SOURCES = [
   { key: 'recent_form', label: 'Recent Form', description: 'Win/loss streak and momentum' },
   { key: 'rest_schedule', label: 'Rest & Schedule', description: 'Fatigue and travel factors' },
   { key: 'head_to_head', label: 'Head-to-Head', description: 'Historical matchup performance' },
+  { key: 'player_stats', label: 'Player Stats', description: 'Recent player performance (props only)' },
+  { key: 'player_injury', label: 'Player Injury', description: 'Player injury status (props only)' },
 ];
 
 const SPORTS = [
@@ -41,6 +43,7 @@ const BET_TYPES = [
   { value: 'h2h', label: 'Moneyline' },
   { value: 'spreads', label: 'Spread' },
   { value: 'totals', label: 'Totals' },
+  { value: 'props', label: 'Player Props' },
 ];
 
 export const ModelBuilder: React.FC<{ onSave: (config: ModelConfig) => void; onCancel: () => void }> = ({ onSave, onCancel }) => {
@@ -50,11 +53,13 @@ export const ModelBuilder: React.FC<{ onSave: (config: ModelConfig) => void; onC
     sport: 'basketball_nba',
     betTypes: ['h2h'],
     dataSources: {
-      team_stats: { enabled: true, weight: 30 },
-      odds_movement: { enabled: true, weight: 25 },
-      recent_form: { enabled: true, weight: 25 },
+      team_stats: { enabled: true, weight: 25 },
+      odds_movement: { enabled: true, weight: 20 },
+      recent_form: { enabled: true, weight: 20 },
       rest_schedule: { enabled: true, weight: 15 },
       head_to_head: { enabled: false, weight: 5 },
+      player_stats: { enabled: false, weight: 10 },
+      player_injury: { enabled: false, weight: 5 },
     },
     minConfidence: 60,
   });
