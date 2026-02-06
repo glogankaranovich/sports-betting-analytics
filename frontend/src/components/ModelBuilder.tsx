@@ -17,6 +17,8 @@ interface ModelConfig {
     recent_form: DataSource;
     rest_schedule: DataSource;
     head_to_head: DataSource;
+    player_stats: DataSource;
+    player_injury: DataSource;
   };
   minConfidence: number;
 }
