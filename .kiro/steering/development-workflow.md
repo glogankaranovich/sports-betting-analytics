@@ -62,8 +62,12 @@ make build        # Build all components
 ### Test Coverage Requirements
 - **Unit tests** for all new code
 - **Integration tests** for API endpoints and data flows
-- **High coverage** maintained (aim for >90%)
+- **High coverage** maintained (aim for >90% line and branch coverage)
 - **All tests pass** before any commit
+- **Coverage commands**:
+  - `make test-coverage` - Full backend coverage report
+  - `make test-coverage-module MODULE=<module_name>` - Specific module coverage
+  - Both commands show line and branch coverage metrics
 
 ### Code Quality Standards
 - **Automatic linting** with auto-fix enabled
