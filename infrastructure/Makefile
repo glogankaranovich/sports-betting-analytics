@@ -12,6 +12,8 @@ help:
 	@echo "🧪 Testing:"
 	@echo "  make test        - Run infrastructure unit tests"
 	@echo "  make test-backend - Run backend unit tests"
+	@echo "  make test-coverage - Run backend tests with coverage report"
+	@echo "  make test-coverage-module MODULE=name - Run coverage for specific module"
 	@echo "  make test-all    - Run all tests (infrastructure + backend)"
 	@echo ""
 	@echo "🚀 Deployment:"
@@ -48,6 +50,19 @@ test: build
 test-backend:
 	@echo "🧪 Running backend unit tests..."
 	cd ../backend && DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/ -v
+
+# Run backend tests with coverage
+test-coverage:
+	@echo "📊 Running backend tests with coverage..."
+	cd ../backend && DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/ --cov=. --cov-report=term-missing --cov-report=html
+	@echo ""
+	@echo "📈 Coverage report generated in backend/htmlcov/index.html"
+
+# Run coverage for specific module
+test-coverage-module:
+	@echo "📊 Running coverage for specific module..."
+	@echo "Usage: make test-coverage-module MODULE=user_model_executor"
+	cd ../backend && DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/test_$(MODULE).py --cov=$(MODULE) --cov-report=term-missing
 
 # Run backend integration tests (requires AWS credentials and network access)
 test-backend-integration:

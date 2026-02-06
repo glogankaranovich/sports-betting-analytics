@@ -7,3 +7,4 @@ moto==4.2.0
 pre-commit==3.3.3
 black==23.7.0
 flake8==6.0.0
+pytest-cov==7.0.0
