@@ -1,10 +1,12 @@
 import json
-import boto3
 import os
-from decimal import Decimal
-from typing import Dict, Any
 from datetime import datetime, timedelta
-from user_models import UserModel, ModelPrediction
+from decimal import Decimal
+from typing import Any, Dict
+
+import boto3
+
+from user_models import ModelPrediction, UserModel
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")

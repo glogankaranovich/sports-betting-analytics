@@ -3,6 +3,7 @@ User Model Queue Loader - Loads active user models into SQS queue for execution
 """
 import json
 import os
+
 import boto3
 
 dynamodb = boto3.resource("dynamodb")

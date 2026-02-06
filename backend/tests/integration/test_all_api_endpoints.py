@@ -3,10 +3,11 @@ Comprehensive API endpoint integration tests.
 Tests all API endpoints with proper authentication.
 """
 
-import requests
 import os
+
 import boto3
 import pytest
+import requests
 
 
 @pytest.fixture(scope="module")

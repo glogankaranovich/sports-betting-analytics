@@ -1,7 +1,9 @@
 """Unit tests for Injury-Aware Model"""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from ml.models import InjuryAwareModel
 
 

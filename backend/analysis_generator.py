@@ -1,10 +1,12 @@
 import json
-import boto3
 import os
-from typing import Dict, Any
 from decimal import Decimal
-from ml.models import ModelFactory, AnalysisResult
+from typing import Any, Dict
+
+import boto3
+
 from ml.dynamic_weighting import DynamicModelWeighting
+from ml.models import AnalysisResult, ModelFactory
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")

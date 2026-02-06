@@ -1,7 +1,8 @@
-import boto3
 import os
-from typing import Dict, List, Any
 from collections import defaultdict
+from typing import Any, Dict, List
+
+import boto3
 
 
 class ModelAnalytics:
@@ -399,9 +400,9 @@ class ModelAnalytics:
 
     def compute_and_store_all_analytics(self):
         """Compute and store all analytics metrics"""
+        import json
         from datetime import datetime
         from decimal import Decimal
-        import json
 
         def convert_to_decimal(obj):
             """Convert floats to Decimal for DynamoDB"""

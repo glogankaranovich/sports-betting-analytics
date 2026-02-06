@@ -3,7 +3,8 @@ Unit tests for user models data layer
 """
 import unittest
 from decimal import Decimal
-from user_models import UserModel, ModelPrediction, validate_model_config
+
+from user_models import ModelPrediction, UserModel, validate_model_config
 
 
 class TestUserModel(unittest.TestCase):

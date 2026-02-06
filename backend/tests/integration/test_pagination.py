@@ -1,9 +1,10 @@
 """
 Integration test for API pagination
 """
-import requests
 import os
+
 import boto3
+import requests
 
 # import json
 

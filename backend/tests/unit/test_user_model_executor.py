@@ -3,15 +3,16 @@ Unit tests for user model executor
 """
 import unittest
 from unittest.mock import Mock, patch
+
 from user_model_executor import (
     calculate_prediction,
-    evaluate_team_stats,
+    evaluate_head_to_head,
     evaluate_odds_movement,
+    evaluate_player_injury,
+    evaluate_player_stats,
     evaluate_recent_form,
     evaluate_rest_schedule,
-    evaluate_head_to_head,
-    evaluate_player_stats,
-    evaluate_player_injury,
+    evaluate_team_stats,
     process_model,
 )
 from user_models import UserModel

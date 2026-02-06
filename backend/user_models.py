@@ -5,7 +5,8 @@ import os
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
 import boto3
 from boto3.dynamodb.conditions import Key
 

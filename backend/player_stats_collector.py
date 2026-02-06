@@ -3,11 +3,12 @@ Player Stats Collector - Fetches actual player statistics from ESPN API
 """
 
 import os
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
 import boto3
 import requests
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional
-from decimal import Decimal
 
 
 class PlayerStatsCollector:

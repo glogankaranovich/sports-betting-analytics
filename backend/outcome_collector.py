@@ -1,9 +1,10 @@
-import boto3
-import requests
 import os
 from datetime import datetime
-from typing import Dict, List, Any
 from decimal import Decimal
+from typing import Any, Dict, List
+
+import boto3
+import requests
 
 
 class OutcomeCollector:

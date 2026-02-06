@@ -1,4 +1,5 @@
 import unittest
+
 from ml.models import ContrarianModel
 
 

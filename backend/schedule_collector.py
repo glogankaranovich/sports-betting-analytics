@@ -3,10 +3,11 @@ Schedule Data Collector
 Fetches team schedules from ESPN API and stores in DynamoDB
 """
 import os
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
 import boto3
 import requests
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(os.environ.get("DYNAMODB_TABLE", "sports-betting-bets-dev"))

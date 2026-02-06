@@ -1,15 +1,15 @@
-import unittest
 import json
 import os
 import sys
-from unittest.mock import Mock, patch
+import unittest
 from decimal import Decimal
+from unittest.mock import Mock, patch
 
 # Mock environment before importing
 os.environ["DYNAMODB_TABLE"] = "test-table"
 
 sys.path.append(".")  # Add current directory to path for local imports
-from api_handler import lambda_handler, decimal_to_float, create_response  # noqa: E402
+from api_handler import create_response, decimal_to_float, lambda_handler  # noqa: E402
 
 """
 Comprehensive API Handler Tests

@@ -4,8 +4,10 @@ User Model Executor - Processes user models from SQS queue and generates predict
 import json
 import os
 from typing import Dict, List
+
 import boto3
-from user_models import UserModel, ModelPrediction
+
+from user_models import ModelPrediction, UserModel
 
 dynamodb = boto3.resource("dynamodb")
 BETS_TABLE = os.environ.get("BETS_TABLE", "carpool-bets-v2-dev")
@@ -235,8 +237,9 @@ def evaluate_rest_schedule(game_data: Dict) -> float:
     Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
     Based on days of rest and back-to-back detection
     """
-    from boto3.dynamodb.conditions import Key
     from datetime import datetime
+
+    from boto3.dynamodb.conditions import Key
 
     sport = game_data.get("sport", "basketball_nba")
     home_team = game_data.get("home_team", "")
@@ -482,6 +485,7 @@ def get_upcoming_bets(sport: str, bet_types: List[str]) -> List[Dict]:
     Get upcoming bets (games and props) for the sport based on bet_types
     """
     from datetime import datetime, timedelta
+
     from boto3.dynamodb.conditions import Key
 
     now = datetime.utcnow()

@@ -3,10 +3,11 @@ Injury Collector - Fetches player injury reports from ESPN API
 """
 
 import os
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List
+
 import boto3
 import requests
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List
 
 
 class InjuryCollector:

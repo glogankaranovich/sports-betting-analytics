@@ -1,10 +1,11 @@
 """
 Integration test for multi-model analysis generation
 """
-import boto3
 import json
-import time
 import os
+import time
+
+import boto3
 
 
 def test_multi_model_analysis():

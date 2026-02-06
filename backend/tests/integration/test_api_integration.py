@@ -1,7 +1,8 @@
-import requests
 import os
+
 import boto3
 import pytest
+import requests
 
 
 def get_cognito_token(

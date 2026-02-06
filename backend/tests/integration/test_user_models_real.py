@@ -2,8 +2,9 @@
 Real integration tests for user models system against deployed AWS resources
 """
 import unittest
-import boto3
 from decimal import Decimal
+
+import boto3
 
 
 class TestUserModelsRealIntegration(unittest.TestCase):
@@ -34,8 +35,8 @@ class TestUserModelsRealIntegration(unittest.TestCase):
 
     def test_create_and_retrieve_model(self):
         """Test creating and retrieving a user model"""
-        from datetime import datetime
         import uuid
+        from datetime import datetime
 
         # Create model directly in DynamoDB
         model_id = f"model_{uuid.uuid4().hex[:12]}"
@@ -74,8 +75,8 @@ class TestUserModelsRealIntegration(unittest.TestCase):
 
     def test_list_user_models(self):
         """Test listing all models for a user"""
-        from datetime import datetime
         import uuid
+        from datetime import datetime
 
         # Create multiple models
         model_ids = []

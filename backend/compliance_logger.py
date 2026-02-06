@@ -1,7 +1,8 @@
 import json
-import boto3
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+import boto3
 
 
 class ComplianceLogger:

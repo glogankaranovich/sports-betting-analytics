@@ -9,11 +9,11 @@ Error Handling Strategy:
 - This ensures one model's failure doesn't break the entire analysis pipeline
 """
 
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
-import math
 import logging
+import math
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -681,8 +681,9 @@ class HotColdModel(BaseAnalysisModel):
         """Initialize with optional DynamoDB table for querying recent games"""
         self.table = dynamodb_table
         if not self.table:
-            import boto3
             import os
+
+            import boto3
 
             dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
             table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
@@ -1008,8 +1009,9 @@ class RestScheduleModel(BaseAnalysisModel):
         """Initialize with optional DynamoDB table"""
         self.table = dynamodb_table
         if not self.table:
-            import boto3
             import os
+
+            import boto3
 
             dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
             table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
@@ -1159,8 +1161,9 @@ class MatchupModel(BaseAnalysisModel):
         """Initialize with optional DynamoDB table"""
         self.table = dynamodb_table
         if not self.table:
-            import boto3
             import os
+
+            import boto3
 
             dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
             table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
@@ -1423,8 +1426,9 @@ class InjuryAwareModel(BaseAnalysisModel):
     def __init__(self, dynamodb_table=None):
         self.table = dynamodb_table
         if not self.table:
-            import boto3
             import os
+
+            import boto3
 
             dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
             table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")

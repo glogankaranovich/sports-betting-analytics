@@ -1,11 +1,12 @@
+import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+from decimal import Decimal
+from typing import Any, Dict, List
+
 import boto3
 import requests
-import json
-from datetime import datetime, timedelta
-from typing import List, Dict, Any
-from decimal import Decimal
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def get_secret(secret_arn: str) -> str:

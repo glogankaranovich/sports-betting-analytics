@@ -6,9 +6,10 @@ and model creation assistance.
 """
 
 import json
-import boto3
 import os
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+import boto3
 
 # Initialize Bedrock client
 bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")

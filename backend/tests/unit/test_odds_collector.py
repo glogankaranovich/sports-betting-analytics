@@ -1,12 +1,13 @@
-import unittest
-from unittest.mock import Mock, patch
 import json
+import unittest
 from decimal import Decimal
+from unittest.mock import Mock, patch
+
 from odds_collector import (
     OddsCollector,
     convert_floats_to_decimal,
-    lambda_handler,
     get_secret,
+    lambda_handler,
 )
 
 

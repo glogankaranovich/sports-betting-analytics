@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 export interface OddsCollectorScheduleStackProps extends cdk.StackProps {
@@ -16,6 +17,12 @@ export class OddsCollectorScheduleStack extends cdk.Stack {
 
     const { oddsCollectorFunction, propsCollectorFunction } = props;
 
+    // Dead Letter Queue for failed invocations
+    const dlq = new sqs.Queue(this, 'OddsCollectorDLQ', {
+      queueName: `odds-collector-dlq-${props.environment}`,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+
     const sports = [
       { key: 'basketball_nba', name: 'NBA' },
       { key: 'americanfootball_nfl', name: 'NFL' },
@@ -24,24 +31,46 @@ export class OddsCollectorScheduleStack extends cdk.Stack {
       { key: 'soccer_epl', name: 'EPL' }
     ];
 
-    // Odds collection - every 4 hours for each sport
-    sports.forEach(sport => {
+    // Odds collection - every 4 hours for each sport (staggered by 15 minutes)
+    const oddsSchedules = [
+      'cron(0 */4 * * ? *)',   // NBA: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+      'cron(15 */4 * * ? *)',  // NFL: 00:15, 04:15, 08:15, 12:15, 16:15, 20:15 UTC
+      'cron(30 */4 * * ? *)',  // MLB: 00:30, 04:30, 08:30, 12:30, 16:30, 20:30 UTC
+      'cron(45 */4 * * ? *)',  // NHL: 00:45, 04:45, 08:45, 12:45, 16:45, 20:45 UTC
+      'cron(50 */4 * * ? *)',  // EPL: 00:50, 04:50, 08:50, 12:50, 16:50, 20:50 UTC
+    ];
+
+    sports.forEach((sport, index) => {
       new events.Rule(this, `OddsRule${sport.name}`, {
-        schedule: events.Schedule.rate(cdk.Duration.hours(4)),
+        schedule: events.Schedule.expression(oddsSchedules[index]),
         description: `Collect ${sport.name} game odds every 4 hours`,
         targets: [new targets.LambdaFunction(oddsCollectorFunction, {
-          event: events.RuleTargetInput.fromObject({ sport: sport.key })
+          event: events.RuleTargetInput.fromObject({ sport: sport.key }),
+          deadLetterQueue: dlq,
+          maxEventAge: cdk.Duration.hours(1),
+          retryAttempts: 0,
         })]
       });
     });
 
-    // Props collection - every 8 hours for each sport (reduced to save API calls)
-    sports.forEach(sport => {
+    // Props collection - every 8 hours for each sport (staggered by 15 minutes)
+    const propsSchedules = [
+      'cron(0 */8 * * ? *)',   // NBA: 00:00, 08:00, 16:00 UTC
+      'cron(15 */8 * * ? *)',  // NFL: 00:15, 08:15, 16:15 UTC
+      'cron(30 */8 * * ? *)',  // MLB: 00:30, 08:30, 16:30 UTC
+      'cron(45 */8 * * ? *)',  // NHL: 00:45, 08:45, 16:45 UTC
+      'cron(50 */8 * * ? *)',  // EPL: 00:50, 08:50, 16:50 UTC
+    ];
+
+    sports.forEach((sport, index) => {
       new events.Rule(this, `PropsRule${sport.name}`, {
-        schedule: events.Schedule.rate(cdk.Duration.hours(8)),
+        schedule: events.Schedule.expression(propsSchedules[index]),
         description: `Collect ${sport.name} props every 8 hours`,
         targets: [new targets.LambdaFunction(propsCollectorFunction, {
-          event: events.RuleTargetInput.fromObject({ sport: sport.key, props_only: true })
+          event: events.RuleTargetInput.fromObject({ sport: sport.key, props_only: true }),
+          deadLetterQueue: dlq,
+          maxEventAge: cdk.Duration.hours(1),
+          retryAttempts: 0,
         })]
       });
     });

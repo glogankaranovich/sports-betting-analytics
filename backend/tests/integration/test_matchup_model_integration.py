@@ -3,9 +3,10 @@ Integration test for Matchup Model
 Tests that the matchup model generates analyses in dev environment
 """
 
+from decimal import Decimal
+
 import boto3
 import pytest
-from decimal import Decimal
 
 
 @pytest.mark.readonly

@@ -1,9 +1,10 @@
 """
 Database Access Object for sports betting data
 """
-import boto3
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
+import boto3
 
 
 class BettingDAO:

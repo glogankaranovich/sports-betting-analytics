@@ -1,7 +1,8 @@
-import boto3
 import json
 import os
 from datetime import datetime, timedelta
+
+import boto3
 
 
 def test_odds_collector_integration():

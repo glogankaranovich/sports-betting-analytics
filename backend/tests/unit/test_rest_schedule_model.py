@@ -1,5 +1,6 @@
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
+
 from ml.models import RestScheduleModel
 
 

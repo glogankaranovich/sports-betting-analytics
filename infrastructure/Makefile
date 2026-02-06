@@ -10,6 +10,7 @@ help:
 	@echo "  make build       - Build TypeScript"
 	@echo ""
 	@echo "🧪 Testing:"
+	@echo "  make workflow-check - Run full quality check (lint + test + build)"
 	@echo "  make test        - Run infrastructure unit tests"
 	@echo "  make test-backend - Run backend unit tests"
 	@echo "  make test-coverage - Run backend tests with coverage report"
@@ -40,6 +41,17 @@ install:
 build:
 	@echo "🔨 Building TypeScript..."
 	npm run build
+
+# Full workflow check (lint + test + build)
+workflow-check:
+	@echo "🔍 Running full workflow check..."
+	@echo "1️⃣ Linting backend code..."
+	cd ../backend && python3 -m black . --check && python3 -m isort . --check-only
+	@echo "2️⃣ Running backend tests..."
+	cd ../backend && DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/ -v
+	@echo "3️⃣ Building infrastructure..."
+	npm run build
+	@echo "✅ Workflow check complete!"
 
 # Run unit tests
 test: build

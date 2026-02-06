@@ -3,13 +3,14 @@
 Integration and unit tests for player props functionality
 """
 
-import unittest
 import json
+import os
+import unittest
+from decimal import Decimal
+from unittest.mock import Mock, patch
+
 import boto3
 import requests
-from unittest.mock import Mock, patch
-from decimal import Decimal
-import os
 from dotenv import load_dotenv
 
 # Load environment variables

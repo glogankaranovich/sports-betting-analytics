@@ -3,6 +3,7 @@ End-to-end test for user models execution pipeline
 Tests: API -> DynamoDB -> SQS -> Lambda Executor -> Predictions
 """
 import time
+
 import boto3
 import requests
 

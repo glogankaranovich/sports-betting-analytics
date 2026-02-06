@@ -7,10 +7,12 @@ Run full tests with writes: pytest test_model_execution.py -m writes
 Run all tests: pytest test_model_execution.py
 """
 
+from datetime import datetime
+
 import boto3
 import pytest
-from datetime import datetime
-from ml.models import HotColdModel, MatchupModel, InjuryAwareModel
+
+from ml.models import HotColdModel, InjuryAwareModel, MatchupModel
 
 
 @pytest.fixture

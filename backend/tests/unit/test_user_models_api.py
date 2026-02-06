@@ -6,17 +6,17 @@ import os
 # Set environment variable before importing api_handler
 os.environ["DYNAMODB_TABLE"] = "test-table"
 
-import unittest  # noqa: E402
-from unittest.mock import patch, MagicMock  # noqa: E402
 import json  # noqa: E402
+import unittest  # noqa: E402
+from unittest.mock import MagicMock, patch  # noqa: E402
 
-from api_handler import (  # noqa: E402
-    handle_list_user_models,
-    handle_create_user_model,
-    handle_get_user_model,
-    handle_update_user_model,
+from api_handler import handle_create_user_model  # noqa: E402
+from api_handler import (
     handle_delete_user_model,
+    handle_get_user_model,
     handle_get_user_model_performance,
+    handle_list_user_models,
+    handle_update_user_model,
 )
 
 

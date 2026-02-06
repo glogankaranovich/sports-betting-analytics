@@ -3,12 +3,8 @@ Test ML models functionality
 """
 
 import pytest
-from ml.models import (
-    ConsensusModel,
-    ValueModel,
-    MomentumModel,
-    AnalysisResult,
-)
+
+from ml.models import AnalysisResult, ConsensusModel, MomentumModel, ValueModel
 
 
 def test_american_to_decimal():

@@ -2,8 +2,10 @@
 Unit tests for Matchup Model
 """
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
+
 from ml.models import MatchupModel
 
 

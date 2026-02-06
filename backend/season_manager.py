@@ -2,9 +2,10 @@
 Season Manager Lambda
 Enables/disables EventBridge rules based on sport seasons
 """
-import boto3
 import os
 from datetime import datetime
+
+import boto3
 
 events_client = boto3.client("events")
 

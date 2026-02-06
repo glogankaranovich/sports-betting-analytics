@@ -2,8 +2,10 @@
 Unit tests for Injury Collector
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
+
 from injury_collector import InjuryCollector, lambda_handler
 
 
