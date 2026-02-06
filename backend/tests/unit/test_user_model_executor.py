@@ -255,5 +255,69 @@ class TestProcessModel(unittest.TestCase):
         mock_get_model.assert_called_once()
 
 
+class TestGetUpcomingGames(unittest.TestCase):
+    @patch("user_model_executor.bets_table")
+    def test_get_upcoming_games_returns_games(self, mock_table):
+        """Test get_upcoming_games returns formatted game data"""
+        from user_model_executor import get_upcoming_games
+
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "pk": "GAME#game123",
+                    "game_id": "game123",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "commence_time": "2026-02-10T19:00:00Z",
+                }
+            ]
+        }
+
+        games = get_upcoming_games("basketball_nba", ["h2h"])
+
+        self.assertEqual(len(games), 1)
+        self.assertEqual(games[0]["game_id"], "game123")
+        self.assertEqual(games[0]["home_team"], "Lakers")
+
+    @patch("user_model_executor.bets_table")
+    def test_get_upcoming_games_deduplicates(self, mock_table):
+        """Test get_upcoming_games removes duplicate games"""
+        from user_model_executor import get_upcoming_games
+
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "pk": "GAME#game123",
+                    "game_id": "game123",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "commence_time": "2026-02-10T19:00:00Z",
+                },
+                {
+                    "pk": "GAME#game123",  # Duplicate
+                    "game_id": "game123",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "commence_time": "2026-02-10T19:00:00Z",
+                },
+            ]
+        }
+
+        games = get_upcoming_games("basketball_nba", ["h2h"])
+
+        self.assertEqual(len(games), 1)  # Should deduplicate
+
+    @patch("user_model_executor.bets_table")
+    def test_get_upcoming_games_empty(self, mock_table):
+        """Test get_upcoming_games handles empty results"""
+        from user_model_executor import get_upcoming_games
+
+        mock_table.query.return_value = {"Items": []}
+
+        games = get_upcoming_games("basketball_nba", ["h2h"])
+
+        self.assertEqual(len(games), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
