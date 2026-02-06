@@ -308,6 +308,48 @@ class TestDataSourceEvaluators(unittest.TestCase):
         self.assertLessEqual(score, 1)
 
     @patch("user_model_executor.bets_table")
+    def test_evaluate_head_to_head_home_dominates(self, mock_table):
+        """Test head-to-head with home team dominating series"""
+        mock_table.query.return_value = {
+            "Items": [
+                {"winner": "Lakers"},
+                {"winner": "Lakers"},
+                {"winner": "Lakers"},
+                {"winner": "Warriors"},
+            ]
+        }
+        score = evaluate_head_to_head(self.game_data)
+        self.assertGreater(score, 0.5)  # Favors home
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_head_to_head_away_dominates(self, mock_table):
+        """Test head-to-head with away team dominating series"""
+        mock_table.query.return_value = {
+            "Items": [
+                {"winner": "Warriors"},
+                {"winner": "Warriors"},
+                {"winner": "Warriors"},
+                {"winner": "Lakers"},
+            ]
+        }
+        score = evaluate_head_to_head(self.game_data)
+        self.assertLess(score, 0.5)  # Favors away
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_head_to_head_no_history(self, mock_table):
+        """Test head-to-head with no historical matchups"""
+        mock_table.query.return_value = {"Items": []}
+        score = evaluate_head_to_head(self.game_data)
+        self.assertEqual(score, 0.5)
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_head_to_head_error(self, mock_table):
+        """Test head-to-head handles errors gracefully"""
+        mock_table.query.side_effect = Exception("DynamoDB error")
+        score = evaluate_head_to_head(self.game_data)
+        self.assertEqual(score, 0.5)
+
+    @patch("user_model_executor.bets_table")
     def test_evaluate_team_stats_with_data(self, mock_table):
         """Test team stats evaluator with real data"""
         # Mock DynamoDB responses

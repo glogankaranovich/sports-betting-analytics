@@ -297,11 +297,53 @@ def evaluate_rest_schedule(game_data: Dict) -> float:
 def evaluate_head_to_head(game_data: Dict) -> float:
     """
     Evaluate head-to-head data source
-    Returns normalized score 0-1
+    Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
+    Based on historical matchup record between teams
     """
-    game_id = game_data.get("game_id", "")
-    hash_val = (sum(ord(c) for c in game_id) * 17) % 100
-    return 0.3 + (hash_val / 100) * 0.4  # Range: 0.3-0.7
+    from boto3.dynamodb.conditions import Key
+
+    sport = game_data.get("sport", "basketball_nba")
+    home_team = game_data.get("home_team", "")
+    away_team = game_data.get("away_team", "")
+
+    if not home_team or not away_team:
+        return 0.5
+
+    try:
+        # Normalize team names for H2H query
+        home_normalized = home_team.lower().replace(" ", "_")
+        away_normalized = away_team.lower().replace(" ", "_")
+
+        # Sort teams alphabetically for consistent H2H key
+        teams_sorted = sorted([home_normalized, away_normalized])
+        h2h_pk = f"H2H#{sport}#{teams_sorted[0]}#{teams_sorted[1]}"
+
+        # Query historical matchups
+        response = bets_table.query(
+            KeyConditionExpression=Key("h2h_pk").eq(h2h_pk),
+            ScanIndexForward=False,
+            Limit=10,
+        )
+
+        matchups = response.get("Items", [])
+        if not matchups:
+            return 0.5  # No history
+
+        # Count wins for each team
+        home_wins = sum(1 for m in matchups if m.get("winner") == home_team)
+        away_wins = sum(1 for m in matchups if m.get("winner") == away_team)
+
+        total_games = len(matchups)
+        home_win_rate = home_wins / total_games
+        away_win_rate = away_wins / total_games
+
+        # Normalize to 0-1
+        total = home_win_rate + away_win_rate
+        return home_win_rate / total if total > 0 else 0.5
+
+    except Exception as e:
+        print(f"Error evaluating head-to-head: {e}")
+        return 0.5
 
 
 DATA_SOURCE_EVALUATORS = {
