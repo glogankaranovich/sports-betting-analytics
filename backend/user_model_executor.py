@@ -232,11 +232,66 @@ def evaluate_recent_form(game_data: Dict) -> float:
 def evaluate_rest_schedule(game_data: Dict) -> float:
     """
     Evaluate rest and schedule data source
-    Returns normalized score 0-1
+    Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
+    Based on days of rest and back-to-back detection
     """
-    game_id = game_data.get("game_id", "")
-    hash_val = (sum(ord(c) for c in game_id) * 13) % 100
-    return 0.4 + (hash_val / 100) * 0.2  # Range: 0.4-0.6
+    from boto3.dynamodb.conditions import Key
+    from datetime import datetime
+
+    sport = game_data.get("sport", "basketball_nba")
+    home_team = game_data.get("home_team", "")
+    away_team = game_data.get("away_team", "")
+    game_time = game_data.get("commence_time", "")
+
+    if not all([home_team, away_team, game_time]):
+        return 0.5
+
+    try:
+        game_dt = datetime.fromisoformat(game_time.replace("Z", "+00:00"))
+
+        # Query last game for both teams
+        home_outcomes = bets_table.query(
+            IndexName="GSI1",
+            KeyConditionExpression=Key("GSI1PK").eq(f"TEAM#{sport}#{home_team}"),
+            ScanIndexForward=False,
+            Limit=1,
+        )
+
+        away_outcomes = bets_table.query(
+            IndexName="GSI1",
+            KeyConditionExpression=Key("GSI1PK").eq(f"TEAM#{sport}#{away_team}"),
+            ScanIndexForward=False,
+            Limit=1,
+        )
+
+        home_last = home_outcomes.get("Items", [])
+        away_last = away_outcomes.get("Items", [])
+
+        if not home_last or not away_last:
+            return 0.5  # No data
+
+        # Calculate days of rest
+        home_last_dt = datetime.fromisoformat(
+            home_last[0].get("completed_at", "").replace("Z", "+00:00")
+        )
+        away_last_dt = datetime.fromisoformat(
+            away_last[0].get("completed_at", "").replace("Z", "+00:00")
+        )
+
+        home_rest_days = (game_dt - home_last_dt).days
+        away_rest_days = (game_dt - away_last_dt).days
+
+        # Score based on rest advantage (0-1 back-to-back, 1-2 normal, 3+ well-rested)
+        home_rest_score = min(home_rest_days / 3, 1.0)
+        away_rest_score = min(away_rest_days / 3, 1.0)
+
+        # Normalize to 0-1
+        total = home_rest_score + away_rest_score
+        return home_rest_score / total if total > 0 else 0.5
+
+    except Exception as e:
+        print(f"Error evaluating rest schedule: {e}")
+        return 0.5
 
 
 def evaluate_head_to_head(game_data: Dict) -> float:

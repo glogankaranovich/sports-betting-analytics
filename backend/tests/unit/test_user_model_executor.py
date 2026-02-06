@@ -255,6 +255,52 @@ class TestDataSourceEvaluators(unittest.TestCase):
         self.assertGreaterEqual(score, 0)
         self.assertLessEqual(score, 1)
 
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_rest_schedule_home_rested(self, mock_table):
+        """Test rest schedule with home team well-rested"""
+        mock_table.query.side_effect = [
+            {"Items": [{"completed_at": "2025-01-01T00:00:00Z"}]},  # 3 days ago
+            {
+                "Items": [
+                    {"completed_at": "2025-01-03T00:00:00Z"}  # 1 day ago (back-to-back)
+                ]
+            },
+        ]
+        game_data = {
+            **self.game_data,
+            "commence_time": "2025-01-04T00:00:00Z",
+        }
+        score = evaluate_rest_schedule(game_data)
+        self.assertGreater(score, 0.5)  # Favors rested home team
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_rest_schedule_away_rested(self, mock_table):
+        """Test rest schedule with away team well-rested"""
+        mock_table.query.side_effect = [
+            {"Items": [{"completed_at": "2025-01-03T00:00:00Z"}]},  # 1 day ago
+            {"Items": [{"completed_at": "2025-01-01T00:00:00Z"}]},  # 3 days ago
+        ]
+        game_data = {
+            **self.game_data,
+            "commence_time": "2025-01-04T00:00:00Z",
+        }
+        score = evaluate_rest_schedule(game_data)
+        self.assertLess(score, 0.5)  # Favors rested away team
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_rest_schedule_no_data(self, mock_table):
+        """Test rest schedule with no historical data"""
+        mock_table.query.return_value = {"Items": []}
+        score = evaluate_rest_schedule(self.game_data)
+        self.assertEqual(score, 0.5)
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_rest_schedule_error(self, mock_table):
+        """Test rest schedule handles errors gracefully"""
+        mock_table.query.side_effect = Exception("DynamoDB error")
+        score = evaluate_rest_schedule(self.game_data)
+        self.assertEqual(score, 0.5)
+
     def test_evaluate_head_to_head(self):
         """Test head-to-head evaluator returns normalized score"""
         score = evaluate_head_to_head(self.game_data)
