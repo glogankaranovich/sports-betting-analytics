@@ -9,6 +9,7 @@ interface SettingsProps {
   onSettingsChange: (settings: any) => void;
   availableSports: string[];
   availableBookmakers: string[];
+  userModels: any[];
   token: string;
 }
 
@@ -16,7 +17,8 @@ const Settings: React.FC<SettingsProps> = ({
   settings,
   onSettingsChange,
   availableSports,
-  availableBookmakers
+  availableBookmakers,
+  userModels
 }) => {
   const handleChange = (key: string, value: string) => {
     onSettingsChange({ ...settings, [key]: value });
@@ -76,17 +78,31 @@ const Settings: React.FC<SettingsProps> = ({
             value={settings.model} 
             onChange={(e) => handleChange('model', e.target.value)}
           >
-            <option value="consensus">Consensus</option>
-            <option value="value">Value</option>
-            <option value="momentum">Momentum</option>
-            <option value="contrarian">Contrarian</option>
-            <option value="hot_cold">Hot/Cold</option>
-            <option value="rest_schedule">Rest/Schedule</option>
-            <option value="matchup">Matchup</option>
-            <option value="injury_aware">Injury-Aware</option>
+            <optgroup label="System Models">
+              <option value="consensus">Consensus</option>
+              <option value="value">Value</option>
+              <option value="momentum">Momentum</option>
+              <option value="contrarian">Contrarian</option>
+              <option value="hot_cold">Hot/Cold</option>
+              <option value="rest_schedule">Rest/Schedule</option>
+              <option value="matchup">Matchup</option>
+              <option value="injury_aware">Injury-Aware</option>
+            </optgroup>
+            {userModels.length > 0 && (
+              <optgroup label="My Models">
+                {userModels.map(model => (
+                  <option key={model.model_id} value={`user:${model.model_id}`}>
+                    {model.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
           <div className="model-description">
-            {modelDescriptions[settings.model]}
+            {settings.model.startsWith('user:') 
+              ? userModels.find(m => `user:${m.model_id}` === settings.model)?.description || 'Custom model'
+              : modelDescriptions[settings.model]
+            }
           </div>
         </div>
       </div>

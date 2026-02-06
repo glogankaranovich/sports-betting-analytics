@@ -49,45 +49,69 @@ All items completed and deployed:
 
 ---
 
-### 🔨 Phase 2: User-Defined Models MVP (CURRENT - Started Feb 3, 2026)
+### ✅ Phase 2: User-Defined Models MVP (COMPLETED - Feb 5, 2026)
 **Goal:** Allow users to create custom weight-based models
 
-**Status:** Design complete, starting implementation
+**Status:** ✅ Complete and deployed
 
 **What's Included:**
-- ✅ Weight-based model configuration (design complete)
-- [ ] 5 pre-defined data sources (team stats, odds movement, recent form, rest/schedule, head-to-head)
-- [ ] Personal models only (max 5 per user)
-- [ ] Simple slider-based UI with auto-normalizing weights
-- [ ] Basic performance tracking (accuracy, predictions)
+- ✅ Weight-based model configuration
+- ✅ 5 pre-defined data sources (team stats, odds movement, recent form, rest/schedule, head-to-head)
+- ✅ Personal models only (max 5 per user)
+- ✅ Simple slider-based UI with auto-normalizing weights
+- ✅ Basic performance tracking (accuracy, predictions)
+- ✅ DynamoDB storage (UserModels + ModelPredictions tables)
+- ✅ SQS + Lambda execution pipeline
+- ✅ Model predictions displayed in main analysis view
+- ✅ User models in model dropdown
+- ✅ Hash-based evaluators (placeholder for real data)
 
-**What's Excluded (Future):**
+**What's Excluded (Future Phases):**
 - Custom code/formulas
 - Custom data import
 - Model marketplace/sharing
 - Monetization
+- **Prop bet support** (currently h2h only)
+- **Real data source evaluators** (using hash-based placeholders)
 
-**Timeline:** 2-3 weeks (Feb 3 - Feb 24)
+**Timeline:** Feb 3 - Feb 5 (3 days)
 
 **Design Doc:** `docs/user-models-mvp-design.md`
 
 ---
 
+### 🔨 Phase 2.1: User Models Enhancement (NEXT - 1-2 weeks)
+**Goal:** Complete user models with real data and prop support
+
+**Priority Items:**
+- [ ] Implement real data source evaluators
+  - [ ] Team stats (win rate, offensive/defensive ratings)
+  - [ ] Odds movement (line movement, sharp action)
+  - [ ] Recent form (last 5-10 games performance)
+  - [ ] Rest/schedule (back-to-backs, home/away)
+  - [ ] Head-to-head (historical matchup data)
+- [ ] Add prop bet support
+  - [ ] Player prop data sources
+  - [ ] Prop-specific evaluators
+  - [ ] UI for prop bet configuration
+- [ ] Model editing in UI
+- [ ] Model performance charts
+- [ ] Model sharing/export
+
+**Timeline:** Feb 6 - Feb 20
+
+---
+
 ## 🎯 Next Steps - Prioritization Needed
 
-### ~~Option A: Phase 2 - AI Agent MVP~~
+### ~~Option A: Phase 3 - AI Agent MVP~~
 **Status:** Deferred - No clear user need yet  
 **Decision:** Skip for now, revisit after user feedback
 
 ---
 
-### ~~Option B: Phase 3 - User-Defined Models~~
-**Status:** ✅ Selected as Phase 2 (simplified MVP)
-
----
-
-### Option C: User Acquisition Focus
-**After Phase 2 completion**
+### Option B: User Acquisition Focus
+**After Phase 2.1 completion**
 
 - Marketing and outreach
 - Documentation and tutorials
@@ -97,7 +121,7 @@ All items completed and deployed:
 
 ---
 
-### Option D: Data Expansion
+### Option C: Data Expansion
 **Future consideration**
 
 - Add more sports (MLB, NHL, Soccer)
@@ -105,7 +129,7 @@ All items completed and deployed:
 - Historical data for backtesting
 - More prop types
 
-### Phase 2: AI Agent MVP (4-6 weeks)
+### Phase 3: AI Agent MVP (4-6 weeks)
 **Goal:** Enable users to create custom models with AI assistance
 
 **Architecture:** See `docs/ai-agent-architecture.md`
@@ -136,8 +160,8 @@ All items completed and deployed:
 
 ---
 
-### Phase 3: User-Defined Models (3-4 weeks)
-**Goal:** Allow users to create, test, and deploy custom models
+### Phase 4: Advanced User Models (3-4 weeks)
+**Goal:** Allow users to create, test, and deploy custom models with code
 
 **Architecture:** See `docs/user-defined-models-feature.md`
 

@@ -69,6 +69,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [gamesKey, setGamesKey] = useState<string | null>(null);
   const [loadingMoreGames, setLoadingMoreGames] = useState(false);
   const [modelLeaderboard, setModelLeaderboard] = useState<any[]>([]);
+  const [userModels, setUserModels] = useState<any[]>([]);
+  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
     const initializeData = async () => {
@@ -77,6 +79,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const idToken = session.tokens?.idToken?.toString();
         if (idToken) {
           setToken(idToken);
+          // Extract user ID from JWT token payload
+          const payload = JSON.parse(atob(idToken.split('.')[1]));
+          setUserId(payload.sub || 'unknown');
           // Only fetch data after token is set
           fetchGames();
           fetchGameAnalysis();
@@ -89,6 +94,21 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     
     initializeData();
   }, []);
+
+  // Fetch user models
+  useEffect(() => {
+    const fetchUserModels = async () => {
+      if (token) {
+        try {
+          const response = await bettingApi.getUserModels(token, userId);
+          setUserModels(response.models || []);
+        } catch (error) {
+          console.error('Error fetching user models:', error);
+        }
+      }
+    };
+    fetchUserModels();
+  }, [token, userId]);
 
   // Refetch data when settings change
   useEffect(() => {
@@ -133,18 +153,32 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       
       if (token) {
         const sport = settings.sport;
-        const model = settings.model !== 'all' ? settings.model : undefined;
+        const model = settings.model;
         const bookmaker = settings.bookmaker;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', fetchAll: true });
-        setGameAnalysis(data.analyses || []);
-        setGameAnalysisKey(null); // No pagination with fetch_all
+        
+        // Check if it's a user model
+        if (model.startsWith('user:')) {
+          const modelId = model.replace('user:', '');
+          const data = await bettingApi.getUserModelPredictions(token, userId);
+          // Filter predictions for this specific model and sport, h2h only
+          const filtered = (data.predictions || []).filter((p: any) => 
+            p.model_id === modelId && 
+            p.sport === sport && 
+            p.bet_type === 'h2h'
+          );
+          setGameAnalysis(filtered);
+        } else {
+          const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', fetchAll: true });
+          setGameAnalysis(data.analyses || []);
+        }
+        setGameAnalysisKey(null);
       }
     } catch (err) {
       console.error('Error fetching game analysis:', err);
     } finally {
       setLoadingGameAnalysis(false);
     }
-  }, [settings.sport, settings.model, settings.bookmaker]);
+  }, [settings.sport, settings.model, settings.bookmaker, userId]);
 
   const fetchPropAnalysis = useCallback(async () => {
     try {
@@ -154,20 +188,32 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       
       if (token) {
         const sport = settings.sport;
-        const model = settings.model !== 'all' ? settings.model : undefined;
+        const model = settings.model;
         const bookmaker = settings.bookmaker;
-        const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', fetchAll: true });
-        console.log('Prop analysis response:', data);
-        console.log('Number of prop analyses:', data.analyses?.length || 0);
-        setPropAnalysis(data.analyses || []);
-        setPropAnalysisKey(null); // No pagination with fetch_all
+        
+        // Check if it's a user model
+        if (model.startsWith('user:')) {
+          const modelId = model.replace('user:', '');
+          const data = await bettingApi.getUserModelPredictions(token, userId);
+          // Filter predictions for this specific model and sport, props only
+          const filtered = (data.predictions || []).filter((p: any) => 
+            p.model_id === modelId && 
+            p.sport === sport && 
+            p.bet_type !== 'h2h'
+          );
+          setPropAnalysis(filtered);
+        } else {
+          const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', fetchAll: true });
+          setPropAnalysis(data.analyses || []);
+        }
+        setPropAnalysisKey(null);
       }
     } catch (err) {
       console.error('Error fetching prop analysis:', err);
     } finally {
       setLoadingPropAnalysis(false);
     }
-  }, [settings.sport, settings.model, settings.bookmaker]);
+  }, [settings.sport, settings.model, settings.bookmaker, userId]);
 
   const fetchTopAnalysis = useCallback(async () => {
     try {
@@ -409,6 +455,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         onSettingsChange={setSettings}
         availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
         availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+        userModels={userModels}
         token={token}
       />
       
