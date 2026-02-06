@@ -160,11 +160,73 @@ def evaluate_odds_movement(game_data: Dict) -> float:
 def evaluate_recent_form(game_data: Dict) -> float:
     """
     Evaluate recent form data source
-    Returns normalized score 0-1
+    Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
+    Based on last 5 games win rate and point differential
     """
-    game_id = game_data.get("game_id", "")
-    hash_val = (sum(ord(c) for c in game_id) * 7) % 100
-    return 0.25 + (hash_val / 100) * 0.5  # Range: 0.25-0.75
+    from boto3.dynamodb.conditions import Key
+
+    sport = game_data.get("sport", "basketball_nba")
+    home_team = game_data.get("home_team", "")
+    away_team = game_data.get("away_team", "")
+
+    if not home_team or not away_team:
+        return 0.5
+
+    try:
+        # Query recent outcomes for both teams
+        home_outcomes = bets_table.query(
+            IndexName="GSI1",
+            KeyConditionExpression=Key("GSI1PK").eq(f"TEAM#{sport}#{home_team}"),
+            ScanIndexForward=False,
+            Limit=5,
+        )
+
+        away_outcomes = bets_table.query(
+            IndexName="GSI1",
+            KeyConditionExpression=Key("GSI1PK").eq(f"TEAM#{sport}#{away_team}"),
+            ScanIndexForward=False,
+            Limit=5,
+        )
+
+        home_games = home_outcomes.get("Items", [])
+        away_games = away_outcomes.get("Items", [])
+
+        if not home_games or not away_games:
+            return 0.5  # No data
+
+        # Calculate win rate and point differential
+        home_wins = sum(1 for g in home_games if g.get("winner") == home_team)
+        away_wins = sum(1 for g in away_games if g.get("winner") == away_team)
+
+        home_win_rate = home_wins / len(home_games)
+        away_win_rate = away_wins / len(away_games)
+
+        # Calculate average point differential
+        home_diff = sum(
+            float(g.get("home_score", 0)) - float(g.get("away_score", 0))
+            if g.get("home_team") == home_team
+            else float(g.get("away_score", 0)) - float(g.get("home_score", 0))
+            for g in home_games
+        ) / len(home_games)
+
+        away_diff = sum(
+            float(g.get("home_score", 0)) - float(g.get("away_score", 0))
+            if g.get("home_team") == away_team
+            else float(g.get("away_score", 0)) - float(g.get("home_score", 0))
+            for g in away_games
+        ) / len(away_games)
+
+        # Combine win rate (70%) and point diff (30%)
+        home_score = 0.7 * home_win_rate + 0.3 * (home_diff / 20)  # Normalize diff
+        away_score = 0.7 * away_win_rate + 0.3 * (away_diff / 20)
+
+        # Normalize to 0-1
+        total = home_score + away_score
+        return home_score / total if total > 0 else 0.5
+
+    except Exception as e:
+        print(f"Error evaluating recent form: {e}")
+        return 0.5
 
 
 def evaluate_rest_schedule(game_data: Dict) -> float:

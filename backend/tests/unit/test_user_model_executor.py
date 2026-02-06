@@ -140,6 +140,115 @@ class TestDataSourceEvaluators(unittest.TestCase):
         self.assertGreaterEqual(score, 0)
         self.assertLessEqual(score, 1)
 
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_recent_form_home_hot(self, mock_table):
+        """Test recent form with home team on hot streak"""
+        mock_table.query.side_effect = [
+            {
+                "Items": [
+                    {
+                        "home_team": "Lakers",
+                        "away_team": "Suns",
+                        "home_score": 110,
+                        "away_score": 95,
+                        "winner": "Lakers",
+                    },
+                    {
+                        "home_team": "Lakers",
+                        "away_team": "Kings",
+                        "home_score": 105,
+                        "away_score": 100,
+                        "winner": "Lakers",
+                    },
+                    {
+                        "home_team": "Clippers",
+                        "away_team": "Lakers",
+                        "home_score": 98,
+                        "away_score": 102,
+                        "winner": "Lakers",
+                    },
+                ]
+            },
+            {
+                "Items": [
+                    {
+                        "home_team": "Warriors",
+                        "away_team": "Nuggets",
+                        "home_score": 95,
+                        "away_score": 105,
+                        "winner": "Nuggets",
+                    },
+                    {
+                        "home_team": "Warriors",
+                        "away_team": "Celtics",
+                        "home_score": 100,
+                        "away_score": 110,
+                        "winner": "Celtics",
+                    },
+                ]
+            },
+        ]
+        score = evaluate_recent_form(self.game_data)
+        self.assertGreater(score, 0.5)  # Favors hot home team
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_recent_form_away_hot(self, mock_table):
+        """Test recent form with away team on hot streak"""
+        mock_table.query.side_effect = [
+            {
+                "Items": [
+                    {
+                        "home_team": "Lakers",
+                        "away_team": "Suns",
+                        "home_score": 95,
+                        "away_score": 105,
+                        "winner": "Suns",
+                    },
+                ]
+            },
+            {
+                "Items": [
+                    {
+                        "home_team": "Warriors",
+                        "away_team": "Nuggets",
+                        "home_score": 100,
+                        "away_score": 110,
+                        "winner": "Nuggets",
+                    },
+                    {
+                        "home_team": "Celtics",
+                        "away_team": "Warriors",
+                        "home_score": 95,
+                        "away_score": 105,
+                        "winner": "Warriors",
+                    },
+                    {
+                        "home_team": "Heat",
+                        "away_team": "Warriors",
+                        "home_score": 98,
+                        "away_score": 108,
+                        "winner": "Warriors",
+                    },
+                ]
+            },
+        ]
+        score = evaluate_recent_form(self.game_data)
+        self.assertLess(score, 0.5)  # Favors hot away team
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_recent_form_no_data(self, mock_table):
+        """Test recent form with no historical data"""
+        mock_table.query.return_value = {"Items": []}
+        score = evaluate_recent_form(self.game_data)
+        self.assertEqual(score, 0.5)
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_recent_form_error(self, mock_table):
+        """Test recent form handles errors gracefully"""
+        mock_table.query.side_effect = Exception("DynamoDB error")
+        score = evaluate_recent_form(self.game_data)
+        self.assertEqual(score, 0.5)
+
     def test_evaluate_rest_schedule(self):
         """Test rest/schedule evaluator returns normalized score"""
         score = evaluate_rest_schedule(self.game_data)
