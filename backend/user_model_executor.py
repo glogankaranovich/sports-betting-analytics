@@ -17,10 +17,63 @@ def evaluate_team_stats(game_data: Dict) -> float:
     Evaluate team stats data source
     Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
     """
-    # Simple hash-based variance for now (deterministic per game)
-    game_id = game_data.get("game_id", "")
-    hash_val = sum(ord(c) for c in game_id) % 100
-    return 0.3 + (hash_val / 100) * 0.4  # Range: 0.3-0.7
+    from boto3.dynamodb.conditions import Key
+
+    sport = game_data.get("sport", "basketball_nba")
+    home_team = game_data.get("home_team", "").lower().replace(" ", "_")
+    away_team = game_data.get("away_team", "").lower().replace(" ", "_")
+
+    try:
+        # Query recent stats for both teams (last game)
+        home_response = bets_table.query(
+            KeyConditionExpression=Key("pk").eq(f"TEAM_STATS#{sport}#{home_team}"),
+            ScanIndexForward=False,
+            Limit=1,
+        )
+        away_response = bets_table.query(
+            KeyConditionExpression=Key("pk").eq(f"TEAM_STATS#{sport}#{away_team}"),
+            ScanIndexForward=False,
+            Limit=1,
+        )
+
+        home_stats = home_response.get("Items", [{}])[0].get("stats", {})
+        away_stats = away_response.get("Items", [{}])[0].get("stats", {})
+
+        if not home_stats or not away_stats:
+            return 0.5  # No data, neutral
+
+        # Calculate composite score from key metrics
+        home_score = 0
+        away_score = 0
+
+        # Field Goal % (weight: 0.4)
+        home_fg = float(home_stats.get("Field Goal %", "0"))
+        away_fg = float(away_stats.get("Field Goal %", "0"))
+        if home_fg + away_fg > 0:
+            home_score += 0.4 * (home_fg / (home_fg + away_fg))
+            away_score += 0.4 * (away_fg / (home_fg + away_fg))
+
+        # Three Point % (weight: 0.3)
+        home_3pt = float(home_stats.get("Three Point %", "0"))
+        away_3pt = float(away_stats.get("Three Point %", "0"))
+        if home_3pt + away_3pt > 0:
+            home_score += 0.3 * (home_3pt / (home_3pt + away_3pt))
+            away_score += 0.3 * (away_3pt / (home_3pt + away_3pt))
+
+        # Rebounds (weight: 0.3)
+        home_reb = float(home_stats.get("Rebounds", "0"))
+        away_reb = float(away_stats.get("Rebounds", "0"))
+        if home_reb + away_reb > 0:
+            home_score += 0.3 * (home_reb / (home_reb + away_reb))
+            away_score += 0.3 * (away_reb / (home_reb + away_reb))
+
+        # Normalize to 0-1 (>0.5 favors home)
+        total = home_score + away_score
+        return home_score / total if total > 0 else 0.5
+
+    except Exception as e:
+        print(f"Error evaluating team stats: {e}")
+        return 0.5  # Fallback to neutral
 
 
 def evaluate_odds_movement(game_data: Dict) -> float:

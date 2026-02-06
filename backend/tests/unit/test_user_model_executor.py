@@ -54,6 +54,57 @@ class TestDataSourceEvaluators(unittest.TestCase):
         self.assertGreaterEqual(score, 0)
         self.assertLessEqual(score, 1)
 
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_team_stats_with_data(self, mock_table):
+        """Test team stats evaluator with real data"""
+        # Mock DynamoDB responses
+        mock_table.query.side_effect = [
+            # Home team stats
+            {
+                "Items": [
+                    {
+                        "stats": {
+                            "Field Goal %": "50",
+                            "Three Point %": "40",
+                            "Rebounds": "45",
+                        }
+                    }
+                ]
+            },
+            # Away team stats
+            {
+                "Items": [
+                    {
+                        "stats": {
+                            "Field Goal %": "45",
+                            "Three Point %": "35",
+                            "Rebounds": "40",
+                        }
+                    }
+                ]
+            },
+        ]
+
+        score = evaluate_team_stats(self.game_data)
+        self.assertGreater(score, 0.5)  # Home team should be favored
+        self.assertLess(score, 1.0)
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_team_stats_no_data(self, mock_table):
+        """Test team stats evaluator with no data returns neutral"""
+        mock_table.query.return_value = {"Items": []}
+
+        score = evaluate_team_stats(self.game_data)
+        self.assertEqual(score, 0.5)  # Should return neutral
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_team_stats_error_handling(self, mock_table):
+        """Test team stats evaluator handles errors gracefully"""
+        mock_table.query.side_effect = Exception("DynamoDB error")
+
+        score = evaluate_team_stats(self.game_data)
+        self.assertEqual(score, 0.5)  # Should fallback to neutral
+
 
 class TestCalculatePrediction(unittest.TestCase):
     def setUp(self):
