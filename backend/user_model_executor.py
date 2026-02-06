@@ -79,11 +79,82 @@ def evaluate_team_stats(game_data: Dict) -> float:
 def evaluate_odds_movement(game_data: Dict) -> float:
     """
     Evaluate odds movement data source
-    Returns normalized score 0-1
+    Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
+    Detects sharp action by comparing opening vs current lines
     """
+    from boto3.dynamodb.conditions import Key
+
     game_id = game_data.get("game_id", "")
-    hash_val = sum(ord(c) for c in game_id[::-1]) % 100
-    return 0.35 + (hash_val / 100) * 0.3  # Range: 0.35-0.65
+    if not game_id:
+        return 0.5
+
+    try:
+        # Query all historical odds for this game
+        response = bets_table.query(
+            KeyConditionExpression=Key("pk").eq(f"GAME#{game_id}"),
+            ScanIndexForward=True,  # Oldest first
+        )
+
+        items = response.get("Items", [])
+        if len(items) < 2:
+            return 0.5  # Need at least 2 data points
+
+        # Find opening and latest odds for h2h market
+        opening_odds = None
+        latest_odds = None
+
+        for item in items:
+            sk = item.get("sk", "")
+            if "#h2h#" not in sk:
+                continue
+
+            if sk.endswith("#LATEST"):
+                latest_odds = item
+            elif not opening_odds:  # First historical record
+                opening_odds = item
+
+        if not opening_odds or not latest_odds:
+            return 0.5
+
+        # Extract home/away odds
+        opening_home = None
+        opening_away = None
+        latest_home = None
+        latest_away = None
+
+        for outcome in opening_odds.get("outcomes", []):
+            if outcome["name"] == opening_odds["home_team"]:
+                opening_home = float(outcome["price"])
+            elif outcome["name"] == opening_odds["away_team"]:
+                opening_away = float(outcome["price"])
+
+        for outcome in latest_odds.get("outcomes", []):
+            if outcome["name"] == latest_odds["home_team"]:
+                latest_home = float(outcome["price"])
+            elif outcome["name"] == latest_odds["away_team"]:
+                latest_away = float(outcome["price"])
+
+        if not all([opening_home, opening_away, latest_home, latest_away]):
+            return 0.5
+
+        # Calculate movement (positive = line moved toward home)
+        home_movement = latest_home - opening_home
+
+        # Sharp action threshold: >20 points moneyline movement
+        sharp_threshold = 20
+
+        if abs(home_movement) < sharp_threshold:
+            return 0.5  # No significant movement
+
+        # Normalize movement to 0-1 score
+        # Positive home movement (odds increased) = sharps on away
+        # Negative home movement (odds decreased) = sharps on home
+        movement_score = -home_movement / 100  # Scale to reasonable range
+        return max(0.0, min(1.0, 0.5 + movement_score))
+
+    except Exception as e:
+        print(f"Error evaluating odds movement: {e}")
+        return 0.5
 
 
 def evaluate_recent_form(game_data: Dict) -> float:

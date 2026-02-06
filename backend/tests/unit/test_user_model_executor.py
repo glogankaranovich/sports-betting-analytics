@@ -36,6 +36,104 @@ class TestDataSourceEvaluators(unittest.TestCase):
         self.assertGreaterEqual(score, 0)
         self.assertLessEqual(score, 1)
 
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_odds_movement_sharp_on_home(self, mock_table):
+        """Test odds movement with sharp action on home team"""
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "sk": "fanduel#h2h#2025-01-01T00:00:00",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "outcomes": [
+                        {"name": "Lakers", "price": -110},
+                        {"name": "Warriors", "price": -110},
+                    ],
+                },
+                {
+                    "sk": "fanduel#h2h#LATEST",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "outcomes": [
+                        {"name": "Lakers", "price": -140},  # Line moved toward home
+                        {"name": "Warriors", "price": 120},
+                    ],
+                },
+            ]
+        }
+        score = evaluate_odds_movement(self.game_data)
+        self.assertGreater(score, 0.5)  # Favors home
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_odds_movement_sharp_on_away(self, mock_table):
+        """Test odds movement with sharp action on away team"""
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "sk": "fanduel#h2h#2025-01-01T00:00:00",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "outcomes": [
+                        {"name": "Lakers", "price": -110},
+                        {"name": "Warriors", "price": -110},
+                    ],
+                },
+                {
+                    "sk": "fanduel#h2h#LATEST",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "outcomes": [
+                        {"name": "Lakers", "price": 120},  # Line moved away from home
+                        {"name": "Warriors", "price": -140},
+                    ],
+                },
+            ]
+        }
+        score = evaluate_odds_movement(self.game_data)
+        self.assertLess(score, 0.5)  # Favors away
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_odds_movement_no_movement(self, mock_table):
+        """Test odds movement with no significant line movement"""
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "sk": "fanduel#h2h#2025-01-01T00:00:00",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "outcomes": [
+                        {"name": "Lakers", "price": -110},
+                        {"name": "Warriors", "price": -110},
+                    ],
+                },
+                {
+                    "sk": "fanduel#h2h#LATEST",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "outcomes": [
+                        {"name": "Lakers", "price": -115},  # Small movement
+                        {"name": "Warriors", "price": -105},
+                    ],
+                },
+            ]
+        }
+        score = evaluate_odds_movement(self.game_data)
+        self.assertEqual(score, 0.5)  # Neutral
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_odds_movement_no_data(self, mock_table):
+        """Test odds movement with no historical data"""
+        mock_table.query.return_value = {"Items": []}
+        score = evaluate_odds_movement(self.game_data)
+        self.assertEqual(score, 0.5)
+
+    @patch("user_model_executor.bets_table")
+    def test_evaluate_odds_movement_error(self, mock_table):
+        """Test odds movement handles errors gracefully"""
+        mock_table.query.side_effect = Exception("DynamoDB error")
+        score = evaluate_odds_movement(self.game_data)
+        self.assertEqual(score, 0.5)
+
     def test_evaluate_recent_form(self):
         """Test recent form evaluator returns normalized score"""
         score = evaluate_recent_form(self.game_data)
