@@ -20,6 +20,7 @@ import { OddsCollectorScheduleStack } from '../lib/odds-collector-schedule-stack
 import { AnalysisGeneratorScheduleStack } from '../lib/analysis-generator-schedule-stack';
 import { ModelAnalyticsScheduleStack } from '../lib/model-analytics-schedule-stack';
 import { UserModelsStack } from '../lib/user-models-stack';
+import { AIAgentStack } from '../lib/ai-agent-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -106,6 +107,12 @@ if (environment === 'dev') {
   });
 
   const userModelsStack = new UserModelsStack(app, StackNames.forEnvironment('dev', 'UserModels'), {
+    env: ENVIRONMENTS.dev,
+  });
+
+  const aiAgentStack = new AIAgentStack(app, StackNames.forEnvironment('dev', 'AIAgent'), {
+    stage: 'dev',
+    dynamodbTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
   });
 
