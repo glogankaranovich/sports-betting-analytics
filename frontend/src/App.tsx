@@ -9,6 +9,7 @@ import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
 import Models from './components/Models';
 import { UserModels } from './components/UserModels';
+import { Benny } from './components/Benny';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -897,6 +898,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <UserModels token={token} />
         )}
       </main>
+      
+      {/* Benny - AI Assistant */}
+      <Benny userId={user?.username || user?.signInDetails?.loginId || 'anonymous'} />
     </div>
   );
 }

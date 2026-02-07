@@ -1,24 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://lpykx3ka6a.execute-api.us-east-1.amazonaws.com/prod';
+const API_URL = process.env.REACT_APP_API_URL || 'https://ddzbfblwr0.execute-api.us-east-1.amazonaws.com/prod';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
 }
 
 interface AIAgentProps {
-  token: string;
+  userId: string;
 }
 
-export const AIAgent: React.FC<AIAgentProps> = ({ token }) => {
+export const AIAgent: React.FC<AIAgentProps> = ({ userId }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hi! I\'m your AI betting analyst. I can help you:\n\n• Create custom betting models\n• Analyze historical performance\n• Explain predictions\n• Optimize model parameters\n\nWhat would you like to do?',
-      timestamp: new Date()
+      content: 'Hi! I\'m your AI betting analyst. I can help you:\n\n• Create custom betting models\n• Analyze prediction performance\n• Query historical stats\n• Explain predictions\n\nWhat would you like to do?'
     }
   ]);
   const [input, setInput] = useState('');
@@ -34,8 +32,7 @@ export const AIAgent: React.FC<AIAgentProps> = ({ token }) => {
 
     const userMessage: Message = {
       role: 'user',
-      content: input,
-      timestamp: new Date()
+      content: input
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -43,21 +40,34 @@ export const AIAgent: React.FC<AIAgentProps> = ({ token }) => {
     setLoading(true);
 
     try {
+      const conversationHistory = messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+
       const response = await axios.post(
         `${API_URL}/ai-agent/chat`,
         {
           message: input,
-          conversation_history: messages.slice(-10)
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
+          user_id: userId,
+          conversation_history: conversationHistory.slice(-10)
         }
       );
 
+      // Extract response text from Claude response format
+      let responseText = response.data.response;
+      if (typeof responseText === 'object' && responseText.content) {
+        if (Array.isArray(responseText.content)) {
+          responseText = responseText.content
+            .filter((c: any) => c.type === 'text')
+            .map((c: any) => c.text)
+            .join('\n');
+        }
+      }
+
       const assistantMessage: Message = {
         role: 'assistant',
-        content: response.data.response,
-        timestamp: new Date()
+        content: responseText
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -65,8 +75,7 @@ export const AIAgent: React.FC<AIAgentProps> = ({ token }) => {
       console.error('Error:', error);
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-        timestamp: new Date()
+        content: 'Sorry, I encountered an error. Please try again.'
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -88,9 +97,6 @@ export const AIAgent: React.FC<AIAgentProps> = ({ token }) => {
               {msg.content.split('\n').map((line, i) => (
                 <p key={i}>{line}</p>
               ))}
-            </div>
-            <div className="message-time">
-              {msg.timestamp.toLocaleTimeString()}
             </div>
           </div>
         ))}
@@ -196,13 +202,6 @@ export const AIAgent: React.FC<AIAgentProps> = ({ token }) => {
 
         .message-content p:last-child {
           margin-bottom: 0;
-        }
-
-        .message-time {
-          font-size: 12px;
-          color: #a0aec0;
-          margin-top: 5px;
-          padding: 0 10px;
         }
 
         .typing {

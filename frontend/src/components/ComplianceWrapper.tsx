@@ -78,15 +78,6 @@ const ComplianceWrapper: React.FC<{ children: React.ReactNode }> = ({ children }
         {children}
       </div>
       
-      <div className="responsible-gambling-trigger">
-        <button 
-          onClick={handleResponsibleGamblingOpen}
-          className="responsible-gambling-button"
-        >
-          Responsible Gambling Resources
-        </button>
-      </div>
-      
       <Footer />
       
       <ResponsibleGambling 
