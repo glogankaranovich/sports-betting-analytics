@@ -101,42 +101,50 @@ class BennyTrader:
     def _get_top_models(self, sport: str, limit: int = 3) -> List[str]:
         """Get top performing models for a sport based on recent accuracy"""
         try:
-            # Query recent verified predictions for this sport
-            response = table.query(
-                IndexName="VerifiedAnalysisGSI",
-                KeyConditionExpression=Key("sport_outcome").eq(f"{sport}#verified"),
-                ScanIndexForward=False,
-                Limit=500,  # Last 500 predictions
-            )
-
-            predictions = response.get("Items", [])
-
-            # Calculate accuracy per model
+            # Get all models for this sport by querying each model type
+            all_models = [
+                "consensus",
+                "value",
+                "momentum",
+                "ensemble",
+                "matchup",
+                "contrarian",
+                "hot_cold",
+                "rest_schedule",
+                "injury_aware",
+            ]
             model_stats = {}
-            for pred in predictions:
-                model = pred.get("model")
-                if not model:
+
+            for model in all_models:
+                # Query recent verified predictions for this model+sport
+                response = table.query(
+                    IndexName="VerifiedAnalysisGSI",
+                    KeyConditionExpression=Key("verified_analysis_pk").eq(
+                        f"VERIFIED#{model}#{sport}#game"
+                    ),
+                    ScanIndexForward=False,
+                    Limit=100,  # Last 100 predictions per model
+                )
+
+                predictions = response.get("Items", [])
+
+                if len(predictions) < 10:  # Need at least 10 predictions
                     continue
 
-                if model not in model_stats:
-                    model_stats[model] = {"correct": 0, "total": 0}
+                # Calculate accuracy
+                correct = sum(1 for p in predictions if p.get("analysis_correct"))
+                total = len(predictions)
+                accuracy = correct / total if total > 0 else 0
 
-                model_stats[model]["total"] += 1
-                if pred.get("correct"):
-                    model_stats[model]["correct"] += 1
+                model_stats[model] = {"accuracy": accuracy, "total": total}
 
-            # Calculate accuracy and sort
-            model_accuracy = []
-            for model, stats in model_stats.items():
-                if stats["total"] >= 10:  # Minimum 10 predictions
-                    accuracy = stats["correct"] / stats["total"]
-                    model_accuracy.append((model, accuracy, stats["total"]))
-
-            # Sort by accuracy, then by sample size
-            model_accuracy.sort(key=lambda x: (x[1], x[2]), reverse=True)
-
-            # Return top N models
-            top_models = [m[0] for m in model_accuracy[:limit]]
+            # Sort by accuracy
+            sorted_models = sorted(
+                model_stats.items(),
+                key=lambda x: (x[1]["accuracy"], x[1]["total"]),
+                reverse=True,
+            )
+            top_models = [m[0] for m in sorted_models[:limit]]
 
             # Fallback to default models if not enough data
             if len(top_models) < limit:
