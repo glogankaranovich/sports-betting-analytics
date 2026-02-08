@@ -411,7 +411,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               <>
                 <div className="ticker-item ticker-label">TOP ANALYSIS:</div>
                 <div className="ticker-item">
-                  🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence
+                  🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence • {topInsight.model}
                 </div>
               </>
             )}
@@ -431,7 +431,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               <>
                 <div className="ticker-item ticker-label">TOP ANALYSIS:</div>
                 <div className="ticker-item">
-                  🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence
+                  🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence • {topInsight.model}
                 </div>
               </>
             )}
