@@ -21,7 +21,6 @@ import { AnalysisGeneratorScheduleStack } from '../lib/analysis-generator-schedu
 import { ModelAnalyticsScheduleStack } from '../lib/model-analytics-schedule-stack';
 import { UserModelsStack } from '../lib/user-models-stack';
 import { AIAgentStack } from '../lib/ai-agent-stack';
-import { EmailStack } from '../lib/email-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -117,13 +116,8 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  const emailStack = new EmailStack(app, StackNames.forEnvironment('dev', 'Email'), {
-    stage: 'dev',
-    env: {
-      account: '952070844012', // Default account where domain is registered
-      region: 'us-east-1',
-    },
-  });
+  // Email stack deployed separately to default account (952070844012)
+  // Uncomment to redeploy: AWS_PROFILE=default cdk deploy Dev-Email
 
   // Schedule stacks - simplified to avoid Lambda permission limit
   new OddsCollectorScheduleStack(app, StackNames.forEnvironment('dev', 'OddsSchedule'), {
