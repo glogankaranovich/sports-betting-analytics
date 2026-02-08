@@ -83,6 +83,24 @@ def lambda_handler(event, context):
         elif path == "/user-models" and http_method == "POST":
             body = json.loads(event.get("body", "{}"))
             return handle_create_user_model(body)
+        elif (
+            path.startswith("/user-models/")
+            and "/backtests" in path
+            and http_method == "GET"
+        ):
+            model_id = path.split("/")[2]
+            return handle_list_backtests(model_id, query_params)
+        elif (
+            path.startswith("/user-models/")
+            and "/backtests" in path
+            and http_method == "POST"
+        ):
+            model_id = path.split("/")[2]
+            body = json.loads(event.get("body", "{}"))
+            return handle_create_backtest(model_id, body)
+        elif path.startswith("/backtests/") and http_method == "GET":
+            backtest_id = path.split("/")[-1]
+            return handle_get_backtest(backtest_id, query_params)
         elif path.startswith("/user-models/") and http_method == "GET":
             model_id = path.split("/")[-1]
             return handle_get_user_model(model_id, query_params)
@@ -861,10 +879,69 @@ def handle_delete_user_model(model_id: str, query_params: Dict[str, str]):
             return create_response(404, {"error": "Model not found"})
 
         model.delete()
-
         return create_response(200, {"message": "Model deleted successfully"})
     except Exception as e:
         return create_response(500, {"error": f"Error deleting model: {str(e)}"})
+
+
+def handle_create_backtest(model_id: str, body: Dict[str, Any]):
+    """Create a backtest for a user model"""
+    try:
+        from backtest_engine import BacktestEngine
+        from user_models import UserModel
+
+        user_id = body.get("user_id")
+        start_date = body.get("start_date")
+        end_date = body.get("end_date")
+
+        if not all([user_id, start_date, end_date]):
+            return create_response(
+                400, {"error": "user_id, start_date, and end_date required"}
+            )
+
+        # Get model config
+        model = UserModel.get(user_id, model_id)
+        if not model:
+            return create_response(404, {"error": "Model not found"})
+
+        # Run backtest
+        engine = BacktestEngine()
+        result = engine.run_backtest(
+            user_id, model_id, model.to_dynamodb(), start_date, end_date
+        )
+
+        return create_response(200, decimal_to_float(result))
+    except Exception as e:
+        return create_response(500, {"error": f"Error creating backtest: {str(e)}"})
+
+
+def handle_list_backtests(model_id: str, query_params: Dict[str, str]):
+    """List backtests for a model"""
+    try:
+        from backtest_engine import BacktestEngine
+
+        backtests = BacktestEngine.list_backtests(model_id)
+        return create_response(200, {"backtests": decimal_to_float(backtests)})
+    except Exception as e:
+        return create_response(500, {"error": f"Error listing backtests: {str(e)}"})
+
+
+def handle_get_backtest(backtest_id: str, query_params: Dict[str, str]):
+    """Get a specific backtest"""
+    try:
+        from backtest_engine import BacktestEngine
+
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id parameter required"})
+
+        backtest = BacktestEngine.get_backtest(user_id, backtest_id)
+        if not backtest:
+            return create_response(404, {"error": "Backtest not found"})
+
+        return create_response(200, decimal_to_float(backtest))
+    except Exception as e:
+        return create_response(500, {"error": f"Error getting backtest: {str(e)}"})
 
 
 def handle_get_user_model_performance(model_id: str):
