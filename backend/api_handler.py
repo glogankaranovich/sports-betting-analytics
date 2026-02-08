@@ -72,6 +72,8 @@ def lambda_handler(event, context):
             return handle_compliance_log(body)
         elif path == "/bookmakers":
             return handle_get_bookmakers()
+        elif path == "/benny/dashboard":
+            return handle_get_benny_dashboard()
         elif path == "/analytics":
             return handle_get_analytics(query_params)
         elif path == "/model-performance":
@@ -262,11 +264,22 @@ def handle_get_bookmakers():
             if "bookmaker" in item:
                 bookmakers.add(item["bookmaker"])
 
-        return create_response(
-            200, {"bookmakers": sorted(list(bookmakers)), "count": len(bookmakers)}
-        )
+        return create_response(200, {"bookmakers": sorted(list(bookmakers))})
     except Exception as e:
         return create_response(500, {"error": f"Error fetching bookmakers: {str(e)}"})
+
+
+def handle_get_benny_dashboard():
+    """Get Benny's trading dashboard data"""
+    try:
+        from benny_trader import BennyTrader
+
+        dashboard = BennyTrader.get_dashboard_data()
+        return create_response(200, dashboard)
+    except Exception as e:
+        return create_response(
+            500, {"error": f"Error fetching Benny dashboard: {str(e)}"}
+        )
 
 
 def handle_get_player_props(query_params: Dict[str, str]):
