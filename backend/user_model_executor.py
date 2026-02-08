@@ -426,6 +426,83 @@ DATA_SOURCE_EVALUATORS = {
 }
 
 
+def evaluate_custom_data(game_data: Dict) -> float:
+    """
+    Evaluate custom user-uploaded data
+    Returns normalized score 0-1 based on custom dataset values
+    """
+    try:
+        from custom_data import CustomDataset
+
+        # Get user_id and model_id from game_data context
+        user_id = game_data.get("user_id")
+        dataset_id = game_data.get("custom_dataset_id")
+
+        if not user_id or not dataset_id:
+            return 0.5  # No custom data configured
+
+        # Load dataset
+        dataset = CustomDataset.get(user_id, dataset_id)
+        if not dataset:
+            return 0.5
+
+        # Get dataset from S3
+        data = dataset.get_data()
+        if not data:
+            return 0.5
+
+        # Match data to teams
+        home_team = game_data.get("home_team", "").lower()
+        away_team = game_data.get("away_team", "").lower()
+
+        home_row = None
+        away_row = None
+
+        for row in data:
+            team_name = row.get("team", "").lower()
+            if home_team in team_name or team_name in home_team:
+                home_row = row
+            if away_team in team_name or team_name in away_team:
+                away_row = row
+
+        if not home_row or not away_row:
+            return 0.5  # Teams not found in dataset
+
+        # Calculate score from numeric columns
+        # Simple approach: average all numeric values, normalize to 0-1
+        home_score = 0
+        away_score = 0
+        count = 0
+
+        for key, value in home_row.items():
+            if key == "team":
+                continue
+            try:
+                home_val = float(value)
+                away_val = float(away_row.get(key, 0))
+                if home_val + away_val > 0:
+                    home_score += home_val / (home_val + away_val)
+                    away_score += away_val / (home_val + away_val)
+                    count += 1
+            except (ValueError, TypeError):
+                continue
+
+        if count == 0:
+            return 0.5
+
+        # Normalize to 0-1 (>0.5 favors home)
+        total = home_score + away_score
+        return home_score / total if total > 0 else 0.5
+
+    except Exception as e:
+        print(f"Error evaluating custom data: {e}")
+        return 0.5
+
+
+# Add custom_data to evaluators after function is defined
+DATA_SOURCE_EVALUATORS["custom_data"] = evaluate_custom_data
+
+
 def calculate_prediction(model: UserModel, game_data: Dict) -> Dict:
     """
     Calculate prediction using model configuration

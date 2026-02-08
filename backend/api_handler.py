@@ -78,6 +78,14 @@ def lambda_handler(event, context):
             return handle_get_analytics(query_params)
         elif path == "/model-performance":
             return handle_get_model_performance(query_params)
+        elif path == "/custom-data" and http_method == "GET":
+            return handle_list_custom_data(query_params)
+        elif path == "/custom-data/upload" and http_method == "POST":
+            body = json.loads(event.get("body", "{}"))
+            return handle_upload_custom_data(body)
+        elif path.startswith("/custom-data/") and http_method == "DELETE":
+            dataset_id = path.split("/")[-1]
+            return handle_delete_custom_data(dataset_id, query_params)
         elif path == "/user-models" and http_method == "GET":
             return handle_list_user_models(query_params)
         elif path == "/user-models/predictions" and http_method == "GET":
@@ -1012,3 +1020,136 @@ def handle_get_user_model_predictions(query_params: Dict[str, str]):
         return create_response(200, {"predictions": decimal_to_float(all_predictions)})
     except Exception as e:
         return create_response(500, {"error": f"Error fetching predictions: {str(e)}"})
+
+
+def handle_list_custom_data(query_params: Dict[str, str]):
+    """List user's custom datasets"""
+    try:
+        from custom_data import CustomDataset
+
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id is required"})
+
+        datasets = CustomDataset.list_by_user(user_id)
+
+        return create_response(
+            200,
+            {
+                "datasets": [
+                    {
+                        "dataset_id": d.dataset_id,
+                        "name": d.name,
+                        "description": d.description,
+                        "sport": d.sport,
+                        "data_type": d.data_type,
+                        "columns": d.columns,
+                        "row_count": d.row_count,
+                        "allow_benny_access": d.allow_benny_access,
+                        "created_at": d.created_at,
+                    }
+                    for d in datasets
+                ]
+            },
+        )
+    except Exception as e:
+        return create_response(500, {"error": f"Error listing datasets: {str(e)}"})
+
+
+def handle_upload_custom_data(body: Dict[str, Any]):
+    """Upload custom dataset"""
+    try:
+        import csv
+        import io
+        import uuid
+
+        from custom_data import CustomDataset, validate_dataset
+
+        # Validate required fields
+        required = ["user_id", "name", "sport", "data_type", "data"]
+        for field in required:
+            if field not in body:
+                return create_response(
+                    400, {"error": f"Missing required field: {field}"}
+                )
+
+        user_id = body["user_id"]
+        name = body["name"]
+        description = body.get("description", "")
+        sport = body["sport"]
+        data_type = body["data_type"]
+        allow_benny_access = body.get("allow_benny_access", False)
+
+        # Parse data (CSV or JSON)
+        data_str = body["data"]
+        file_format = body.get("format", "csv")
+
+        if file_format == "csv":
+            # Parse CSV
+            csv_reader = csv.DictReader(io.StringIO(data_str))
+            data = list(csv_reader)
+        else:
+            # Parse JSON
+            data = json.loads(data_str)
+
+        # Validate dataset
+        is_valid, error = validate_dataset(data, data_type)
+        if not is_valid:
+            return create_response(400, {"error": error})
+
+        # Create dataset
+        dataset = CustomDataset(
+            user_id=user_id,
+            name=name,
+            description=description,
+            sport=sport,
+            data_type=data_type,
+            columns=list(data[0].keys()),
+            s3_key=f"{user_id}/{uuid.uuid4().hex}.json",
+            row_count=len(data),
+            allow_benny_access=allow_benny_access,
+        )
+
+        # Upload to S3
+        s3 = boto3.client("s3", region_name="us-east-1")
+        bucket = os.environ.get("CUSTOM_DATA_BUCKET", "dev-custom-data-bucket")
+        s3.put_object(
+            Bucket=bucket, Key=dataset.s3_key, Body=json.dumps(data).encode("utf-8")
+        )
+
+        # Save metadata
+        dataset.save()
+
+        return create_response(
+            201,
+            {
+                "message": "Dataset uploaded successfully",
+                "dataset": {
+                    "dataset_id": dataset.dataset_id,
+                    "name": dataset.name,
+                    "row_count": dataset.row_count,
+                },
+            },
+        )
+    except Exception as e:
+        return create_response(500, {"error": f"Error uploading dataset: {str(e)}"})
+
+
+def handle_delete_custom_data(dataset_id: str, query_params: Dict[str, str]):
+    """Delete custom dataset"""
+    try:
+        from custom_data import CustomDataset
+
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id is required"})
+
+        dataset = CustomDataset.get(user_id, dataset_id)
+        if not dataset:
+            return create_response(404, {"error": "Dataset not found"})
+
+        dataset.delete()
+
+        return create_response(200, {"message": "Dataset deleted successfully"})
+    except Exception as e:
+        return create_response(500, {"error": f"Error deleting dataset: {str(e)}"})
