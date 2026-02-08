@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ModelList } from './ModelList';
 import { ModelBuilder } from './ModelBuilder';
+import { ModelDetail } from './ModelDetail';
 import { bettingApi } from '../services/api';
 
 interface UserModelsProps {
@@ -9,6 +10,7 @@ interface UserModelsProps {
 
 export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
   const [showBuilder, setShowBuilder] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<any>(null);
   const [userModels, setUserModels] = useState<any[]>([]);
   const [userId] = useState('test_user'); // TODO: Get from Cognito user context
   const [loading, setLoading] = useState(true);
@@ -73,6 +75,16 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
     return <div>Loading your models...</div>;
   }
 
+  if (selectedModel) {
+    return (
+      <ModelDetail
+        model={selectedModel}
+        token={token}
+        onBack={() => setSelectedModel(null)}
+      />
+    );
+  }
+
   if (showBuilder) {
     return (
       <ModelBuilder
@@ -86,6 +98,7 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
     <ModelList
       models={userModels}
       onCreateNew={() => setShowBuilder(true)}
+      onView={(model) => setSelectedModel(model)}
       onEdit={handleEditModel}
       onDelete={handleDeleteModel}
       onToggleStatus={handleToggleStatus}

@@ -16,6 +16,7 @@ interface ModelListProps {
   onEdit: (modelId: string) => void;
   onDelete: (modelId: string) => void;
   onToggleStatus: (modelId: string, currentStatus: string) => void;
+  onView: (model: UserModel) => void;
 }
 
 const SPORT_LABELS: Record<string, string> = {
@@ -26,7 +27,7 @@ const SPORT_LABELS: Record<string, string> = {
   soccer_epl: 'EPL',
 };
 
-export const ModelList: React.FC<ModelListProps> = ({ models, onCreateNew, onEdit, onDelete, onToggleStatus }) => {
+export const ModelList: React.FC<ModelListProps> = ({ models, onCreateNew, onEdit, onDelete, onToggleStatus, onView }) => {
   return (
     <div className="model-list">
       <div className="list-header">
@@ -65,14 +66,14 @@ export const ModelList: React.FC<ModelListProps> = ({ models, onCreateNew, onEdi
               </div>
 
               <div className="model-actions">
+                <button onClick={() => onView(model)} className="btn-view">
+                  View
+                </button>
                 <button
                   onClick={() => onToggleStatus(model.model_id, model.status)}
                   className="btn-toggle"
                 >
                   {model.status === 'active' ? 'Pause' : 'Activate'}
-                </button>
-                <button onClick={() => onEdit(model.model_id)} className="btn-edit">
-                  Edit
                 </button>
                 <button onClick={() => onDelete(model.model_id)} className="btn-delete">
                   Delete
