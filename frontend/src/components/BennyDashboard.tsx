@@ -81,14 +81,10 @@ export const BennyDashboard: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="benny-container">
-      <div className="benny-loading">Loading Benny's dashboard...</div>
-    </div>
+    <div className="loading">Loading Benny's dashboard...</div>
   );
   if (error) return (
-    <div className="benny-container">
-      <div className="benny-error">{error}</div>
-    </div>
+    <div className="error">{error}</div>
   );
   if (!data) return null;
 
@@ -292,14 +288,6 @@ export const BennyDashboard: React.FC = () => {
       </div>
 
       <style>{`
-        .benny-container {
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 500px;
-        }
-
         .benny-dashboard {
           padding: 20px;
           max-width: 1200px;
@@ -669,21 +657,6 @@ export const BennyDashboard: React.FC = () => {
 
         .bet-status.pending {
           color: #ed8936;
-        }
-
-        .benny-loading, .benny-error {
-          text-align: center;
-          padding: 60px 20px;
-          color: #a0aec0;
-          font-size: 16px;
-          min-height: 400px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .benny-error {
-          color: #f56565;
         }
 
         @media (max-width: 768px) {

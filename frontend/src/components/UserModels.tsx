@@ -72,7 +72,7 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
   };
 
   if (loading) {
-    return <div>Loading your models...</div>;
+    return <div className="loading">Loading your models...</div>;
   }
 
   if (selectedModel) {

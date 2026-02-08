@@ -169,7 +169,7 @@ export const ModelDetail: React.FC<ModelDetailProps> = ({ model, token, onBack }
           <div className="backtest-results">
             <h3>Previous Backtests</h3>
             {loading ? (
-              <p>Loading...</p>
+              <div className="loading">Loading...</div>
             ) : backtests.length === 0 ? (
               <p className="empty-message">No backtests yet. Run your first backtest above!</p>
             ) : (
