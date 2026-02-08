@@ -585,6 +585,7 @@ def handle_get_analytics(query_params: Dict[str, str]):
                 "rest_schedule",
                 "matchup",
                 "injury_aware",
+                "ensemble",
             ]
             weights = weighting.get_model_weights(sport, bet_type, models=all_models)
             model_metrics = {}

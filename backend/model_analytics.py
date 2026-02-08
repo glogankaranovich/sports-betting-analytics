@@ -341,6 +341,7 @@ class ModelAnalytics:
                 "rest_schedule",
                 "matchup",
                 "injury_aware",
+                "ensemble",
             ]
         sports = [
             "basketball_nba",
