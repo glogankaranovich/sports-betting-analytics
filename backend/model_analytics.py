@@ -10,9 +10,11 @@ class ModelAnalytics:
         self.dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
         self.table = self.dynamodb.Table(table_name)
 
-    def get_model_performance_summary(self) -> Dict[str, Dict[str, Any]]:
+    def get_model_performance_summary(
+        self, models: List[str] = None
+    ) -> Dict[str, Dict[str, Any]]:
         """Get performance summary for each model"""
-        analyses = self._get_verified_analyses()
+        analyses = self._get_verified_analyses(models)
 
         by_model = defaultdict(lambda: {"total": 0, "correct": 0, "sports": set()})
 
@@ -40,10 +42,10 @@ class ModelAnalytics:
         return result
 
     def get_model_performance_by_sport(
-        self, model: str = None
+        self, model: str = None, models: List[str] = None
     ) -> Dict[str, Dict[str, Any]]:
         """Get model performance broken down by sport"""
-        analyses = self._get_verified_analyses()
+        analyses = self._get_verified_analyses(models or ([model] if model else None))
 
         # Filter by model if specified
         if model:
@@ -77,10 +79,10 @@ class ModelAnalytics:
         return result
 
     def get_model_performance_by_bet_type(
-        self, model: str = None
+        self, model: str = None, models: List[str] = None
     ) -> Dict[str, Dict[str, Any]]:
         """Get model performance broken down by bet type"""
-        analyses = self._get_verified_analyses()
+        analyses = self._get_verified_analyses(models or ([model] if model else None))
 
         # Filter by model if specified
         if model:
@@ -117,7 +119,7 @@ class ModelAnalytics:
         self, model: str, days: int = 30
     ) -> List[Dict[str, Any]]:
         """Get daily performance for a specific model"""
-        analyses = self._get_verified_analyses()
+        analyses = self._get_verified_analyses([model])
         analyses = [a for a in analyses if a.get("model") == model]
 
         by_date = defaultdict(lambda: {"total": 0, "correct": 0})
@@ -168,7 +170,7 @@ class ModelAnalytics:
 
     def get_model_confidence_analysis(self, model: str) -> Dict[str, Any]:
         """Analyze analysis accuracy by confidence level"""
-        analyses = self._get_verified_analyses()
+        analyses = self._get_verified_analyses([model])
         analyses = [a for a in analyses if a.get("model") == model]
 
         # Group by confidence ranges
@@ -252,7 +254,7 @@ class ModelAnalytics:
 
     def get_confidence_distribution(self, model: str) -> Dict[str, Any]:
         """Get confidence distribution for a model's predictions"""
-        analyses = self._get_verified_analyses()
+        analyses = self._get_verified_analyses([model])
         analyses = [a for a in analyses if a.get("model") == model]
 
         buckets = {"0-20": 0, "20-40": 0, "40-60": 0, "60-80": 0, "80-100": 0}
@@ -294,7 +296,7 @@ class ModelAnalytics:
         """Get model performance over time"""
         from collections import defaultdict
 
-        analyses = self._get_verified_analyses()
+        analyses = self._get_verified_analyses([model])
         analyses = [a for a in analyses if a.get("model") == model]
 
         # Group by date
@@ -326,19 +328,20 @@ class ModelAnalytics:
 
         return sorted(result, key=lambda x: x["date"])
 
-    def _get_verified_analyses(self) -> List[Dict[str, Any]]:
+    def _get_verified_analyses(self, models: List[str] = None) -> List[Dict[str, Any]]:
         """Get all analyses with verified outcomes using GSI"""
         items = []
-        models = [
-            "consensus",
-            "value",
-            "momentum",
-            "contrarian",
-            "hot_cold",
-            "rest_schedule",
-            "matchup",
-            "injury_aware",
-        ]
+        if models is None:
+            models = [
+                "consensus",
+                "value",
+                "momentum",
+                "contrarian",
+                "hot_cold",
+                "rest_schedule",
+                "matchup",
+                "injury_aware",
+            ]
         sports = [
             "basketball_nba",
             "americanfootball_nfl",
@@ -516,13 +519,19 @@ def lambda_handler(event, context):
                 "body": {"message": "Analytics computed and stored"},
             }
 
-        # Otherwise, read from cached analytics
+        # Otherwise, read from cached analytics or compute on-demand
         metric_type = query_params.get("type", "summary")
         model = query_params.get("model")
+        models_param = query_params.get("models")
+        models = models_param.split(",") if models_param else None
 
         # Route to appropriate metric
         if metric_type == "summary":
-            data = analytics.get_cached_analytics("summary")
+            if models:
+                # Compute on-demand for specific models
+                data = analytics.get_model_performance_summary(models)
+            else:
+                data = analytics.get_cached_analytics("summary")
         elif metric_type == "by_sport":
             data = analytics.get_cached_analytics(
                 f"by_sport#{model}" if model else "by_sport"

@@ -57,7 +57,7 @@ def test_pagination():
 
     # Get test credentials
     test_email = "testuser@example.com"
-    test_password = "TestPass123!"
+    test_password = "CarpoolBets2026!Secure#"
 
     # Get auth token
     print("Getting Cognito token...")

@@ -17,7 +17,7 @@ def get_test_user_token():
         AuthFlow="ADMIN_NO_SRP_AUTH",
         AuthParameters={
             "USERNAME": "testuser@example.com",
-            "PASSWORD": "TestPass123!",
+            "PASSWORD": "CarpoolBets2026!Secure#",
         },
     )
     return response["AuthenticationResult"]["IdToken"]

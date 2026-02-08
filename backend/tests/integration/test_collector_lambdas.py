@@ -154,8 +154,8 @@ def test_model_analytics_integration():
 
     assert function_name is not None, "Model analytics function not found"
 
-    # Invoke Lambda
-    payload = {"action": "calculate_performance"}
+    # Invoke Lambda with query params to get summary for single model
+    payload = {"queryStringParameters": {"type": "summary", "models": "consensus"}}
     response = lambda_client.invoke(
         FunctionName=function_name,
         InvocationType="RequestResponse",

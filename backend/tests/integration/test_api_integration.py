@@ -93,7 +93,7 @@ def test_api_integration():
         # Get JWT token using test user
         print("Getting JWT token for test user...")
         test_email = "testuser@example.com"
-        test_password = "TestPass123!"
+        test_password = "CarpoolBets2026!Secure#"
 
         try:
             token = get_cognito_token(
