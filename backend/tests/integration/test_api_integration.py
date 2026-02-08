@@ -149,7 +149,7 @@ def test_api_integration():
         bookmakers_data = auth_bookmakers_response.json()
         assert "bookmakers" in bookmakers_data, "Bookmakers data missing"
         print(
-            f"✅ Authenticated bookmakers endpoint passed: Found {bookmakers_data['count']} bookmakers"
+            f"✅ Authenticated bookmakers endpoint passed: Found {len(bookmakers_data['bookmakers'])} bookmakers"
         )
 
         # Test analyses endpoint

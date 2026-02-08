@@ -129,8 +129,7 @@ def test_bookmakers_endpoint(api_config):
     assert response.status_code == 200
     data = response.json()
     assert "bookmakers" in data
-    assert "count" in data
-    assert data["count"] > 0
+    assert len(data["bookmakers"]) > 0
 
 
 def test_analytics_endpoint(api_config):
