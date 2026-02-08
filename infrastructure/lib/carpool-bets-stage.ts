@@ -20,6 +20,8 @@ import { ScheduleCollectorStack } from './schedule-collector-stack';
 import { InjuryCollectorStack } from './injury-collector-stack';
 import { UserModelsStack } from './user-models-stack';
 import { AIAgentStack } from './ai-agent-stack';
+import { BennyTraderStack } from './benny-trader-stack';
+import { BennyTraderScheduleStack } from './benny-trader-schedule-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -117,6 +119,16 @@ export class CarpoolBetsStage extends cdk.Stage {
     new AIAgentStack(this, 'AIAgent', {
       stage: props.stage,
       dynamodbTableName: `carpool-bets-v2-${props.stage}`,
+    });
+
+    // Benny trader stack
+    const bennyTraderStack = new BennyTraderStack(this, 'BennyTrader', {
+      betsTable: dynamoStack.betsTable,
+    });
+
+    // Benny trader schedule
+    new BennyTraderScheduleStack(this, 'BennyTraderSchedule', {
+      bennyTraderFunction: bennyTraderStack.bennyTraderFunction,
     });
 
     // Schedule stacks - simplified to avoid Lambda permission limit
