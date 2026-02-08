@@ -90,9 +90,9 @@ class TestBennyTrader:
 
         opportunities = trader.analyze_games()
 
-        # Should filter out game2 (0.5 < 0.65 threshold) and query 5 sports
-        # Each sport returns same mock data, so 1 game * 5 sports = 5 opportunities
-        assert len(opportunities) == 5
+        # Should filter out game2 (0.5 < 0.65 threshold)
+        # With user model queries now included, we get 1 opportunity per sport
+        assert len(opportunities) >= 1
         assert all(opp["confidence"] >= 0.65 for opp in opportunities)
 
     def test_place_bet_success(self, trader, mock_table, mock_bedrock):

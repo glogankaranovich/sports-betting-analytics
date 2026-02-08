@@ -56,12 +56,12 @@ class TestPrivacyControls:
     def test_list_user_models_benny_can_see_all(self, agent):
         """Benny can list any user's models"""
         with patch("ai_agent.UserModel") as mock_model:
-            mock_model.list_by_user.return_value = []
+            mock_model.list_benny_accessible.return_value = []
 
             result = agent._list_user_models({"user_id": "user456"}, user_id="benny")
 
             assert "models" in result
-            mock_model.list_by_user.assert_called_once_with("user456")
+            mock_model.list_benny_accessible.assert_called_once()
 
     def test_analyze_predictions_filters_by_user(self, agent, mock_dynamodb):
         """Analyze predictions filters by user_id"""
