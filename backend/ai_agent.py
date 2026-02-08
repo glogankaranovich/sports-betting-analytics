@@ -220,16 +220,20 @@ Always be concise, data-driven, and actionable."""
         try:
             target_user_id = params.get("user_id")
 
-            # Privacy check: users can only see their own models, Benny can see all
-            if user_id and user_id != "benny":
+            # Benny can see all models with allow_benny_access=True
+            if user_id == "benny":
+                sport = params.get("sport")  # Optional sport filter
+                models = UserModel.list_benny_accessible(sport=sport)
+            else:
+                # Regular users can only see their own models
                 if target_user_id and target_user_id != user_id:
                     return {"error": "Access denied"}
-                target_user_id = user_id
+                target_user_id = user_id or target_user_id
 
-            if not target_user_id:
-                return {"error": "user_id required"}
+                if not target_user_id:
+                    return {"error": "user_id required"}
 
-            models = UserModel.list_by_user(target_user_id)
+                models = UserModel.list_by_user(target_user_id)
 
             return {
                 "models": [

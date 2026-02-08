@@ -21,6 +21,7 @@ interface ModelConfig {
     player_injury: DataSource;
   };
   minConfidence: number;
+  allowBennyAccess: boolean;
 }
 
 const DATA_SOURCES = [
@@ -64,6 +65,7 @@ export const ModelBuilder: React.FC<{ onSave: (config: ModelConfig) => void; onC
       player_injury: { enabled: false, weight: 5 },
     },
     minConfidence: 60,
+    allowBennyAccess: true,
   });
 
   const totalWeight = Object.values(config.dataSources)
@@ -202,6 +204,23 @@ export const ModelBuilder: React.FC<{ onSave: (config: ModelConfig) => void; onC
           <span className="weight-value">{config.minConfidence}%</span>
         </div>
         <p className="help-text">Only show predictions above this confidence level</p>
+      </div>
+
+      <div className="form-group">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.allowBennyAccess}
+            onChange={(e) => setConfig({ ...config, allowBennyAccess: e.target.checked })}
+          />
+          <div>
+            <strong>Allow Benny to use this model</strong>
+            <p className="help-text">
+              If enabled, Benny (our AI trader) can learn from and use this model's predictions when making bets. 
+              Disable if you want to keep this model private.
+            </p>
+          </div>
+        </label>
       </div>
 
       <div className="button-group">

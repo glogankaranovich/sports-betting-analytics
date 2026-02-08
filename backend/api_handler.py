@@ -795,6 +795,7 @@ def handle_create_user_model(body: Dict[str, Any]):
             data_sources=body["data_sources"],
             min_confidence=body.get("min_confidence", 0.6),
             status=body.get("status", "active"),
+            allow_benny_access=body.get("allow_benny_access", True),
         )
         model.save()
 
@@ -863,6 +864,8 @@ def handle_update_user_model(model_id: str, body: Dict[str, Any]):
             model.min_confidence = body["min_confidence"]
         if "status" in body:
             model.status = body["status"]
+        if "allow_benny_access" in body:
+            model.allow_benny_access = body["allow_benny_access"]
 
         model.save()
 
