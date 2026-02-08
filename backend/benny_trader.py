@@ -29,6 +29,34 @@ class BennyTrader:
         self.bankroll = self._get_current_bankroll()
         self.week_start = self._get_week_start()
 
+    def _normalize_prediction(self, prediction: str) -> str:
+        """Normalize prediction for agreement checking.
+
+        Spreads: "Team +5.0" -> "Team spread"
+        Totals: "Over 220.5" -> "Over"
+        Moneyline: "Team" -> "Team"
+        """
+        pred = prediction.strip()
+
+        # Handle spreads (e.g., "Patriots +5.0 @ draftkings" or "Patriots +5.0")
+        if "+" in pred or "-" in pred:
+            # Extract team name before the +/- sign
+            parts = pred.split()
+            team_parts = []
+            for part in parts:
+                if "+" in part or "-" in part or "@" in part:
+                    break
+                team_parts.append(part)
+            team = " ".join(team_parts)
+            return f"{team} spread"
+
+        # Handle totals (e.g., "Over 220.5" or "Under 45.5")
+        if pred.startswith("Over") or pred.startswith("Under"):
+            return pred.split()[0]  # Just "Over" or "Under"
+
+        # Moneyline - return as-is (team name)
+        return pred
+
     def _get_week_start(self) -> str:
         """Get start of current week (Monday)"""
         today = datetime.utcnow()
@@ -235,31 +263,34 @@ class BennyTrader:
             if len(preds) < 2:
                 continue
 
-            # Check if at least 2 models agree on prediction
-            prediction_counts = {}
+            # Normalize predictions for agreement checking
+            normalized_preds = {}
             for p in preds:
                 pred = p["prediction"]
-                if pred not in prediction_counts:
-                    prediction_counts[pred] = []
-                prediction_counts[pred].append(p)
+                normalized = self._normalize_prediction(pred)
+                if normalized not in normalized_preds:
+                    normalized_preds[normalized] = []
+                normalized_preds[normalized].append(p)
 
-            # Find most common prediction
-            max_count = max(len(v) for v in prediction_counts.values())
+            # Find most common normalized prediction
+            max_count = max(len(v) for v in normalized_preds.values())
             if max_count >= 2:  # At least 2 models agree
                 # Get the agreed prediction
-                for pred, models in prediction_counts.items():
+                for normalized, models in normalized_preds.items():
                     if len(models) >= 2:
                         avg_confidence = sum(m["confidence"] for m in models) / len(
                             models
                         )
                         if avg_confidence >= self.MIN_CONFIDENCE:
+                            # Use the most confident model's exact prediction
+                            best_pred = max(models, key=lambda x: x["confidence"])
                             filtered_opportunities.append(
                                 {
                                     "game_id": opp["game_id"],
                                     "sport": opp["sport"],
                                     "home_team": opp["home_team"],
                                     "away_team": opp["away_team"],
-                                    "prediction": pred,
+                                    "prediction": best_pred["prediction"],
                                     "confidence": avg_confidence,
                                     "commence_time": opp["commence_time"],
                                     "market_key": opp["market_key"],
@@ -315,7 +346,7 @@ Format as JSON:
 {{"reasoning": "...", "confidence_adjustment": 0.0, "key_factors": ["factor1", "factor2"]}}"""
 
             response = bedrock.invoke_model(
-                modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 body=json.dumps(
                     {
                         "anthropic_version": "bedrock-2023-05-31",
