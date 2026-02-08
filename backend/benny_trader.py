@@ -98,15 +98,76 @@ class BennyTrader:
             }
         )
 
+    def _get_top_models(self, sport: str, limit: int = 3) -> List[str]:
+        """Get top performing models for a sport based on recent accuracy"""
+        try:
+            # Query recent verified predictions for this sport
+            response = table.query(
+                IndexName="VerifiedAnalysisGSI",
+                KeyConditionExpression=Key("sport_outcome").eq(f"{sport}#verified"),
+                ScanIndexForward=False,
+                Limit=500,  # Last 500 predictions
+            )
+
+            predictions = response.get("Items", [])
+
+            # Calculate accuracy per model
+            model_stats = {}
+            for pred in predictions:
+                model = pred.get("model")
+                if not model:
+                    continue
+
+                if model not in model_stats:
+                    model_stats[model] = {"correct": 0, "total": 0}
+
+                model_stats[model]["total"] += 1
+                if pred.get("correct"):
+                    model_stats[model]["correct"] += 1
+
+            # Calculate accuracy and sort
+            model_accuracy = []
+            for model, stats in model_stats.items():
+                if stats["total"] >= 10:  # Minimum 10 predictions
+                    accuracy = stats["correct"] / stats["total"]
+                    model_accuracy.append((model, accuracy, stats["total"]))
+
+            # Sort by accuracy, then by sample size
+            model_accuracy.sort(key=lambda x: (x[1], x[2]), reverse=True)
+
+            # Return top N models
+            top_models = [m[0] for m in model_accuracy[:limit]]
+
+            # Fallback to default models if not enough data
+            if len(top_models) < limit:
+                default_models = [
+                    "ensemble",
+                    "consensus",
+                    "value",
+                    "momentum",
+                    "matchup",
+                ]
+                for model in default_models:
+                    if model not in top_models:
+                        top_models.append(model)
+                    if len(top_models) >= limit:
+                        break
+
+            return top_models[:limit]
+
+        except Exception as e:
+            print(f"Error getting top models: {e}")
+            # Fallback to safe defaults
+            return ["ensemble", "consensus", "value"]
+
     def analyze_games(self) -> List[Dict[str, Any]]:
         """Analyze upcoming games and identify betting opportunities"""
         # Get games in next 24 hours
         now = datetime.utcnow()
         tomorrow = now + timedelta(days=1)
 
-        # Query ensemble predictions from all sports
-        # GSI1PK format: ANALYSIS#{sport}#{bookmaker}#{model}#game
-        opportunities = []
+        # Query predictions from top 3 models for each sport
+        opportunities = {}  # game_id -> list of predictions
 
         for sport in [
             "basketball_nba",
@@ -115,37 +176,91 @@ class BennyTrader:
             "icehockey_nhl",
             "soccer_epl",
         ]:
-            response = table.query(
-                IndexName="AnalysisTimeGSI",
-                KeyConditionExpression=Key("analysis_time_pk").eq(
-                    f"ANALYSIS#{sport}#fanduel#ensemble#game"
+            # Get top 3 models for this sport
+            top_models = self._get_top_models(sport)
+            print(f"Top models for {sport}: {top_models}")
+
+            for model in top_models:
+                response = table.query(
+                    IndexName="AnalysisTimeGSI",
+                    KeyConditionExpression=Key("analysis_time_pk").eq(
+                        f"ANALYSIS#{sport}#fanduel#{model}#game"
+                    )
+                    & Key("commence_time").between(
+                        now.isoformat(), tomorrow.isoformat()
+                    ),
+                    FilterExpression="attribute_exists(latest) AND latest = :true",
+                    ExpressionAttributeValues={":true": True},
+                    Limit=20,
                 )
-                & Key("commence_time").between(now.isoformat(), tomorrow.isoformat()),
-                FilterExpression="attribute_exists(latest) AND latest = :true",
-                ExpressionAttributeValues={":true": True},
-                Limit=20,
-            )
 
-            predictions = response.get("Items", [])
+                predictions = response.get("Items", [])
 
-            # Filter high confidence predictions
-            for pred in predictions:
-                confidence = float(pred.get("confidence", 0))
-                if confidence >= self.MIN_CONFIDENCE:
-                    opportunities.append(
-                        {
-                            "game_id": pred.get("game_id"),
+                for pred in predictions:
+                    game_id = pred.get("game_id")
+                    confidence = float(pred.get("confidence", 0))
+
+                    if game_id not in opportunities:
+                        opportunities[game_id] = {
+                            "game_id": game_id,
                             "sport": pred.get("sport"),
                             "home_team": pred.get("home_team"),
                             "away_team": pred.get("away_team"),
-                            "prediction": pred.get("prediction"),
-                            "confidence": confidence,
                             "commence_time": pred.get("commence_time"),
                             "market_key": pred.get("market_key", "h2h"),
+                            "predictions": [],
+                        }
+
+                    opportunities[game_id]["predictions"].append(
+                        {
+                            "model": model,
+                            "prediction": pred.get("prediction"),
+                            "confidence": confidence,
+                            "reasoning": pred.get("reasoning", ""),
                         }
                     )
 
-        return opportunities
+        # Filter to games with at least 2 models agreeing
+        filtered_opportunities = []
+        for game_id, opp in opportunities.items():
+            preds = opp["predictions"]
+            if len(preds) < 2:
+                continue
+
+            # Check if at least 2 models agree on prediction
+            prediction_counts = {}
+            for p in preds:
+                pred = p["prediction"]
+                if pred not in prediction_counts:
+                    prediction_counts[pred] = []
+                prediction_counts[pred].append(p)
+
+            # Find most common prediction
+            max_count = max(len(v) for v in prediction_counts.values())
+            if max_count >= 2:  # At least 2 models agree
+                # Get the agreed prediction
+                for pred, models in prediction_counts.items():
+                    if len(models) >= 2:
+                        avg_confidence = sum(m["confidence"] for m in models) / len(
+                            models
+                        )
+                        if avg_confidence >= self.MIN_CONFIDENCE:
+                            filtered_opportunities.append(
+                                {
+                                    "game_id": opp["game_id"],
+                                    "sport": opp["sport"],
+                                    "home_team": opp["home_team"],
+                                    "away_team": opp["away_team"],
+                                    "prediction": pred,
+                                    "confidence": avg_confidence,
+                                    "commence_time": opp["commence_time"],
+                                    "market_key": opp["market_key"],
+                                    "model_predictions": preds,  # Pass all predictions to AI
+                                }
+                            )
+                        break
+
+        return filtered_opportunities
 
     def get_ai_reasoning(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Get AI reasoning and confidence adjustment from Claude"""
@@ -158,21 +273,35 @@ class BennyTrader:
                 opportunity["away_team"], opportunity["sport"]
             )
 
+            # Format model predictions
+            model_preds = opportunity.get("model_predictions", [])
+            model_summary = "\n".join(
+                [
+                    f"- {p['model']}: {p['prediction']} ({p['confidence']:.1%} confidence)"
+                    for p in model_preds
+                ]
+            )
+
             # Build prompt
             prompt = f"""You are Benny, an expert sports betting analyst. Analyze this betting opportunity:
 
 Game: {opportunity['away_team']} @ {opportunity['home_team']}
 Sport: {opportunity['sport']}
-Ensemble Model Prediction: {opportunity['prediction']}
-Model Confidence: {opportunity['confidence']:.1%}
+
+Model Predictions:
+{model_summary}
+
+Consensus Prediction: {opportunity['prediction']}
+Average Confidence: {opportunity['confidence']:.1%}
 
 Home Team Recent Stats: {json.dumps(home_stats, indent=2) if home_stats else 'No data'}
 Away Team Recent Stats: {json.dumps(away_stats, indent=2) if away_stats else 'No data'}
 
-Provide:
-1. Your analysis (2-3 sentences max)
-2. Confidence adjustment (-0.1 to +0.1) based on context the model might miss
-3. Key factors influencing your decision
+Analyze:
+1. Do the models agree or disagree? (Agreement is a good sign)
+2. Does the data support the prediction?
+3. Any red flags or concerns?
+4. Your confidence adjustment (-0.1 to +0.1)
 
 Format as JSON:
 {{"reasoning": "...", "confidence_adjustment": 0.0, "key_factors": ["factor1", "factor2"]}}"""
@@ -227,8 +356,8 @@ Format as JSON:
         """Fetch recent team stats from DynamoDB"""
         try:
             response = table.query(
-                KeyConditionExpression=Key("PK").eq(f"TEAM#{sport}#{team}")
-                & Key("SK").begins_with("STATS#"),
+                KeyConditionExpression=Key("pk").eq(f"TEAM#{sport}#{team}")
+                & Key("sk").begins_with("STATS#"),
                 ScanIndexForward=False,
                 Limit=1,
             )
@@ -343,8 +472,8 @@ Format as JSON:
 
         # Get recent bets
         response = table.query(
-            IndexName="GSI1",
-            KeyConditionExpression=Key("GSI1PK").eq("BENNY#BETS"),
+            KeyConditionExpression=Key("pk").eq("BENNY")
+            & Key("sk").begins_with("BET#"),
             ScanIndexForward=False,
             Limit=20,
         )
@@ -431,8 +560,8 @@ Format as JSON:
 
         # Bankroll history (get all bankroll updates)
         bankroll_response = table.query(
-            KeyConditionExpression=Key("PK").eq("BENNY")
-            & Key("SK").begins_with("BANKROLL#"),
+            KeyConditionExpression=Key("pk").eq("BENNY")
+            & Key("sk").begins_with("BANKROLL#"),
             ScanIndexForward=True,
             Limit=50,
         )

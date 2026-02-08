@@ -80,8 +80,16 @@ export const BennyDashboard: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="benny-loading">Loading Benny's dashboard...</div>;
-  if (error) return <div className="benny-error">{error}</div>;
+  if (loading) return (
+    <div className="benny-container">
+      <div className="benny-loading">Loading Benny's dashboard...</div>
+    </div>
+  );
+  if (error) return (
+    <div className="benny-container">
+      <div className="benny-error">{error}</div>
+    </div>
+  );
   if (!data) return null;
 
   const bankrollPercent = (data.current_bankroll / data.weekly_budget) * 100;
@@ -284,6 +292,14 @@ export const BennyDashboard: React.FC = () => {
       </div>
 
       <style>{`
+        .benny-container {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 500px;
+        }
+
         .benny-dashboard {
           padding: 20px;
           max-width: 1200px;
