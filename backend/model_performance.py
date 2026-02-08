@@ -184,6 +184,7 @@ class ModelPerformanceTracker:
             "rest_schedule",
             "matchup",
             "injury_aware",
+            "ensemble",
         ]
 
         performance = {}
