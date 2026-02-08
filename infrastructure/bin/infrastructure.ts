@@ -171,6 +171,7 @@ if (environment === 'dev') {
 
   // Deploy Amplify for frontend hosting (handles all branches)
   new AmplifyStack(app, 'CarpoolBetsAmplifyStack', {
+    domainName: 'carpoolbets.com', // Custom domain
     env: {
       account: '083314012659', // Pipeline account
       region: 'us-east-1',

@@ -2,8 +2,12 @@ import * as cdk from 'aws-cdk-lib';
 import * as amplify from 'aws-cdk-lib/aws-amplify';
 import { Construct } from 'constructs';
 
+interface AmplifyStackProps extends cdk.StackProps {
+  domainName?: string;
+}
+
 export class AmplifyStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: AmplifyStackProps) {
     super(scope, id, props);
 
     // Create Amplify app using CfnApp
@@ -68,5 +72,32 @@ frontend:
       value: `https://prod.${amplifyApp.attrDefaultDomain}`,
       description: 'Amplify App URL (prod branch - prod stage)',
     });
+
+    // Add custom domain if provided
+    if (props?.domainName) {
+      const domain = new amplify.CfnDomain(this, 'CustomDomain', {
+        appId: amplifyApp.attrAppId,
+        domainName: props.domainName,
+        subDomainSettings: [
+          {
+            branchName: prodBranch.branchName,
+            prefix: '',
+          },
+          {
+            branchName: prodBranch.branchName,
+            prefix: 'www',
+          },
+          {
+            branchName: betaBranch.branchName,
+            prefix: 'beta',
+          },
+        ],
+      });
+
+      new cdk.CfnOutput(this, 'CustomDomainUrl', {
+        value: `https://${props.domainName}`,
+        description: 'Custom domain URL',
+      });
+    }
   }
 }
