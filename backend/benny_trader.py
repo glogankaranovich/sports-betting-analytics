@@ -212,25 +212,60 @@ class BennyTrader:
             "icehockey_nhl",
             "soccer_epl",
         ]:
-            # Get top 3 models for this sport
+            # Get top 3 system models for this sport
             top_models = self._get_top_models(sport)
+
+            # Add user models that allow Benny access
+            try:
+                from user_models import UserModel
+
+                accessible_models = UserModel.list_benny_accessible(sport=sport)
+                for user_model in accessible_models:
+                    top_models.append(f"user_{user_model.model_id}")
+            except Exception as e:
+                print(f"Error loading user models for {sport}: {e}")
+
             print(f"Top models for {sport}: {top_models}")
 
             for model in top_models:
-                response = table.query(
-                    IndexName="AnalysisTimeGSI",
-                    KeyConditionExpression=Key("analysis_time_pk").eq(
-                        f"ANALYSIS#{sport}#fanduel#{model}#game"
+                # Check if this is a user model
+                if model.startswith("user_"):
+                    model_id = model.replace("user_", "")
+                    try:
+                        user_model_table = dynamodb.Table(
+                            os.environ.get(
+                                "MODEL_PREDICTIONS_TABLE",
+                                "Dev-UserModels-ModelPredictions",
+                            )
+                        )
+                        response = user_model_table.query(
+                            KeyConditionExpression=Key("PK").eq(f"MODEL#{model_id}"),
+                            FilterExpression="commence_time BETWEEN :start AND :end",
+                            ExpressionAttributeValues={
+                                ":start": now.isoformat(),
+                                ":end": tomorrow.isoformat(),
+                            },
+                            Limit=20,
+                        )
+                        predictions = response.get("Items", [])
+                    except Exception as e:
+                        print(f"Error querying user model {model_id}: {e}")
+                        predictions = []
+                else:
+                    # System model - query from main table
+                    response = table.query(
+                        IndexName="AnalysisTimeGSI",
+                        KeyConditionExpression=Key("analysis_time_pk").eq(
+                            f"ANALYSIS#{sport}#fanduel#{model}#game"
+                        )
+                        & Key("commence_time").between(
+                            now.isoformat(), tomorrow.isoformat()
+                        ),
+                        FilterExpression="attribute_exists(latest) AND latest = :true",
+                        ExpressionAttributeValues={":true": True},
+                        Limit=20,
                     )
-                    & Key("commence_time").between(
-                        now.isoformat(), tomorrow.isoformat()
-                    ),
-                    FilterExpression="attribute_exists(latest) AND latest = :true",
-                    ExpressionAttributeValues={":true": True},
-                    Limit=20,
-                )
-
-                predictions = response.get("Items", [])
+                    predictions = response.get("Items", [])
 
                 for pred in predictions:
                     game_id = pred.get("game_id")
@@ -255,6 +290,53 @@ class BennyTrader:
                             "reasoning": pred.get("reasoning", ""),
                         }
                     )
+
+            # Query user model predictions with allow_benny_access=True
+            user_model_table = dynamodb.Table(
+                os.environ.get(
+                    "MODEL_PREDICTIONS_TABLE", "Dev-UserModels-ModelPredictions"
+                )
+            )
+
+            try:
+                response = user_model_table.query(
+                    IndexName="SportTimeIndex",
+                    KeyConditionExpression=Key("sport").eq(sport)
+                    & Key("commence_time").between(
+                        now.isoformat(), tomorrow.isoformat()
+                    ),
+                    FilterExpression="allow_benny_access = :true",
+                    ExpressionAttributeValues={":true": True},
+                    Limit=50,
+                )
+
+                user_predictions = response.get("Items", [])
+
+                for pred in user_predictions:
+                    game_id = pred.get("game_id")
+                    confidence = float(pred.get("confidence", 0))
+
+                    if game_id not in opportunities:
+                        opportunities[game_id] = {
+                            "game_id": game_id,
+                            "sport": pred.get("sport"),
+                            "home_team": pred.get("home_team"),
+                            "away_team": pred.get("away_team"),
+                            "commence_time": pred.get("commence_time"),
+                            "market_key": pred.get("bet_type", "h2h"),
+                            "predictions": [],
+                        }
+
+                    opportunities[game_id]["predictions"].append(
+                        {
+                            "model": f"user_{pred.get('model_id')}",
+                            "prediction": pred.get("prediction"),
+                            "confidence": confidence,
+                            "reasoning": pred.get("reasoning", ""),
+                        }
+                    )
+            except Exception as e:
+                print(f"Error querying user models for {sport}: {e}")
 
         # Filter to games with at least 2 models agreeing
         filtered_opportunities = []
