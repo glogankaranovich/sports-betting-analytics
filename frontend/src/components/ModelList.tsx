@@ -29,10 +29,6 @@ const SPORT_LABELS: Record<string, string> = {
 export const ModelList: React.FC<ModelListProps> = ({ models, onEdit, onDelete, onToggleStatus, onView }) => {
   return (
     <div className="model-list">
-      <div className="list-header">
-        <h2>My Models</h2>
-      </div>
-
       {models.length === 0 ? (
         <div className="empty-state">
           <p>You haven't created any models yet.</p>

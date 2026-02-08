@@ -111,13 +111,16 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
 
   return (
     <div>
-      <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
-        <button onClick={() => setView('builder')} className="btn-primary">
-          Create New Model
-        </button>
-        <button onClick={() => setView('upload')} className="btn-secondary">
-          Upload Custom Data
-        </button>
+      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2>My Models</h2>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={() => setView('upload')} className="btn-secondary">
+            Upload Custom Data
+          </button>
+          <button onClick={() => setView('builder')} className="btn-primary">
+            Create New Model
+          </button>
+        </div>
       </div>
       <ModelList
         models={userModels}
