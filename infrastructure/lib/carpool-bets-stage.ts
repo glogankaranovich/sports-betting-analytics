@@ -18,7 +18,6 @@ import { MonitoringStack } from './monitoring-stack';
 import { SeasonManagerStack } from './season-manager-stack';
 import { ScheduleCollectorStack } from './schedule-collector-stack';
 import { InjuryCollectorStack } from './injury-collector-stack';
-import { EmailStack } from './email-stack';
 import { UserModelsStack } from './user-models-stack';
 import { AIAgentStack } from './ai-agent-stack';
 import { StackNames } from './utils/stack-names';
@@ -118,11 +117,6 @@ export class CarpoolBetsStage extends cdk.Stage {
     new AIAgentStack(this, 'AIAgent', {
       stage: props.stage,
       dynamodbTableName: `carpool-bets-v2-${props.stage}`,
-    });
-
-    // Email forwarding stack
-    new EmailStack(this, 'Email', {
-      stage: props.stage,
     });
 
     // Schedule stacks - simplified to avoid Lambda permission limit
