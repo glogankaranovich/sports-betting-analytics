@@ -10,6 +10,7 @@ import { ModelAnalytics } from './components/ModelAnalytics';
 import Models from './components/Models';
 import { UserModels } from './components/UserModels';
 import { Benny } from './components/Benny';
+import LandingPage from './components/LandingPage';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
@@ -909,6 +910,11 @@ function App() {
   // Simple routing based on URL path
   const path = window.location.pathname;
   
+  // Public landing page
+  if (path === '/') {
+    return <LandingPage />;
+  }
+  
   if (path === '/terms') {
     return <TermsOfService />;
   }
@@ -921,6 +927,7 @@ function App() {
     return <ResponsibleGamblingPage />;
   }
   
+  // App requires authentication
   return (
     <Authenticator
       hideSignUp={true}
