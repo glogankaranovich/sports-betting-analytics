@@ -910,6 +910,9 @@ function App() {
   // Simple routing based on URL path
   const path = window.location.pathname;
   
+  // Check if we're in production (based on environment variable)
+  const isProduction = process.env.REACT_APP_STAGE === 'prod';
+  
   // Public landing page
   if (path === '/') {
     return <LandingPage />;
@@ -927,7 +930,40 @@ function App() {
     return <ResponsibleGamblingPage />;
   }
   
-  // App requires authentication
+  // Block app access in production
+  if (isProduction) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+        color: 'white',
+        textAlign: 'center',
+        padding: '20px'
+      }}>
+        <div>
+          <h1 style={{ fontSize: '3rem', marginBottom: '20px', color: '#667eea' }}>🚧 Coming Soon</h1>
+          <p style={{ fontSize: '1.5rem', marginBottom: '30px' }}>The app is currently in private beta.</p>
+          <a href="/" style={{
+            display: 'inline-block',
+            padding: '15px 40px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '50px',
+            fontSize: '1.1rem',
+            fontWeight: '600'
+          }}>
+            ← Back to Home
+          </a>
+        </div>
+      </div>
+    );
+  }
+  
+  // App requires authentication (beta only)
   return (
     <Authenticator
       hideSignUp={true}
