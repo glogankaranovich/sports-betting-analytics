@@ -57,6 +57,17 @@ export class AIAgentStack extends cdk.Stack {
       })
     );
 
+    // Grant AWS Marketplace permissions for Bedrock model access
+    aiAgentLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "aws-marketplace:ViewSubscriptions",
+          "aws-marketplace:Subscribe",
+        ],
+        resources: ["*"],
+      })
+    );
+
     // API Gateway
     const api = new apigateway.RestApi(this, "AIAgentAPI", {
       restApiName: `ai-agent-api-${stage}`,
