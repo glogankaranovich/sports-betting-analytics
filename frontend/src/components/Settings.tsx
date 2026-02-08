@@ -26,6 +26,7 @@ const Settings: React.FC<SettingsProps> = ({
 
   const modelDescriptions: Record<string, string> = {
     consensus: 'Average across all bookmakers - balanced approach',
+    ensemble: 'Intelligent combination of all models using dynamic weighting',
     value: 'Finds odds discrepancies and value opportunities',
     momentum: 'Tracks line movement and sharp action',
     contrarian: 'Fades the public, follows sharp money',
@@ -80,6 +81,7 @@ const Settings: React.FC<SettingsProps> = ({
           >
             <optgroup label="System Models">
               <option value="consensus">Consensus</option>
+              <option value="ensemble">Ensemble</option>
               <option value="value">Value</option>
               <option value="momentum">Momentum</option>
               <option value="contrarian">Contrarian</option>

@@ -650,6 +650,24 @@ def handle_get_analytics(query_params: Dict[str, str]):
         print(f"DynamoDB response - Count: {response.get('Count')}")
 
         if not response.get("Items"):
+            # Cache miss - invoke Model Analytics Lambda
+            analytics_function = os.getenv("MODEL_ANALYTICS_FUNCTION")
+            if analytics_function:
+                import boto3
+
+                lambda_client = boto3.client("lambda")
+                payload = {"queryStringParameters": query_params}
+                lambda_response = lambda_client.invoke(
+                    FunctionName=analytics_function,
+                    InvocationType="RequestResponse",
+                    Payload=json.dumps(payload),
+                )
+                result = json.loads(lambda_response["Payload"].read())
+                if result.get("statusCode") == 200:
+                    return create_response(
+                        200, decimal_to_float(result.get("body", {}))
+                    )
+
             return create_response(
                 404, {"error": f"No cached data found for {metric_type}"}
             )
