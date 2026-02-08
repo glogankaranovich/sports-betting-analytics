@@ -100,23 +100,8 @@ const Settings: React.FC<SettingsProps> = ({
               </optgroup>
             )}
           </select>
-          <div className="model-description">
-            {settings.model.startsWith('user:') 
-              ? userModels.find(m => `user:${m.model_id}` === settings.model)?.description || 'Custom model'
-              : modelDescriptions[settings.model]
-            }
-          </div>
         </div>
       </div>
-
-      <style>{`
-        .model-description {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.6);
-          margin-top: 4px;
-          font-style: italic;
-        }
-      `}</style>
     </div>
   );
 };
