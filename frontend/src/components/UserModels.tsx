@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ModelList } from './ModelList';
 import { ModelBuilder } from './ModelBuilder';
 import { ModelDetail } from './ModelDetail';
+import { CustomDataUpload } from './CustomDataUpload';
 import { bettingApi } from '../services/api';
 
 interface UserModelsProps {
@@ -9,7 +10,7 @@ interface UserModelsProps {
 }
 
 export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
-  const [showBuilder, setShowBuilder] = useState(false);
+  const [view, setView] = useState<'list' | 'builder' | 'detail' | 'upload'>('list');
   const [selectedModel, setSelectedModel] = useState<any>(null);
   const [userModels, setUserModels] = useState<any[]>([]);
   const [userId] = useState('test_user'); // TODO: Get from Cognito user context
@@ -36,7 +37,7 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
   const handleCreateModel = async (config: any) => {
     try {
       await bettingApi.createUserModel(token, { ...config, user_id: userId });
-      setShowBuilder(false);
+      setView('list');
       loadUserModels();
     } catch (error) {
       console.error('Error creating model:', error);
@@ -75,33 +76,60 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
     return <div className="loading">Loading your models...</div>;
   }
 
-  if (selectedModel) {
+  if (view === 'detail' && selectedModel) {
     return (
       <ModelDetail
         model={selectedModel}
         token={token}
-        onBack={() => setSelectedModel(null)}
+        onBack={() => {
+          setSelectedModel(null);
+          setView('list');
+        }}
       />
     );
   }
 
-  if (showBuilder) {
+  if (view === 'builder') {
     return (
       <ModelBuilder
         onSave={handleCreateModel}
-        onCancel={() => setShowBuilder(false)}
+        onCancel={() => setView('list')}
+      />
+    );
+  }
+
+  if (view === 'upload') {
+    return (
+      <CustomDataUpload
+        token={token}
+        userId={userId}
+        onUploadComplete={() => setView('list')}
+        onCancel={() => setView('list')}
       />
     );
   }
 
   return (
-    <ModelList
-      models={userModels}
-      onCreateNew={() => setShowBuilder(true)}
-      onView={(model) => setSelectedModel(model)}
-      onEdit={handleEditModel}
-      onDelete={handleDeleteModel}
-      onToggleStatus={handleToggleStatus}
-    />
+    <div>
+      <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
+        <button onClick={() => setView('builder')} className="btn-primary">
+          Create New Model
+        </button>
+        <button onClick={() => setView('upload')} className="btn-secondary">
+          Upload Custom Data
+        </button>
+      </div>
+      <ModelList
+        models={userModels}
+        onCreateNew={() => setView('builder')}
+        onView={(model) => {
+          setSelectedModel(model);
+          setView('detail');
+        }}
+        onEdit={handleEditModel}
+        onDelete={handleDeleteModel}
+        onToggleStatus={handleToggleStatus}
+      />
+    </div>
   );
 };
