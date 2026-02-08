@@ -19,6 +19,7 @@ interface ModelConfig {
     head_to_head: DataSource;
     player_stats: DataSource;
     player_injury: DataSource;
+    custom_data: DataSource;
   };
   minConfidence: number;
   allowBennyAccess: boolean;
@@ -32,6 +33,7 @@ const DATA_SOURCES = [
   { key: 'head_to_head', label: 'Head-to-Head', description: 'Historical matchup performance' },
   { key: 'player_stats', label: 'Player Stats', description: 'Recent player performance (props only)' },
   { key: 'player_injury', label: 'Player Injury', description: 'Player injury status (props only)' },
+  { key: 'custom_data', label: 'Custom Data', description: 'Your uploaded custom datasets' },
 ];
 
 const SPORTS = [
@@ -63,6 +65,7 @@ export const ModelBuilder: React.FC<{ onSave: (config: ModelConfig) => void; onC
       head_to_head: { enabled: false, weight: 5 },
       player_stats: { enabled: false, weight: 10 },
       player_injury: { enabled: false, weight: 5 },
+      custom_data: { enabled: false, weight: 0 },
     },
     minConfidence: 60,
     allowBennyAccess: true,
