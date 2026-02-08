@@ -42,24 +42,28 @@ When analyzing data:
 Always be concise, data-driven, and actionable."""
 
     def execute_tool(
-        self, tool_name: str, tool_input: Dict[str, Any]
+        self, tool_name: str, tool_input: Dict[str, Any], user_id: str = None
     ) -> Dict[str, Any]:
-        """Execute a tool and return results"""
+        """Execute a tool and return results with user privacy controls"""
         if tool_name == "create_model":
-            return self._create_model(tool_input)
+            return self._create_model(tool_input, user_id)
         elif tool_name == "analyze_predictions":
-            return self._analyze_predictions(tool_input)
+            return self._analyze_predictions(tool_input, user_id)
         elif tool_name == "query_stats":
             return self._query_stats(tool_input)
         elif tool_name == "explain_prediction":
-            return self._explain_prediction(tool_input)
+            return self._explain_prediction(tool_input, user_id)
+        elif tool_name == "list_user_models":
+            return self._list_user_models(tool_input, user_id)
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
-    def _create_model(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_model(
+        self, params: Dict[str, Any], requesting_user_id: str = None
+    ) -> Dict[str, Any]:
         """Create a new user model"""
         try:
-            user_id = params.get("user_id", "ai-agent")
+            user_id = requesting_user_id or params.get("user_id", "ai-agent")
             model_id = str(uuid.uuid4())
 
             config = {
@@ -87,20 +91,47 @@ Always be concise, data-driven, and actionable."""
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def _analyze_predictions(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze recent predictions"""
+    def _analyze_predictions(
+        self, params: Dict[str, Any], user_id: str = None
+    ) -> Dict[str, Any]:
+        """Analyze recent predictions with user privacy"""
         try:
             days_back = params.get("days_back", 7)
+            model_id = params.get("model_id")
             cutoff = (datetime.utcnow() - timedelta(days=days_back)).isoformat()
 
-            response = self.table.query(
-                IndexName="GSI1",
-                KeyConditionExpression="GSI1PK = :pk AND GSI1SK > :cutoff",
-                ExpressionAttributeValues={":pk": "PREDICTIONS", ":cutoff": cutoff},
-                Limit=100,
-            )
+            # If model_id specified, verify user has access
+            if model_id and user_id and user_id != "benny":
+                model = UserModel.get(user_id, model_id)
+                if not model:
+                    return {"error": "Model not found or access denied"}
+
+            # Query predictions
+            if model_id:
+                # Filter by specific model
+                response = self.table.query(
+                    KeyConditionExpression="PK = :pk AND SK > :cutoff",
+                    ExpressionAttributeValues={
+                        ":pk": f"MODEL#{model_id}#PREDICTIONS",
+                        ":cutoff": cutoff,
+                    },
+                    Limit=100,
+                )
+            else:
+                # All predictions (Benny can see all, users see their own)
+                response = self.table.query(
+                    IndexName="GSI1",
+                    KeyConditionExpression="GSI1PK = :pk AND GSI1SK > :cutoff",
+                    ExpressionAttributeValues={":pk": "PREDICTIONS", ":cutoff": cutoff},
+                    Limit=100,
+                )
 
             predictions = response.get("Items", [])
+
+            # Filter by user_id if not Benny
+            if user_id and user_id != "benny":
+                predictions = [p for p in predictions if p.get("user_id") == user_id]
+
             total = len(predictions)
             correct = sum(1 for p in predictions if p.get("outcome") == "correct")
             accuracy = (correct / total * 100) if total > 0 else 0
@@ -151,8 +182,10 @@ Always be concise, data-driven, and actionable."""
         except Exception as e:
             return {"error": str(e)}
 
-    def _explain_prediction(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Explain a specific prediction"""
+    def _explain_prediction(
+        self, params: Dict[str, Any], user_id: str = None
+    ) -> Dict[str, Any]:
+        """Explain a specific prediction with privacy check"""
         try:
             prediction_id = params["prediction_id"]
 
@@ -165,6 +198,11 @@ Always be concise, data-driven, and actionable."""
 
             prediction = response["Item"]
 
+            # Check user access (Benny can see all)
+            if user_id and user_id != "benny":
+                if prediction.get("user_id") != user_id:
+                    return {"error": "Access denied"}
+
             return {
                 "prediction_id": prediction_id,
                 "game": prediction.get("game"),
@@ -175,9 +213,45 @@ Always be concise, data-driven, and actionable."""
         except Exception as e:
             return {"error": str(e)}
 
-    def retrieve_context(self, query: str, context_type: str = "auto") -> str:
+    def _list_user_models(
+        self, params: Dict[str, Any], user_id: str = None
+    ) -> Dict[str, Any]:
+        """List user models with privacy controls"""
+        try:
+            target_user_id = params.get("user_id")
+
+            # Privacy check: users can only see their own models, Benny can see all
+            if user_id and user_id != "benny":
+                if target_user_id and target_user_id != user_id:
+                    return {"error": "Access denied"}
+                target_user_id = user_id
+
+            if not target_user_id:
+                return {"error": "user_id required"}
+
+            models = UserModel.list_by_user(target_user_id)
+
+            return {
+                "models": [
+                    {
+                        "model_id": m.model_id,
+                        "name": m.name,
+                        "sport": m.sport,
+                        "bet_types": m.bet_types,
+                        "status": m.status,
+                        "created_at": m.created_at,
+                    }
+                    for m in models
+                ]
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
+    def retrieve_context(
+        self, query: str, user_id: str = None, context_type: str = "auto"
+    ) -> str:
         """
-        Retrieve relevant context from DynamoDB based on query
+        Retrieve relevant context from DynamoDB based on query with privacy controls
         This is a simple RAG implementation without vector embeddings
         """
         try:
@@ -196,7 +270,7 @@ Always be concise, data-driven, and actionable."""
 
             # Check for prediction/model mentions
             if any(word in query_lower for word in ["prediction", "model", "accuracy"]):
-                recent_predictions = self._get_recent_predictions()
+                recent_predictions = self._get_recent_predictions(user_id)
                 if recent_predictions:
                     context_parts.append(
                         f"Recent predictions:\n{json.dumps(recent_predictions, indent=2)}"
@@ -232,17 +306,25 @@ Always be concise, data-driven, and actionable."""
         except Exception:
             return []
 
-    def _get_recent_predictions(self, limit: int = 10) -> List[Dict]:
-        """Get recent predictions"""
+    def _get_recent_predictions(
+        self, user_id: str = None, limit: int = 10
+    ) -> List[Dict]:
+        """Get recent predictions with privacy filtering"""
         try:
             cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
             response = self.table.query(
                 IndexName="GSI1",
                 KeyConditionExpression="GSI1PK = :pk AND GSI1SK > :cutoff",
                 ExpressionAttributeValues={":pk": "PREDICTIONS", ":cutoff": cutoff},
-                Limit=limit,
+                Limit=limit * 2,  # Get more to filter
             )
-            return response.get("Items", [])
+            predictions = response.get("Items", [])
+
+            # Filter by user_id if not Benny
+            if user_id and user_id != "benny":
+                predictions = [p for p in predictions if p.get("user_id") == user_id]
+
+            return predictions[:limit]
         except Exception:
             return []
 
@@ -263,14 +345,15 @@ Always be concise, data-driven, and actionable."""
     def chat(
         self,
         message: str,
+        user_id: str = None,
         conversation_history: Optional[List[Dict[str, str]]] = None,
         stream: bool = True,
     ):
         """Send a message and get streaming response with RAG context"""
         messages = conversation_history or []
 
-        # Retrieve relevant context using RAG
-        context = self.retrieve_context(message)
+        # Retrieve relevant context using RAG with privacy
+        context = self.retrieve_context(message, user_id)
 
         # Add context to system prompt if available
         system_prompt = self.system_prompt
@@ -471,6 +554,20 @@ Always be concise, data-driven, and actionable."""
                     "required": ["prediction_id"],
                 },
             },
+            {
+                "name": "list_user_models",
+                "description": "List all models for a user. Users can only see their own models.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {
+                            "type": "string",
+                            "description": "User ID to list models for",
+                        },
+                    },
+                    "required": ["user_id"],
+                },
+            },
         ]
 
 
@@ -481,6 +578,12 @@ def lambda_handler(event, context):
         message = body.get("message")
         conversation_id = body.get("conversation_id")
         stream = body.get("stream", True)
+
+        # Extract user_id from request context (set by authorizer)
+        user_id = None
+        if "requestContext" in event and "authorizer" in event["requestContext"]:
+            claims = event["requestContext"]["authorizer"].get("claims", {})
+            user_id = claims.get("sub") or claims.get("cognito:username")
 
         if not message:
             return {
@@ -511,7 +614,11 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 200,
                 "body": json.dumps(
-                    {"conversation_id": conversation_id or "new", "response": response}
+                    {
+                        "conversation_id": conversation_id or "new",
+                        "response": response,
+                        "user_id": user_id,
+                    }
                 ),
             }
         else:
@@ -530,7 +637,11 @@ def lambda_handler(event, context):
             return {
                 "statusCode": 200,
                 "body": json.dumps(
-                    {"conversation_id": conversation_id or "new", "response": response}
+                    {
+                        "conversation_id": conversation_id or "new",
+                        "response": response,
+                        "user_id": user_id,
+                    }
                 ),
             }
 
