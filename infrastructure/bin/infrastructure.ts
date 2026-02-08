@@ -21,6 +21,7 @@ import { AnalysisGeneratorScheduleStack } from '../lib/analysis-generator-schedu
 import { ModelAnalyticsScheduleStack } from '../lib/model-analytics-schedule-stack';
 import { UserModelsStack } from '../lib/user-models-stack';
 import { AIAgentStack } from '../lib/ai-agent-stack';
+import { EmailStack } from '../lib/email-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -114,6 +115,14 @@ if (environment === 'dev') {
     stage: 'dev',
     dynamodbTableName: 'carpool-bets-v2-dev',
     env: ENVIRONMENTS.dev,
+  });
+
+  const emailStack = new EmailStack(app, StackNames.forEnvironment('dev', 'Email'), {
+    stage: 'dev',
+    env: {
+      account: '952070844012', // Default account where domain is registered
+      region: 'us-east-1',
+    },
   });
 
   // Schedule stacks - simplified to avoid Lambda permission limit

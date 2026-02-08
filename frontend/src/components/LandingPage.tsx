@@ -59,9 +59,10 @@ const LandingPage: React.FC = () => {
           <section className="section">
             <h2>Contact</h2>
             <div className="contact">
-              <p><strong>Company:</strong> Carpool Bets</p>
-              <p><strong>Industry:</strong> Sports Technology / Analytics</p>
-              <p><strong>Use Case:</strong> AI-powered betting analytics and natural language model creation assistant</p>
+              <p><strong>General Inquiries:</strong> <a href="mailto:info@carpoolbets.com">info@carpoolbets.com</a></p>
+              <p><strong>Customer Support:</strong> <a href="mailto:support@carpoolbets.com">support@carpoolbets.com</a></p>
+              <p><strong>Security Issues:</strong> <a href="mailto:security@carpoolbets.com">security@carpoolbets.com</a></p>
+              <p><strong>Compliance & Responsible Gambling:</strong> <a href="mailto:compliance@carpoolbets.com">compliance@carpoolbets.com</a></p>
             </div>
           </section>
           

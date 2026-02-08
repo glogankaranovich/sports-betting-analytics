@@ -18,6 +18,9 @@ import { MonitoringStack } from './monitoring-stack';
 import { SeasonManagerStack } from './season-manager-stack';
 import { ScheduleCollectorStack } from './schedule-collector-stack';
 import { InjuryCollectorStack } from './injury-collector-stack';
+import { EmailStack } from './email-stack';
+import { UserModelsStack } from './user-models-stack';
+import { AIAgentStack } from './ai-agent-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -107,6 +110,20 @@ export class CarpoolBetsStage extends cdk.Stage {
 
     // Compliance stack
     const complianceStack = new ComplianceStack(this, 'Compliance', {});
+
+    // User models stack
+    new UserModelsStack(this, 'UserModels', {});
+
+    // AI Agent stack
+    new AIAgentStack(this, 'AIAgent', {
+      stage: props.stage,
+      dynamodbTableName: `carpool-bets-v2-${props.stage}`,
+    });
+
+    // Email forwarding stack
+    new EmailStack(this, 'Email', {
+      stage: props.stage,
+    });
 
     // Schedule stacks - simplified to avoid Lambda permission limit
     new OddsCollectorScheduleStack(this, 'OddsSchedule', {

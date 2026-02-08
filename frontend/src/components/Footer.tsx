@@ -20,6 +20,7 @@ const Footer: React.FC = () => {
             <p><strong>Problem Gambling Helpline</strong></p>
             <p className="helpline-number">1-800-522-4700</p>
             <p className="help-description">24/7 confidential support</p>
+            <p style={{marginTop: '10px'}}><a href="mailto:support@carpoolbets.com">support@carpoolbets.com</a></p>
           </div>
         </div>
         
