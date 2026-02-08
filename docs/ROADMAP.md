@@ -98,6 +98,101 @@
 
 ---
 
+## 🎯 Future Phases
+
+### Phase 4: AI Agent MVP (4-6 weeks)
+**Goal:** Enable users to create custom models with AI assistance
+
+**Architecture:** See `docs/ai-agent-architecture.md`
+
+#### Milestone 1: Chat Interface (Week 1-2)
+- [ ] Basic chat UI component
+- [ ] LLM integration (AWS Bedrock/Claude)
+- [ ] Conversation history storage
+- [ ] Streaming responses
+
+#### Milestone 2: Model Creation Assistant (Week 3-4)
+- [ ] Natural language → model code generation
+- [ ] BaseAnalysisModel template system
+- [ ] Code validation and sandboxing
+- [ ] Model testing on historical data
+
+#### Milestone 3: Data Analysis (Week 5-6)
+- [ ] Query historical predictions
+- [ ] Performance analysis queries
+- [ ] Pattern identification
+- [ ] Visualization generation
+
+**Deliverables:**
+- Chat interface in frontend
+- AI Agent Lambda backend
+- Model code generation
+- Historical data queries
+
+---
+
+### Phase 5: Advanced User Models (3-4 weeks)
+**Goal:** Allow users to create, test, and deploy custom models with code
+
+**Architecture:** See `docs/user-defined-models-feature.md`
+
+#### Milestone 1: Model Builder (Week 1-2)
+- [ ] Model creation wizard
+- [ ] Code editor with syntax highlighting
+- [ ] Template library
+- [ ] Parameter configuration UI
+
+#### Milestone 2: Testing & Validation (Week 2-3)
+- [ ] Backtesting engine
+- [ ] Performance metrics calculation
+- [ ] Comparison to existing models
+- [ ] Validation rules
+
+#### Milestone 3: Deployment (Week 3-4)
+- [ ] User model storage (S3)
+- [ ] Model execution infrastructure
+- [ ] Prediction generation
+- [ ] Performance monitoring
+
+**Deliverables:**
+- Model builder interface
+- Backtesting system
+- User model execution
+- Performance tracking
+
+---
+
+### Phase 6: Model Marketplace (4-6 weeks)
+**Goal:** Enable users to share and monetize models
+
+**Architecture:** See `docs/model-marketplace-vision.md`
+
+#### Milestone 1: Marketplace Infrastructure (Week 1-2)
+- [ ] Model listing database
+- [ ] Search and discovery
+- [ ] Model ratings and reviews
+- [ ] Usage tracking
+
+#### Milestone 2: Monetization (Week 3-4)
+- [ ] Stripe integration
+- [ ] Subscription management
+- [ ] Revenue sharing system
+- [ ] Payout processing
+
+#### Milestone 3: Social Features (Week 5-6)
+- [ ] User profiles
+- [ ] Follow creators
+- [ ] Model leaderboards
+- [ ] Community discussions
+
+**Deliverables:**
+- Marketplace UI
+- Payment processing
+- Revenue sharing
+- Social features
+
+---
+
 ## 📋 Backlog (Q3 2026+)
 
 ### Advanced Features
