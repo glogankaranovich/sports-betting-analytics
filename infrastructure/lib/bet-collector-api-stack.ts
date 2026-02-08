@@ -233,6 +233,11 @@ export class BetCollectorApiStack extends cdk.Stack {
     const chat = aiAgent.addResource('chat');
     chat.addMethod('POST', new apigateway.LambdaIntegration(aiAgentFunction), methodOptions);
 
+    // Benny dashboard endpoint (public - no auth required)
+    const benny = betCollectorApi.root.addResource('benny');
+    const bennyDashboard = benny.addResource('dashboard');
+    bennyDashboard.addMethod('GET', lambdaIntegration);
+
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {
       value: betCollectorApi.url,
       description: 'Bet Collector API Gateway URL'

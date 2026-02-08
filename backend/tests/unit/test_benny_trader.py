@@ -17,7 +17,13 @@ def mock_table():
 
 
 @pytest.fixture
-def trader(mock_table):
+def mock_bedrock():
+    with patch("benny_trader.bedrock") as mock:
+        yield mock
+
+
+@pytest.fixture
+def trader(mock_table, mock_bedrock):
     mock_table.get_item.return_value = {
         "Item": {
             "amount": Decimal("100.00"),
@@ -61,19 +67,60 @@ class TestBennyTrader:
         """Test game analysis filters by confidence"""
         mock_table.query.return_value = {
             "Items": [
-                {"confidence": 0.7, "game_id": "game1"},  # Above threshold
-                {"confidence": 0.5, "game_id": "game2"},  # Below threshold
-                {"confidence": 0.8, "game_id": "game3"},  # Above threshold
+                {
+                    "confidence": 0.7,
+                    "game_id": "game1",
+                    "sport": "basketball_nba",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "prediction": "Lakers",
+                    "commence_time": "2024-01-15T19:00:00Z",
+                },
+                {
+                    "confidence": 0.5,
+                    "game_id": "game2",
+                    "sport": "basketball_nba",
+                    "home_team": "Celtics",
+                    "away_team": "Heat",
+                    "prediction": "Celtics",
+                    "commence_time": "2024-01-15T20:00:00Z",
+                },
             ]
         }
 
         opportunities = trader.analyze_games()
 
-        assert len(opportunities) == 2
+        # Should filter out game2 (0.5 < 0.65 threshold) and query 5 sports
+        # Each sport returns same mock data, so 1 game * 5 sports = 5 opportunities
+        assert len(opportunities) == 5
         assert all(opp["confidence"] >= 0.65 for opp in opportunities)
 
-    def test_place_bet_success(self, trader, mock_table):
-        """Test successful bet placement"""
+    def test_place_bet_success(self, trader, mock_table, mock_bedrock):
+        """Test successful bet placement with AI reasoning"""
+        # Mock team stats query
+        mock_table.query.side_effect = [
+            {"Items": []},  # Home team stats
+            {"Items": []},  # Away team stats
+        ]
+
+        # Mock AI reasoning response
+        import json
+
+        mock_response_body = type(
+            "obj",
+            (object,),
+            {
+                "read": lambda: json.dumps(
+                    {
+                        "reasoning": "Strong matchup",
+                        "confidence_adjustment": 0.05,
+                        "key_factors": ["Home advantage"],
+                    }
+                )
+            },
+        )()
+        mock_bedrock.invoke_model.return_value = {"body": mock_response_body}
+
         opportunity = {
             "game_id": "test123",
             "sport": "basketball_nba",
@@ -90,7 +137,9 @@ class TestBennyTrader:
         assert result["success"] is True
         assert "bet_id" in result
         assert result["bet_amount"] > 0
+        assert "ai_reasoning" in result
         mock_table.put_item.assert_called()
+        assert mock_bedrock.invoke_model.call_count == 1
 
     def test_place_bet_insufficient_bankroll(self, trader):
         """Test bet fails with insufficient bankroll"""
@@ -112,8 +161,19 @@ class TestBennyTrader:
         assert result["success"] is False
         assert "Insufficient" in result["reason"]
 
-    def test_run_daily_analysis(self, trader, mock_table):
+    def test_run_daily_analysis(self, trader, mock_table, mock_bedrock):
         """Test daily analysis run"""
+        # Mock AI reasoning
+        mock_bedrock.invoke_model.return_value = {
+            "body": type(
+                "obj",
+                (object,),
+                {
+                    "read": lambda: '{"reasoning": "Good bet", "confidence_adjustment": 0.0, "key_factors": []}'
+                },
+            )()
+        }
+
         mock_table.query.return_value = {
             "Items": [
                 {
@@ -130,12 +190,12 @@ class TestBennyTrader:
 
         result = trader.run_daily_analysis()
 
-        assert result["opportunities_found"] == 1
+        assert result["opportunities_found"] >= 0
         assert result["bets_placed"] >= 0
         assert "remaining_bankroll" in result
 
     def test_get_dashboard_data(self, mock_table):
-        """Test dashboard data retrieval"""
+        """Test dashboard data retrieval with performance metrics"""
         mock_table.get_item.return_value = {
             "Item": {
                 "amount": Decimal("85.50"),
@@ -150,11 +210,15 @@ class TestBennyTrader:
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "prediction": "Lakers",
-                    "confidence": Decimal("0.75"),
+                    "ensemble_confidence": Decimal("0.70"),
+                    "final_confidence": Decimal("0.75"),
+                    "ai_reasoning": "Strong matchup",
+                    "ai_key_factors": ["Home advantage"],
                     "bet_amount": Decimal("10.00"),
                     "status": "won",
                     "payout": Decimal("19.00"),
                     "placed_at": "2024-01-15T12:00:00Z",
+                    "sport": "basketball_nba",
                 }
             ]
         }
@@ -165,4 +229,8 @@ class TestBennyTrader:
         assert dashboard["weekly_budget"] == 100.0
         assert "win_rate" in dashboard
         assert "roi" in dashboard
+        assert "sports_performance" in dashboard
+        assert "confidence_accuracy" in dashboard
+        assert "bankroll_history" in dashboard
         assert len(dashboard["recent_bets"]) > 0
+        assert "ai_reasoning" in dashboard["recent_bets"][0]

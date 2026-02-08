@@ -10,6 +10,7 @@ import { ModelAnalytics } from './components/ModelAnalytics';
 import Models from './components/Models';
 import { UserModels } from './components/UserModels';
 import { Benny } from './components/Benny';
+import { BennyDashboard } from './components/BennyDashboard';
 import LandingPage from './components/LandingPage';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
@@ -44,7 +45,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [loadingGameAnalysis, setLoadingGameAnalysis] = useState(true);
   const [loadingPropAnalysis, setLoadingPropAnalysis] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'system-models' | 'my-models'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'system-models' | 'my-models' | 'benny-dashboard'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const [propAnalysisPage, setPropAnalysisPage] = useState(1);
   const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
@@ -517,6 +518,15 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           >
             My Models
           </button>
+          <button 
+            role="tab"
+            aria-selected={activeTab === 'benny-dashboard'}
+            aria-controls="benny-dashboard-panel"
+            className={`tab-button ${activeTab === 'benny-dashboard' ? 'active' : ''}`}
+            onClick={() => handleTabChange('benny-dashboard')}
+          >
+            🤖 Benny
+          </button>
         </nav>
 
         {activeTab === 'games' && (
@@ -897,6 +907,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activeTab === 'my-models' && (
           <UserModels token={token} />
+        )}
+
+        {activeTab === 'benny-dashboard' && (
+          <BennyDashboard />
         )}
       </main>
       

@@ -21,6 +21,8 @@ import { AnalysisGeneratorScheduleStack } from '../lib/analysis-generator-schedu
 import { ModelAnalyticsScheduleStack } from '../lib/model-analytics-schedule-stack';
 import { UserModelsStack } from '../lib/user-models-stack';
 import { AIAgentStack } from '../lib/ai-agent-stack';
+import { BennyTraderStack } from '../lib/benny-trader-stack';
+import { BennyTraderScheduleStack } from '../lib/benny-trader-schedule-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -113,6 +115,16 @@ if (environment === 'dev') {
   const aiAgentStack = new AIAgentStack(app, StackNames.forEnvironment('dev', 'AIAgent'), {
     stage: 'dev',
     dynamodbTableName: 'carpool-bets-v2-dev',
+    env: ENVIRONMENTS.dev,
+  });
+
+  const bennyTraderStack = new BennyTraderStack(app, StackNames.forEnvironment('dev', 'BennyTrader'), {
+    betsTable: dynamoStack.betsTable,
+    env: ENVIRONMENTS.dev,
+  });
+
+  new BennyTraderScheduleStack(app, StackNames.forEnvironment('dev', 'BennyTraderSchedule'), {
+    bennyTraderFunction: bennyTraderStack.bennyTraderFunction,
     env: ENVIRONMENTS.dev,
   });
 
