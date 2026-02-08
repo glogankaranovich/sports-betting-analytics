@@ -12,7 +12,6 @@ interface UserModel {
 
 interface ModelListProps {
   models: UserModel[];
-  onCreateNew: () => void;
   onEdit: (modelId: string) => void;
   onDelete: (modelId: string) => void;
   onToggleStatus: (modelId: string, currentStatus: string) => void;
@@ -27,23 +26,17 @@ const SPORT_LABELS: Record<string, string> = {
   soccer_epl: 'EPL',
 };
 
-export const ModelList: React.FC<ModelListProps> = ({ models, onCreateNew, onEdit, onDelete, onToggleStatus, onView }) => {
+export const ModelList: React.FC<ModelListProps> = ({ models, onEdit, onDelete, onToggleStatus, onView }) => {
   return (
     <div className="model-list">
       <div className="list-header">
         <h2>My Models</h2>
-        <button onClick={onCreateNew} className="btn-primary">
-          + Create Model
-        </button>
       </div>
 
       {models.length === 0 ? (
         <div className="empty-state">
           <p>You haven't created any models yet.</p>
           <p>Create your first model to start generating custom predictions!</p>
-          <button onClick={onCreateNew} className="btn-primary">
-            Create Your First Model
-          </button>
         </div>
       ) : (
         <div className="models-grid">

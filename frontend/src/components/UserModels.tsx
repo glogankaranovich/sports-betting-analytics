@@ -121,7 +121,6 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
       </div>
       <ModelList
         models={userModels}
-        onCreateNew={() => setView('builder')}
         onView={(model) => {
           setSelectedModel(model);
           setView('detail');
