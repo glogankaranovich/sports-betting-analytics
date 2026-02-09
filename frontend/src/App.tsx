@@ -387,7 +387,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <img src={logo} alt="Carpool Bets" className="logo" />
           <div className="header-info">
             <span>Welcome, {user?.signInDetails?.loginId}</span>
-            <span>Environment: {process.env.REACT_APP_STAGE}</span>
           </div>
         </div>
         
