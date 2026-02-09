@@ -1,5 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as amplify from 'aws-cdk-lib/aws-amplify';
+import * as rum from 'aws-cdk-lib/aws-rum';
+import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 
 interface AmplifyStackProps extends cdk.StackProps {
@@ -99,5 +101,59 @@ frontend:
         description: 'Custom domain URL',
       });
     }
+
+    // CloudWatch RUM for Beta
+    const betaIdentityPool = new cognito.CfnIdentityPool(this, 'BetaRumIdentityPool', {
+      allowUnauthenticatedIdentities: true,
+    });
+
+    const betaRumApp = new rum.CfnAppMonitor(this, 'BetaRumAppMonitor', {
+      name: 'carpool-bets-beta',
+      domain: props?.domainName ? `beta.${props.domainName}` : `beta.${amplifyApp.attrDefaultDomain}`,
+      appMonitorConfiguration: {
+        allowCookies: true,
+        enableXRay: false,
+        sessionSampleRate: 1.0,
+        telemetries: ['errors', 'performance', 'http'],
+      },
+      cwLogEnabled: true,
+    });
+
+    // CloudWatch RUM for Prod
+    const prodIdentityPool = new cognito.CfnIdentityPool(this, 'ProdRumIdentityPool', {
+      allowUnauthenticatedIdentities: true,
+    });
+
+    const prodRumApp = new rum.CfnAppMonitor(this, 'ProdRumAppMonitor', {
+      name: 'carpool-bets-prod',
+      domain: props?.domainName || amplifyApp.attrDefaultDomain,
+      appMonitorConfiguration: {
+        allowCookies: true,
+        enableXRay: false,
+        sessionSampleRate: 1.0,
+        telemetries: ['errors', 'performance', 'http'],
+      },
+      cwLogEnabled: true,
+    });
+
+    new cdk.CfnOutput(this, 'BetaRumAppMonitorId', {
+      value: betaRumApp.ref,
+      description: 'CloudWatch RUM App Monitor ID for Beta',
+    });
+
+    new cdk.CfnOutput(this, 'BetaRumIdentityPoolId', {
+      value: betaIdentityPool.ref,
+      description: 'Cognito Identity Pool ID for Beta RUM',
+    });
+
+    new cdk.CfnOutput(this, 'ProdRumAppMonitorId', {
+      value: prodRumApp.ref,
+      description: 'CloudWatch RUM App Monitor ID for Prod',
+    });
+
+    new cdk.CfnOutput(this, 'ProdRumIdentityPoolId', {
+      value: prodIdentityPool.ref,
+      description: 'Cognito Identity Pool ID for Prod RUM',
+    });
   }
 }
