@@ -2,7 +2,14 @@ import React from 'react';
 import logo from '../assets/logo_2.png';
 import './LandingPage.css';
 
+const getEmailDomain = () => {
+  const stage = process.env.REACT_APP_STAGE;
+  return stage === 'prod' ? 'carpoolbets.com' : `${stage}.carpoolbets.com`;
+};
+
 const LandingPage: React.FC = () => {
+  const domain = getEmailDomain();
+  
   return (
     <div className="landing-page">
       <div className="landing-container">
@@ -59,10 +66,10 @@ const LandingPage: React.FC = () => {
           <section className="section">
             <h2>Contact</h2>
             <div className="contact">
-              <p><strong>General Inquiries:</strong> <a href="mailto:info@carpoolbets.com">info@carpoolbets.com</a></p>
-              <p><strong>Customer Support:</strong> <a href="mailto:support@carpoolbets.com">support@carpoolbets.com</a></p>
-              <p><strong>Security Issues:</strong> <a href="mailto:security@carpoolbets.com">security@carpoolbets.com</a></p>
-              <p><strong>Compliance & Responsible Gambling:</strong> <a href="mailto:compliance@carpoolbets.com">compliance@carpoolbets.com</a></p>
+              <p><strong>General Inquiries:</strong> <a href={`mailto:info@${domain}`}>info@{domain}</a></p>
+              <p><strong>Customer Support:</strong> <a href={`mailto:support@${domain}`}>support@{domain}</a></p>
+              <p><strong>Security Issues:</strong> <a href={`mailto:security@${domain}`}>security@{domain}</a></p>
+              <p><strong>Compliance & Responsible Gambling:</strong> <a href={`mailto:compliance@${domain}`}>compliance@{domain}</a></p>
             </div>
           </section>
           
