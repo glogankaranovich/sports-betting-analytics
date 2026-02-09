@@ -161,7 +161,12 @@ def test_outcome_collector_integration():
     """Test outcome collector Lambda function"""
     environment = os.getenv("ENVIRONMENT", "dev")
     lambda_function_name = f"outcome-collector-{environment}"
-    lambda_client = boto3.client("lambda", region_name="us-east-1")
+
+    # Configure boto3 client with longer timeout for outcome collector
+    from botocore.config import Config
+
+    config = Config(read_timeout=600)  # 10 minutes for outcome collector
+    lambda_client = boto3.client("lambda", region_name="us-east-1", config=config)
 
     print(f"Testing outcome collector: {lambda_function_name}")
 
