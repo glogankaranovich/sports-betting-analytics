@@ -12,6 +12,7 @@
   --amplify-colors-brand-primary-80: #667eea;
   --amplify-colors-brand-primary-90: #764ba2;
   --amplify-colors-brand-primary-100: #667eea;
+  padding-top: 4rem;
 }
 
 /* Make all header elements transparent */

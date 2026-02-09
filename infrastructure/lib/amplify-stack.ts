@@ -15,8 +15,15 @@ export class AmplifyStack extends cdk.Stack {
     // Create Amplify app using CfnApp
     const amplifyApp = new amplify.CfnApp(this, 'BettingDashboard', {
       name: 'carpool-bets-dashboard',
-      repository: 'https://github.com/your-github-username/sports-betting-analytics', // Update this
-      oauthToken: cdk.SecretValue.secretsManager('github-token').unsafeUnwrap(), // Create this secret
+      repository: 'https://github.com/glogankaranovich/sports-betting-analytics',
+      oauthToken: cdk.SecretValue.secretsManager('github-token').unsafeUnwrap(),
+      customRules: [
+        {
+          source: '</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json)$)([^.]+$)/>',
+          target: '/index.html',
+          status: '200',
+        },
+      ],
       buildSpec: `
 version: 1
 frontend:
@@ -95,6 +102,8 @@ frontend:
           },
         ],
       });
+      domain.addDependency(betaBranch);
+      domain.addDependency(prodBranch);
 
       new cdk.CfnOutput(this, 'CustomDomainUrl', {
         value: `https://${props.domainName}`,
