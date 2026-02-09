@@ -16,6 +16,17 @@ export class EmailStack extends cdk.Stack {
 
     const { stage } = props;
 
+    // Determine domain based on environment
+    const domain =
+      stage === "prod" ? "carpoolbets.com" : `${stage}.carpoolbets.com`;
+    const emailAddresses = [
+      `info@${domain}`,
+      `support@${domain}`,
+      `security@${domain}`,
+      `compliance@${domain}`,
+      `noreply@${domain}`,
+    ];
+
     // S3 bucket for storing incoming emails
     const emailBucket = new s3.Bucket(this, "EmailBucket", {
       bucketName: `carpoolbets-emails-${stage}-${this.account}`,
@@ -40,6 +51,8 @@ export class EmailStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         EMAIL_BUCKET: emailBucket.bucketName,
+        STAGE: stage,
+        DOMAIN: domain,
       },
     });
 
@@ -57,15 +70,9 @@ export class EmailStack extends cdk.Stack {
       receiptRuleSetName: `carpoolbets-rules-${stage}`,
     });
 
-    // Receipt rule for all carpoolbets.com emails
+    // Receipt rule for environment-specific emails
     ruleSet.addRule("ForwardAllEmails", {
-      recipients: [
-        "info@carpoolbets.com",
-        "support@carpoolbets.com",
-        "security@carpoolbets.com",
-        "compliance@carpoolbets.com",
-        "noreply@carpoolbets.com",
-      ],
+      recipients: emailAddresses,
       actions: [
         new sesActions.S3({
           bucket: emailBucket,
@@ -85,6 +92,17 @@ export class EmailStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ForwarderLambdaArn", {
       value: forwarderLambda.functionArn,
       description: "Email forwarder Lambda ARN",
+    });
+
+    new cdk.CfnOutput(this, "EmailDomain", {
+      value: domain,
+      description: "Email domain for this environment",
+      exportName: `${stage}-email-domain`,
+    });
+
+    new cdk.CfnOutput(this, "EmailAddresses", {
+      value: emailAddresses.join(", "),
+      description: "Email addresses configured for this environment",
     });
   }
 }

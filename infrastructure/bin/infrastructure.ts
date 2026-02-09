@@ -8,6 +8,7 @@ import { PlayerStatsCollectorStack } from '../lib/player-stats-collector-stack';
 import { TeamStatsCollectorStack } from '../lib/team-stats-collector-stack';
 import { ModelAnalyticsStack } from '../lib/model-analytics-stack';
 import { AnalysisGeneratorStack } from '../lib/analysis-generator-stack';
+import { EmailStack } from '../lib/email-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
 import { AuthStack } from '../lib/auth-stack';
 import { AmplifyStack } from '../lib/amplify-stack';
@@ -128,8 +129,14 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  // Email stack deployed separately to default account (952070844012)
-  // Uncomment to redeploy: AWS_PROFILE=default cdk deploy Dev-Email
+  // Email stack deployed to default account (952070844012) where domain is registered
+  new EmailStack(app, StackNames.forEnvironment('dev', 'Email'), {
+    stage: 'dev',
+    env: {
+      account: '952070844012',
+      region: 'us-east-1',
+    },
+  });
 
   // Schedule stacks - simplified to avoid Lambda permission limit
   new OddsCollectorScheduleStack(app, StackNames.forEnvironment('dev', 'OddsSchedule'), {
