@@ -83,7 +83,7 @@ export class BetCollectorApiStack extends cdk.Stack {
         stageName: 'prod',
       },
       defaultCorsPreflightOptions: {
-        allowOrigins: ['http://localhost:3000', 'https://*.amplifyapp.com'],
+        allowOrigins: ['http://localhost:3000', 'https://*.amplifyapp.com', 'https://beta.carpoolbets.com', 'https://carpoolbets.com', 'https://www.carpoolbets.com'],
         allowMethods: apigateway.Cors.ALL_METHODS,
         allowHeaders: ['Content-Type', 'Authorization', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token'],
         allowCredentials: true,

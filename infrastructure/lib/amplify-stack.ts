@@ -57,7 +57,7 @@ frontend:
       branchName: 'beta',
       environmentVariables: [
         { name: 'REACT_APP_STAGE', value: 'beta' },
-        { name: 'REACT_APP_API_URL', value: 'https://fgguxgxr4b.execute-api.us-east-1.amazonaws.com/prod' },
+        { name: 'REACT_APP_API_URL', value: 'https://fptz0x2nla.execute-api.us-east-1.amazonaws.com/prod' },
       ],
     });
 
