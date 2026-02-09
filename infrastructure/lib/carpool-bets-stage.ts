@@ -113,7 +113,7 @@ export class CarpoolBetsStage extends cdk.Stage {
     const complianceStack = new ComplianceStack(this, 'Compliance', {});
 
     // User models stack
-    new UserModelsStack(this, 'UserModels', {});
+    const userModelsStack = new UserModelsStack(this, 'UserModels', {});
 
     // AI Agent stack
     new AIAgentStack(this, 'AIAgent', {
@@ -167,6 +167,12 @@ export class CarpoolBetsStage extends cdk.Stage {
       modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
       seasonManagerFunction: seasonManagerStack.seasonManagerFunction,
       complianceLoggerFunction: complianceStack.complianceLoggerFunction,
+      bennyTraderFunction: bennyTraderStack.bennyTraderFunction,
+      betCollectorApiFunction: betCollectorApiStack.betCollectorApiFunction,
+      userModelsApiFunction: betCollectorApiStack.userModelsApiFunction,
+      aiAgentApiFunction: betCollectorApiStack.aiAgentApiFunction,
+      modelExecutorFunction: userModelsStack.modelExecutorFunction,
+      queueLoaderFunction: userModelsStack.queueLoaderFunction,
     });
 
     new ModelAnalyticsScheduleStack(this, 'ModelAnalyticsSchedule', {

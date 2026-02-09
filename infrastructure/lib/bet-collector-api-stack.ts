@@ -17,6 +17,9 @@ export interface BetCollectorApiStackProps extends cdk.StackProps {
 
 export class BetCollectorApiStack extends cdk.Stack {
   public readonly apiUrl: cdk.CfnOutput;
+  public readonly betCollectorApiFunction: lambda.Function;
+  public readonly userModelsApiFunction: lambda.Function;
+  public readonly aiAgentApiFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: BetCollectorApiStackProps) {
     super(scope, id, props);
@@ -237,6 +240,11 @@ export class BetCollectorApiStack extends cdk.Stack {
     const benny = betCollectorApi.root.addResource('benny');
     const bennyDashboard = benny.addResource('dashboard');
     bennyDashboard.addMethod('GET', lambdaIntegration);
+
+    // Export functions for monitoring
+    this.betCollectorApiFunction = betCollectorApiFunction;
+    this.userModelsApiFunction = userModelsFunction;
+    this.aiAgentApiFunction = aiAgentFunction;
 
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {
       value: betCollectorApi.url,

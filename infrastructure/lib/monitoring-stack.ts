@@ -4,6 +4,9 @@ import * as cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sns_subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 export interface MonitoringStackProps extends cdk.StackProps {
@@ -19,6 +22,15 @@ export interface MonitoringStackProps extends cdk.StackProps {
   modelAnalyticsFunction: lambda.IFunction;
   seasonManagerFunction: lambda.IFunction;
   complianceLoggerFunction: lambda.IFunction;
+  bennyTraderFunction: lambda.IFunction;
+  betCollectorApiFunction: lambda.IFunction;
+  userModelsApiFunction: lambda.IFunction;
+  aiAgentApiFunction: lambda.IFunction;
+  modelExecutorFunction: lambda.IFunction;
+  queueLoaderFunction: lambda.IFunction;
+  dynamodbTables?: dynamodb.ITable[];
+  apiGateways?: apigateway.IRestApi[];
+  dlQueues?: sqs.IQueue[];
 }
 
 export class MonitoringStack extends cdk.Stack {
@@ -98,6 +110,12 @@ export class MonitoringStack extends cdk.Stack {
     const modelAnalyticsMetrics = createLambdaMetrics(props.modelAnalyticsFunction, 'ModelAnalytics');
     const seasonManagerMetrics = createLambdaMetrics(props.seasonManagerFunction, 'SeasonManager');
     const complianceMetrics = createLambdaMetrics(props.complianceLoggerFunction, 'ComplianceLogger');
+    const bennyTraderMetrics = createLambdaMetrics(props.bennyTraderFunction, 'BennyTrader');
+    const betApiMetrics = createLambdaMetrics(props.betCollectorApiFunction, 'BetCollectorAPI');
+    const userModelsApiMetrics = createLambdaMetrics(props.userModelsApiFunction, 'UserModelsAPI');
+    const aiAgentApiMetrics = createLambdaMetrics(props.aiAgentApiFunction, 'AIAgentAPI');
+    const modelExecutorMetrics = createLambdaMetrics(props.modelExecutorFunction, 'ModelExecutor');
+    const queueLoaderMetrics = createLambdaMetrics(props.queueLoaderFunction, 'QueueLoader');
     
     // Create metrics for analysis generators (one per sport)
     const analysisMetrics = props.analysisGeneratorFunctions.flatMap((fn, i) => 
@@ -116,6 +134,12 @@ export class MonitoringStack extends cdk.Stack {
       modelAnalyticsMetrics.invocations,
       seasonManagerMetrics.invocations,
       complianceMetrics.invocations,
+      bennyTraderMetrics.invocations,
+      betApiMetrics.invocations,
+      userModelsApiMetrics.invocations,
+      aiAgentApiMetrics.invocations,
+      modelExecutorMetrics.invocations,
+      queueLoaderMetrics.invocations,
     ];
 
     const allErrors = [
@@ -129,6 +153,12 @@ export class MonitoringStack extends cdk.Stack {
       modelAnalyticsMetrics.errors,
       seasonManagerMetrics.errors,
       complianceMetrics.errors,
+      bennyTraderMetrics.errors,
+      betApiMetrics.errors,
+      userModelsApiMetrics.errors,
+      aiAgentApiMetrics.errors,
+      modelExecutorMetrics.errors,
+      queueLoaderMetrics.errors,
     ];
 
     const allDurations = [
@@ -142,6 +172,12 @@ export class MonitoringStack extends cdk.Stack {
       modelAnalyticsMetrics.duration,
       seasonManagerMetrics.duration,
       complianceMetrics.duration,
+      bennyTraderMetrics.duration,
+      betApiMetrics.duration,
+      userModelsApiMetrics.duration,
+      aiAgentApiMetrics.duration,
+      modelExecutorMetrics.duration,
+      queueLoaderMetrics.duration,
     ];
 
     const allThrottles = [
@@ -155,6 +191,12 @@ export class MonitoringStack extends cdk.Stack {
       modelAnalyticsMetrics.throttles,
       seasonManagerMetrics.throttles,
       complianceMetrics.throttles,
+      bennyTraderMetrics.throttles,
+      betApiMetrics.throttles,
+      userModelsApiMetrics.throttles,
+      aiAgentApiMetrics.throttles,
+      modelExecutorMetrics.throttles,
+      queueLoaderMetrics.throttles,
     ];
 
     // Add widgets to dashboard
@@ -194,5 +236,50 @@ export class MonitoringStack extends cdk.Stack {
       value: alarmTopic.topicArn,
       description: 'SNS Topic ARN for alarms',
     });
+
+    // DynamoDB alarms
+    if (props.dynamodbTables) {
+      props.dynamodbTables.forEach((table, i) => {
+        const readThrottle = new cloudwatch.Alarm(this, `DDB${i}ReadThrottle`, {
+          metric: table.metricUserErrors({ dimensionsMap: { TableName: table.tableName, Operation: 'GetItem' } }),
+          threshold: 10,
+          evaluationPeriods: 2,
+          alarmName: `${props.environment}-DDB-ReadThrottle-${i}`,
+        });
+        readThrottle.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+      });
+    }
+
+    // API Gateway alarms
+    if (props.apiGateways) {
+      props.apiGateways.forEach((api, i) => {
+        const serverErrors = new cloudwatch.Alarm(this, `API${i}5xxErrors`, {
+          metric: new cloudwatch.Metric({
+            namespace: 'AWS/ApiGateway',
+            metricName: '5XXError',
+            dimensionsMap: { ApiName: api.restApiName },
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+          }),
+          threshold: 5,
+          evaluationPeriods: 2,
+          alarmName: `${props.environment}-API-5xxErrors-${i}`,
+        });
+        serverErrors.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+      });
+    }
+
+    // SQS DLQ alarms
+    if (props.dlQueues) {
+      props.dlQueues.forEach((queue, i) => {
+        const dlqDepth = new cloudwatch.Alarm(this, `DLQ${i}Depth`, {
+          metric: queue.metricApproximateNumberOfMessagesVisible(),
+          threshold: 1,
+          evaluationPeriods: 1,
+          alarmName: `${props.environment}-DLQ-Depth-${i}`,
+        });
+        dlqDepth.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+      });
+    }
   }
 }

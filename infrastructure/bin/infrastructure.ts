@@ -55,7 +55,7 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  new BetCollectorApiStack(app, StackNames.forEnvironment('dev', 'BetCollectorApi'), {
+  const betCollectorApiStack = new BetCollectorApiStack(app, StackNames.forEnvironment('dev', 'BetCollectorApi'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
     userPool: authStack.userPool,
@@ -188,6 +188,12 @@ if (environment === 'dev') {
     modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     seasonManagerFunction: seasonManagerStack.seasonManagerFunction,
     complianceLoggerFunction: complianceStack.complianceLoggerFunction,
+    bennyTraderFunction: bennyTraderStack.bennyTraderFunction,
+    betCollectorApiFunction: betCollectorApiStack.betCollectorApiFunction,
+    userModelsApiFunction: betCollectorApiStack.userModelsApiFunction,
+    aiAgentApiFunction: betCollectorApiStack.aiAgentApiFunction,
+    modelExecutorFunction: userModelsStack.modelExecutorFunction,
+    queueLoaderFunction: userModelsStack.queueLoaderFunction,
     env: ENVIRONMENTS.dev,
   });
 
