@@ -770,7 +770,9 @@ def handle_list_user_models(query_params: Dict[str, str]):
             return create_response(400, {"error": "user_id parameter required"})
 
         models = UserModel.list_by_user(user_id)
-        return create_response(200, {"models": [decimal_to_float(m) for m in models]})
+        return create_response(
+            200, {"models": [decimal_to_float(m.to_dynamodb()) for m in models]}
+        )
     except Exception as e:
         return create_response(500, {"error": f"Error listing models: {str(e)}"})
 
