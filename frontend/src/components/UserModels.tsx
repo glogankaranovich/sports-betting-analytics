@@ -13,14 +13,26 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
   const [view, setView] = useState<'list' | 'builder' | 'detail' | 'upload'>('list');
   const [selectedModel, setSelectedModel] = useState<any>(null);
   const [userModels, setUserModels] = useState<any[]>([]);
-  const [userId] = useState('test_user'); // TODO: Get from Cognito user context
+  const [userId, setUserId] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Extract user ID from JWT token
     if (token) {
-      loadUserModels();
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserId(payload.sub || payload['cognito:username']);
+      } catch (error) {
+        console.error('Error parsing token:', error);
+      }
     }
   }, [token]);
+
+  useEffect(() => {
+    if (token && userId) {
+      loadUserModels();
+    }
+  }, [token, userId]);
 
   const loadUserModels = async () => {
     try {
