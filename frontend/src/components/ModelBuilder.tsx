@@ -239,7 +239,7 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
               .filter(([_, ds]) => ds.enabled)
               .reduce((acc, [key, ds]) => ({
                 ...acc,
-                [key]: { weight: ds.weight / 100 }
+                [key]: { weight: ds.weight / 100, enabled: true }
               }), {}),
             min_confidence: config.minConfidence / 100,
             allow_benny_access: config.allowBennyAccess,
