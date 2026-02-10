@@ -131,25 +131,25 @@ if (environment === 'dev') {
 
   // Email stacks deployed to default account (952070844012) where domain is registered
   // Deploy all three environments to same account with different domains
-  const emailAccount = {
-    account: '952070844012',
-    region: 'us-east-1',
-  };
+  // const emailAccount = {
+  //   account: '952070844012',
+  //   region: 'us-east-1',
+  // };
 
-  new EmailStack(app, 'Dev-Email', {
-    stage: 'dev',
-    env: emailAccount,
-  });
+  // new EmailStack(app, 'Dev-Email', {
+  //   stage: 'dev',
+  //   env: emailAccount,
+  // });
 
-  new EmailStack(app, 'Beta-Email', {
-    stage: 'beta',
-    env: emailAccount,
-  });
+  // new EmailStack(app, 'Beta-Email', {
+  //   stage: 'beta',
+  //   env: emailAccount,
+  // });
 
-  new EmailStack(app, 'Prod-Email', {
-    stage: 'prod',
-    env: emailAccount,
-  });
+  // new EmailStack(app, 'Prod-Email', {
+  //   stage: 'prod',
+  //   env: emailAccount,
+  // });
 
   // Schedule stacks - simplified to avoid Lambda permission limit
   new OddsCollectorScheduleStack(app, StackNames.forEnvironment('dev', 'OddsSchedule'), {
