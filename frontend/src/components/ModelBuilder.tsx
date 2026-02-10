@@ -51,7 +51,7 @@ const BET_TYPES = [
   { value: 'props', label: 'Player Props' },
 ];
 
-export const ModelBuilder: React.FC<{ onSave: (config: ModelConfig) => void; onCancel: () => void }> = ({ onSave, onCancel }) => {
+export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: () => void }> = ({ onSave, onCancel }) => {
   const [config, setConfig] = useState<ModelConfig>({
     name: '',
     description: '',
