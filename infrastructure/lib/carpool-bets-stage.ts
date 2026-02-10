@@ -56,10 +56,15 @@ export class CarpoolBetsStage extends cdk.Stage {
       betsTable: dynamoStack.betsTable,
     });
 
+    // User models stack
+    const userModelsStack = new UserModelsStack(this, 'UserModels', {});
+
     // Bet collector API stack
     const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
       environment: props.stage,
       betsTableName: `carpool-bets-v2-${props.stage}`,
+      userModelsTableName: userModelsStack.userModelsTable.tableName,
+      modelPredictionsTableName: userModelsStack.modelPredictionsTable.tableName,
       userPool: authStack.userPool,
       modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     });

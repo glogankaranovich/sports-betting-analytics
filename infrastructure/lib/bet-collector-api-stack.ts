@@ -11,6 +11,8 @@ import { Construct } from 'constructs';
 export interface BetCollectorApiStackProps extends cdk.StackProps {
   environment: string;
   betsTableName: string;
+  userModelsTableName?: string;
+  modelPredictionsTableName?: string;
   userPool?: cognito.UserPool;
   modelAnalyticsFunction?: lambda.IFunction;
 }
@@ -185,6 +187,8 @@ export class BetCollectorApiStack extends cdk.Stack {
       environment: {
         DYNAMODB_TABLE: props.betsTableName,
         ENVIRONMENT: props.environment,
+        USER_MODELS_TABLE: props.userModelsTableName || `${props.environment === 'dev' ? 'Dev-' : ''}UserModels-UserModels`,
+        MODEL_PREDICTIONS_TABLE: props.modelPredictionsTableName || `${props.environment === 'dev' ? 'Dev-' : ''}UserModels-ModelPredictions`,
       }
     });
 
