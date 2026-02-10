@@ -228,7 +228,24 @@ export const ModelBuilder: React.FC<{ onSave: (config: ModelConfig) => void; onC
 
       <div className="button-group">
         <button onClick={onCancel} className="btn-secondary">Cancel</button>
-        <button onClick={() => onSave(config)} disabled={!isValid} className="btn-primary">
+        <button onClick={() => {
+          // Convert camelCase to snake_case for API
+          const apiConfig = {
+            name: config.name,
+            description: config.description,
+            sport: config.sport,
+            bet_types: config.betTypes,
+            data_sources: Object.entries(config.dataSources)
+              .filter(([_, ds]) => ds.enabled)
+              .reduce((acc, [key, ds]) => ({
+                ...acc,
+                [key]: { weight: ds.weight / 100 }
+              }), {}),
+            min_confidence: config.minConfidence / 100,
+            allow_benny_access: config.allowBennyAccess,
+          };
+          onSave(apiConfig);
+        }} disabled={!isValid} className="btn-primary">
           Save Model
         </button>
       </div>
