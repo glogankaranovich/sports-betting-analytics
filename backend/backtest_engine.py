@@ -21,7 +21,10 @@ from user_model_executor import (
 )
 
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-table = dynamodb.Table(os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev"))
+bets_table = dynamodb.Table(os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev"))
+user_models_table = dynamodb.Table(
+    os.environ.get("USER_MODELS_TABLE", "Dev-UserModels-UserModels")
+)
 
 
 class BacktestEngine:
@@ -82,21 +85,34 @@ class BacktestEngine:
         self, sport: str, start_date: str, end_date: str
     ) -> List[Dict[str, Any]]:
         """Fetch historical games with outcomes"""
-        games = []
-
-        # Query analyses with outcomes
-        response = table.query(
-            IndexName="GSI1",
-            KeyConditionExpression=Key("GSI1PK").eq(f"SPORT#{sport}")
-            & Key("GSI1SK").between(start_date, end_date),
-            FilterExpression="attribute_exists(outcome)",
-            Limit=1000,
+        response = bets_table.query(
+            IndexName="AnalysisTimeGSI",
+            KeyConditionExpression=Key("analysis_time_pk").eq(f"HISTORICAL#{sport}")
+            & Key("commence_time").between(start_date, end_date),
         )
 
+        # Group by game_id
+        games_dict = {}
         for item in response.get("Items", []):
-            games.append(item)
+            game_id = item.get("game_id")
+            if game_id not in games_dict:
+                games_dict[game_id] = {
+                    "game_id": game_id,
+                    "sport": item.get("sport"),
+                    "home_team": item.get("home_team"),
+                    "away_team": item.get("away_team"),
+                    "commence_time": item.get("commence_time"),
+                    "odds": [],
+                    "outcome": None,
+                }
 
-        return games
+            if item.get("sk") == "OUTCOME":
+                games_dict[game_id]["outcome"] = item
+            else:
+                games_dict[game_id]["odds"].append(item)
+
+        # Only return games with outcomes
+        return [g for g in games_dict.values() if g["outcome"]]
 
     def _evaluate_game(
         self, game: Dict[str, Any], model_config: Dict[str, Any]
@@ -130,8 +146,9 @@ class BacktestEngine:
             )
 
             # Check if prediction was correct
-            actual_outcome = game.get("outcome")
-            correct = predicted_team == actual_outcome
+            outcome = game.get("outcome", {})
+            actual_winner = outcome.get("winner")
+            correct = predicted_team == actual_winner
 
             return {
                 "game_id": game.get("game_id"),
@@ -140,7 +157,7 @@ class BacktestEngine:
                 "commence_time": game.get("commence_time"),
                 "prediction": predicted_team,
                 "confidence": confidence,
-                "actual_outcome": actual_outcome,
+                "actual_winner": actual_winner,
                 "correct": correct,
                 "scores": scores,
             }
@@ -183,6 +200,18 @@ class BacktestEngine:
 
     def _store_backtest(self, result: Dict[str, Any]):
         """Store backtest results in DynamoDB"""
+        from decimal import Decimal
+
+        def convert_floats(obj):
+            """Convert floats to Decimal for DynamoDB"""
+            if isinstance(obj, float):
+                return Decimal(str(obj))
+            elif isinstance(obj, dict):
+                return {k: convert_floats(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_floats(v) for v in obj]
+            return obj
+
         item = {
             "PK": f"USER#{result['user_id']}",
             "SK": f"BACKTEST#{result['backtest_id']}",
@@ -193,17 +222,17 @@ class BacktestEngine:
             "start_date": result["start_date"],
             "end_date": result["end_date"],
             "total_predictions": result["total_predictions"],
-            "metrics": result["metrics"],
-            "predictions": result["predictions"],
+            "metrics": convert_floats(result["metrics"]),
+            "predictions": convert_floats(result["predictions"]),
             "created_at": result["created_at"],
         }
 
-        table.put_item(Item=item)
+        user_models_table.put_item(Item=item)
 
     @staticmethod
     def get_backtest(user_id: str, backtest_id: str) -> Optional[Dict[str, Any]]:
         """Get backtest results"""
-        response = table.get_item(
+        response = user_models_table.get_item(
             Key={"PK": f"USER#{user_id}", "SK": f"BACKTEST#{backtest_id}"}
         )
         return response.get("Item")
@@ -211,7 +240,7 @@ class BacktestEngine:
     @staticmethod
     def list_backtests(model_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """List backtests for a model"""
-        response = table.query(
+        response = user_models_table.query(
             IndexName="GSI1",
             KeyConditionExpression=Key("GSI1PK").eq(f"MODEL#{model_id}"),
             ScanIndexForward=False,
