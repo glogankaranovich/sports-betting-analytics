@@ -9,8 +9,12 @@ import boto3
 
 class BettingDAO:
     def __init__(self):
+        import os
+
         self.dynamodb = boto3.resource("dynamodb")
-        self.table = self.dynamodb.Table("carpool-bets-v2-dev")
+        self.table = self.dynamodb.Table(
+            os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
+        )
 
     def get_game_ids_from_db(self, sport: str) -> List[str]:
         """Get unique game IDs for a sport (past 24 hours + next 7 days, latest odds only)"""
