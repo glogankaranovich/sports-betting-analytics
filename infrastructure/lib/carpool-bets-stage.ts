@@ -22,6 +22,7 @@ import { UserModelsStack } from './user-models-stack';
 import { AIAgentStack } from './ai-agent-stack';
 import { BennyTraderStack } from './benny-trader-stack';
 import { BennyTraderScheduleStack } from './benny-trader-schedule-stack';
+import { CustomDataStack } from './custom-data-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -61,12 +62,21 @@ export class CarpoolBetsStage extends cdk.Stage {
       betsTableName: `carpool-bets-v2-${props.stage}`,
     });
 
+    // Custom data stack
+    const customDataStack = new CustomDataStack(this, 'CustomData', {
+      environment: props.stage,
+    });
+
     // Bet collector API stack
     const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
       environment: props.stage,
       betsTableName: `carpool-bets-v2-${props.stage}`,
       userModelsTableName: userModelsStack.userModelsTable.tableName,
       modelPredictionsTableName: userModelsStack.modelPredictionsTable.tableName,
+      customDataTableName: customDataStack.customDataTable.tableName,
+      customDataBucketName: customDataStack.customDataBucket.bucketName,
+      customDataTable: customDataStack.customDataTable,
+      customDataBucket: customDataStack.customDataBucket,
       userPool: authStack.userPool,
       modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     });

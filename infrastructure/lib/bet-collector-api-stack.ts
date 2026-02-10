@@ -13,6 +13,10 @@ export interface BetCollectorApiStackProps extends cdk.StackProps {
   betsTableName: string;
   userModelsTableName?: string;
   modelPredictionsTableName?: string;
+  customDataTableName?: string;
+  customDataBucketName?: string;
+  customDataTable?: dynamodb.ITable;
+  customDataBucket?: any;
   userPool?: cognito.UserPool;
   modelAnalyticsFunction?: lambda.IFunction;
 }
@@ -65,6 +69,8 @@ export class BetCollectorApiStack extends cdk.Stack {
         DYNAMODB_TABLE: props.betsTableName,
         ENVIRONMENT: props.environment,
         MODEL_ANALYTICS_FUNCTION: props.modelAnalyticsFunction?.functionName || '',
+        CUSTOM_DATA_TABLE: props.customDataTableName || `${props.environment === 'dev' ? 'Dev-' : ''}CustomData-CustomData`,
+        CUSTOM_DATA_BUCKET: props.customDataBucketName || `${props.environment}-custom-data-bucket`,
       }
     });
 
@@ -74,6 +80,14 @@ export class BetCollectorApiStack extends cdk.Stack {
     // Grant Lambda invoke permissions for model analytics
     if (props.modelAnalyticsFunction) {
       props.modelAnalyticsFunction.grantInvoke(betCollectorApiFunction);
+    }
+
+    // Grant custom data permissions
+    if (props.customDataTable) {
+      props.customDataTable.grantReadWriteData(betCollectorApiFunction);
+    }
+    if (props.customDataBucket) {
+      props.customDataBucket.grantReadWrite(betCollectorApiFunction);
     }
 
     // API Gateway for bet collector
