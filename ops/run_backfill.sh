@@ -21,7 +21,7 @@ tmux send-keys -t $SESSION_NAME:dev "cd backend && AWS_PROFILE=sports-betting-de
 
 # Create window for beta
 tmux new-window -t $SESSION_NAME -n "beta"
-tmux send-keys -t $SESSION_NAME:beta "cd backend && AWS_PROFILE=sports-betting-staging python3 backfill_historical_odds.py --env beta --api-key $API_KEY --years $YEARS" C-m
+tmux send-keys -t $SESSION_NAME:beta "cd backend && python3 backfill_historical_odds.py --env beta --profile sports-betting-staging --api-key $API_KEY --years $YEARS" C-m
 
 # Create window for prod
 tmux new-window -t $SESSION_NAME -n "prod"
