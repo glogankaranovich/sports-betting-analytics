@@ -57,7 +57,9 @@ export class CarpoolBetsStage extends cdk.Stage {
     });
 
     // User models stack
-    const userModelsStack = new UserModelsStack(this, 'UserModels', {});
+    const userModelsStack = new UserModelsStack(this, 'UserModels', {
+      betsTableName: `carpool-bets-v2-${props.stage}`,
+    });
 
     // Bet collector API stack
     const betCollectorApiStack = new BetCollectorApiStack(this, 'BetCollectorApi', {
@@ -116,9 +118,6 @@ export class CarpoolBetsStage extends cdk.Stage {
 
     // Compliance stack
     const complianceStack = new ComplianceStack(this, 'Compliance', {});
-
-    // User models stack
-    const userModelsStack = new UserModelsStack(this, 'UserModels', {});
 
     // AI Agent stack
     new AIAgentStack(this, 'AIAgent', {

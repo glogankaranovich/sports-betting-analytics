@@ -8,6 +8,10 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
+export interface UserModelsStackProps extends cdk.StackProps {
+  betsTableName?: string;
+}
+
 export class UserModelsStack extends cdk.Stack {
   public readonly userModelsTable: dynamodb.Table;
   public readonly modelPredictionsTable: dynamodb.Table;
@@ -15,7 +19,7 @@ export class UserModelsStack extends cdk.Stack {
   public readonly modelExecutorFunction: lambda.Function;
   public readonly queueLoaderFunction: lambda.Function;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: UserModelsStackProps) {
     super(scope, id, props);
 
     // User Models Table
@@ -90,7 +94,7 @@ export class UserModelsStack extends cdk.Stack {
       environment: {
         USER_MODELS_TABLE: this.userModelsTable.tableName,
         MODEL_PREDICTIONS_TABLE: this.modelPredictionsTable.tableName,
-        BETS_TABLE: 'carpool-bets-v2-dev', // TODO: Pass from props
+        BETS_TABLE: props?.betsTableName || 'carpool-bets-v2-dev',
       },
     });
 
