@@ -25,7 +25,10 @@ class BennyTrader:
     MIN_CONFIDENCE = 0.65  # Only bet on high confidence predictions
     MAX_BET_PERCENTAGE = 0.20  # Max 20% of bankroll per bet
 
-    def __init__(self):
+    def __init__(self, table_name=None):
+        self.table = dynamodb.Table(
+            table_name or os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev")
+        )
         self.bankroll = self._get_current_bankroll()
         self.week_start = self._get_week_start()
 
@@ -90,7 +93,7 @@ class BennyTrader:
         """Reset bankroll for new week"""
         week_start = self._get_week_start()
 
-        table.put_item(
+        self.table.put_item(
             Item={
                 "pk": "BENNY",
                 "sk": "BANKROLL",
@@ -106,7 +109,7 @@ class BennyTrader:
         timestamp = datetime.utcnow().isoformat()
 
         # Update current bankroll
-        table.put_item(
+        self.table.put_item(
             Item={
                 "pk": "BENNY",
                 "sk": "BANKROLL",
@@ -117,7 +120,7 @@ class BennyTrader:
         )
 
         # Store history snapshot
-        table.put_item(
+        self.table.put_item(
             Item={
                 "pk": "BENNY",
                 "sk": f"BANKROLL#{timestamp}",
@@ -544,7 +547,7 @@ Format as JSON:
         }
 
         # Store bet
-        table.put_item(Item=bet)
+        self.table.put_item(Item=bet)
 
         # Update bankroll
         new_bankroll = self.bankroll - bet_size
