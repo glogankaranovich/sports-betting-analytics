@@ -96,23 +96,45 @@ export const CustomDataUpload: React.FC<CustomDataUploadProps> = ({ token, userI
   };
 
   return (
-    <div className="custom-data-upload">
-      <h2>Upload Custom Dataset</h2>
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onCancel} className="close-button">×</button>
+        <h2>Upload Custom Dataset</h2>
+        
+        <div className="info-box">
+          <strong>📊 How it works:</strong>
+          <p>Upload your own data to enhance predictions. Your data will be compared against game matchups.</p>
+          <details>
+            <summary>View example formats</summary>
+            <div className="example">
+              <strong>Team Data (CSV):</strong>
+              <pre>{`team,power_rating,offensive_rating,defensive_rating
+Los Angeles Lakers,85.5,112.3,108.1
+Boston Celtics,88.2,115.7,106.4`}</pre>
+              
+              <strong>Player Data (JSON):</strong>
+              <pre>{`[
+  {"player": "LeBron James", "avg_points": 28.5, "recent_form": 32.1},
+  {"player": "Stephen Curry", "avg_points": 29.8, "recent_form": 27.3}
+]`}</pre>
+            </div>
+          </details>
+        </div>
 
-      <div className="form-group">
-        <label>Dataset Name *</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g., Team Power Rankings"
-          maxLength={50}
-        />
-      </div>
+        <div className="form-group">
+          <label>Dataset Name *</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Team Power Rankings"
+            maxLength={50}
+          />
+        </div>
 
-      <div className="form-group">
-        <label>Description</label>
-        <input
+        <div className="form-group">
+          <label>Description</label>
+          <input
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -204,6 +226,7 @@ export const CustomDataUpload: React.FC<CustomDataUploadProps> = ({ token, userI
         <button onClick={handleUpload} className="btn-primary" disabled={uploading || !name || !fileContent}>
           {uploading ? 'Uploading...' : 'Upload Dataset'}
         </button>
+      </div>
       </div>
     </div>
   );

@@ -434,12 +434,11 @@ def evaluate_custom_data(game_data: Dict) -> float:
     try:
         from custom_data import CustomDataset
 
-        # Get user_id and model_id from game_data context
         user_id = game_data.get("user_id")
-        dataset_id = game_data.get("custom_dataset_id")
+        dataset_id = game_data.get("dataset_id")
 
         if not user_id or not dataset_id:
-            return 0.5  # No custom data configured
+            return 0.5
 
         # Load dataset
         dataset = CustomDataset.get(user_id, dataset_id)
@@ -451,52 +450,105 @@ def evaluate_custom_data(game_data: Dict) -> float:
         if not data:
             return 0.5
 
-        # Match data to teams
-        home_team = game_data.get("home_team", "").lower()
-        away_team = game_data.get("away_team", "").lower()
-
-        home_row = None
-        away_row = None
-
-        for row in data:
-            team_name = row.get("team", "").lower()
-            if home_team in team_name or team_name in home_team:
-                home_row = row
-            if away_team in team_name or team_name in away_team:
-                away_row = row
-
-        if not home_row or not away_row:
-            return 0.5  # Teams not found in dataset
-
-        # Calculate score from numeric columns
-        # Simple approach: average all numeric values, normalize to 0-1
-        home_score = 0
-        away_score = 0
-        count = 0
-
-        for key, value in home_row.items():
-            if key == "team":
-                continue
-            try:
-                home_val = float(value)
-                away_val = float(away_row.get(key, 0))
-                if home_val + away_val > 0:
-                    home_score += home_val / (home_val + away_val)
-                    away_score += away_val / (home_val + away_val)
-                    count += 1
-            except (ValueError, TypeError):
-                continue
-
-        if count == 0:
-            return 0.5
-
-        # Normalize to 0-1 (>0.5 favors home)
-        total = home_score + away_score
-        return home_score / total if total > 0 else 0.5
+        # Handle based on data type
+        if dataset.data_type == "player":
+            return _evaluate_player_data(data, game_data)
+        else:  # team
+            return _evaluate_team_data(data, game_data)
 
     except Exception as e:
         print(f"Error evaluating custom data: {e}")
         return 0.5
+
+
+def _evaluate_team_data(data: List[Dict], game_data: Dict) -> float:
+    """Evaluate team-based custom data"""
+    home_team = game_data.get("home_team", "").lower()
+    away_team = game_data.get("away_team", "").lower()
+
+    home_row = None
+    away_row = None
+
+    for row in data:
+        team_name = row.get("team", "").lower()
+        if home_team in team_name or team_name in home_team:
+            home_row = row
+        if away_team in team_name or team_name in away_team:
+            away_row = row
+
+    if not home_row or not away_row:
+        return 0.5
+
+    # Compare all numeric columns
+    home_score = 0
+    away_score = 0
+    count = 0
+
+    for key, value in home_row.items():
+        if key == "team":
+            continue
+        try:
+            home_val = float(value)
+            away_val = float(away_row.get(key, 0))
+            if home_val + away_val > 0:
+                home_score += home_val / (home_val + away_val)
+                away_score += away_val / (home_val + away_val)
+                count += 1
+        except (ValueError, TypeError):
+            continue
+
+    if count == 0:
+        return 0.5
+
+    # Normalize to 0-1 (>0.5 favors home)
+    total = home_score + away_score
+    return home_score / total if total > 0 else 0.5
+
+
+def _evaluate_player_data(data: List[Dict], game_data: Dict) -> float:
+    """Evaluate player-based custom data for props"""
+    player_name = game_data.get("player_name", "").lower()
+    prop_line = game_data.get("prop_line")
+
+    if not player_name or prop_line is None:
+        return 0.5
+
+    # Find player in dataset
+    player_row = None
+    for row in data:
+        row_player = row.get("player", "").lower()
+        if player_name in row_player or row_player in player_name:
+            player_row = row
+            break
+
+    if not player_row:
+        return 0.5
+
+    # Average all numeric values and compare to prop line
+    numeric_values = []
+    for key, value in player_row.items():
+        if key == "player":
+            continue
+        try:
+            numeric_values.append(float(value))
+        except (ValueError, TypeError):
+            continue
+
+    if not numeric_values:
+        return 0.5
+
+    avg_value = sum(numeric_values) / len(numeric_values)
+
+    # Normalize: how much better/worse than prop line
+    # If avg is 30 and line is 25, that's +20% -> score ~0.6
+    # If avg is 20 and line is 25, that's -20% -> score ~0.4
+    if prop_line == 0:
+        return 0.5
+
+    ratio = avg_value / prop_line
+    # Map ratio to 0-1 score (1.0 ratio = 0.5, >1.0 favors over, <1.0 favors under)
+    score = 0.5 + (ratio - 1.0) * 0.5
+    return max(0.0, min(1.0, score))  # Clamp to 0-1
 
 
 # Add custom_data to evaluators after function is defined
@@ -529,6 +581,28 @@ def calculate_prediction(model: UserModel, game_data: Dict) -> Dict:
         total_score += score * weight
         total_weight += weight
 
+    # Evaluate custom datasets
+    for custom_dataset in model.custom_datasets:
+        dataset_id = custom_dataset.get("dataset_id")
+        weight = float(custom_dataset.get("weight", 0))
+
+        if not dataset_id or weight == 0:
+            continue
+
+        # Add dataset context to game_data
+        game_data_with_dataset = {
+            **game_data,
+            "dataset_id": dataset_id,
+            "user_id": model.user_id,
+        }
+
+        # Evaluate using custom data evaluator
+        score = evaluate_custom_data(game_data_with_dataset)
+
+        source_scores[f"custom_{dataset_id[:8]}"] = score
+        total_score += score * weight
+        total_weight += weight
+
     # Normalize to 0-1
     confidence = total_score / total_weight if total_weight > 0 else 0
 
@@ -549,8 +623,18 @@ def calculate_prediction(model: UserModel, game_data: Dict) -> Dict:
     for source, score in sorted(
         source_scores.items(), key=lambda x: x[1], reverse=True
     ):
-        weight = float(model.data_sources[source]["weight"])
-        reasoning_parts.append(f"{source}: {score:.2f} (weight: {weight:.0%})")
+        if source.startswith("custom_"):
+            weight_val = next(
+                (
+                    cd["weight"]
+                    for cd in model.custom_datasets
+                    if cd["dataset_id"].startswith(source[7:])
+                ),
+                0,
+            )
+        else:
+            weight_val = float(model.data_sources[source]["weight"])
+        reasoning_parts.append(f"{source}: {score:.2f} (weight: {weight_val:.0%})")
 
     reasoning = f"Prediction based on: {', '.join(reasoning_parts[:3])}"
 
@@ -622,6 +706,9 @@ def get_upcoming_bets(sport: str, bet_types: List[str]) -> List[Dict]:
             sk_parts = sk.split("#")
             bet["player_name"] = sk_parts[0] if len(sk_parts) > 0 else "Unknown"
             bet["bookmaker"] = item.get("bookmaker", "Unknown")
+            bet["prop_line"] = (
+                float(item.get("point", 0)) if item.get("point") else None
+            )
 
         bets.append(bet)
 
