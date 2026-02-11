@@ -543,17 +543,37 @@ class OutcomeCollector:
             for bet in bets:
                 bet_amount = Decimal(str(bet.get("bet_amount", 0)))
                 prediction = bet.get("prediction", "")
+                odds = bet.get("odds")
 
-                # Determine if bet won
-                bet_won = self._check_game_analysis_accuracy(
-                    prediction, self._determine_winner(game), game
+                # Determine if bet won using improved matching
+                bet_won = self._check_bet_outcome(
+                    prediction,
+                    game["home_team"],
+                    game["away_team"],
+                    self._determine_winner(game),
+                    game,
                 )
 
-                # Calculate payout (assuming American odds from bet record)
-                # For now, use simple 1:1 payout (can enhance with actual odds later)
+                # Calculate payout using actual odds
                 if bet_won:
-                    payout = bet_amount * Decimal("2.0")  # Return bet + winnings
-                    profit = bet_amount
+                    if odds:
+                        # Use actual American odds
+                        odds_value = float(odds)
+                        if odds_value > 0:
+                            # Positive odds: profit = (bet * odds) / 100
+                            profit = (
+                                bet_amount * Decimal(str(odds_value)) / Decimal("100")
+                            )
+                        else:
+                            # Negative odds: profit = bet / (abs(odds) / 100)
+                            profit = bet_amount / (
+                                Decimal(str(abs(odds_value))) / Decimal("100")
+                            )
+                        payout = bet_amount + profit
+                    else:
+                        # Fallback to even money if no odds stored
+                        profit = bet_amount
+                        payout = bet_amount * Decimal("2.0")
                     new_status = "won"
                 else:
                     payout = Decimal("0")
@@ -576,7 +596,9 @@ class OutcomeCollector:
                 # Update bankroll
                 current_bankroll += payout
 
-                print(f"Settled Benny bet: {prediction} = {new_status} (${profit})")
+                print(
+                    f"Settled Benny bet: {prediction} = {new_status} (${profit}, odds: {odds})"
+                )
 
             # Save updated bankroll
             bankroll_item = bankroll_response.get("Item", {})
@@ -596,6 +618,76 @@ class OutcomeCollector:
 
         except Exception as e:
             print(f"Error settling Benny bets for game {game.get('id')}: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+    def _check_bet_outcome(
+        self,
+        prediction: str,
+        home_team: str,
+        away_team: str,
+        home_won: bool,
+        game: Dict[str, Any],
+    ) -> bool:
+        """Check if a bet won with improved team name matching"""
+        try:
+            prediction_lower = prediction.lower().strip()
+            home_lower = home_team.lower().strip()
+            away_lower = away_team.lower().strip()
+
+            # Normalize team names for better matching
+            def normalize_team(team: str) -> str:
+                """Extract key parts of team name"""
+                # Remove common prefixes/suffixes
+                team = team.replace("the ", "")
+                # Get last word (usually the team name)
+                parts = team.split()
+                return parts[-1] if parts else team
+
+            home_normalized = normalize_team(home_lower)
+            away_normalized = normalize_team(away_lower)
+            prediction_normalized = normalize_team(prediction_lower)
+
+            # Check for spread bets
+            if "+" in prediction or "-" in prediction:
+                return self._check_game_analysis_accuracy(prediction, home_won, game)
+
+            # Check for totals
+            if "over" in prediction_lower or "under" in prediction_lower:
+                return self._check_game_analysis_accuracy(prediction, home_won, game)
+
+            # Moneyline - check multiple matching strategies
+            # Strategy 1: Full name match
+            if home_lower in prediction_lower:
+                return home_won
+            if away_lower in prediction_lower:
+                return not home_won
+
+            # Strategy 2: Normalized name match (last word)
+            if home_normalized in prediction_normalized:
+                return home_won
+            if away_normalized in prediction_normalized:
+                return not home_won
+
+            # Strategy 3: Prediction contains team name
+            if prediction_normalized in home_normalized:
+                return home_won
+            if prediction_normalized in away_normalized:
+                return not home_won
+
+            # Could not determine - log warning
+            print(
+                f"WARNING: Could not match prediction '{prediction}' to teams '{home_team}' vs '{away_team}'"
+            )
+            return False
+
+        except Exception as e:
+            print(f"Error checking bet outcome: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return False
 
 
 def lambda_handler(event, context):

@@ -263,6 +263,14 @@ class BennyTrader:
                 home_form = self._get_recent_form(game_data["home_team"], sport)
                 away_form = self._get_recent_form(game_data["away_team"], sport)
 
+                # Calculate average odds
+                avg_home_price = sum(o["home_price"] for o in game_data["odds"]) / len(
+                    game_data["odds"]
+                )
+                avg_away_price = sum(o["away_price"] for o in game_data["odds"]) / len(
+                    game_data["odds"]
+                )
+
                 # Let AI analyze the data
                 analysis = self._ai_analyze_game(
                     game_data,
@@ -276,6 +284,15 @@ class BennyTrader:
                 )
 
                 if analysis and analysis["confidence"] >= self.MIN_CONFIDENCE:
+                    # Determine which team was predicted and get their odds
+                    predicted_team = analysis["prediction"]
+                    predicted_odds = None
+
+                    if game_data["home_team"].lower() in predicted_team.lower():
+                        predicted_odds = avg_home_price
+                    elif game_data["away_team"].lower() in predicted_team.lower():
+                        predicted_odds = avg_away_price
+
                     opportunities.append(
                         {
                             "game_id": game_id,
@@ -288,6 +305,7 @@ class BennyTrader:
                             "key_factors": analysis["key_factors"],
                             "commence_time": game_data["commence_time"],
                             "market_key": "h2h",
+                            "odds": predicted_odds,
                         }
                     )
 
@@ -527,6 +545,9 @@ Respond with JSON only:
             "placed_at": datetime.utcnow().isoformat(),
             "status": "pending",
             "bankroll_before": self.bankroll,
+            "odds": Decimal(str(opportunity.get("odds", 0)))
+            if opportunity.get("odds")
+            else None,
         }
 
         # Store bet
