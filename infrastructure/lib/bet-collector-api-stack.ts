@@ -184,6 +184,10 @@ export class BetCollectorApiStack extends cdk.Stack {
     const modelPerformance = betCollectorApi.root.addResource('model-performance');
     modelPerformance.addMethod('GET', lambdaIntegration, methodOptions);
 
+    // Model comparison endpoint (protected)
+    const modelComparison = betCollectorApi.root.addResource('model-comparison');
+    modelComparison.addMethod('GET', lambdaIntegration, methodOptions);
+
     // Separate Lambda for user models to avoid policy size limits
     const userModelsFunction = new lambda.Function(this, 'UserModelsApiFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
@@ -223,6 +227,10 @@ export class BetCollectorApiStack extends cdk.Stack {
     userModelById.addMethod('GET', userModelsIntegration, methodOptions);    // Get model
     userModelById.addMethod('PUT', userModelsIntegration, methodOptions);    // Update model
     userModelById.addMethod('DELETE', userModelsIntegration, methodOptions); // Delete model
+    
+    const userModelBacktests = userModelById.addResource('backtests');
+    userModelBacktests.addMethod('GET', userModelsIntegration, methodOptions);  // List backtests
+    userModelBacktests.addMethod('POST', userModelsIntegration, methodOptions); // Create backtest
     
     const userModelPerformance = userModelById.addResource('performance');
     userModelPerformance.addMethod('GET', userModelsIntegration, methodOptions); // Get model performance
