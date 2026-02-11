@@ -74,6 +74,14 @@ class DynamicModelWeighting:
         self, base_confidence, model, sport, bet_type="game"
     ):
         """Adjust confidence based on recent model performance."""
+        # Try to get cached adjustment first (more efficient)
+        cached = self._get_cached_adjustment(model, sport, bet_type)
+        if cached and "confidence_multiplier" in cached:
+            multiplier = float(cached["confidence_multiplier"])
+            adjusted = base_confidence * multiplier
+            return min(adjusted, 1.0)
+
+        # Fall back to calculating from scratch
         accuracy = self.get_recent_accuracy(model, sport, bet_type)
         inverse_accuracy = self.get_recent_accuracy(
             model, sport, bet_type, inverse=True
@@ -102,6 +110,34 @@ class DynamicModelWeighting:
 
         adjusted = base_confidence * multiplier
         return min(adjusted, 1.0)  # Cap at 1.0
+
+    def _get_cached_adjustment(self, model, sport, bet_type="game"):
+        """Get cached adjustment from DynamoDB if available and recent."""
+        try:
+            response = table.get_item(
+                Key={
+                    "pk": f"MODEL_ADJUSTMENT#{sport}#{bet_type}",
+                    "sk": model,
+                }
+            )
+
+            if "Item" not in response:
+                return None
+
+            item = response["Item"]
+
+            # Check if adjustment is recent (within 24 hours)
+            updated_at = datetime.fromisoformat(item.get("updated_at", ""))
+            age_hours = (datetime.utcnow() - updated_at).total_seconds() / 3600
+
+            if age_hours > 24:
+                return None  # Too old, recalculate
+
+            return item
+
+        except Exception as e:
+            print(f"Error getting cached adjustment: {e}")
+            return None
 
     def get_model_weights(self, sport, bet_type="game", models=None):
         """Calculate dynamic weights for multiple models."""
