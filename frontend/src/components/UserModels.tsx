@@ -10,8 +10,10 @@ interface UserModelsProps {
 }
 
 export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
-  const [view, setView] = useState<'list' | 'builder' | 'detail' | 'upload'>('list');
   const [selectedModel, setSelectedModel] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showBuilderModal, setShowBuilderModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [userModels, setUserModels] = useState<any[]>([]);
   const [userId, setUserId] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -49,7 +51,7 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
   const handleCreateModel = async (config: any) => {
     try {
       await bettingApi.createUserModel(token, { ...config, user_id: userId });
-      setView('list');
+      setShowBuilderModal(false);
       loadUserModels();
     } catch (error) {
       console.error('Error creating model:', error);
@@ -88,62 +90,58 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
     return <div className="loading">Loading your models...</div>;
   }
 
-  if (view === 'detail' && selectedModel) {
-    return (
-      <ModelDetail
-        model={selectedModel}
-        token={token}
-        onBack={() => {
-          setSelectedModel(null);
-          setView('list');
-        }}
-      />
-    );
-  }
-
-  if (view === 'builder') {
-    return (
-      <ModelBuilder
-        onSave={handleCreateModel}
-        onCancel={() => setView('list')}
-      />
-    );
-  }
-
-  if (view === 'upload') {
-    return (
-      <CustomDataUpload
-        token={token}
-        userId={userId}
-        onUploadComplete={() => setView('list')}
-        onCancel={() => setView('list')}
-      />
-    );
-  }
-
   return (
     <div>
-      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>My Models</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => setView('upload')} className="btn-secondary">
-            Upload Custom Data
-          </button>
-          <button onClick={() => setView('builder')} className="btn-primary">
-            Create New Model
-          </button>
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <h2 style={{ margin: 0 }}>My Models</h2>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={() => setShowUploadModal(true)} className="btn-secondary">
+              Upload Custom Data
+            </button>
+            <button onClick={() => setShowBuilderModal(true)} className="btn-primary">
+              Create New Model
+            </button>
+          </div>
         </div>
+        <p style={{ margin: 0, color: '#a0aec0', fontSize: '14px' }}>
+          {userModels.length}/5 models created
+        </p>
       </div>
       <ModelList
         models={userModels}
         onView={(model) => {
           setSelectedModel(model);
-          setView('detail');
+          setShowDetailModal(true);
         }}
         onEdit={handleEditModel}
         onDelete={handleDeleteModel}
         onToggleStatus={handleToggleStatus}
       />
+      {showDetailModal && selectedModel && (
+        <ModelDetail
+          model={selectedModel}
+          token={token}
+          onBack={() => {
+            setShowDetailModal(false);
+            setSelectedModel(null);
+          }}
+        />
+      )}
+      {showBuilderModal && (
+        <ModelBuilder
+          onSave={handleCreateModel}
+          onCancel={() => setShowBuilderModal(false)}
+        />
+      )}
+      {showUploadModal && (
+        <CustomDataUpload
+          token={token}
+          userId={userId}
+          onUploadComplete={() => setShowUploadModal(false)}
+          onCancel={() => setShowUploadModal(false)}
+        />
+      )}
     </div>
   );
 };

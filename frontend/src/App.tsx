@@ -8,7 +8,6 @@ import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
 import { ModelComparison } from './components/ModelComparison';
-import ModelRankings from './components/ModelRankings';
 import Models from './components/Models';
 import { UserModels } from './components/UserModels';
 import { Benny } from './components/Benny';
@@ -47,7 +46,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [loadingGameAnalysis, setLoadingGameAnalysis] = useState(true);
   const [loadingPropAnalysis, setLoadingPropAnalysis] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'system-models' | 'my-models' | 'benny-dashboard' | 'model-comparison' | 'model-rankings'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'system-models' | 'my-models' | 'benny-dashboard' | 'model-comparison'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const [propAnalysisPage, setPropAnalysisPage] = useState(1);
   const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
@@ -243,11 +242,22 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        const data = await bettingApi.getAnalytics(token);
-        const leaderboard = Object.values(data)
-          .filter((model: any) => model.sports_covered?.includes(settings.sport))
-          .sort((a: any, b: any) => b.accuracy - a.accuracy);
-        setModelLeaderboard(leaderboard);
+        // Fetch ROI rankings instead of just accuracy
+        const response = await fetch(
+          `${process.env.REACT_APP_API_BASE_URL}/model-rankings?sport=${settings.sport}&days=30&mode=both`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const data = await response.json();
+        
+        // Show top 5 by ROI
+        const topByROI = (data.rankings || [])
+          .filter((r: any) => r.roi > 0)
+          .slice(0, 5);
+        setModelLeaderboard(topByROI);
       }
     } catch (err) {
       console.error('Error fetching model leaderboard:', err);
@@ -420,11 +430,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             {modelLeaderboard.length > 0 && (
               <>
                 <div className="ticker-item ticker-label">
-                  MODEL LEADERBOARD ({settings.sport.split('_').pop()?.toUpperCase()}):
+                  💰 TOP PROFITABLE ({settings.sport.split('_').pop()?.toUpperCase()}):
                 </div>
                 {modelLeaderboard.map((model: any, index: number) => (
-                  <div key={model.model_name} className="ticker-item">
-                    🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% ({model.correct_analyses}/{model.total_analyses})
+                  <div key={model.model_id} className="ticker-item">
+                    🏆 #{index + 1} {model.model} ({model.mode}): {(model.roi * 100).toFixed(1)}% ROI • {model.profit > 0 ? '+' : ''}${model.profit.toFixed(0)} profit
                   </div>
                 ))}
               </>
@@ -440,11 +450,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             {modelLeaderboard.length > 0 && (
               <>
                 <div className="ticker-item ticker-label">
-                  MODEL LEADERBOARD ({settings.sport.split('_').pop()?.toUpperCase()}):
+                  💰 TOP PROFITABLE ({settings.sport.split('_').pop()?.toUpperCase()}):
                 </div>
                 {modelLeaderboard.map((model: any, index: number) => (
-                  <div key={`dup-${model.model_name}`} className="ticker-item">
-                    🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% ({model.correct_analyses}/{model.total_analyses})
+                  <div key={`dup-${model.model_id}`} className="ticker-item">
+                    🏆 #{index + 1} {model.model} ({model.mode}): {(model.roi * 100).toFixed(1)}% ROI • {model.profit > 0 ? '+' : ''}${model.profit.toFixed(0)} profit
                   </div>
                 ))}
               </>
@@ -536,16 +546,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onClick={() => handleTabChange('model-comparison')}
           >
             📊 Model Comparison
-          </button>
-
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'model-rankings'}
-            aria-controls="model-rankings-panel"
-            className={`tab-button ${activeTab === 'model-rankings' ? 'active' : ''}`}
-            onClick={() => handleTabChange('model-rankings')}
-          >
-            🏆 Model Rankings
           </button>
         </nav>
 
@@ -935,10 +935,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activeTab === 'model-comparison' && (
           <ModelComparison />
-        )}
-
-        {activeTab === 'model-rankings' && (
-          <ModelRankings />
         )}
       </main>
       

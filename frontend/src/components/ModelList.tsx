@@ -72,12 +72,6 @@ export const ModelList: React.FC<ModelListProps> = ({ models, onEdit, onDelete, 
           ))}
         </div>
       )}
-
-      {models.length > 0 && models.length < 5 && (
-        <div className="add-more">
-          <p>You can create up to 5 personal models</p>
-        </div>
-      )}
     </div>
   );
 };
