@@ -7,6 +7,7 @@ import PlayerProps from './components/PlayerProps';
 import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
+import { ModelComparison } from './components/ModelComparison';
 import Models from './components/Models';
 import { UserModels } from './components/UserModels';
 import { Benny } from './components/Benny';
@@ -45,7 +46,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [loadingGameAnalysis, setLoadingGameAnalysis] = useState(true);
   const [loadingPropAnalysis, setLoadingPropAnalysis] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'system-models' | 'my-models' | 'benny-dashboard'>('games');
+  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'system-models' | 'my-models' | 'benny-dashboard' | 'model-comparison'>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const [propAnalysisPage, setPropAnalysisPage] = useState(1);
   const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
@@ -526,6 +527,15 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           >
             🤖 Benny
           </button>
+          <button 
+            role="tab"
+            aria-selected={activeTab === 'model-comparison'}
+            aria-controls="model-comparison-panel"
+            className={`tab-button ${activeTab === 'model-comparison' ? 'active' : ''}`}
+            onClick={() => handleTabChange('model-comparison')}
+          >
+            📊 Model Comparison
+          </button>
         </nav>
 
         {activeTab === 'games' && (
@@ -910,6 +920,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activeTab === 'benny-dashboard' && (
           <BennyDashboard />
+        )}
+
+        {activeTab === 'model-comparison' && (
+          <ModelComparison />
         )}
       </main>
       

@@ -78,6 +78,8 @@ def lambda_handler(event, context):
             return handle_get_analytics(query_params)
         elif path == "/model-performance":
             return handle_get_model_performance(query_params)
+        elif path == "/model-comparison":
+            return handle_get_model_comparison(query_params)
         elif path == "/custom-data" and http_method == "GET":
             return handle_list_custom_data(query_params)
         elif path == "/custom-data/upload" and http_method == "POST":
@@ -758,6 +760,175 @@ def handle_get_model_performance(query_params: Dict[str, str]):
         return create_response(
             500, {"error": f"Error fetching model performance: {str(e)}"}
         )
+
+
+def handle_get_model_comparison(query_params: Dict[str, str]):
+    """Get model comparison with original vs inverse performance"""
+    try:
+        sport = query_params.get("sport", "basketball_nba")
+        days = int(query_params.get("days", 30))
+        user_id = query_params.get("user_id")  # Optional: filter to user's models
+
+        from datetime import datetime, timedelta
+
+        cutoff_time = (datetime.utcnow() - timedelta(days=days)).isoformat()
+
+        # System models
+        system_models = [
+            "consensus",
+            "value",
+            "momentum",
+            "contrarian",
+            "hot_cold",
+            "rest_schedule",
+            "matchup",
+            "injury_aware",
+            "ensemble",
+            "benny",
+        ]
+
+        comparison = []
+
+        # Add system models
+        for model in system_models:
+            model_data = _get_model_comparison_data(
+                model, sport, cutoff_time, is_user_model=False
+            )
+            if model_data:
+                comparison.append(model_data)
+
+        # Add user models if user_id provided
+        if user_id:
+            from user_models import UserModel
+
+            user_models = UserModel.list_by_user(user_id)
+
+            for user_model in user_models:
+                if user_model.sport == sport and user_model.status == "active":
+                    model_data = _get_model_comparison_data(
+                        user_model.model_id,
+                        sport,
+                        cutoff_time,
+                        is_user_model=True,
+                        model_name=user_model.name,
+                    )
+                    if model_data:
+                        comparison.append(model_data)
+
+        # Sort by best performing (either original or inverse)
+        comparison.sort(
+            key=lambda x: max(x["original_accuracy"], x["inverse_accuracy"]),
+            reverse=True,
+        )
+
+        return create_response(
+            200,
+            {
+                "sport": sport,
+                "days": days,
+                "models": comparison,
+                "summary": {
+                    "total_models": len(comparison),
+                    "inverse_recommended": sum(
+                        1 for m in comparison if m["recommendation"] == "INVERSE"
+                    ),
+                    "original_recommended": sum(
+                        1 for m in comparison if m["recommendation"] == "ORIGINAL"
+                    ),
+                    "avoid": sum(
+                        1 for m in comparison if m["recommendation"] == "AVOID"
+                    ),
+                },
+            },
+        )
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return create_response(
+            500, {"error": f"Error fetching model comparison: {str(e)}"}
+        )
+
+
+def _get_model_comparison_data(
+    model_id: str,
+    sport: str,
+    cutoff_time: str,
+    is_user_model: bool = False,
+    model_name: str = None,
+) -> Dict[str, Any]:
+    """Get comparison data for a single model"""
+    try:
+        from boto3.dynamodb.conditions import Key
+
+        # Query original predictions
+        if is_user_model:
+            original_pk = f"VERIFIED#{model_id}#{sport}#game"
+        else:
+            original_pk = f"VERIFIED#{model_id}#{sport}#game"
+
+        original_response = table.query(
+            IndexName="VerifiedAnalysisGSI",
+            KeyConditionExpression=Key("verified_analysis_pk").eq(original_pk)
+            & Key("verified_analysis_sk").gte(cutoff_time),
+            Limit=1000,
+        )
+        original_items = original_response.get("Items", [])
+
+        # Query inverse predictions
+        inverse_pk = f"{original_pk}#inverse"
+        inverse_response = table.query(
+            IndexName="VerifiedAnalysisGSI",
+            KeyConditionExpression=Key("verified_analysis_pk").eq(inverse_pk)
+            & Key("verified_analysis_sk").gte(cutoff_time),
+            Limit=1000,
+        )
+        inverse_items = inverse_response.get("Items", [])
+
+        if not original_items:
+            return None
+
+        # Calculate original metrics
+        original_total = len(original_items)
+        original_correct = sum(
+            1 for item in original_items if item.get("analysis_correct")
+        )
+        original_accuracy = (
+            original_correct / original_total if original_total > 0 else 0
+        )
+
+        # Calculate inverse metrics
+        inverse_total = len(inverse_items)
+        inverse_correct = sum(
+            1 for item in inverse_items if item.get("analysis_correct")
+        )
+        inverse_accuracy = inverse_correct / inverse_total if inverse_total > 0 else 0
+
+        # Determine recommendation
+        if inverse_accuracy > original_accuracy and inverse_accuracy > 0.5:
+            recommendation = "INVERSE"
+        elif original_accuracy > 0.5:
+            recommendation = "ORIGINAL"
+        else:
+            recommendation = "AVOID"
+
+        return {
+            "model": model_name or model_id,
+            "model_id": model_id,
+            "is_user_model": is_user_model,
+            "sample_size": original_total,
+            "original_accuracy": round(original_accuracy, 3),
+            "original_correct": original_correct,
+            "inverse_accuracy": round(inverse_accuracy, 3),
+            "inverse_correct": inverse_correct,
+            "recommendation": recommendation,
+            "accuracy_diff": round(inverse_accuracy - original_accuracy, 3),
+        }
+
+    except Exception as e:
+        print(f"Error getting comparison data for {model_id}: {e}")
+        return None
 
 
 # User Models API Handlers
