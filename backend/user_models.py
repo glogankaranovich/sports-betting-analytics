@@ -44,6 +44,7 @@ class UserModel:
         data_sources: Dict,
         min_confidence: float,
         model_id: Optional[str] = None,
+        custom_datasets: Optional[List[Dict]] = None,
         status: str = "active",
         allow_benny_access: bool = True,
         created_at: Optional[str] = None,
@@ -56,6 +57,7 @@ class UserModel:
         self.sport = sport
         self.bet_types = bet_types
         self.data_sources = data_sources
+        self.custom_datasets = custom_datasets or []
         self.min_confidence = min_confidence
         self.status = status
         self.allow_benny_access = allow_benny_access
@@ -76,6 +78,7 @@ class UserModel:
             "sport": self.sport,
             "bet_types": self.bet_types,
             "data_sources": convert_floats_to_decimal(self.data_sources),
+            "custom_datasets": convert_floats_to_decimal(self.custom_datasets),
             "min_confidence": Decimal(str(self.min_confidence)),
             "status": self.status,
             "allow_benny_access": self.allow_benny_access,
@@ -94,6 +97,7 @@ class UserModel:
             sport=item["sport"],
             bet_types=item["bet_types"],
             data_sources=item["data_sources"],
+            custom_datasets=item.get("custom_datasets", []),
             min_confidence=float(item["min_confidence"]),
             status=item.get("status", "active"),
             allow_benny_access=item.get("allow_benny_access", True),

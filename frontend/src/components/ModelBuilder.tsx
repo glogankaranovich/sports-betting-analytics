@@ -6,6 +6,11 @@ interface DataSource {
   weight: number;
 }
 
+interface CustomDatasetSelection {
+  dataset_id: string;
+  weight: number;
+}
+
 interface ModelConfig {
   name: string;
   description: string;
@@ -19,8 +24,8 @@ interface ModelConfig {
     head_to_head: DataSource;
     player_stats: DataSource;
     player_injury: DataSource;
-    custom_data: DataSource;
   };
+  customDatasets: CustomDatasetSelection[];
   minConfidence: number;
   allowBennyAccess: boolean;
 }
@@ -33,7 +38,6 @@ const DATA_SOURCES = [
   { key: 'head_to_head', label: 'Head-to-Head', description: 'Historical matchup performance' },
   { key: 'player_stats', label: 'Player Stats', description: 'Recent player performance (props only)' },
   { key: 'player_injury', label: 'Player Injury', description: 'Player injury status (props only)' },
-  { key: 'custom_data', label: 'Custom Data', description: 'Your uploaded custom datasets' },
 ];
 
 const SPORTS = [
@@ -65,15 +69,42 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
       head_to_head: { enabled: false, weight: 5 },
       player_stats: { enabled: false, weight: 10 },
       player_injury: { enabled: false, weight: 5 },
-      custom_data: { enabled: false, weight: 0 },
     },
+    customDatasets: [],
     minConfidence: 60,
     allowBennyAccess: true,
   });
 
+  const [customDatasets, setCustomDatasets] = useState<any[]>([]);
+  const [loadingDatasets, setLoadingDatasets] = useState(false);
+
+  React.useEffect(() => {
+    fetchCustomDatasets();
+  }, []);
+
+  const fetchCustomDatasets = async () => {
+    setLoadingDatasets(true);
+    try {
+      const token = localStorage.getItem('token');
+      const payload = JSON.parse(atob(token!.split('.')[1]));
+      const userId = payload.sub || payload['cognito:username'];
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/custom-data?user_id=${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setCustomDatasets(data.datasets || []);
+    } catch (error) {
+      console.error('Error fetching datasets:', error);
+    } finally {
+      setLoadingDatasets(false);
+    }
+  };
+
   const totalWeight = Object.values(config.dataSources)
     .filter(ds => ds.enabled)
-    .reduce((sum, ds) => sum + ds.weight, 0);
+    .reduce((sum, ds) => sum + ds.weight, 0) +
+    config.customDatasets.reduce((sum, cd) => sum + cd.weight, 0);
 
   const handleWeightChange = (key: string, value: number) => {
     setConfig({
@@ -102,22 +133,48 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
     setConfig({ ...config, betTypes: newBetTypes });
   };
 
+  const handleCustomDatasetToggle = (datasetId: string) => {
+    const exists = config.customDatasets.find(cd => cd.dataset_id === datasetId);
+    if (exists) {
+      setConfig({
+        ...config,
+        customDatasets: config.customDatasets.filter(cd => cd.dataset_id !== datasetId)
+      });
+    } else {
+      setConfig({
+        ...config,
+        customDatasets: [...config.customDatasets, { dataset_id: datasetId, weight: 10 }]
+      });
+    }
+  };
+
+  const handleCustomDatasetWeightChange = (datasetId: string, weight: number) => {
+    setConfig({
+      ...config,
+      customDatasets: config.customDatasets.map(cd =>
+        cd.dataset_id === datasetId ? { ...cd, weight } : cd
+      )
+    });
+  };
+
   const isValid = config.name.trim() && config.betTypes.length > 0 && totalWeight === 100;
 
   return (
-    <div className="model-builder">
-      <h2>Create Your Model</h2>
-      
-      <div className="form-group">
-        <label>Model Name *</label>
-        <input
-          type="text"
-          value={config.name}
-          onChange={(e) => setConfig({ ...config, name: e.target.value })}
-          placeholder="e.g., My Momentum Model"
-          maxLength={50}
-        />
-      </div>
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onCancel} className="close-button">×</button>
+        <h2>Create Your Model</h2>
+        
+        <div className="form-group">
+          <label>Model Name *</label>
+          <input
+            type="text"
+            value={config.name}
+            onChange={(e) => setConfig({ ...config, name: e.target.value })}
+            placeholder="e.g., My Momentum Model"
+            maxLength={50}
+          />
+        </div>
 
       <div className="form-group">
         <label>Description</label>
@@ -189,6 +246,43 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
         );
       })}
 
+      {customDatasets.length > 0 && (
+        <>
+          <div className="divider">Custom Datasets</div>
+          {customDatasets.map((dataset) => {
+            const selected = config.customDatasets.find(cd => cd.dataset_id === dataset.dataset_id);
+            return (
+              <div key={dataset.dataset_id} className="data-source-item">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={!!selected}
+                    onChange={() => handleCustomDatasetToggle(dataset.dataset_id)}
+                  />
+                  <div>
+                    <strong>{dataset.name}</strong>
+                    <p className="description">{dataset.description}</p>
+                  </div>
+                </label>
+                {selected && (
+                  <div className="weight-control">
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      value={selected.weight}
+                      onChange={(e) => handleCustomDatasetWeightChange(dataset.dataset_id, parseInt(e.target.value))}
+                      className="weight-slider"
+                    />
+                    <span className="weight-value">{selected.weight}%</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </>
+      )}
+
       <div className={`total-weight ${totalWeight === 100 ? 'valid' : 'invalid'}`}>
         Total Weight: {totalWeight}% {totalWeight === 100 ? '✓' : '(must equal 100%)'}
       </div>
@@ -241,6 +335,10 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
                 ...acc,
                 [key]: { weight: ds.weight / 100, enabled: true }
               }), {}),
+            custom_datasets: config.customDatasets.map(cd => ({
+              dataset_id: cd.dataset_id,
+              weight: cd.weight / 100
+            })),
             min_confidence: config.minConfidence / 100,
             allow_benny_access: config.allowBennyAccess,
           };
@@ -248,6 +346,7 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
         }} disabled={!isValid} className="btn-primary">
           Save Model
         </button>
+      </div>
       </div>
     </div>
   );
