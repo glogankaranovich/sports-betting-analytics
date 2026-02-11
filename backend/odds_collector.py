@@ -1,7 +1,7 @@
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List
 
@@ -141,10 +141,6 @@ class OddsCollector:
                             )
 
                         timestamp = datetime.utcnow().isoformat()
-                        commence_dt = datetime.fromisoformat(
-                            props_data["commence_time"].replace("Z", "+00:00")
-                        )
-                        ttl = int((commence_dt + timedelta(days=2)).timestamp())
 
                         item_data = {
                             "pk": pk,
@@ -158,7 +154,6 @@ class OddsCollector:
                             "price": new_price,
                             "commence_time": props_data["commence_time"],
                             "updated_at": timestamp,
-                            "ttl": ttl,
                         }
 
                         if data_changed:
@@ -216,10 +211,6 @@ class OddsCollector:
                             data_changed = new_outcomes != existing_outcomes
 
                         timestamp = datetime.utcnow().isoformat()
-                        commence_dt = datetime.fromisoformat(
-                            game["commence_time"].replace("Z", "+00:00")
-                        )
-                        ttl = int((commence_dt + timedelta(days=2)).timestamp())
 
                         item_data = {
                             "pk": pk,
@@ -231,7 +222,6 @@ class OddsCollector:
                             "bookmaker": bookmaker["key"],
                             "outcomes": new_outcomes,
                             "updated_at": timestamp,
-                            "ttl": ttl,
                         }
 
                         if data_changed:

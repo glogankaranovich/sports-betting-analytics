@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 import boto3
 import requests
+from boto3.dynamodb.conditions import Key
 
 
 class OutcomeCollector:
@@ -276,6 +277,9 @@ class OutcomeCollector:
 
             # Settle Benny bets for this game
             self._settle_benny_bets(game)
+
+            # Archive odds to historical records
+            self._archive_game_odds(game)
 
         except Exception as e:
             print(f"Error updating analyses for game {game['id']}: {e}")
@@ -771,6 +775,48 @@ class OutcomeCollector:
 
             traceback.print_exc()
             return False
+
+    def _archive_game_odds(self, game: Dict[str, Any]) -> None:
+        """Archive odds for completed game to historical records"""
+        try:
+            game_id = game.get("id")
+            if not game_id:
+                return
+
+            print(f"Archiving odds for completed game: {game_id}")
+
+            # Query all odds for this game
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq(f"GAME#{game_id}")
+            )
+
+            items = response.get("Items", [])
+            archived_count = 0
+
+            for item in items:
+                sk = item.get("sk", "")
+
+                # Skip if already historical or if it's a non-odds record
+                if sk.startswith("HISTORICAL#") or "LATEST" not in sk:
+                    continue
+
+                # Create historical record
+                historical_item = {**item}
+                historical_item["pk"] = f"HISTORICAL_ODDS#{game_id}"
+                historical_item["sk"] = sk.replace("#LATEST", "")
+                historical_item["archived_at"] = datetime.utcnow().isoformat()
+
+                # Remove active_bet_pk if present (no longer active)
+                historical_item.pop("active_bet_pk", None)
+
+                # Store historical record
+                self.table.put_item(Item=historical_item)
+                archived_count += 1
+
+            print(f"Archived {archived_count} odds records for game {game_id}")
+
+        except Exception as e:
+            print(f"Error archiving odds for game {game.get('id')}: {e}")
 
 
 def lambda_handler(event, context):
