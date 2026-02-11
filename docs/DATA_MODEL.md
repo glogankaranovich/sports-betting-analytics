@@ -555,6 +555,150 @@ Query
 PK = MODEL_ADJUSTMENT#{sport}#game
 ```
 
+### 8. Get historical odds for a game
+```
+Query
+PK = HISTORICAL_ODDS#{game_id}
+```
+
+### 9. Get Benny's learning parameters
+```
+Get Item
+PK = BENNY#LEARNING
+SK = PARAMETERS
+```
+
+---
+
+## New Entity Types (Added 2026-02-11)
+
+### 6. Historical Odds
+
+#### Historical Odds Record
+```
+PK: HISTORICAL_ODDS#{game_id}
+SK: {bookmaker}#{market_key}
+
+Attributes:
+- game_id: string
+- sport: string
+- home_team: string
+- away_team: string
+- bookmaker: string
+- market_key: string
+- outcomes: list of {name, price, point?}
+- commence_time: ISO timestamp
+- updated_at: ISO timestamp (when odds were captured)
+- archived_at: ISO timestamp (when game completed)
+```
+
+**Purpose:** Preserve odds data after game completes for backtesting and learning
+
+**Example:**
+```json
+{
+  "pk": "HISTORICAL_ODDS#abc123",
+  "sk": "fanduel#h2h",
+  "game_id": "abc123",
+  "sport": "basketball_nba",
+  "home_team": "Los Angeles Lakers",
+  "away_team": "Boston Celtics",
+  "bookmaker": "fanduel",
+  "market_key": "h2h",
+  "outcomes": [
+    {"name": "Los Angeles Lakers", "price": -150},
+    {"name": "Boston Celtics", "price": 130}
+  ],
+  "commence_time": "2026-02-11T19:00:00Z",
+  "updated_at": "2026-02-11T14:00:00Z",
+  "archived_at": "2026-02-11T22:00:00Z"
+}
+```
+
+---
+
+### 7. Benny Learning Parameters
+
+#### Learning Parameters Record
+```
+PK: BENNY#LEARNING
+SK: PARAMETERS
+
+Attributes:
+- min_confidence_adjustment: decimal (added to BASE_MIN_CONFIDENCE)
+- kelly_fraction: decimal (0.25 = quarter Kelly)
+- performance_by_sport: map of {sport: {wins, total}}
+- performance_by_bet_type: map of {bet_type: {wins, total}}
+- overall_win_rate: decimal
+- total_bets_analyzed: integer
+- last_updated: ISO timestamp
+```
+
+**Purpose:** Store Benny's learned parameters for adaptive betting strategy
+
+**Example:**
+```json
+{
+  "pk": "BENNY#LEARNING",
+  "sk": "PARAMETERS",
+  "min_confidence_adjustment": -0.02,
+  "kelly_fraction": 0.25,
+  "performance_by_sport": {
+    "basketball_nba": {"wins": 15, "total": 25},
+    "americanfootball_nfl": {"wins": 8, "total": 12}
+  },
+  "performance_by_bet_type": {
+    "h2h": {"wins": 20, "total": 32},
+    "spreads": {"wins": 3, "total": 5}
+  },
+  "overall_win_rate": 0.622,
+  "total_bets_analyzed": 37,
+  "last_updated": "2026-02-11T12:00:00Z"
+}
+```
+
+---
+
+### 8. Model Adjustments (Cache)
+
+#### Model Adjustment Record
+```
+PK: MODEL_ADJUSTMENT#{sport}#{bet_type}
+SK: {model}
+
+Attributes:
+- model: string
+- sport: string
+- bet_type: string
+- recommendation: string (ORIGINAL, INVERSE, AVOID)
+- original_accuracy: decimal
+- inverse_accuracy: decimal
+- confidence_multiplier: decimal
+- sample_size: integer
+- calculated_at: ISO timestamp
+- expires_at: ISO timestamp (24 hours)
+```
+
+**Purpose:** Cache model performance adjustments to reduce query load
+
+**Example:**
+```json
+{
+  "pk": "MODEL_ADJUSTMENT#basketball_nba#game",
+  "sk": "consensus",
+  "model": "consensus",
+  "sport": "basketball_nba",
+  "bet_type": "game",
+  "recommendation": "ORIGINAL",
+  "original_accuracy": 0.625,
+  "inverse_accuracy": 0.375,
+  "confidence_multiplier": 1.15,
+  "sample_size": 48,
+  "calculated_at": "2026-02-11T06:00:00Z",
+  "expires_at": "2026-02-12T06:00:00Z"
+}
+```
+
 ---
 
 ## Data Lifecycle
@@ -562,7 +706,9 @@ PK = MODEL_ADJUSTMENT#{sport}#game
 ### Odds Data
 - **Created:** Every 4 hours by odds_collector
 - **Updated:** New records with latest=true, old records marked latest=false
-- **Retention:** Indefinite (for historical analysis)
+- **Archived:** When game completes, moved to HISTORICAL_ODDS#
+- **Cleanup:** Stale uncompleted games >7 days deleted by odds_cleanup
+- **Retention:** Indefinite for historical records
 
 ### Predictions
 - **Created:** Every 4-6 hours by analysis_generator
@@ -576,7 +722,7 @@ PK = MODEL_ADJUSTMENT#{sport}#game
 
 ### User Models
 - **Created:** On-demand by users
-- **Updated:** By users
+- **Updated:** By users or weekly by user_model_weight_adjuster (if auto_adjust_weights=true)
 - **Deleted:** By users
 - **Retention:** Until deleted
 
@@ -585,10 +731,20 @@ PK = MODEL_ADJUSTMENT#{sport}#game
 - **Updated:** Settled by outcome_collector
 - **Retention:** Indefinite (for performance history)
 
+### Benny Learning Parameters
+- **Created:** On first bet
+- **Updated:** Before each daily analysis run (if 10+ settled bets)
+- **Retention:** Single record, continuously updated
+
 ### Model Adjustments
 - **Created:** Daily by model_adjustment_calculator
 - **Updated:** Daily (overwrite)
-- **Retention:** Latest only (24 hour cache)
+- **Retention:** 24 hours (cache), then recalculated
+
+### Historical Odds
+- **Created:** When game completes by outcome_collector
+- **Updated:** Never (immutable)
+- **Retention:** Indefinite (for backtesting)
 
 ---
 
@@ -600,20 +756,25 @@ PK = MODEL_ADJUSTMENT#{sport}#game
 - **Users:** Unlimited
 - **User models:** 5 per user
 - **Benny bets:** ~5 per day
+- **Historical odds:** ~100 per completed game
 
 ### Storage Estimates
 - **Odds records:** ~100 per game × 25 games × 365 days = 912,500/year
+- **Historical odds:** ~100 per game × 25 games × 365 days = 912,500/year
 - **Prediction records:** ~20 per game × 25 games × 365 days = 182,500/year
 - **Outcome records:** ~3 per game × 25 games × 365 days = 27,375/year
-- **Total:** ~1.1M records/year
+- **Learning parameters:** ~10 records (static)
+- **Model adjustments:** ~30 records (cached, refreshed daily)
+- **Total:** ~2.0M records/year (doubled with historical odds)
 
 ### Read/Write Patterns
-- **Reads:** Heavy (API queries, model performance)
-- **Writes:** Moderate (scheduled jobs)
+- **Reads:** Heavy (API queries, model performance, backtesting)
+- **Writes:** Moderate (scheduled jobs, user actions)
 - **Hot data:** Last 90 days
-- **Cold data:** Historical (rarely accessed)
+- **Warm data:** Historical odds (for backtesting)
+- **Cold data:** Old predictions (rarely accessed)
 
 ---
 
 **Last Updated:** 2026-02-11
-**Version:** 1.0
+**Version:** 2.0

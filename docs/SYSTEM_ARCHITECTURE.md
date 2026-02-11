@@ -150,6 +150,136 @@ A full-stack sports betting analytics platform that collects odds data, generate
 - Calculates payouts using actual odds:
   - Positive odds: profit = (bet × odds) / 100
   - Negative odds: profit = bet / (|odds| / 100)
+- 3-tier team name matching for accuracy
+- Updates bankroll and bet status
+
+**Benny Learning System** (NEW)
+- Tracks performance by sport and bet type
+- Dynamically adjusts MIN_CONFIDENCE threshold:
+  - Win rate >60%: Lower threshold by 0.02 (bet more)
+  - Win rate <45%: Raise threshold by 0.05 (bet less)
+- Uses true Kelly Criterion with actual American odds
+- Fractional Kelly (0.25) for conservative risk management
+- Stores learning parameters in DynamoDB (BENNY#LEARNING)
+- Updates before each daily analysis run
+- Requires minimum 10 settled bets to start learning
+
+### 5. Historical Data & Learning Pipeline
+
+**Historical Odds Preservation** (NEW)
+- Odds no longer expire via TTL
+- When games complete, odds archived to HISTORICAL_ODDS# records
+- Removes active_bet_pk from archived records
+- Preserves all historical snapshots for backtesting
+- Cleanup Lambda deletes stale uncompleted games >7 days old
+
+**Outcome Collection & Verification**
+- Runs every 4 hours checking last 3 days of completed games
+- Verifies both original and inverse predictions
+- Settles Benny bets with actual odds payouts
+- Archives odds to historical records
+- Updates model performance metrics
+
+**Inverse Prediction Tracking**
+- For every prediction, stores inverse (opposite outcome)
+- Inverse confidence = 1.0 - original confidence
+- Tracks accuracy for both original and inverse
+- Reveals models that should be bet against
+- Used for dynamic confidence adjustments
+
+**Model Performance Tracking**
+- Calculates accuracy, ROI, Sharpe ratio per model
+- Tracks performance by sport and bet type
+- Stores verified predictions with outcomes
+- Powers model comparison dashboard
+- Feeds into learning systems
+
+**Backtesting Engine**
+- Replays historical games with actual odds
+- Tests model strategies against past data
+- Calculates what-if scenarios
+- Validates model changes before deployment
+- Available for all user models
+
+### 6. Model Ranking & Comparison
+
+**Model Rankings API** (NEW)
+- Ranks models by ROI, not just accuracy
+- Calculates comprehensive profitability metrics:
+  - Total bets, wins, losses
+  - Win rate, average odds
+  - Total profit/loss, ROI %
+  - Sharpe ratio (risk-adjusted returns)
+- Supports original, inverse, or both modes
+- Simulates $100 bets using actual odds
+- Displayed in ticker at top of dashboard
+
+**Model Comparison Dashboard**
+- Shows original vs inverse accuracy side-by-side
+- Recommends: ORIGINAL, INVERSE, or AVOID
+- Filters by sport, timeframe (7/30/90 days)
+- Includes user models alongside system models
+- Color-coded recommendations
+
+**Dynamic Weight Adjustment for User Models** (NEW)
+- Weekly Lambda adjusts data source weights
+- Calculates accuracy per data source from verified predictions
+- Redistributes weights proportionally to performance
+- Minimum 5% weight floor keeps all sources active
+- Requires 10+ total predictions, 5+ per source
+- Only adjusts models with auto_adjust_weights=true (opt-in)
+- Users maintain control over auto-optimization
+
+## Data Flow
+
+### Learning Loop
+```
+1. Odds Collection (every 15 min)
+   ↓
+2. Prediction Generation (every 4-6 hours)
+   - Apply dynamic confidence adjustments
+   - Use learned parameters
+   ↓
+3. Outcome Collection (every 4 hours)
+   - Verify predictions
+   - Settle bets
+   - Archive odds to historical records
+   ↓
+4. Performance Calculation (daily)
+   - Calculate model adjustments
+   - Update Benny learning parameters
+   - Adjust user model weights (weekly)
+   ↓
+5. Strategy Optimization
+   - Models learn from outcomes
+   - Confidence thresholds adjust
+   - Bet sizing optimizes
+   ↓
+(Loop back to step 2 with improved parameters)
+```
+
+### Historical Data Pipeline
+```
+Active Odds (GAME#) → Game Completes → Archive (HISTORICAL_ODDS#)
+                                      ↓
+                              Used for Backtesting
+                                      ↓
+                              Validate Strategies
+                                      ↓
+                              Deploy Improvements
+```
+
+## Security
+
+- Cognito authentication for all API endpoints
+- IAM roles with least privilege
+- VPC endpoints for DynamoDB (optional)
+- No PII stored in logs
+- Secrets Manager for API keys
+
+## Scalability
+  - Positive odds: profit = (bet × odds) / 100
+  - Negative odds: profit = bet / (|odds| / 100)
 - Updates bankroll with winnings
 - Tracks bet status: pending → won/lost
 

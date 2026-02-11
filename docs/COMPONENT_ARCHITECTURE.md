@@ -770,6 +770,7 @@ GET /health
 GET /games?sport={sport}&bookmaker={bookmaker}
 GET /analyses?sport={sport}&model={model}&type={type}
 GET /model-comparison?sport={sport}&days={days}&user_id={user_id}
+GET /model-rankings?sport={sport}&days={days}&mode={mode}&user_id={user_id}
 GET /benny/dashboard
 
 // User models
@@ -821,6 +822,8 @@ def lambda_handler(event, context):
         return handle_get_games(query_params)
     elif path == '/model-comparison':
         return handle_get_model_comparison(query_params)
+    elif path == '/model-rankings':
+        return handle_get_model_rankings(query_params)
     # ... etc
     
     # Return response
@@ -857,5 +860,279 @@ def decimal_to_float(obj):
 
 ---
 
+## Learning & Optimization Components
+
+### Historical Odds Archiving
+
+**File:** `backend/outcome_collector.py` (method: `_archive_game_odds`)
+
+**Purpose:** Preserve odds data for backtesting and learning
+
+**Process:**
+```python
+def _archive_game_odds(self, game):
+    """Archive odds when game completes"""
+    # Query all odds for this game
+    response = table.query(
+        KeyConditionExpression=Key('pk').eq(f"GAME#{game_id}")
+    )
+    
+    for item in items:
+        if '#LATEST' not in item['sk']:
+            continue  # Skip historical snapshots
+            
+        # Create historical record
+        historical_item = {
+            **item,
+            'pk': f"HISTORICAL_ODDS#{game_id}",
+            'sk': item['sk'].replace('#LATEST', ''),
+            'archived_at': datetime.utcnow().isoformat()
+        }
+        
+        # Remove active flags
+        historical_item.pop('active_bet_pk', None)
+        
+        table.put_item(Item=historical_item)
+```
+
+**Key Changes:**
+- Removed TTL from odds_collector (odds no longer expire)
+- Archives to HISTORICAL_ODDS# when game completes
+- Preserves all bookmaker odds and historical snapshots
+- Enables backtesting and strategy validation
+
+### Odds Cleanup Lambda
+
+**File:** `backend/odds_cleanup.py`
+
+**Purpose:** Delete stale odds for uncompleted games
+
+**Schedule:** Daily (EventBridge)
+
+**Process:**
+```python
+def handler(event, context):
+    """Clean up stale odds >7 days old"""
+    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    
+    # Find old games
+    response = table.scan(
+        FilterExpression="begins_with(pk, :prefix) AND commence_time < :cutoff",
+        ExpressionAttributeValues={
+            ':prefix': 'GAME#',
+            ':cutoff': cutoff
+        }
+    )
+    
+    for item in items:
+        # Check if game has outcome
+        outcome = table.query(
+            KeyConditionExpression=Key('pk').eq(f"OUTCOME#{game_id}"),
+            Limit=1
+        )
+        
+        if not outcome['Items']:
+            # No outcome = cancelled/postponed, delete it
+            table.delete_item(Key={'pk': item['pk'], 'sk': item['sk']})
+```
+
+### Benny Learning System
+
+**File:** `backend/benny_trader.py`
+
+**Purpose:** Adaptive betting strategy based on performance
+
+**Learning Parameters:**
+```python
+{
+    'pk': 'BENNY#LEARNING',
+    'sk': 'PARAMETERS',
+    'min_confidence_adjustment': 0.0,  # Added to BASE_MIN_CONFIDENCE
+    'kelly_fraction': 0.25,  # Conservative Kelly
+    'performance_by_sport': {
+        'basketball_nba': {'wins': 10, 'total': 15},
+        'americanfootball_nfl': {'wins': 5, 'total': 12}
+    },
+    'performance_by_bet_type': {
+        'h2h': {'wins': 12, 'total': 20},
+        'spreads': {'wins': 3, 'total': 7}
+    },
+    'overall_win_rate': 0.556,
+    'last_updated': '2026-02-11T12:00:00'
+}
+```
+
+**Update Logic:**
+```python
+def update_learning_parameters(self):
+    """Update based on last 30 days of settled bets"""
+    # Get recent bets
+    bets = query_settled_bets(days=30)
+    
+    if len(bets) < 10:
+        return  # Need minimum data
+    
+    win_rate = sum(1 for b in bets if b['status'] == 'won') / len(bets)
+    
+    # Adjust confidence threshold
+    if win_rate > 0.60:
+        adjustment = -0.02  # Lower threshold (bet more)
+    elif win_rate < 0.45:
+        adjustment = 0.05   # Raise threshold (bet less)
+    else:
+        adjustment = 0.0    # Maintain current
+    
+    # Track by sport and bet type
+    for bet in bets:
+        sport = bet['sport']
+        bet_type = bet['bet_type']
+        # Update performance_by_sport and performance_by_bet_type
+    
+    # Save parameters
+    table.put_item(Item=learning_params)
+```
+
+**Kelly Criterion Bet Sizing:**
+```python
+def calculate_bet_size(self, confidence, odds):
+    """True Kelly Criterion with actual odds"""
+    # Convert American odds to decimal
+    if odds > 0:
+        decimal_odds = (odds / 100) + 1
+    else:
+        decimal_odds = (100 / abs(odds)) + 1
+    
+    # Kelly formula: f = (bp - q) / b
+    b = decimal_odds - 1
+    p = confidence
+    q = 1 - p
+    kelly_pct = (b * p - q) / b
+    
+    # Apply fractional Kelly (0.25) for safety
+    kelly_pct = max(0, kelly_pct * self.kelly_fraction)
+    
+    # Calculate bet size
+    bet_size = self.bankroll * kelly_pct
+    bet_size = min(bet_size, self.bankroll * 0.20)  # Max 20%
+    bet_size = max(bet_size, 5.00)  # Min $5
+    
+    return bet_size
+```
+
+### User Model Weight Adjustment
+
+**File:** `backend/user_model_weight_adjuster.py`
+
+**Purpose:** Optimize user model data source weights
+
+**Schedule:** Weekly (EventBridge)
+
+**Process:**
+```python
+def adjust_model_weights(user_id, model_id):
+    """Adjust weights based on performance"""
+    model = UserModel.get(user_id, model_id)
+    
+    if not model.auto_adjust_weights:
+        return  # User opted out
+    
+    # Calculate accuracy per data source
+    source_accuracies = {}
+    for source_name in model.data_sources:
+        # Query verified predictions where source was used
+        predictions = query_predictions_with_source(
+            user_id, model_id, source_name, days=30
+        )
+        
+        if len(predictions) < 5:
+            continue  # Need minimum data
+        
+        accuracy = sum(1 for p in predictions if p['correct']) / len(predictions)
+        source_accuracies[source_name] = accuracy
+    
+    # Redistribute weights proportionally
+    total_accuracy = sum(source_accuracies.values())
+    new_weights = {}
+    
+    for source, accuracy in source_accuracies.items():
+        weight = accuracy / total_accuracy
+        new_weights[source] = max(0.05, weight)  # 5% floor
+    
+    # Normalize to sum to 1.0
+    total = sum(new_weights.values())
+    new_weights = {k: v/total for k, v in new_weights.items()}
+    
+    # Update model
+    model.data_sources = {
+        source: {**config, 'weight': new_weights[source]}
+        for source, config in model.data_sources.items()
+    }
+    model.save()
+```
+
+### Model Rankings Calculator
+
+**File:** `backend/api_handler.py` (method: `handle_get_model_rankings`)
+
+**Purpose:** Rank models by profitability (ROI)
+
+**Metrics Calculated:**
+```python
+def _calculate_model_roi(model_id, sport, cutoff_time, mode):
+    """Calculate ROI metrics for a model"""
+    # Query verified predictions
+    predictions = query_verified_predictions(model_id, sport, cutoff_time, mode)
+    
+    total_bets = len(predictions)
+    wins = sum(1 for p in predictions if p['correct'])
+    win_rate = wins / total_bets
+    
+    # Calculate profit using actual odds
+    total_profit = 0
+    total_wagered = total_bets * 100  # $100 per bet
+    
+    for prediction in predictions:
+        odds = prediction['odds']
+        if prediction['correct']:
+            if odds > 0:
+                profit = (100 * odds) / 100
+            else:
+                profit = 100 / (abs(odds) / 100)
+            total_profit += profit
+        else:
+            total_profit -= 100
+    
+    roi = total_profit / total_wagered
+    
+    # Calculate Sharpe ratio (risk-adjusted returns)
+    returns = [
+        (100 if p['correct'] else -100) 
+        for p in predictions
+    ]
+    avg_return = sum(returns) / len(returns)
+    variance = sum((r - avg_return)**2 for r in returns) / (len(returns) - 1)
+    std_dev = variance ** 0.5
+    sharpe = avg_return / std_dev if std_dev > 0 else 0
+    
+    return {
+        'model': model_id,
+        'mode': mode,
+        'total_bets': total_bets,
+        'wins': wins,
+        'win_rate': win_rate,
+        'profit': total_profit,
+        'roi': roi,
+        'sharpe_ratio': sharpe
+    }
+```
+
+**Display in Ticker:**
+- Shows top 5 most profitable models
+- Updates when sport changes
+- Scrolls across top of dashboard
+- Animation speed: 30 seconds
+
+---
+
 **Last Updated:** 2026-02-11
-**Version:** 1.0
+**Version:** 2.0
