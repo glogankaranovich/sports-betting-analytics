@@ -391,13 +391,13 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         </div>
         
         <div className="header-actions">
-          <button className="btn btn-secondary" onClick={() => {
-            fetchGames();
-            fetchGameAnalysis();
-            fetchPropAnalysis();
-          }}>
-            Refresh Data
-          </button>
+          <a 
+            href="/about" 
+            className="btn btn-secondary"
+            style={{ textDecoration: 'none', display: 'inline-block' }}
+          >
+            About
+          </a>
           <button className="btn btn-primary" onClick={signOut}>
             Sign Out
           </button>
@@ -926,8 +926,8 @@ function App() {
   // Check if we're in production (based on environment variable)
   const isProduction = process.env.REACT_APP_STAGE === 'prod';
   
-  // Public landing page
-  if (path === '/') {
+  // About page (converted from landing page)
+  if (path === '/about') {
     return <LandingPage />;
   }
   
@@ -998,7 +998,20 @@ function App() {
           );
         },
         Footer() {
-          return null;
+          return (
+            <div style={{ textAlign: 'center', marginTop: '2rem', padding: '1rem' }}>
+              <a 
+                href="/about" 
+                style={{ 
+                  color: '#00d4ff', 
+                  textDecoration: 'none',
+                  fontSize: '0.9rem'
+                }}
+              >
+                About Carpool Bets
+              </a>
+            </div>
+          );
         },
       }}
     >
