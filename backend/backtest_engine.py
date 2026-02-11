@@ -241,7 +241,7 @@ class BacktestEngine:
     def list_backtests(model_id: str, limit: int = 10) -> List[Dict[str, Any]]:
         """List backtests for a model"""
         response = user_models_table.query(
-            IndexName="GSI1",
+            IndexName="UserModelsIndex",
             KeyConditionExpression=Key("GSI1PK").eq(f"MODEL#{model_id}"),
             ScanIndexForward=False,
             Limit=limit,
