@@ -107,6 +107,19 @@ export class DynamoDBStack extends cdk.Stack {
       }
     });
 
+    // Add GSI for team outcomes (recent form)
+    this.betsTable.addGlobalSecondaryIndex({
+      indexName: 'TeamOutcomesIndex',
+      partitionKey: {
+        name: 'team_outcome_pk',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'completed_at',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
     // Output the table name
     this.betsTableName = new cdk.CfnOutput(this, 'BetsTableName', {
       value: this.betsTable.tableName,

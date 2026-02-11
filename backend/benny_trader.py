@@ -200,13 +200,11 @@ class BennyTrader:
             return ["ensemble", "consensus", "value"]
 
     def analyze_games(self) -> List[Dict[str, Any]]:
-        """Analyze upcoming games and identify betting opportunities"""
-        # Get games in next 24 hours
+        """Analyze upcoming games independently using raw data and AI"""
         now = datetime.utcnow()
         tomorrow = now + timedelta(days=1)
 
-        # Query predictions from top 3 models for each sport
-        opportunities = {}  # game_id -> list of predictions
+        opportunities = []
 
         for sport in [
             "basketball_nba",
@@ -215,227 +213,149 @@ class BennyTrader:
             "icehockey_nhl",
             "soccer_epl",
         ]:
-            # Get top 3 system models for this sport
-            top_models = self._get_top_models(sport)
-
-            # Add user models that allow Benny access
-            try:
-                from user_models import UserModel
-
-                accessible_models = UserModel.list_benny_accessible(sport=sport)
-                for user_model in accessible_models:
-                    top_models.append(f"user_{user_model.model_id}")
-            except Exception as e:
-                print(f"Error loading user models for {sport}: {e}")
-
-            print(f"Top models for {sport}: {top_models}")
-
-            for model in top_models:
-                # Check if this is a user model
-                if model.startswith("user_"):
-                    model_id = model.replace("user_", "")
-                    try:
-                        user_model_table = dynamodb.Table(
-                            os.environ.get(
-                                "MODEL_PREDICTIONS_TABLE",
-                                "Dev-UserModels-ModelPredictions",
-                            )
-                        )
-                        response = user_model_table.query(
-                            KeyConditionExpression=Key("PK").eq(f"MODEL#{model_id}"),
-                            FilterExpression="commence_time BETWEEN :start AND :end",
-                            ExpressionAttributeValues={
-                                ":start": now.isoformat(),
-                                ":end": tomorrow.isoformat(),
-                            },
-                            Limit=20,
-                        )
-                        predictions = response.get("Items", [])
-                    except Exception as e:
-                        print(f"Error querying user model {model_id}: {e}")
-                        predictions = []
-                else:
-                    # System model - query from main table
-                    response = table.query(
-                        IndexName="AnalysisTimeGSI",
-                        KeyConditionExpression=Key("analysis_time_pk").eq(
-                            f"ANALYSIS#{sport}#fanduel#{model}#game"
-                        )
-                        & Key("commence_time").between(
-                            now.isoformat(), tomorrow.isoformat()
-                        ),
-                        FilterExpression="attribute_exists(latest) AND latest = :true",
-                        ExpressionAttributeValues={":true": True},
-                        Limit=20,
-                    )
-                    predictions = response.get("Items", [])
-
-                for pred in predictions:
-                    game_id = pred.get("game_id")
-                    confidence = float(pred.get("confidence", 0))
-
-                    if game_id not in opportunities:
-                        opportunities[game_id] = {
-                            "game_id": game_id,
-                            "sport": pred.get("sport"),
-                            "home_team": pred.get("home_team"),
-                            "away_team": pred.get("away_team"),
-                            "commence_time": pred.get("commence_time"),
-                            "market_key": pred.get("market_key", "h2h"),
-                            "predictions": [],
-                        }
-
-                    opportunities[game_id]["predictions"].append(
-                        {
-                            "model": model,
-                            "prediction": pred.get("prediction"),
-                            "confidence": confidence,
-                            "reasoning": pred.get("reasoning", ""),
-                        }
-                    )
-
-            # Query user model predictions with allow_benny_access=True
-            user_model_table = dynamodb.Table(
-                os.environ.get(
-                    "MODEL_PREDICTIONS_TABLE", "Dev-UserModels-ModelPredictions"
-                )
+            # Get upcoming games with odds
+            response = table.query(
+                IndexName="ActiveBetsIndexV2",
+                KeyConditionExpression=Key("active_bet_pk").eq(f"GAME#{sport}")
+                & Key("commence_time").between(now.isoformat(), tomorrow.isoformat()),
+                FilterExpression="attribute_exists(latest) AND latest = :true AND market_key = :h2h",
+                ExpressionAttributeValues={":true": True, ":h2h": "h2h"},
+                Limit=50,
             )
 
-            try:
-                response = user_model_table.query(
-                    IndexName="SportTimeIndex",
-                    KeyConditionExpression=Key("sport").eq(sport)
-                    & Key("commence_time").between(
-                        now.isoformat(), tomorrow.isoformat()
-                    ),
-                    FilterExpression="allow_benny_access = :true",
-                    ExpressionAttributeValues={":true": True},
-                    Limit=50,
-                )
+            games = {}
+            for item in response.get("Items", []):
+                game_id = item.get("pk", "")[5:]  # Remove GAME# prefix
+                if game_id not in games:
+                    games[game_id] = {
+                        "game_id": game_id,
+                        "sport": sport,
+                        "home_team": item.get("home_team"),
+                        "away_team": item.get("away_team"),
+                        "commence_time": item.get("commence_time"),
+                        "odds": [],
+                    }
 
-                user_predictions = response.get("Items", [])
-
-                for pred in user_predictions:
-                    game_id = pred.get("game_id")
-                    confidence = float(pred.get("confidence", 0))
-
-                    if game_id not in opportunities:
-                        opportunities[game_id] = {
-                            "game_id": game_id,
-                            "sport": pred.get("sport"),
-                            "home_team": pred.get("home_team"),
-                            "away_team": pred.get("away_team"),
-                            "commence_time": pred.get("commence_time"),
-                            "market_key": pred.get("bet_type", "h2h"),
-                            "predictions": [],
-                        }
-
-                    opportunities[game_id]["predictions"].append(
+                # Extract odds from outcomes
+                outcomes = item.get("outcomes", [])
+                if len(outcomes) >= 2:
+                    games[game_id]["odds"].append(
                         {
-                            "model": f"user_{pred.get('model_id')}",
-                            "prediction": pred.get("prediction"),
-                            "confidence": confidence,
-                            "reasoning": pred.get("reasoning", ""),
+                            "bookmaker": item.get("bookmaker"),
+                            "home_price": outcomes[0].get("price"),
+                            "away_price": outcomes[1].get("price"),
                         }
                     )
-            except Exception as e:
-                print(f"Error querying user models for {sport}: {e}")
 
-        # Filter to games with at least 2 models agreeing
-        filtered_opportunities = []
-        for game_id, opp in opportunities.items():
-            preds = opp["predictions"]
-            if len(preds) < 2:
-                continue
+            # Analyze each game with AI
+            for game_id, game_data in games.items():
+                if len(game_data["odds"]) < 2:  # Need at least 2 bookmakers
+                    continue
 
-            # Normalize predictions for agreement checking
-            normalized_preds = {}
-            for p in preds:
-                pred = p["prediction"]
-                normalized = self._normalize_prediction(pred)
-                if normalized not in normalized_preds:
-                    normalized_preds[normalized] = []
-                normalized_preds[normalized].append(p)
+                # Gather essential data
+                home_stats = self._get_team_stats(game_data["home_team"], sport)
+                away_stats = self._get_team_stats(game_data["away_team"], sport)
+                home_injuries = self._get_team_injuries(game_data["home_team"], sport)
+                away_injuries = self._get_team_injuries(game_data["away_team"], sport)
+                h2h_history = self._get_head_to_head(
+                    game_data["home_team"], game_data["away_team"], sport
+                )
+                home_form = self._get_recent_form(game_data["home_team"], sport)
+                away_form = self._get_recent_form(game_data["away_team"], sport)
 
-            # Find most common normalized prediction
-            max_count = max(len(v) for v in normalized_preds.values())
-            if max_count >= 2:  # At least 2 models agree
-                # Get the agreed prediction
-                for normalized, models in normalized_preds.items():
-                    if len(models) >= 2:
-                        avg_confidence = sum(m["confidence"] for m in models) / len(
-                            models
-                        )
-                        if avg_confidence >= self.MIN_CONFIDENCE:
-                            # Use the most confident model's exact prediction
-                            best_pred = max(models, key=lambda x: x["confidence"])
-                            filtered_opportunities.append(
-                                {
-                                    "game_id": opp["game_id"],
-                                    "sport": opp["sport"],
-                                    "home_team": opp["home_team"],
-                                    "away_team": opp["away_team"],
-                                    "prediction": best_pred["prediction"],
-                                    "confidence": avg_confidence,
-                                    "commence_time": opp["commence_time"],
-                                    "market_key": opp["market_key"],
-                                    "model_predictions": preds,  # Pass all predictions to AI
-                                }
-                            )
-                        break
+                # Let AI analyze the data
+                analysis = self._ai_analyze_game(
+                    game_data,
+                    home_stats,
+                    away_stats,
+                    home_injuries,
+                    away_injuries,
+                    h2h_history,
+                    home_form,
+                    away_form,
+                )
 
-        return filtered_opportunities
+                if analysis and analysis["confidence"] >= self.MIN_CONFIDENCE:
+                    opportunities.append(
+                        {
+                            "game_id": game_id,
+                            "sport": sport,
+                            "home_team": game_data["home_team"],
+                            "away_team": game_data["away_team"],
+                            "prediction": analysis["prediction"],
+                            "confidence": analysis["confidence"],
+                            "reasoning": analysis["reasoning"],
+                            "key_factors": analysis["key_factors"],
+                            "commence_time": game_data["commence_time"],
+                            "market_key": "h2h",
+                        }
+                    )
 
-    def get_ai_reasoning(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
-        """Get AI reasoning and confidence adjustment from Claude"""
+        return opportunities
+
+    def _ai_analyze_game(
+        self,
+        game_data: Dict[str, Any],
+        home_stats: Dict,
+        away_stats: Dict,
+        home_injuries: List[Dict],
+        away_injuries: List[Dict],
+        h2h_history: List[Dict],
+        home_form: Dict,
+        away_form: Dict,
+    ) -> Dict[str, Any]:
+        """Have AI analyze game data and make independent prediction"""
         try:
-            # Fetch recent team stats
-            home_stats = self._get_team_stats(
-                opportunity["home_team"], opportunity["sport"]
+            # Calculate average odds across bookmakers
+            avg_home_price = sum(o["home_price"] for o in game_data["odds"]) / len(
+                game_data["odds"]
             )
-            away_stats = self._get_team_stats(
-                opportunity["away_team"], opportunity["sport"]
-            )
-
-            # Format model predictions
-            model_preds = opportunity.get("model_predictions", [])
-            model_summary = "\n".join(
-                [
-                    f"- {p['model']}: {p['prediction']} ({p['confidence']:.1%} confidence)"
-                    for p in model_preds
-                ]
+            avg_away_price = sum(o["away_price"] for o in game_data["odds"]) / len(
+                game_data["odds"]
             )
 
-            # Build prompt
-            prompt = f"""You are Benny, an expert sports betting analyst. Analyze this betting opportunity:
+            # Convert to implied probabilities
+            home_prob = self._american_to_probability(avg_home_price)
+            away_prob = self._american_to_probability(avg_away_price)
 
-Game: {opportunity['away_team']} @ {opportunity['home_team']}
-Sport: {opportunity['sport']}
+            prompt = f"""You are Benny, an expert sports betting analyst. Analyze this game and make YOUR prediction.
 
-Model Predictions:
-{model_summary}
+Game: {game_data['away_team']} @ {game_data['home_team']}
+Sport: {game_data['sport']}
 
-Consensus Prediction: {opportunity['prediction']}
-Average Confidence: {opportunity['confidence']:.1%}
+ODDS:
+Home: {avg_home_price} ({home_prob:.1%} implied)
+Away: {avg_away_price} ({away_prob:.1%} implied)
 
-Home Team Recent Stats: {json.dumps(home_stats, indent=2) if home_stats else 'No data'}
-Away Team Recent Stats: {json.dumps(away_stats, indent=2) if away_stats else 'No data'}
+TEAM STATS (Season):
+Home: {json.dumps(home_stats, indent=2) if home_stats else 'No data'}
+Away: {json.dumps(away_stats, indent=2) if away_stats else 'No data'}
 
-Analyze:
-1. Do the models agree or disagree? (Agreement is a good sign)
-2. Does the data support the prediction?
-3. Any red flags or concerns?
-4. Your confidence adjustment (-0.1 to +0.1)
+RECENT FORM (Last 5 games):
+Home: {home_form.get('record', 'Unknown')} - {home_form.get('streak', '')}
+Away: {away_form.get('record', 'Unknown')} - {away_form.get('streak', '')}
 
-Format as JSON:
-{{"reasoning": "...", "confidence_adjustment": 0.0, "key_factors": ["factor1", "factor2"]}}"""
+HEAD-TO-HEAD (Last 3 meetings):
+{json.dumps(h2h_history, indent=2) if h2h_history else 'No history'}
+
+INJURIES:
+Home: {json.dumps(home_injuries, indent=2) if home_injuries else 'None'}
+Away: {json.dumps(away_injuries, indent=2) if away_injuries else 'None'}
+
+Analyze and predict:
+1. Which team wins and why?
+2. Is there value vs the odds?
+3. Key factors driving your prediction?
+
+Respond with JSON only:
+{{"prediction": "Team Name", "confidence": 0.75, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2", "factor3"]}}"""
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
                 body=json.dumps(
                     {
                         "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 500,
+                        "max_tokens": 600,
                         "messages": [{"role": "user", "content": prompt}],
                     }
                 ),
@@ -444,50 +364,120 @@ Format as JSON:
             result = json.loads(response["body"].read())
             content = result["content"][0]["text"]
 
-            # Extract JSON from response
+            # Extract JSON
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0].strip()
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0].strip()
 
-            ai_response = json.loads(content)
+            analysis = json.loads(content)
+            return analysis
+
+        except Exception as e:
+            print(f"Error in AI analysis: {e}")
+            return None
+
+    def _american_to_probability(self, american_odds: float) -> float:
+        """Convert American odds to implied probability"""
+        if american_odds > 0:
+            return 100 / (american_odds + 100)
+        else:
+            return abs(american_odds) / (abs(american_odds) + 100)
+
+    def _get_team_injuries(self, team_name: str, sport: str) -> List[Dict]:
+        """Get current injuries for a team"""
+        try:
+            normalized_team = team_name.lower().replace(" ", "_")
+            response = table.query(
+                KeyConditionExpression=Key("pk").eq(
+                    f"INJURIES#{sport}#{normalized_team}"
+                ),
+                ScanIndexForward=False,
+                Limit=10,
+            )
+            return response.get("Items", [])
+        except Exception as e:
+            print(f"Error fetching injuries: {e}")
+            return []
+
+    def _get_head_to_head(
+        self, home_team: str, away_team: str, sport: str
+    ) -> List[Dict]:
+        """Get last 3 H2H matchups"""
+        try:
+            home_norm = home_team.lower().replace(" ", "_")
+            away_norm = away_team.lower().replace(" ", "_")
+            teams_sorted = sorted([home_norm, away_norm])
+
+            response = table.query(
+                KeyConditionExpression=Key("pk").eq(
+                    f"H2H#{sport}#{teams_sorted[0]}#{teams_sorted[1]}"
+                ),
+                ScanIndexForward=False,
+                Limit=3,
+            )
+            return response.get("Items", [])
+        except Exception as e:
+            print(f"Error fetching H2H: {e}")
+            return []
+
+    def _get_recent_form(self, team_name: str, sport: str) -> Dict:
+        """Get last 5 games record and streak from outcomes"""
+        try:
+            normalized_team = team_name.lower().replace(" ", "_")
+
+            response = table.query(
+                IndexName="TeamOutcomesIndex",
+                KeyConditionExpression=Key("team_outcome_pk").eq(
+                    f"TEAM#{sport}#{normalized_team}"
+                ),
+                ScanIndexForward=False,
+                Limit=5,
+            )
+
+            games = response.get("Items", [])
+            if not games:
+                return {}
+
+            wins = sum(1 for g in games if g.get("winner") == team_name)
+            losses = len(games) - wins
+
+            # Calculate streak
+            streak = ""
+            if games:
+                current_result = "W" if games[0].get("winner") == team_name else "L"
+                streak_count = 1
+                for g in games[1:]:
+                    result = "W" if g.get("winner") == team_name else "L"
+                    if result == current_result:
+                        streak_count += 1
+                    else:
+                        break
+                streak = f"{current_result}{streak_count}"
 
             return {
-                "reasoning": ai_response.get("reasoning", ""),
-                "confidence_adjustment": float(
-                    ai_response.get("confidence_adjustment", 0)
-                ),
-                "key_factors": ai_response.get("key_factors", []),
-                "adjusted_confidence": min(
-                    1.0,
-                    max(
-                        0.0,
-                        opportunity["confidence"]
-                        + ai_response.get("confidence_adjustment", 0),
-                    ),
-                ),
+                "record": f"{wins}-{losses}",
+                "streak": streak,
             }
         except Exception as e:
-            print(f"AI reasoning failed: {e}")
-            return {
-                "reasoning": "AI analysis unavailable",
-                "confidence_adjustment": 0,
-                "key_factors": [],
-                "adjusted_confidence": opportunity["confidence"],
-            }
+            print(f"Error fetching recent form: {e}")
+            return {}
 
     def _get_team_stats(self, team: str, sport: str) -> Dict[str, Any]:
         """Fetch recent team stats from DynamoDB"""
         try:
+            normalized_team = team.lower().replace(" ", "_")
             response = table.query(
-                KeyConditionExpression=Key("pk").eq(f"TEAM#{sport}#{team}")
-                & Key("sk").begins_with("STATS#"),
+                KeyConditionExpression=Key("pk").eq(
+                    f"TEAM_STATS#{sport}#{normalized_team}"
+                ),
                 ScanIndexForward=False,
                 Limit=1,
             )
             items = response.get("Items", [])
-            return items[0] if items else {}
-        except Exception:
+            return items[0].get("stats", {}) if items else {}
+        except Exception as e:
+            print(f"Error fetching team stats: {e}")
             return {}
 
     def calculate_bet_size(self, confidence: float) -> Decimal:
@@ -506,13 +496,10 @@ Format as JSON:
         return bet_size.quantize(Decimal("0.01"))
 
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
-        """Place a virtual bet with AI reasoning"""
-        # Get AI reasoning and adjusted confidence
-        ai_analysis = self.get_ai_reasoning(opportunity)
-        adjusted_confidence = ai_analysis["adjusted_confidence"]
-
-        # Use adjusted confidence for bet sizing
-        bet_size = self.calculate_bet_size(adjusted_confidence)
+        """Place a virtual bet"""
+        # Benny already analyzed the game, just use that confidence
+        confidence = opportunity["confidence"]
+        bet_size = self.calculate_bet_size(confidence)
 
         # Check if we have enough bankroll
         if bet_size > self.bankroll:
@@ -531,13 +518,9 @@ Format as JSON:
             "home_team": opportunity["home_team"],
             "away_team": opportunity["away_team"],
             "prediction": opportunity["prediction"],
-            "ensemble_confidence": Decimal(str(opportunity["confidence"])),
-            "ai_confidence_adjustment": Decimal(
-                str(ai_analysis["confidence_adjustment"])
-            ),
-            "final_confidence": Decimal(str(adjusted_confidence)),
-            "ai_reasoning": ai_analysis["reasoning"],
-            "ai_key_factors": ai_analysis["key_factors"],
+            "confidence": Decimal(str(confidence)),
+            "ai_reasoning": opportunity["reasoning"],
+            "ai_key_factors": opportunity["key_factors"],
             "bet_amount": bet_size,
             "market_key": opportunity["market_key"],
             "commence_time": opportunity["commence_time"],
@@ -558,7 +541,7 @@ Format as JSON:
             "bet_id": bet_id,
             "bet_amount": float(bet_size),
             "remaining_bankroll": float(new_bankroll),
-            "ai_reasoning": ai_analysis["reasoning"],
+            "ai_reasoning": opportunity["reasoning"],
         }
 
     def run_daily_analysis(self) -> Dict[str, Any]:

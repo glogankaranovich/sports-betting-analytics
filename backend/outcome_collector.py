@@ -108,6 +108,7 @@ class OutcomeCollector:
             h2h_pk = f"H2H#{game['sport']}#{teams_sorted[0]}#{teams_sorted[1]}"
             completed_at = game.get("completed_at", datetime.utcnow().isoformat())
 
+            # Store main outcome + team-specific records
             self.table.put_item(
                 Item={
                     "pk": f"OUTCOME#{game['sport']}#{game['id']}",
@@ -124,6 +125,35 @@ class OutcomeCollector:
                     "h2h_sk": completed_at,
                 }
             )
+
+            # Store team-specific records for recent form queries
+            for team, team_norm in [
+                (game["home_team"], home_normalized),
+                (game["away_team"], away_normalized),
+            ]:
+                self.table.put_item(
+                    Item={
+                        "pk": f"TEAM_OUTCOME#{game['sport']}#{team_norm}",
+                        "sk": f"{completed_at}#{game['id']}",
+                        "team_outcome_pk": f"TEAM#{game['sport']}#{team_norm}",
+                        "completed_at": completed_at,
+                        "game_id": game["id"],
+                        "sport": game["sport"],
+                        "team": team,
+                        "opponent": game["away_team"]
+                        if team == game["home_team"]
+                        else game["home_team"],
+                        "team_score": Decimal(
+                            str(home_score if team == game["home_team"] else away_score)
+                        ),
+                        "opponent_score": Decimal(
+                            str(away_score if team == game["home_team"] else home_score)
+                        ),
+                        "winner": winner,
+                        "is_home": team == game["home_team"],
+                    }
+                )
+
             print(
                 f"Stored outcome: {game['home_team']} {home_score} - {away_score} {game['away_team']}"
             )
