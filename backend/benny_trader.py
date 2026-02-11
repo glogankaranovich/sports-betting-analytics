@@ -22,7 +22,7 @@ class BennyTrader:
     """Autonomous trading agent for sports betting"""
 
     WEEKLY_BUDGET = Decimal("100.00")
-    MIN_CONFIDENCE = 0.65  # Only bet on high confidence predictions
+    BASE_MIN_CONFIDENCE = 0.65  # Base confidence threshold
     MAX_BET_PERCENTAGE = 0.20  # Max 20% of bankroll per bet
 
     def __init__(self, table_name=None):
@@ -31,6 +31,37 @@ class BennyTrader:
         )
         self.bankroll = self._get_current_bankroll()
         self.week_start = self._get_week_start()
+        self.learning_params = self._get_learning_parameters()
+
+    def _get_learning_parameters(self) -> Dict[str, Any]:
+        """Get Benny's learned parameters from DynamoDB"""
+        try:
+            response = self.table.get_item(
+                Key={"pk": "BENNY#LEARNING", "sk": "PARAMETERS"}
+            )
+            if "Item" in response:
+                return response["Item"]
+
+            # Initialize default parameters
+            default_params = {
+                "pk": "BENNY#LEARNING",
+                "sk": "PARAMETERS",
+                "min_confidence_adjustment": 0.0,  # Added to BASE_MIN_CONFIDENCE
+                "kelly_fraction": 0.25,  # Conservative Kelly (1/4 Kelly)
+                "performance_by_sport": {},
+                "performance_by_bet_type": {},
+                "last_updated": datetime.utcnow().isoformat(),
+            }
+            self.table.put_item(Item=default_params)
+            return default_params
+        except Exception as e:
+            print(f"Error loading learning parameters: {e}")
+            return {
+                "min_confidence_adjustment": 0.0,
+                "kelly_fraction": 0.25,
+                "performance_by_sport": {},
+                "performance_by_bet_type": {},
+            }
 
     def _normalize_prediction(self, prediction: str) -> str:
         """Normalize prediction for agreement checking.
@@ -283,7 +314,12 @@ class BennyTrader:
                     away_form,
                 )
 
-                if analysis and analysis["confidence"] >= self.MIN_CONFIDENCE:
+                # Use learned confidence threshold
+                min_confidence = self.BASE_MIN_CONFIDENCE + self.learning_params.get(
+                    "min_confidence_adjustment", 0
+                )
+
+                if analysis and analysis["confidence"] >= min_confidence:
                     # Determine which team was predicted and get their odds
                     predicted_team = analysis["prediction"]
                     predicted_odds = None
@@ -498,26 +534,125 @@ Respond with JSON only:
             print(f"Error fetching team stats: {e}")
             return {}
 
-    def calculate_bet_size(self, confidence: float) -> Decimal:
-        """Calculate bet size using Kelly Criterion (simplified)"""
+    def calculate_bet_size(self, confidence: float, odds: float = None) -> Decimal:
+        """Calculate bet size using Kelly Criterion with learned parameters"""
         # Kelly Criterion: f = (bp - q) / b
-        # where b = odds, p = probability of winning, q = probability of losing
-        # Simplified: bet more on higher confidence, max 20% of bankroll
+        # where b = decimal odds - 1, p = win probability, q = 1 - p
 
-        kelly_fraction = Decimal(str((confidence - 0.5) * 2))  # 0 to 1 scale
+        kelly_fraction = self.learning_params.get("kelly_fraction", 0.25)
+
+        if odds and odds != 0:
+            # Convert American odds to decimal
+            if odds > 0:
+                decimal_odds = (odds / 100) + 1
+            else:
+                decimal_odds = (100 / abs(odds)) + 1
+
+            # Kelly formula
+            b = decimal_odds - 1
+            p = confidence
+            q = 1 - p
+            kelly_pct = (b * p - q) / b
+
+            # Apply fractional Kelly for safety
+            kelly_pct = max(0, kelly_pct * kelly_fraction)
+        else:
+            # Fallback: simple confidence-based sizing
+            kelly_pct = (confidence - 0.5) * 2 * kelly_fraction
+
         max_bet = self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))
-
-        bet_size = self.bankroll * kelly_fraction * Decimal("0.5")  # Half Kelly
-        bet_size = min(bet_size, max_bet)  # Cap at max
+        bet_size = self.bankroll * Decimal(str(kelly_pct))
+        bet_size = min(bet_size, max_bet)
         bet_size = max(bet_size, Decimal("5.00"))  # Minimum $5 bet
 
         return bet_size.quantize(Decimal("0.01"))
+
+    def update_learning_parameters(self):
+        """Update Benny's learning parameters based on recent performance"""
+        try:
+            # Get recent settled bets (last 30 days)
+            from datetime import timedelta
+
+            cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
+
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq("BENNY#BETS"),
+                FilterExpression="settled_at > :cutoff AND #status IN (:won, :lost)",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":cutoff": cutoff,
+                    ":won": "won",
+                    ":lost": "lost",
+                },
+            )
+
+            bets = response.get("Items", [])
+            if len(bets) < 10:  # Need at least 10 bets to learn
+                return
+
+            # Calculate overall win rate
+            wins = sum(1 for b in bets if b.get("status") == "won")
+            win_rate = wins / len(bets)
+
+            # Adjust MIN_CONFIDENCE based on performance
+            if win_rate > 0.60:
+                # Performing well, can lower threshold slightly
+                adjustment = -0.02
+            elif win_rate < 0.45:
+                # Performing poorly, raise threshold
+                adjustment = 0.05
+            else:
+                # Acceptable performance, small adjustment toward 0
+                current_adj = self.learning_params.get("min_confidence_adjustment", 0)
+                adjustment = -current_adj * 0.1  # Slowly return to baseline
+
+            # Calculate performance by sport and bet type
+            perf_by_sport = {}
+            perf_by_bet_type = {}
+
+            for bet in bets:
+                sport = bet.get("sport", "unknown")
+                bet_type = bet.get("bet_type", "unknown")
+                won = bet.get("status") == "won"
+
+                if sport not in perf_by_sport:
+                    perf_by_sport[sport] = {"wins": 0, "total": 0}
+                perf_by_sport[sport]["total"] += 1
+                if won:
+                    perf_by_sport[sport]["wins"] += 1
+
+                if bet_type not in perf_by_bet_type:
+                    perf_by_bet_type[bet_type] = {"wins": 0, "total": 0}
+                perf_by_bet_type[bet_type]["total"] += 1
+                if won:
+                    perf_by_bet_type[bet_type]["wins"] += 1
+
+            # Update learning parameters
+            self.learning_params.update(
+                {
+                    "min_confidence_adjustment": adjustment,
+                    "performance_by_sport": perf_by_sport,
+                    "performance_by_bet_type": perf_by_bet_type,
+                    "overall_win_rate": win_rate,
+                    "total_bets_analyzed": len(bets),
+                    "last_updated": datetime.utcnow().isoformat(),
+                }
+            )
+
+            self.table.put_item(Item=self.learning_params)
+            print(
+                f"Updated Benny learning: win_rate={win_rate:.2%}, adjustment={adjustment:+.3f}"
+            )
+
+        except Exception as e:
+            print(f"Error updating learning parameters: {e}")
 
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Place a virtual bet"""
         # Benny already analyzed the game, just use that confidence
         confidence = opportunity["confidence"]
-        bet_size = self.calculate_bet_size(confidence)
+        odds = opportunity.get("odds")
+        bet_size = self.calculate_bet_size(confidence, odds)
 
         # Check if we have enough bankroll
         if bet_size > self.bankroll:
@@ -592,6 +727,9 @@ Respond with JSON only:
 
         bets_placed = []
         total_bet = Decimal("0")
+
+        # Update learning parameters before analyzing
+        self.update_learning_parameters()
 
         for opp in opportunities:
             # Don't bet if bankroll too low
