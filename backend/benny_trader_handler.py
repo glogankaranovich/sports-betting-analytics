@@ -1,7 +1,7 @@
 """Lambda handler for Benny autonomous trader."""
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from benny_trader import BennyTrader
 
 
@@ -13,21 +13,17 @@ def handler(event, context):
     table_name = os.environ["BETS_TABLE"]
     trader = BennyTrader(table_name)
 
-    # Analyze games for next 24 hours
-    now = datetime.utcnow()
-    end_time = now + timedelta(hours=24)
-
-    results = trader.analyze_and_bet(start_time=now, end_time=end_time)
+    results = trader.run_daily_analysis()
 
     return {
         "statusCode": 200,
         "body": json.dumps(
             {
                 "message": "Benny trader executed successfully",
-                "bets_placed": results["bets_placed"],
-                "games_analyzed": results["games_analyzed"],
-                "current_bankroll": results["current_bankroll"],
-                "timestamp": now.isoformat(),
+                "bets_placed": results.get("bets_placed", 0),
+                "games_analyzed": results.get("opportunities_found", 0),
+                "current_bankroll": float(results.get("remaining_bankroll", 0)),
+                "timestamp": datetime.utcnow().isoformat(),
             }
         ),
     }

@@ -290,22 +290,23 @@ export const BennyDashboard: React.FC = () => {
       <style>{`
         .benny-dashboard {
           padding: 20px;
-          max-width: 1200px;
+          max-width: 1400px;
           margin: 0 auto;
         }
 
         .benny-header {
-          text-align: center;
           margin-bottom: 30px;
         }
 
         .benny-header h2 {
-          color: #667eea;
-          margin-bottom: 10px;
+          color: #e2e8f0;
+          margin: 0 0 8px 0;
+          font-size: 28px;
         }
 
         .benny-header p {
           color: #a0aec0;
+          margin: 0;
         }
 
         .benny-stats {
@@ -317,9 +318,17 @@ export const BennyDashboard: React.FC = () => {
 
         .stat-card {
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 12px;
           padding: 20px;
+          transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(102, 126, 234, 0.3);
+          transform: translateY(-2px);
         }
 
         .stat-label {
@@ -378,6 +387,7 @@ export const BennyDashboard: React.FC = () => {
 
         .bankroll-chart {
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 12px;
           padding: 20px;
@@ -385,7 +395,7 @@ export const BennyDashboard: React.FC = () => {
         }
 
         .bankroll-chart h4 {
-          color: #667eea;
+          color: #e2e8f0;
           font-size: 16px;
           margin-bottom: 15px;
         }
@@ -408,13 +418,14 @@ export const BennyDashboard: React.FC = () => {
 
         .metric-card {
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 12px;
           padding: 20px;
         }
 
         .metric-card h4 {
-          color: #667eea;
+          color: #e2e8f0;
           font-size: 16px;
           margin-bottom: 15px;
         }
@@ -533,9 +544,16 @@ export const BennyDashboard: React.FC = () => {
 
         .bet-card {
           background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 8px;
           overflow: hidden;
+          transition: all 0.3s ease;
+        }
+
+        .bet-card:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(102, 126, 234, 0.3);
         }
 
         .bet-row {
