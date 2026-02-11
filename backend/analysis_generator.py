@@ -296,13 +296,80 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
 
 
 def store_analysis(analysis_item: Dict[str, Any]):
-    """Store analysis in DynamoDB"""
+    """Store analysis in DynamoDB with inverse prediction"""
     try:
         # Convert floats to Decimals for DynamoDB
         analysis_item = float_to_decimal(analysis_item)
+
+        # Store original prediction
         table.put_item(Item=analysis_item)
         print(
             f"Stored: {analysis_item['pk']} {analysis_item['sk']} - {analysis_item['prediction']}"
         )
+
+        # Store inverse prediction
+        inverse_item = create_inverse_prediction(analysis_item)
+        if inverse_item:
+            table.put_item(Item=inverse_item)
+            print(
+                f"Stored inverse: {inverse_item['pk']} {inverse_item['sk']} - {inverse_item['prediction']}"
+            )
+
     except Exception as e:
         print(f"Error storing analysis: {e}")
+
+
+def create_inverse_prediction(analysis_item: Dict[str, Any]) -> Dict[str, Any]:
+    """Create inverse prediction for a given analysis"""
+    try:
+        prediction = analysis_item.get("prediction", "")
+        analysis_type = analysis_item.get("analysis_type", "game")
+        confidence = float(analysis_item.get("confidence", 0.5))
+
+        # Calculate inverse confidence (flip around 0.5)
+        inverse_confidence = 1.0 - confidence
+
+        # Determine inverse prediction based on type
+        if analysis_type == "game":
+            # For game predictions, flip the team
+            home_team = analysis_item.get("home_team", "")
+            away_team = analysis_item.get("away_team", "")
+
+            # Check which team was predicted
+            if home_team and home_team.lower() in prediction.lower():
+                inverse_prediction = away_team
+            elif away_team and away_team.lower() in prediction.lower():
+                inverse_prediction = home_team
+            else:
+                # Can't determine inverse for complex predictions
+                return None
+
+        elif analysis_type == "prop":
+            # For props, flip over/under
+            if "over" in prediction.lower():
+                inverse_prediction = prediction.replace("Over", "Under").replace(
+                    "over", "under"
+                )
+            elif "under" in prediction.lower():
+                inverse_prediction = prediction.replace("Under", "Over").replace(
+                    "under", "over"
+                )
+            else:
+                return None
+        else:
+            return None
+
+        # Create inverse item with INVERSE suffix in SK
+        inverse_item = analysis_item.copy()
+        inverse_item["sk"] = analysis_item["sk"].replace("#LATEST", "#INVERSE")
+        inverse_item["prediction"] = inverse_prediction
+        inverse_item["confidence"] = Decimal(str(inverse_confidence))
+        inverse_item["is_inverse"] = True
+        inverse_item["original_prediction"] = prediction
+        inverse_item["reasoning"] = f"INVERSE of: {analysis_item.get('reasoning', '')}"
+
+        return inverse_item
+
+    except Exception as e:
+        print(f"Error creating inverse prediction: {e}")
+        return None

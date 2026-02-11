@@ -268,15 +268,98 @@ class OutcomeCollector:
                             },
                         )
 
-                        updates += self._process_analysis_items(
-                            response.get("Items", []), game
-                        )
+                        items = response.get("Items", [])
+                        updates += self._process_analysis_items(items, game)
+
+                        # Also verify inverse predictions
+                        updates += self._verify_inverse_predictions(items, game)
 
             # Settle Benny bets for this game
             self._settle_benny_bets(game)
 
         except Exception as e:
             print(f"Error updating analyses for game {game['id']}: {e}")
+
+        return updates
+
+    def _verify_inverse_predictions(
+        self, original_items: List[Dict[str, Any]], game: Dict[str, Any]
+    ) -> int:
+        """Verify inverse predictions for the given original predictions"""
+        updates = 0
+
+        try:
+            for original_item in original_items:
+                # Find corresponding inverse prediction
+                inverse_sk = original_item.get("sk", "").replace("#LATEST", "#INVERSE")
+
+                try:
+                    inverse_response = self.table.get_item(
+                        Key={"pk": original_item["pk"], "sk": inverse_sk}
+                    )
+
+                    if "Item" not in inverse_response:
+                        continue
+
+                    inverse_item = inverse_response["Item"]
+
+                    # Verify inverse prediction
+                    if inverse_item.get("analysis_type") == "game":
+                        home_won = self._determine_winner(game)
+                        inverse_correct = self._check_game_analysis_accuracy(
+                            inverse_item.get("prediction", ""), home_won, game
+                        )
+
+                        verified_at = datetime.utcnow().isoformat()
+                        model = inverse_item.get("model", "consensus")
+                        sport = inverse_item.get("sport")
+                        verified_pk = f"VERIFIED#{model}#{sport}#game#inverse"
+
+                        self.table.update_item(
+                            Key={"pk": inverse_item["pk"], "sk": inverse_item["sk"]},
+                            UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
+                            ExpressionAttributeValues={
+                                ":home_won": home_won,
+                                ":correct": inverse_correct,
+                                ":verified": verified_at,
+                                ":vpk": verified_pk,
+                                ":vsk": verified_at,
+                            },
+                        )
+                        updates += 1
+
+                        print(
+                            f"Verified inverse: {model} - Original: {original_item.get('analysis_correct', 'unknown')}, Inverse: {inverse_correct}"
+                        )
+
+                    elif inverse_item.get("analysis_type") == "prop":
+                        prop_correct = self._check_prop_analysis_accuracy(
+                            inverse_item, game
+                        )
+
+                        verified_at = datetime.utcnow().isoformat()
+                        model = inverse_item.get("model", "consensus")
+                        sport = inverse_item.get("sport")
+                        verified_pk = f"VERIFIED#{model}#{sport}#prop#inverse"
+
+                        self.table.update_item(
+                            Key={"pk": inverse_item["pk"], "sk": inverse_item["sk"]},
+                            UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
+                            ExpressionAttributeValues={
+                                ":verified": verified_at,
+                                ":correct": prop_correct,
+                                ":vpk": verified_pk,
+                                ":vsk": verified_at,
+                            },
+                        )
+                        updates += 1
+
+                except Exception as e:
+                    print(f"Error verifying inverse prediction: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"Error in _verify_inverse_predictions: {e}")
 
         return updates
 
