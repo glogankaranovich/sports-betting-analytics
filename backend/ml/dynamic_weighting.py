@@ -15,16 +15,18 @@ class DynamicModelWeighting:
     def __init__(self, lookback_days=30):
         self.lookback_days = lookback_days
 
-    def get_recent_accuracy(self, model, sport, bet_type="game"):
+    def get_recent_accuracy(self, model, sport, bet_type="game", inverse=False):
         """Get recent accuracy for a model/sport/bet_type combination."""
         cutoff_date = (
             datetime.utcnow() - timedelta(days=self.lookback_days)
         ).isoformat()
 
         # Query verified analyses using GSI
-        # PK: VERIFIED#{model}#{sport}#{bet_type}
+        # PK: VERIFIED#{model}#{sport}#{bet_type}[#inverse]
         # SK: {verified_at}
         verified_pk = f"VERIFIED#{model}#{sport}#{bet_type}"
+        if inverse:
+            verified_pk += "#inverse"
 
         response = table.query(
             IndexName="VerifiedAnalysisGSI",
@@ -73,17 +75,30 @@ class DynamicModelWeighting:
     ):
         """Adjust confidence based on recent model performance."""
         accuracy = self.get_recent_accuracy(model, sport, bet_type)
+        inverse_accuracy = self.get_recent_accuracy(
+            model, sport, bet_type, inverse=True
+        )
 
         # If no historical data, return base confidence
         if accuracy is None:
             return base_confidence
 
-        # Boost confidence for models performing above 60%
-        if accuracy > 0.6:
+        # Check if inverse performs better
+        if inverse_accuracy and inverse_accuracy > accuracy and inverse_accuracy > 0.5:
+            # Model should be inverted - reduce confidence significantly
+            multiplier = 0.3  # Heavily penalize models that should be inverted
+            print(
+                f"WARNING: {model} inverse accuracy ({inverse_accuracy:.2%}) > original ({accuracy:.2%}) - reducing confidence"
+            )
+        elif accuracy < 0.5:
+            # Underperforming model - reduce confidence
+            multiplier = accuracy  # Direct scaling (40% accuracy = 0.4x multiplier)
+        elif accuracy > 0.6:
+            # Boost confidence for models performing above 60%
             multiplier = 1.0 + (accuracy - 0.6) * 0.5  # Up to 1.2x at 80%
         else:
-            # Reduce confidence for underperforming models
-            multiplier = accuracy / 0.6  # Down to 0.5x at 30%
+            # Neutral performance (50-60%) - slight reduction
+            multiplier = 0.8 + (accuracy - 0.5) * 2  # 0.8x to 1.0x
 
         adjusted = base_confidence * multiplier
         return min(adjusted, 1.0)  # Cap at 1.0
@@ -112,3 +127,107 @@ class DynamicModelWeighting:
             return {m: 1.0 / len(models) for m in models}
 
         return {m: p / total for m, p in performances.items()}
+
+    def get_model_recommendation(self, model, sport, bet_type="game"):
+        """Get recommendation for a model: ORIGINAL, INVERSE, or AVOID."""
+        accuracy = self.get_recent_accuracy(model, sport, bet_type)
+        inverse_accuracy = self.get_recent_accuracy(
+            model, sport, bet_type, inverse=True
+        )
+
+        if accuracy is None:
+            return {
+                "recommendation": "INSUFFICIENT_DATA",
+                "original_accuracy": None,
+                "inverse_accuracy": None,
+                "sample_size": 0,
+            }
+
+        # Get sample size
+        cutoff_date = (
+            datetime.utcnow() - timedelta(days=self.lookback_days)
+        ).isoformat()
+        verified_pk = f"VERIFIED#{model}#{sport}#{bet_type}"
+        response = table.query(
+            IndexName="VerifiedAnalysisGSI",
+            KeyConditionExpression=Key("verified_analysis_pk").eq(verified_pk)
+            & Key("verified_analysis_sk").gte(cutoff_date),
+        )
+        sample_size = len(response.get("Items", []))
+
+        # Determine recommendation
+        if inverse_accuracy and inverse_accuracy > accuracy and inverse_accuracy > 0.5:
+            recommendation = "INVERSE"
+        elif accuracy > 0.5:
+            recommendation = "ORIGINAL"
+        else:
+            recommendation = "AVOID"
+
+        return {
+            "recommendation": recommendation,
+            "original_accuracy": accuracy,
+            "inverse_accuracy": inverse_accuracy,
+            "sample_size": sample_size,
+            "confidence_multiplier": self._get_confidence_multiplier(
+                accuracy, inverse_accuracy
+            ),
+        }
+
+    def _get_confidence_multiplier(self, accuracy, inverse_accuracy):
+        """Calculate confidence multiplier based on performance."""
+        if inverse_accuracy and inverse_accuracy > accuracy and inverse_accuracy > 0.5:
+            return 0.3  # Heavily penalize
+        elif accuracy < 0.5:
+            return accuracy  # Direct scaling
+        elif accuracy > 0.6:
+            return 1.0 + (accuracy - 0.6) * 0.5  # Boost
+        else:
+            return 0.8 + (accuracy - 0.5) * 2  # Slight reduction
+
+    def store_model_adjustments(self, sport, bet_type="game"):
+        """Store adjustment factors for all models in DynamoDB."""
+        models = [
+            "consensus",
+            "value",
+            "momentum",
+            "contrarian",
+            "hot_cold",
+            "rest_schedule",
+            "matchup",
+            "injury_aware",
+            "ensemble",
+            "benny",
+        ]
+
+        adjustments = []
+        for model in models:
+            rec = self.get_model_recommendation(model, sport, bet_type)
+            if rec["recommendation"] != "INSUFFICIENT_DATA":
+                adjustments.append(
+                    {
+                        "model": model,
+                        "sport": sport,
+                        "bet_type": bet_type,
+                        **rec,
+                    }
+                )
+
+                # Store in DynamoDB
+                table.put_item(
+                    Item={
+                        "pk": f"MODEL_ADJUSTMENT#{sport}#{bet_type}",
+                        "sk": model,
+                        "model": model,
+                        "sport": sport,
+                        "bet_type": bet_type,
+                        "recommendation": rec["recommendation"],
+                        "original_accuracy": rec["original_accuracy"],
+                        "inverse_accuracy": rec["inverse_accuracy"] or 0,
+                        "sample_size": rec["sample_size"],
+                        "confidence_multiplier": rec["confidence_multiplier"],
+                        "updated_at": datetime.utcnow().isoformat(),
+                        "lookback_days": self.lookback_days,
+                    }
+                )
+
+        return adjustments
