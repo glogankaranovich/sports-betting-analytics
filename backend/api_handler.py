@@ -977,6 +977,7 @@ def handle_create_user_model(body: Dict[str, Any]):
             data_sources=body["data_sources"],
             min_confidence=body.get("min_confidence", 0.6),
             status=body.get("status", "active"),
+            auto_adjust_weights=body.get("auto_adjust_weights", False),
         )
         model.save()
 
@@ -1045,6 +1046,8 @@ def handle_update_user_model(model_id: str, body: Dict[str, Any]):
             model.min_confidence = body["min_confidence"]
         if "status" in body:
             model.status = body["status"]
+        if "auto_adjust_weights" in body:
+            model.auto_adjust_weights = body["auto_adjust_weights"]
 
         model.save()
 

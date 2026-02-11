@@ -27,6 +27,7 @@ interface ModelConfig {
   };
   customDatasets: CustomDatasetSelection[];
   minConfidence: number;
+  autoAdjustWeights: boolean;
 }
 
 const DATA_SOURCES = [
@@ -71,6 +72,7 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
     },
     customDatasets: [],
     minConfidence: 60,
+    autoAdjustWeights: false,
   });
 
   const [customDatasets, setCustomDatasets] = useState<any[]>([]);
@@ -301,6 +303,21 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
         <p className="help-text">Only show predictions above this confidence level</p>
       </div>
 
+      <div className="form-group">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.autoAdjustWeights}
+            onChange={(e) => setConfig({ ...config, autoAdjustWeights: e.target.checked })}
+          />
+          <span>Auto-Adjust Weights Based on Performance</span>
+        </label>
+        <p className="help-text">
+          Automatically optimize data source weights based on which sources are most accurate for your model.
+          Adjustments run weekly and you can disable this at any time.
+        </p>
+      </div>
+
       <div className="button-group">
         <button onClick={onCancel} className="btn-secondary">Cancel</button>
         <button onClick={() => {
@@ -321,6 +338,7 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
               weight: cd.weight / 100
             })),
             min_confidence: config.minConfidence / 100,
+            auto_adjust_weights: config.autoAdjustWeights,
           };
           onSave(apiConfig);
         }} disabled={!isValid} className="btn-primary">

@@ -46,6 +46,7 @@ class UserModel:
         model_id: Optional[str] = None,
         custom_datasets: Optional[List[Dict]] = None,
         status: str = "active",
+        auto_adjust_weights: bool = False,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
     ):
@@ -59,6 +60,7 @@ class UserModel:
         self.custom_datasets = custom_datasets or []
         self.min_confidence = min_confidence
         self.status = status
+        self.auto_adjust_weights = auto_adjust_weights
         self.created_at = created_at or datetime.utcnow().isoformat()
         self.updated_at = updated_at or datetime.utcnow().isoformat()
 
@@ -79,6 +81,7 @@ class UserModel:
             "custom_datasets": convert_floats_to_decimal(self.custom_datasets),
             "min_confidence": Decimal(str(self.min_confidence)),
             "status": self.status,
+            "auto_adjust_weights": self.auto_adjust_weights,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -97,6 +100,7 @@ class UserModel:
             custom_datasets=item.get("custom_datasets", []),
             min_confidence=float(item["min_confidence"]),
             status=item.get("status", "active"),
+            auto_adjust_weights=item.get("auto_adjust_weights", False),
             created_at=item["created_at"],
             updated_at=item["updated_at"],
         )
