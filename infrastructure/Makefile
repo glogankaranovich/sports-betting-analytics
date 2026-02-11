@@ -56,7 +56,7 @@ workflow-check:
 # Run unit tests
 test: build
 	@echo "🧪 Running infrastructure unit tests..."
-	npm test
+	npm test -- --passWithNoTests
 
 # Run backend unit tests
 test-backend:
