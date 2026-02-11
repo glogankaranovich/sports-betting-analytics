@@ -532,6 +532,27 @@ Respond with JSON only:
         # Store bet
         self.table.put_item(Item=bet)
 
+        # Also store as analysis record for outcome verification and leaderboard tracking
+        analysis_record = {
+            "pk": f"ANALYSIS#{opportunity['sport']}#{opportunity['game_id']}#fanduel",
+            "sk": "benny#game#LATEST",
+            "model": "benny",
+            "analysis_type": "game",
+            "sport": opportunity["sport"],
+            "bookmaker": "fanduel",
+            "game_id": opportunity["game_id"],
+            "home_team": opportunity["home_team"],
+            "away_team": opportunity["away_team"],
+            "prediction": opportunity["prediction"],
+            "confidence": Decimal(str(confidence)),
+            "reasoning": opportunity["reasoning"],
+            "market_key": opportunity["market_key"],
+            "commence_time": opportunity["commence_time"],
+            "created_at": datetime.utcnow().isoformat(),
+            "latest": True,
+        }
+        self.table.put_item(Item=analysis_record)
+
         # Update bankroll
         new_bankroll = self.bankroll - bet_size
         self._update_bankroll(new_bankroll)
