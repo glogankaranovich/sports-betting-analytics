@@ -80,6 +80,8 @@ def lambda_handler(event, context):
             return handle_get_model_performance(query_params)
         elif path == "/model-comparison":
             return handle_get_model_comparison(query_params)
+        elif path == "/model-rankings":
+            return handle_get_model_rankings(query_params)
         elif path == "/custom-data" and http_method == "GET":
             return handle_list_custom_data(query_params)
         elif path == "/custom-data/upload" and http_method == "POST":
@@ -849,6 +851,198 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
         return create_response(
             500, {"error": f"Error fetching model comparison: {str(e)}"}
         )
+
+
+def handle_get_model_rankings(query_params: Dict[str, str]):
+    """Get model rankings by ROI and profitability metrics"""
+    try:
+        sport = query_params.get("sport", "basketball_nba")
+        days = int(query_params.get("days", 30))
+        user_id = query_params.get("user_id")
+        mode = query_params.get("mode", "both")  # original, inverse, or both
+
+        from datetime import datetime, timedelta
+
+        cutoff_time = (datetime.utcnow() - timedelta(days=days)).isoformat()
+
+        system_models = [
+            "consensus",
+            "value",
+            "momentum",
+            "contrarian",
+            "hot_cold",
+            "rest_schedule",
+            "matchup",
+            "injury_aware",
+            "ensemble",
+            "benny",
+        ]
+
+        rankings = []
+
+        # Calculate ROI for system models
+        for model in system_models:
+            model_data = _calculate_model_roi(
+                model, sport, cutoff_time, is_user_model=False, mode=mode
+            )
+            if model_data:
+                rankings.extend(model_data)
+
+        # Calculate ROI for user models
+        if user_id:
+            from user_models import UserModel
+
+            user_models = UserModel.list_by_user(user_id)
+            for user_model in user_models:
+                if user_model.sport == sport and user_model.status == "active":
+                    model_data = _calculate_model_roi(
+                        user_model.model_id,
+                        sport,
+                        cutoff_time,
+                        is_user_model=True,
+                        model_name=user_model.name,
+                        mode=mode,
+                    )
+                    if model_data:
+                        rankings.extend(model_data)
+
+        # Sort by ROI descending
+        rankings.sort(key=lambda x: x["roi"], reverse=True)
+
+        return create_response(
+            200,
+            {
+                "sport": sport,
+                "days": days,
+                "mode": mode,
+                "rankings": rankings,
+                "summary": {
+                    "total_models": len(rankings),
+                    "profitable": sum(1 for r in rankings if r["roi"] > 0),
+                    "unprofitable": sum(1 for r in rankings if r["roi"] < 0),
+                    "avg_roi": (
+                        round(sum(r["roi"] for r in rankings) / len(rankings), 3)
+                        if rankings
+                        else 0
+                    ),
+                },
+            },
+        )
+
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc()
+        return create_response(500, {"error": f"Error fetching rankings: {str(e)}"})
+
+
+def _calculate_model_roi(
+    model_id: str,
+    sport: str,
+    cutoff_time: str,
+    is_user_model: bool = False,
+    model_name: str = None,
+    mode: str = "both",
+) -> list:
+    """Calculate ROI metrics for a model (returns list for original/inverse)"""
+    try:
+        from boto3.dynamodb.conditions import Key
+
+        results = []
+
+        # Determine which modes to calculate
+        modes_to_calc = []
+        if mode in ["original", "both"]:
+            modes_to_calc.append(("original", ""))
+        if mode in ["inverse", "both"]:
+            modes_to_calc.append(("inverse", "#inverse"))
+
+        for mode_name, pk_suffix in modes_to_calc:
+            # Query verified predictions
+            if is_user_model:
+                pk = f"VERIFIED#{model_id}#{sport}#game{pk_suffix}"
+            else:
+                pk = f"VERIFIED#{model_id}#{sport}#game{pk_suffix}"
+
+            response = table.query(
+                IndexName="VerifiedAnalysisGSI",
+                KeyConditionExpression=Key("verified_analysis_pk").eq(pk)
+                & Key("verified_analysis_sk").gte(cutoff_time),
+                Limit=1000,
+            )
+            items = response.get("Items", [])
+
+            if not items:
+                continue
+
+            # Calculate metrics
+            total_bets = len(items)
+            wins = sum(1 for item in items if item.get("analysis_correct"))
+            losses = total_bets - wins
+            win_rate = wins / total_bets if total_bets > 0 else 0
+
+            # Calculate profit/loss assuming $100 bets with average odds
+            total_profit = 0
+            total_wagered = total_bets * 100
+            odds_sum = 0
+            odds_count = 0
+
+            for item in items:
+                # Extract odds from outcomes if available
+                outcomes = item.get("outcomes", [])
+                if outcomes and len(outcomes) > 0:
+                    # Use first outcome's odds as proxy
+                    odds = float(outcomes[0].get("price", 0))
+                    odds_sum += odds
+                    odds_count += 1
+
+                    # Calculate profit for this bet
+                    if item.get("analysis_correct"):
+                        if odds > 0:
+                            profit = (100 * odds) / 100
+                        else:
+                            profit = 100 / (abs(odds) / 100)
+                        total_profit += profit
+                    else:
+                        total_profit -= 100
+
+            avg_odds = odds_sum / odds_count if odds_count > 0 else 0
+            roi = (total_profit / total_wagered) if total_wagered > 0 else 0
+
+            # Calculate Sharpe ratio (simplified: returns / volatility)
+            if total_bets > 1:
+                avg_return = total_profit / total_bets
+                variance = sum(
+                    ((100 if item.get("analysis_correct") else -100) - avg_return) ** 2
+                    for item in items
+                ) / (total_bets - 1)
+                std_dev = variance**0.5
+                sharpe = avg_return / std_dev if std_dev > 0 else 0
+            else:
+                sharpe = 0
+
+            results.append(
+                {
+                    "model": model_name or model_id,
+                    "model_id": model_id,
+                    "mode": mode_name,
+                    "is_user_model": is_user_model,
+                    "total_bets": total_bets,
+                    "wins": wins,
+                    "losses": losses,
+                    "win_rate": round(win_rate, 3),
+                    "avg_odds": round(avg_odds, 0),
+                    "profit": round(total_profit, 2),
+                    "roi": round(roi, 3),
+                    "sharpe_ratio": round(sharpe, 3),
+                }
+            )
+
+        return results
+
+    except Exception as e:
+        print(f"Error calculating ROI for {model_id}: {e}")
+        return []
 
 
 def _get_model_comparison_data(

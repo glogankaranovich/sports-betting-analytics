@@ -188,6 +188,10 @@ export class BetCollectorApiStack extends cdk.Stack {
     const modelComparison = betCollectorApi.root.addResource('model-comparison');
     modelComparison.addMethod('GET', lambdaIntegration, methodOptions);
 
+    // Model rankings endpoint (protected)
+    const modelRankings = betCollectorApi.root.addResource('model-rankings');
+    modelRankings.addMethod('GET', lambdaIntegration, methodOptions);
+
     // Separate Lambda for user models to avoid policy size limits
     const userModelsFunction = new lambda.Function(this, 'UserModelsApiFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
