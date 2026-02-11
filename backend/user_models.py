@@ -46,7 +46,6 @@ class UserModel:
         model_id: Optional[str] = None,
         custom_datasets: Optional[List[Dict]] = None,
         status: str = "active",
-        allow_benny_access: bool = True,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
     ):
@@ -60,7 +59,6 @@ class UserModel:
         self.custom_datasets = custom_datasets or []
         self.min_confidence = min_confidence
         self.status = status
-        self.allow_benny_access = allow_benny_access
         self.created_at = created_at or datetime.utcnow().isoformat()
         self.updated_at = updated_at or datetime.utcnow().isoformat()
 
@@ -81,7 +79,6 @@ class UserModel:
             "custom_datasets": convert_floats_to_decimal(self.custom_datasets),
             "min_confidence": Decimal(str(self.min_confidence)),
             "status": self.status,
-            "allow_benny_access": self.allow_benny_access,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -100,7 +97,6 @@ class UserModel:
             custom_datasets=item.get("custom_datasets", []),
             min_confidence=float(item["min_confidence"]),
             status=item.get("status", "active"),
-            allow_benny_access=item.get("allow_benny_access", True),
             created_at=item["created_at"],
             updated_at=item["updated_at"],
         )
@@ -128,24 +124,6 @@ class UserModel:
             ScanIndexForward=False,  # Most recent first
             Limit=limit,
         )
-        return [UserModel.from_dynamodb(item) for item in response.get("Items", [])]
-
-    @staticmethod
-    def list_benny_accessible(sport: str = None, limit: int = 100) -> List["UserModel"]:
-        """List all models that allow Benny access"""
-        # Scan for models with allow_benny_access=True
-        scan_params = {
-            "FilterExpression": "allow_benny_access = :true AND #status = :active",
-            "ExpressionAttributeValues": {":true": True, ":active": "active"},
-            "ExpressionAttributeNames": {"#status": "status"},
-            "Limit": limit,
-        }
-
-        if sport:
-            scan_params["FilterExpression"] += " AND sport = :sport"
-            scan_params["ExpressionAttributeValues"][":sport"] = sport
-
-        response = user_models_table.scan(**scan_params)
         return [UserModel.from_dynamodb(item) for item in response.get("Items", [])]
 
     def delete(self):

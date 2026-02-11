@@ -805,7 +805,6 @@ def handle_create_user_model(body: Dict[str, Any]):
             data_sources=body["data_sources"],
             min_confidence=body.get("min_confidence", 0.6),
             status=body.get("status", "active"),
-            allow_benny_access=body.get("allow_benny_access", True),
         )
         model.save()
 
@@ -874,8 +873,6 @@ def handle_update_user_model(model_id: str, body: Dict[str, Any]):
             model.min_confidence = body["min_confidence"]
         if "status" in body:
             model.status = body["status"]
-        if "allow_benny_access" in body:
-            model.allow_benny_access = body["allow_benny_access"]
 
         model.save()
 
@@ -1047,7 +1044,6 @@ def handle_list_custom_data(query_params: Dict[str, str]):
                         "data_type": d.data_type,
                         "columns": d.columns,
                         "row_count": d.row_count,
-                        "allow_benny_access": d.allow_benny_access,
                         "created_at": d.created_at,
                     }
                     for d in datasets
@@ -1080,7 +1076,6 @@ def handle_upload_custom_data(body: Dict[str, Any]):
         description = body.get("description", "")
         sport = body["sport"]
         data_type = body["data_type"]
-        allow_benny_access = body.get("allow_benny_access", False)
 
         # Parse data (CSV or JSON)
         data_str = body["data"]
@@ -1109,7 +1104,6 @@ def handle_upload_custom_data(body: Dict[str, Any]):
             columns=list(data[0].keys()),
             s3_key=f"{user_id}/{uuid.uuid4().hex}.json",
             row_count=len(data),
-            allow_benny_access=allow_benny_access,
         )
 
         # Upload to S3

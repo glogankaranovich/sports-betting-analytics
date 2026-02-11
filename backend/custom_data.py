@@ -45,7 +45,6 @@ class CustomDataset:
         s3_key: str,
         row_count: int,
         dataset_id: Optional[str] = None,
-        allow_benny_access: bool = False,
         created_at: Optional[str] = None,
     ):
         self.dataset_id = dataset_id or f"dataset_{uuid.uuid4().hex[:12]}"
@@ -57,7 +56,6 @@ class CustomDataset:
         self.columns = columns
         self.s3_key = s3_key
         self.row_count = row_count
-        self.allow_benny_access = allow_benny_access
         self.created_at = created_at or datetime.utcnow().isoformat()
 
     def to_dynamodb(self) -> Dict:
@@ -76,7 +74,6 @@ class CustomDataset:
             "columns": self.columns,
             "s3_key": self.s3_key,
             "row_count": self.row_count,
-            "allow_benny_access": self.allow_benny_access,
             "created_at": self.created_at,
         }
 
@@ -93,7 +90,6 @@ class CustomDataset:
             columns=item["columns"],
             s3_key=item["s3_key"],
             row_count=item["row_count"],
-            allow_benny_access=item.get("allow_benny_access", False),
             created_at=item["created_at"],
         )
 
@@ -119,24 +115,6 @@ class CustomDataset:
             ScanIndexForward=False,  # Most recent first
             Limit=limit,
         )
-        return [CustomDataset.from_dynamodb(item) for item in response.get("Items", [])]
-
-    @staticmethod
-    def list_benny_accessible(
-        sport: str = None, limit: int = 100
-    ) -> List["CustomDataset"]:
-        """List all datasets that allow Benny access"""
-        scan_params = {
-            "FilterExpression": "allow_benny_access = :true AND begins_with(SK, :prefix)",
-            "ExpressionAttributeValues": {":true": True, ":prefix": "DATASET#"},
-            "Limit": limit,
-        }
-
-        if sport:
-            scan_params["FilterExpression"] += " AND sport = :sport"
-            scan_params["ExpressionAttributeValues"][":sport"] = sport
-
-        response = custom_data_table.scan(**scan_params)
         return [CustomDataset.from_dynamodb(item) for item in response.get("Items", [])]
 
     def delete(self):

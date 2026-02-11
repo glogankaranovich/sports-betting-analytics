@@ -15,7 +15,6 @@ export const CustomDataUpload: React.FC<CustomDataUploadProps> = ({ token, userI
   const [dataType, setDataType] = useState('team');
   const [fileContent, setFileContent] = useState('');
   const [fileFormat, setFileFormat] = useState('csv');
-  const [allowBennyAccess, setAllowBennyAccess] = useState(false);
   const [preview, setPreview] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -78,7 +77,6 @@ export const CustomDataUpload: React.FC<CustomDataUploadProps> = ({ token, userI
           data_type: dataType,
           data: fileContent,
           format: fileFormat,
-          allow_benny_access: allowBennyAccess,
         }),
       });
 
@@ -200,22 +198,6 @@ Boston Celtics,88.2,115.7,106.4`}</pre>
           </div>
         </div>
       )}
-
-      <div className="form-group">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={allowBennyAccess}
-            onChange={(e) => setAllowBennyAccess(e.target.checked)}
-          />
-          <div>
-            <strong>Allow Benny to use this dataset</strong>
-            <p className="help-text">
-              If enabled, Benny can access this dataset when making predictions.
-            </p>
-          </div>
-        </label>
-      </div>
 
       {error && <div className="error">{error}</div>}
 

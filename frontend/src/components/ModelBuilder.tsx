@@ -27,7 +27,6 @@ interface ModelConfig {
   };
   customDatasets: CustomDatasetSelection[];
   minConfidence: number;
-  allowBennyAccess: boolean;
 }
 
 const DATA_SOURCES = [
@@ -72,7 +71,6 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
     },
     customDatasets: [],
     minConfidence: 60,
-    allowBennyAccess: true,
   });
 
   const [customDatasets, setCustomDatasets] = useState<any[]>([]);
@@ -303,23 +301,6 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
         <p className="help-text">Only show predictions above this confidence level</p>
       </div>
 
-      <div className="form-group">
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={config.allowBennyAccess}
-            onChange={(e) => setConfig({ ...config, allowBennyAccess: e.target.checked })}
-          />
-          <div>
-            <strong>Allow Benny to use this model</strong>
-            <p className="help-text">
-              If enabled, Benny (our AI trader) can learn from and use this model's predictions when making bets. 
-              Disable if you want to keep this model private.
-            </p>
-          </div>
-        </label>
-      </div>
-
       <div className="button-group">
         <button onClick={onCancel} className="btn-secondary">Cancel</button>
         <button onClick={() => {
@@ -340,7 +321,6 @@ export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: (
               weight: cd.weight / 100
             })),
             min_confidence: config.minConfidence / 100,
-            allow_benny_access: config.allowBennyAccess,
           };
           onSave(apiConfig);
         }} disabled={!isValid} className="btn-primary">
