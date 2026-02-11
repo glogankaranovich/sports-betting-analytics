@@ -251,12 +251,21 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             },
           }
         );
-        const data = await response.json();
         
-        // Show top 5 by ROI
+        if (!response.ok) {
+          console.error('Model rankings API error:', response.status, await response.text());
+          return;
+        }
+        
+        const data = await response.json();
+        console.log('Model rankings data:', data);
+        
+        // Show top 5 by ROI (include negative ROI too)
         const topByROI = (data.rankings || [])
-          .filter((r: any) => r.roi > 0)
+          .sort((a: any, b: any) => b.roi - a.roi)
           .slice(0, 5);
+        
+        console.log('Top 5 by ROI:', topByROI);
         setModelLeaderboard(topByROI);
       }
     } catch (err) {
