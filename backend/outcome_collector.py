@@ -248,6 +248,7 @@ class OutcomeCollector:
                 "matchup",
                 "injury_aware",
                 "ensemble",
+                "benny",
             ]
             bet_types = ["game", "prop"]
             bookmakers = ["fanduel"]
@@ -270,6 +271,9 @@ class OutcomeCollector:
                         updates += self._process_analysis_items(
                             response.get("Items", []), game
                         )
+
+            # Settle Benny bets for this game
+            self._settle_benny_bets(game)
 
         except Exception as e:
             print(f"Error updating analyses for game {game['id']}: {e}")
@@ -506,6 +510,92 @@ class OutcomeCollector:
     def _map_sport_name(self, api_sport: str) -> str:
         """Keep sport names consistent with storage format"""
         return api_sport
+
+    def _settle_benny_bets(self, game: Dict[str, Any]) -> None:
+        """Settle Benny bets for a completed game"""
+        try:
+            game_id = game["id"]
+
+            # Query for Benny bets on this game
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk",
+                FilterExpression="game_id = :game_id AND #status = :pending",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":pk": "BENNY",
+                    ":game_id": game_id,
+                    ":pending": "pending",
+                },
+            )
+
+            bets = response.get("Items", [])
+            if not bets:
+                return
+
+            # Get current bankroll
+            bankroll_response = self.table.get_item(
+                Key={"pk": "BENNY", "sk": "BANKROLL"}
+            )
+            current_bankroll = Decimal(
+                str(bankroll_response.get("Item", {}).get("amount", "100.00"))
+            )
+
+            for bet in bets:
+                bet_amount = Decimal(str(bet.get("bet_amount", 0)))
+                prediction = bet.get("prediction", "")
+
+                # Determine if bet won
+                bet_won = self._check_game_analysis_accuracy(
+                    prediction, self._determine_winner(game), game
+                )
+
+                # Calculate payout (assuming American odds from bet record)
+                # For now, use simple 1:1 payout (can enhance with actual odds later)
+                if bet_won:
+                    payout = bet_amount * Decimal("2.0")  # Return bet + winnings
+                    profit = bet_amount
+                    new_status = "won"
+                else:
+                    payout = Decimal("0")
+                    profit = -bet_amount
+                    new_status = "lost"
+
+                # Update bet record
+                self.table.update_item(
+                    Key={"pk": bet["pk"], "sk": bet["sk"]},
+                    UpdateExpression="SET #status = :status, payout = :payout, profit = :profit, settled_at = :settled",
+                    ExpressionAttributeNames={"#status": "status"},
+                    ExpressionAttributeValues={
+                        ":status": new_status,
+                        ":payout": payout,
+                        ":profit": profit,
+                        ":settled": datetime.utcnow().isoformat(),
+                    },
+                )
+
+                # Update bankroll
+                current_bankroll += payout
+
+                print(f"Settled Benny bet: {prediction} = {new_status} (${profit})")
+
+            # Save updated bankroll
+            bankroll_item = bankroll_response.get("Item", {})
+            self.table.put_item(
+                Item={
+                    "pk": "BENNY",
+                    "sk": "BANKROLL",
+                    "amount": current_bankroll,
+                    "last_reset": bankroll_item.get(
+                        "last_reset", datetime.utcnow().isoformat()
+                    ),
+                    "updated_at": datetime.utcnow().isoformat(),
+                }
+            )
+
+            print(f"Updated Benny bankroll: ${current_bankroll}")
+
+        except Exception as e:
+            print(f"Error settling Benny bets for game {game.get('id')}: {e}")
 
 
 def lambda_handler(event, context):
