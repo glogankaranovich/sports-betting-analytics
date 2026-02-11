@@ -80,30 +80,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
 
   if (selectedModel) {
     return (
-      <div>
-        <button onClick={() => setSelectedModel(null)} className="back-button">
-          ← Back to Models
-        </button>
-        <ModelAnalytics token={token} selectedModel={selectedModel} />
-        <style>{`
-          .back-button {
-            margin-bottom: 20px;
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-          }
-          .back-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
-          }
-        `}</style>
+      <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <button onClick={() => setSelectedModel(null)} className="close-button">×</button>
+          <ModelAnalytics token={token} selectedModel={selectedModel} />
+        </div>
       </div>
     );
   }
@@ -143,6 +124,52 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       </div>
 
       <style>{`
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+        .modal-content {
+          background: rgba(26, 32, 44, 0.95);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          max-width: 1400px;
+          width: 100%;
+          max-height: 90vh;
+          overflow-y: auto;
+          padding: 30px;
+          position: relative;
+        }
+        .close-button {
+          position: absolute;
+          top: 15px;
+          right: 15px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 50%;
+          color: #fff;
+          cursor: pointer;
+          font-size: 24px;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
+        .close-button:hover {
+          background: rgba(255, 255, 255, 0.2);
+          transform: rotate(90deg);
+        }
         .models-container {
           padding: 20px;
         }

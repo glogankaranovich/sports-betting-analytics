@@ -75,19 +75,20 @@ export const ModelDetail: React.FC<ModelDetailProps> = ({ model, token, onBack }
   }, [activeTab]);
 
   return (
-    <div className="model-detail">
-      <button onClick={onBack} className="back-button">← Back to Models</button>
-      
-      <div className="model-header">
-        <h2>{model.name}</h2>
-        <span className={`status-badge ${model.status}`}>{model.status}</span>
-      </div>
-      
-      <p className="model-description">{model.description}</p>
+    <div className="modal-overlay" onClick={onBack}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button onClick={onBack} className="close-button">×</button>
+        
+        <div className="model-header">
+          <h2>{model.name}</h2>
+          <span className={`status-badge ${model.status}`}>{model.status}</span>
+        </div>
+        
+        <p className="model-description">{model.description}</p>
 
-      <div className="tabs">
-        <button 
-          className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
+        <div className="tabs">
+          <button 
+            className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
           Overview
@@ -110,7 +111,7 @@ export const ModelDetail: React.FC<ModelDetailProps> = ({ model, token, onBack }
             </div>
             <div className="config-item">
               <label>Bet Type:</label>
-              <span>{model.bet_type}</span>
+              <span>{model.bet_types?.join(', ') || 'N/A'}</span>
             </div>
             <div className="config-item">
               <label>Created:</label>
@@ -120,13 +121,13 @@ export const ModelDetail: React.FC<ModelDetailProps> = ({ model, token, onBack }
 
           <h3>Model Weights</h3>
           <div className="weights-grid">
-            {Object.entries(model.weights || {}).map(([key, value]) => (
+            {Object.entries(model.data_sources || {}).map(([key, source]: [string, any]) => (
               <div key={key} className="weight-item">
                 <span className="weight-label">{key}:</span>
                 <div className="weight-bar">
-                  <div className="weight-fill" style={{ width: `${(value as number) * 100}%` }} />
+                  <div className="weight-fill" style={{ width: `${(source.weight || 0) * 100}%` }} />
                 </div>
-                <span className="weight-value">{((value as number) * 100).toFixed(0)}%</span>
+                <span className="weight-value">{((source.weight || 0) * 100).toFixed(0)}%</span>
               </div>
             ))}
           </div>
@@ -219,30 +220,18 @@ export const ModelDetail: React.FC<ModelDetailProps> = ({ model, token, onBack }
           margin: 0 auto;
         }
 
-        .back-button {
-          background: none;
-          border: none;
-          color: #667eea;
-          cursor: pointer;
-          font-size: 14px;
-          margin-bottom: 20px;
-          padding: 8px 0;
-        }
-
-        .back-button:hover {
-          text-decoration: underline;
-        }
-
         .model-header {
           display: flex;
           align-items: center;
           gap: 15px;
           margin-bottom: 10px;
+          margin-right: 50px;
         }
 
         .model-header h2 {
           margin: 0;
           color: #e2e8f0;
+          flex: 1;
         }
 
         .status-badge {
@@ -496,6 +485,56 @@ export const ModelDetail: React.FC<ModelDetailProps> = ({ model, token, onBack }
           color: #f56565;
         }
 
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .modal-content {
+          background: rgba(26, 32, 44, 0.95);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          max-width: 1000px;
+          width: 100%;
+          max-height: 90vh;
+          overflow-y: auto;
+          padding: 30px;
+          position: relative;
+        }
+
+        .close-button {
+          position: absolute;
+          top: 15px;
+          right: 15px;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 50%;
+          color: #fff;
+          cursor: pointer;
+          font-size: 24px;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
+
+        .close-button:hover {
+          background: rgba(255, 255, 255, 0.2);
+          transform: rotate(90deg);
+        }
+
         @media (max-width: 768px) {
           .date-inputs {
             flex-direction: column;
@@ -505,8 +544,14 @@ export const ModelDetail: React.FC<ModelDetailProps> = ({ model, token, onBack }
           .result-metrics {
             grid-template-columns: 1fr 1fr;
           }
+
+          .modal-content {
+            padding: 20px;
+            max-height: 95vh;
+          }
         }
       `}</style>
+      </div>
     </div>
   );
 };
