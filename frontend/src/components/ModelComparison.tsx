@@ -42,6 +42,7 @@ export const ModelComparison: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [sport, setSport] = useState('basketball_nba');
   const [days, setDays] = useState(90);  // Default to 90 days for better sample size
+  const [betTypeFilter, setBetTypeFilter] = useState<'all' | 'game' | 'prop'>('all');
   const [includeUserModels, setIncludeUserModels] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -113,13 +114,19 @@ export const ModelComparison: React.FC = () => {
 
   return (
     <div className="model-comparison">
-      <div className="comparison-header">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>Model Performance Comparison</h2>
         
         <div className="filters">
           <select value={sport} onChange={(e) => setSport(e.target.value)} className="filter-select">
             <option value="basketball_nba">NBA</option>
             <option value="americanfootball_nfl">NFL</option>
+          </select>
+
+          <select value={betTypeFilter} onChange={(e) => setBetTypeFilter(e.target.value as 'all' | 'game' | 'prop')} className="filter-select">
+            <option value="all">All Bet Types</option>
+            <option value="game">Games Only</option>
+            <option value="prop">Props Only</option>
           </select>
 
           <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="filter-select">
@@ -139,24 +146,34 @@ export const ModelComparison: React.FC = () => {
             <span>Include My Models</span>
           </label>
         </div>
+      </div>
 
-        <div className="summary-cards">
-          <div className="summary-card">
-            <div className="card-label">Total Models</div>
-            <div className="card-value">{data.summary.total_models}</div>
-          </div>
-          <div className="summary-card success">
-            <div className="card-label">Use Original</div>
-            <div className="card-value">{data.summary.original_recommended}</div>
-          </div>
-          <div className="summary-card warning">
-            <div className="card-label">Bet Against (Inverse)</div>
-            <div className="card-value">{data.summary.inverse_recommended}</div>
-          </div>
-          <div className="summary-card danger">
-            <div className="card-label">Avoid</div>
-            <div className="card-value">{data.summary.avoid}</div>
-          </div>
+      <div className="help-section">
+        <h3>How to Read This:</h3>
+        <ul>
+          <li><span className="success">ORIGINAL:</span> Model predictions are accurate - use them as-is</li>
+          <li><span className="warning">INVERSE:</span> Model consistently predicts wrong - bet against it</li>
+          <li><span className="danger">AVOID:</span> Neither original nor inverse is profitable</li>
+          <li><strong>Difference:</strong> Positive means inverse performs better</li>
+        </ul>
+      </div>
+
+      <div className="summary-cards">
+        <div className="summary-card">
+          <div className="card-label">Total Models</div>
+          <div className="card-value">{data.summary.total_models}</div>
+        </div>
+        <div className="summary-card success">
+          <div className="card-label">Use Original</div>
+          <div className="card-value">{data.summary.original_recommended}</div>
+        </div>
+        <div className="summary-card warning">
+          <div className="card-label">Bet Against (Inverse)</div>
+          <div className="card-value">{data.summary.inverse_recommended}</div>
+        </div>
+        <div className="summary-card danger">
+          <div className="card-label">Avoid</div>
+          <div className="card-value">{data.summary.avoid}</div>
         </div>
       </div>
 
@@ -173,7 +190,9 @@ export const ModelComparison: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {data.models.map((model, index) => (
+            {data.models
+              .filter(model => betTypeFilter === 'all' || model.bet_type === betTypeFilter)
+              .map((model, index) => (
               <tr key={`${model.model_id || model.model}-${model.bet_type}-${index}`}>
                 <td>
                   <div className="model-name">
@@ -209,16 +228,6 @@ export const ModelComparison: React.FC = () => {
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="help-section">
-        <h3>How to Read This:</h3>
-        <ul>
-          <li><span className="success">ORIGINAL:</span> Model predictions are accurate - use them as-is</li>
-          <li><span className="warning">INVERSE:</span> Model consistently predicts wrong - bet against it</li>
-          <li><span className="danger">AVOID:</span> Neither original nor inverse is profitable</li>
-          <li><strong>Difference:</strong> Positive means inverse performs better</li>
-        </ul>
       </div>
     </div>
   );
