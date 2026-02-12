@@ -668,6 +668,13 @@ def handle_get_analytics(query_params: Dict[str, str]):
                 return create_response(
                     400, {"error": f"model parameter required for {metric_type}"}
                 )
+            # Special case: model=all for by_bet_type returns all models
+            if model == "all" and metric_type == "by_bet_type":
+                from model_analytics import ModelAnalytics
+
+                analytics = ModelAnalytics(table_name)
+                data = analytics.get_model_performance_by_bet_type(days=days)
+                return create_response(200, decimal_to_float(data))
             pk = f"ANALYTICS#{metric_type}"
         else:
             return create_response(

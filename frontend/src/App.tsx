@@ -242,9 +242,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        // Fetch ROI rankings instead of just accuracy
+        // Fetch 90-day accuracy by bet type
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL}/model-rankings?sport=${settings.sport}&days=30&mode=both`,
+          `${process.env.REACT_APP_API_URL}/analytics?type=by_bet_type&model=all&days=90`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -253,21 +253,49 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         );
         
         if (!response.ok) {
-          console.error('Model rankings API error:', response.status, await response.text());
+          console.error('Analytics API error:', response.status, await response.text());
           return;
         }
         
         const data = await response.json();
-        console.log('Model rankings data:', data);
+        console.log('Model bet type data:', data);
         
-        // Show top 5 by accuracy (win_rate)
-        const topByAccuracy = (data.rankings || [])
-          .filter((m: any) => m.total_bets >= 10) // Min 10 bets
-          .sort((a: any, b: any) => b.win_rate - a.win_rate)
-          .slice(0, 5);
+        // Separate game and prop performance
+        const gamePerformance: any[] = [];
+        const propPerformance: any[] = [];
         
-        console.log('Top 5 by accuracy:', topByAccuracy);
-        setModelLeaderboard(topByAccuracy);
+        Object.entries(data).forEach(([modelName, betTypes]: [string, any]) => {
+          if (betTypes.game) {
+            gamePerformance.push({
+              model_name: modelName,
+              accuracy: betTypes.game.accuracy,
+              total: betTypes.game.total,
+            });
+          }
+          if (betTypes.prop) {
+            propPerformance.push({
+              model_name: modelName,
+              accuracy: betTypes.prop.accuracy,
+              total: betTypes.prop.total,
+            });
+          }
+        });
+        
+        // Top 3 for each, min 10 predictions
+        const topGames = gamePerformance
+          .filter(m => m.total >= 10)
+          .sort((a, b) => b.accuracy - a.accuracy)
+          .slice(0, 3);
+        
+        const topProps = propPerformance
+          .filter(m => m.total >= 10)
+          .sort((a, b) => b.accuracy - a.accuracy)
+          .slice(0, 3);
+        
+        setModelLeaderboard([
+          { type: 'games', models: topGames },
+          { type: 'props', models: topProps },
+        ]);
       }
     } catch (err) {
       console.error('Error fetching model leaderboard:', err);
@@ -439,13 +467,17 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             )}
             {modelLeaderboard.length > 0 && (
               <>
-                <div className="ticker-item ticker-label">
-                  🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}):
-                </div>
-                {modelLeaderboard.map((model: any, index: number) => (
-                  <div key={model.model_id} className="ticker-item">
-                    🏆 #{index + 1} {model.model} ({model.mode}): {(model.win_rate * 100).toFixed(1)}% • {model.total_bets} bets
-                  </div>
+                {modelLeaderboard.map((section: any) => (
+                  <React.Fragment key={section.type}>
+                    <div className="ticker-item ticker-label">
+                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
+                    </div>
+                    {section.models.map((model: any, index: number) => (
+                      <div key={model.model_name} className="ticker-item">
+                        🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% • {model.total} predictions
+                      </div>
+                    ))}
+                  </React.Fragment>
                 ))}
               </>
             )}
@@ -459,13 +491,17 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             )}
             {modelLeaderboard.length > 0 && (
               <>
-                <div className="ticker-item ticker-label">
-                  🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}):
-                </div>
-                {modelLeaderboard.map((model: any, index: number) => (
-                  <div key={`dup-${model.model_id}`} className="ticker-item">
-                    🏆 #{index + 1} {model.model} ({model.mode}): {(model.win_rate * 100).toFixed(1)}% • {model.total_bets} bets
-                  </div>
+                {modelLeaderboard.map((section: any) => (
+                  <React.Fragment key={`dup-${section.type}`}>
+                    <div className="ticker-item ticker-label">
+                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
+                    </div>
+                    {section.models.map((model: any, index: number) => (
+                      <div key={`dup-${model.model_name}`} className="ticker-item">
+                        🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% • {model.total} predictions
+                      </div>
+                    ))}
+                  </React.Fragment>
                 ))}
               </>
             )}
