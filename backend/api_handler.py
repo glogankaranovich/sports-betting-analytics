@@ -609,7 +609,8 @@ def handle_get_analytics(query_params: Dict[str, str]):
     try:
         print(f"Analytics request - query_params: {query_params}")
         metric_type = query_params.get("type", "summary")
-        print(f"Metric type: {metric_type}")
+        days = int(query_params.get("days", 90))  # Default to 90 days
+        print(f"Metric type: {metric_type}, days: {days}")
 
         # Handle weights separately (not cached)
         if metric_type == "weights":
@@ -694,27 +695,32 @@ def handle_get_analytics(query_params: Dict[str, str]):
         print(f"DynamoDB response - Count: {response.get('Count')}")
 
         if not response.get("Items"):
-            # Cache miss - invoke Model Analytics Lambda
-            analytics_function = os.getenv("MODEL_ANALYTICS_FUNCTION")
-            if analytics_function:
-                import boto3
+            # Cache miss - compute on-demand with time filter
+            from model_analytics import ModelAnalytics
 
-                lambda_client = boto3.client("lambda")
-                payload = {"queryStringParameters": query_params}
-                lambda_response = lambda_client.invoke(
-                    FunctionName=analytics_function,
-                    InvocationType="RequestResponse",
-                    Payload=json.dumps(payload),
+            analytics = ModelAnalytics(table_name)
+
+            if metric_type == "summary":
+                data = analytics.get_model_performance_summary(days=days)
+            elif metric_type == "by_sport":
+                data = analytics.get_model_performance_by_sport(model=model, days=days)
+            elif metric_type == "by_bet_type":
+                data = analytics.get_model_performance_by_bet_type(
+                    model=model, days=days
                 )
-                result = json.loads(lambda_response["Payload"].read())
-                if result.get("statusCode") == 200:
-                    return create_response(
-                        200, decimal_to_float(result.get("body", {}))
-                    )
+            elif metric_type == "confidence":
+                data = analytics.get_model_confidence_analysis(model=model, days=days)
+            elif metric_type == "over_time":
+                data = analytics.get_performance_over_time(model=model, days=days)
+            elif metric_type == "recent_predictions":
+                limit = int(query_params.get("limit", 20))
+                data = analytics.get_recent_predictions(model=model, limit=limit)
+            else:
+                return create_response(
+                    400, {"error": f"Unknown metric type: {metric_type}"}
+                )
 
-            return create_response(
-                404, {"error": f"No cached data found for {metric_type}"}
-            )
+            return create_response(200, decimal_to_float(data))
 
         data = response["Items"][0].get("data", {})
         return create_response(200, decimal_to_float(data))

@@ -169,12 +169,13 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
   const [recentPredictions, setRecentPredictions] = useState<RecentPrediction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<number>(90);
 
   useEffect(() => {
     if (token) {
       fetchAnalytics();
     }
-  }, [token]);
+  }, [token, timeRange]);
 
   const fetchAnalytics = async () => {
     try {
@@ -182,11 +183,11 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
       const headers = { Authorization: `Bearer ${token}` };
 
       const [summaryRes, betTypeRes, bySportRes, confidenceRes, overTimeRes, predictionsRes] = await Promise.all([
-        axios.get(`${API_URL}/analytics?type=summary`, { headers }),
-        axios.get(`${API_URL}/analytics?type=by_bet_type&model=${selectedModel}`, { headers }),
-        axios.get(`${API_URL}/analytics?type=by_sport&model=${selectedModel}`, { headers }),
-        axios.get(`${API_URL}/analytics?type=confidence&model=${selectedModel}`, { headers }),
-        axios.get(`${API_URL}/analytics?type=over_time&model=${selectedModel}&days=30`, { headers }),
+        axios.get(`${API_URL}/analytics?type=summary&days=${timeRange}`, { headers }),
+        axios.get(`${API_URL}/analytics?type=by_bet_type&model=${selectedModel}&days=${timeRange}`, { headers }),
+        axios.get(`${API_URL}/analytics?type=by_sport&model=${selectedModel}&days=${timeRange}`, { headers }),
+        axios.get(`${API_URL}/analytics?type=confidence&model=${selectedModel}&days=${timeRange}`, { headers }),
+        axios.get(`${API_URL}/analytics?type=over_time&model=${selectedModel}&days=${timeRange}`, { headers }),
         axios.get(`${API_URL}/analytics?type=recent_predictions&model=${selectedModel}&limit=20`, { headers }),
       ]);
 
@@ -212,12 +213,33 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
 
   return (
     <div className="analytics-container">
-      <h2>{selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} Model Performance</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2>{selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} Model Performance</h2>
+        <select 
+          value={timeRange} 
+          onChange={(e) => setTimeRange(Number(e.target.value))}
+          style={{
+            padding: '8px 16px',
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '8px',
+            color: '#fff',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          <option value={30}>Last 30 Days</option>
+          <option value={90}>Last 90 Days</option>
+          <option value={180}>Last 180 Days</option>
+          <option value={365}>Last Year</option>
+          <option value={9999}>All Time</option>
+        </select>
+      </div>
 
       {/* Overall Summary */}
       {currentModel && (
         <div className="analytics-card">
-          <h3>All-Time Performance</h3>
+          <h3>{timeRange >= 9999 ? 'All-Time' : `Last ${timeRange} Days`} Performance</h3>
           <div className="stats-grid">
             <div className="stat">
               <div className="stat-value">{currentModel.accuracy.toFixed(1)}%</div>
@@ -306,7 +328,7 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
       {/* Performance Over Time */}
       {overTime.length > 0 && (
         <div className="analytics-card">
-          <h3>Performance Over Time (Last 30 Days)</h3>
+          <h3>Performance Over Time</h3>
           <PerformanceChart data={overTime} />
         </div>
       )}

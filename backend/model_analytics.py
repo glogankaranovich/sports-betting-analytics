@@ -11,10 +11,10 @@ class ModelAnalytics:
         self.table = self.dynamodb.Table(table_name)
 
     def get_model_performance_summary(
-        self, models: List[str] = None
+        self, models: List[str] = None, days: int = None
     ) -> Dict[str, Dict[str, Any]]:
         """Get performance summary for each model"""
-        analyses = self._get_verified_analyses(models)
+        analyses = self._get_verified_analyses(models, days)
 
         by_model = defaultdict(lambda: {"total": 0, "correct": 0, "sports": set()})
 
@@ -42,10 +42,12 @@ class ModelAnalytics:
         return result
 
     def get_model_performance_by_sport(
-        self, model: str = None, models: List[str] = None
+        self, model: str = None, models: List[str] = None, days: int = None
     ) -> Dict[str, Dict[str, Any]]:
         """Get model performance broken down by sport"""
-        analyses = self._get_verified_analyses(models or ([model] if model else None))
+        analyses = self._get_verified_analyses(
+            models or ([model] if model else None), days
+        )
 
         # Filter by model if specified
         if model:
@@ -79,10 +81,12 @@ class ModelAnalytics:
         return result
 
     def get_model_performance_by_bet_type(
-        self, model: str = None, models: List[str] = None
+        self, model: str = None, models: List[str] = None, days: int = None
     ) -> Dict[str, Dict[str, Any]]:
         """Get model performance broken down by bet type"""
-        analyses = self._get_verified_analyses(models or ([model] if model else None))
+        analyses = self._get_verified_analyses(
+            models or ([model] if model else None), days
+        )
 
         # Filter by model if specified
         if model:
@@ -168,9 +172,11 @@ class ModelAnalytics:
         models.sort(key=lambda x: x["accuracy"], reverse=True)
         return models
 
-    def get_model_confidence_analysis(self, model: str) -> Dict[str, Any]:
+    def get_model_confidence_analysis(
+        self, model: str, days: int = None
+    ) -> Dict[str, Any]:
         """Analyze analysis accuracy by confidence level"""
-        analyses = self._get_verified_analyses([model])
+        analyses = self._get_verified_analyses([model], days)
         analyses = [a for a in analyses if a.get("model") == model]
 
         # Group by confidence ranges
@@ -328,8 +334,12 @@ class ModelAnalytics:
 
         return sorted(result, key=lambda x: x["date"])
 
-    def _get_verified_analyses(self, models: List[str] = None) -> List[Dict[str, Any]]:
+    def _get_verified_analyses(
+        self, models: List[str] = None, days: int = None
+    ) -> List[Dict[str, Any]]:
         """Get all analyses with verified outcomes using GSI"""
+        from datetime import datetime, timedelta
+
         items = []
         if models is None:
             models = [
@@ -352,16 +362,31 @@ class ModelAnalytics:
         ]
         bet_types = ["game", "prop"]
 
+        # Calculate cutoff time if days specified
+        cutoff_time = None
+        if days and days < 9999:
+            cutoff_time = (datetime.utcnow() - timedelta(days=days)).isoformat()
+
         for model in models:
             for sport in sports:
                 for bet_type in bet_types:
                     pk = f"VERIFIED#{model}#{sport}#{bet_type}"
 
-                    response = self.table.query(
-                        IndexName="VerifiedAnalysisGSI",
-                        KeyConditionExpression="verified_analysis_pk = :pk",
-                        ExpressionAttributeValues={":pk": pk},
-                    )
+                    if cutoff_time:
+                        response = self.table.query(
+                            IndexName="VerifiedAnalysisGSI",
+                            KeyConditionExpression="verified_analysis_pk = :pk AND verified_analysis_sk >= :cutoff",
+                            ExpressionAttributeValues={
+                                ":pk": pk,
+                                ":cutoff": cutoff_time,
+                            },
+                        )
+                    else:
+                        response = self.table.query(
+                            IndexName="VerifiedAnalysisGSI",
+                            KeyConditionExpression="verified_analysis_pk = :pk",
+                            ExpressionAttributeValues={":pk": pk},
+                        )
 
                     count = len(response.get("Items", []))
                     if count > 0:
