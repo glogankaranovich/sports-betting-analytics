@@ -3,7 +3,6 @@ import AgeVerification from './AgeVerification';
 import TermsAcceptance from './TermsAcceptance';
 import DisclaimerBanner from './DisclaimerBanner';
 import ResponsibleGambling from './ResponsibleGambling';
-import Footer from './Footer';
 import { complianceTracker } from '../utils/complianceTracker';
 import './ComplianceWrapper.css';
 
@@ -77,8 +76,6 @@ const ComplianceWrapper: React.FC<{ children: React.ReactNode }> = ({ children }
       <div className="main-content">
         {children}
       </div>
-      
-      <Footer />
       
       <ResponsibleGambling 
         isOpen={showResponsibleGambling}

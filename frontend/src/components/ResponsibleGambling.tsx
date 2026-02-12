@@ -34,7 +34,6 @@ const ResponsibleGambling: React.FC<ResponsibleGamblingProps> = ({ isOpen, onClo
             <div className="hotline-info">
               <h4>National Problem Gambling Helpline</h4>
               <p className="hotline-number">1-800-522-4700</p>
-              <p>24/7 confidential support</p>
             </div>
             
             <div className="resource-links">

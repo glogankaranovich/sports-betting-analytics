@@ -151,7 +151,7 @@ export const Benny: React.FC<BennyProps> = ({ userId }) => {
       <style>{`
         .benny-button {
           position: fixed;
-          bottom: 30px;
+          bottom: 80px;
           right: 30px;
           width: 60px;
           height: 60px;

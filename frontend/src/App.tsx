@@ -16,6 +16,11 @@ import LandingPage from './components/LandingPage';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
 import PrivacyPolicy from './components/PrivacyPolicy';
+import { TopNav } from './components/TopNav';
+import { SideNav } from './components/SideNav';
+import { Breadcrumbs } from './components/Breadcrumbs';
+import { AboutPage } from './components/AboutPage';
+import Footer from './components/Footer';
 import logo from './assets/logo_2.png';
 import './amplifyConfig'; // Initialize Amplify
 import '@aws-amplify/ui-react/styles.css';
@@ -46,7 +51,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [loadingGameAnalysis, setLoadingGameAnalysis] = useState(true);
   const [loadingPropAnalysis, setLoadingPropAnalysis] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'games' | 'game-analysis' | 'prop-analysis' | 'player-props' | 'system-models' | 'my-models' | 'benny-dashboard' | 'model-comparison'>('games');
+  const [activePage, setActivePage] = useState<string>('games');
   const [currentPage, setCurrentPage] = useState(1);
   const [propAnalysisPage, setPropAnalysisPage] = useState(1);
   const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
@@ -74,6 +79,15 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [loadingMoreGames, setLoadingMoreGames] = useState(false);
   const [modelLeaderboard, setModelLeaderboard] = useState<any[]>([]);
   const [userModels, setUserModels] = useState<any[]>([]);
+  const [sideNavCollapsed, setSideNavCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sideNavCollapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sideNavCollapsed', JSON.stringify(sideNavCollapsed));
+  }, [sideNavCollapsed]);
+  
   const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
@@ -352,9 +366,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   const getTotalPages = (items: any[]) => Math.ceil(items.length / itemsPerPage);
 
-  // Reset to page 1 when switching tabs
-  const handleTabChange = (tab: typeof activeTab) => {
-    setActiveTab(tab);
+  // Reset to page 1 when switching pages
+  const handlePageChange = (page: string) => {
+    setActivePage(page);
     setCurrentPage(1);
   };
 
@@ -432,27 +446,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <div className="header-left">
-          <img src={logo} alt="Carpool Bets" className="logo" />
-          <div className="header-info">
-            <span>Welcome, {user?.signInDetails?.loginId}</span>
-          </div>
-        </div>
-        
-        <div className="header-actions">
-          <a 
-            href="/about" 
-            className="btn btn-secondary"
-            style={{ textDecoration: 'none', display: 'inline-block' }}
-          >
-            About
-          </a>
-          <button className="btn btn-primary" onClick={signOut}>
-            Sign Out
-          </button>
-        </div>
-      </header>
+      <TopNav 
+        currentPage={activePage}
+        onNavigate={setActivePage}
+        onSignOut={signOut}
+        logo={logo}
+      />
       
       {(topInsight || modelLeaderboard.length > 0) && (
         <div className="ticker-bar">
@@ -509,94 +508,63 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         </div>
       )}
       
-      
-      <Settings 
-        settings={settings}
-        onSettingsChange={setSettings}
-        availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
-        availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
-        userModels={userModels}
-        token={token}
-      />
-      
-      <main>
-        <nav className="tab-navigation" role="tablist" aria-label="Main navigation">
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'games'}
-            aria-controls="games-panel"
-            className={`tab-button ${activeTab === 'games' ? 'active' : ''}`}
-            onClick={() => handleTabChange('games')}
-          >
-            Game Bets
-          </button>
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'player-props'}
-            aria-controls="player-props-panel"
-            className={`tab-button ${activeTab === 'player-props' ? 'active' : ''}`}
-            onClick={() => handleTabChange('player-props')}
-          >
-            Prop Bets
-          </button>
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'game-analysis'}
-            aria-controls="game-analysis-panel"
-            className={`tab-button ${activeTab === 'game-analysis' ? 'active' : ''}`}
-            onClick={() => handleTabChange('game-analysis')}
-          >
-            Game Analysis
-          </button>
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'prop-analysis'}
-            aria-controls="prop-analysis-panel"
-            className={`tab-button ${activeTab === 'prop-analysis' ? 'active' : ''}`}
-            onClick={() => handleTabChange('prop-analysis')}
-          >
-            Prop Analysis
-          </button>
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'system-models'}
-            aria-controls="system-models-panel"
-            className={`tab-button ${activeTab === 'system-models' ? 'active' : ''}`}
-            onClick={() => handleTabChange('system-models')}
-          >
-            System Models
-          </button>
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'my-models'}
-            aria-controls="my-models-panel"
-            className={`tab-button ${activeTab === 'my-models' ? 'active' : ''}`}
-            onClick={() => handleTabChange('my-models')}
-          >
-            My Models
-          </button>
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'benny-dashboard'}
-            aria-controls="benny-dashboard-panel"
-            className={`tab-button ${activeTab === 'benny-dashboard' ? 'active' : ''}`}
-            onClick={() => handleTabChange('benny-dashboard')}
-          >
-            🤖 Benny
-          </button>
-          <button 
-            role="tab"
-            aria-selected={activeTab === 'model-comparison'}
-            aria-controls="model-comparison-panel"
-            className={`tab-button ${activeTab === 'model-comparison' ? 'active' : ''}`}
-            onClick={() => handleTabChange('model-comparison')}
-          >
-            📊 Model Comparison
-          </button>
-        </nav>
+      <div className="app-layout">
+        <div className="main-content-wrapper">
+          <Breadcrumbs 
+            section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
+                    activePage.includes('analysis') || ['games', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
+                    activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison', 'benny-dashboard'].includes(activePage) ? 'models-home' :
+                    activePage === 'about' || ['how-it-works', 'terms', 'privacy'].includes(activePage) ? 'about' : 
+                    activePage === 'marketplace' ? 'marketplace' : ''}
+            currentPage={activePage}
+            onNavigate={setActivePage}
+            isCollapsed={sideNavCollapsed}
+            onToggleCollapse={() => setSideNavCollapsed(!sideNavCollapsed)}
+          />
+          <div className="content-with-sidenav">
+            {['user-home', 'analysis-home', 'models-home', 'about', 'profile', 'settings', 'subscription', 'games', 'game-analysis', 'prop-analysis', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'benny-dashboard', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
+              <SideNav 
+                section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
+                        activePage.includes('analysis') || ['games', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
+                        activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison', 'benny-dashboard'].includes(activePage) ? 'models-home' :
+                        activePage === 'about' || ['how-it-works', 'terms', 'privacy'].includes(activePage) ? 'about' : ''}
+                currentPage={activePage}
+                onNavigate={setActivePage}
+                isCollapsed={sideNavCollapsed}
+              />
+            )}
+            <main className="main-content">
+          {activePage === 'user-home' && (
+            <div className="page-container">
+              <h2>User Dashboard</h2>
+              <p>Manage your profile, settings, subscription, and custom models.</p>
+            </div>
+          )}
 
-        {activeTab === 'games' && (
+          {activePage === 'analysis-home' && (
+            <div className="page-container">
+              <h2>Analysis Dashboard</h2>
+              <p>View game predictions, prop predictions, and top insights.</p>
+            </div>
+          )}
+
+          {activePage === 'models-home' && (
+            <div className="page-container">
+              <h2>Models Dashboard</h2>
+              <p>Explore system models, analytics, comparisons, and Benny's insights.</p>
+            </div>
+          )}
+
+          {activePage === 'games' && (
           <div role="tabpanel" id="games-panel" aria-labelledby="games-tab">
+            <Settings 
+              settings={settings}
+              onSettingsChange={setSettings}
+              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+              userModels={userModels}
+              token={token}
+            />
             <div className="games-header">
               <h2>Available Games</h2>
               <div className="filters">
@@ -709,8 +677,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </div>
         )}
 
-        {activeTab === 'game-analysis' && (
+        {activePage === 'game-analysis' && (
           <div className="predictions-section">
+            <Settings 
+              settings={settings}
+              onSettingsChange={setSettings}
+              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+              userModels={userModels}
+              token={token}
+            />
             <div className="games-header">
               <h2>Game Analysis</h2>
               <div className="filters">
@@ -821,8 +797,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </div>
         )}
 
-        {activeTab === 'prop-analysis' && (
+        {activePage === 'prop-analysis' && (
           <div className="predictions-section">
+            <Settings 
+              settings={settings}
+              onSettingsChange={setSettings}
+              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+              userModels={userModels}
+              token={token}
+            />
             <div className="games-header">
               <h2>Player Prop Analysis</h2>
               <div className="filters">
@@ -956,7 +940,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </div>
         )}
 
-        {activeTab === 'player-props' && (
+        {activePage === 'player-props' && (
           <PlayerProps 
             token={token} 
             games={games}
@@ -967,22 +951,78 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           />
         )}
 
-        {activeTab === 'system-models' && (
+        {activePage === 'settings' && (
+          <div className="page-container">
+            <h2>Settings</h2>
+            <p>Configure your default sport, bookmaker, and model preferences.</p>
+          </div>
+        )}
+
+        {activePage === 'profile' && (
+          <div className="page-container">
+            <h2>Profile</h2>
+            <p>Manage your profile information.</p>
+          </div>
+        )}
+
+        {activePage === 'subscription' && (
+          <div className="page-container">
+            <h2>Subscription</h2>
+            <p>Manage your subscription and billing.</p>
+          </div>
+        )}
+
+        {activePage === 'system-models' && (
           <Models token={token} settings={settings} />
         )}
 
-        {activeTab === 'my-models' && (
+        {activePage === 'model-analytics' && (
+          <ModelAnalytics token={token} selectedModel={settings.model} />
+        )}
+
+        {activePage === 'my-models' && (
           <UserModels token={token} />
         )}
 
-        {activeTab === 'benny-dashboard' && (
+        {activePage === 'benny-dashboard' && (
           <BennyDashboard />
         )}
 
-        {activeTab === 'model-comparison' && (
+        {activePage === 'model-comparison' && (
           <ModelComparison />
         )}
-      </main>
+
+        {activePage === 'marketplace' && (
+          <div className="page-container">
+            <h2>Marketplace</h2>
+            <p>Coming soon! Buy and sell custom betting models, strategies, and expert picks.</p>
+          </div>
+        )}
+
+        {activePage === 'about' && (
+          <AboutPage />
+        )}
+
+        {activePage === 'how-it-works' && (
+          <div className="page-container">
+            <h2>How It Works</h2>
+            <p>Learn about our betting models and how to use the platform.</p>
+          </div>
+        )}
+
+        {activePage === 'terms' && (
+          <TermsOfService />
+        )}
+
+        {activePage === 'privacy' && (
+          <PrivacyPolicy />
+        )}
+            </main>
+          </div>
+        </div>
+      </div>
+      
+      <Footer />
       
       {/* Benny - AI Assistant */}
       <Benny userId={user?.username || user?.signInDetails?.loginId || 'anonymous'} />
@@ -1118,7 +1158,6 @@ function ResponsibleGamblingPage() {
           <div style={{ background: 'rgba(74, 158, 255, 0.1)', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
             <h3>National Problem Gambling Helpline</h3>
             <p style={{ fontSize: '2rem', color: '#4a9eff', fontWeight: 'bold', margin: '10px 0' }}>1-800-522-4700</p>
-            <p>24/7 confidential support</p>
           </div>
           
           <h3>Additional Resources:</h3>

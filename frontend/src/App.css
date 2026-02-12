@@ -8,13 +8,64 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   color: #ffffff;
-  min-height: 100vh;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
 }
 
 .App {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.app-layout {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.main-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.content-with-sidenav {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - 60px - 57px);
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  width: 100%;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+  flex: 1;
+}
+
+.page-container h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.page-container p {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
 }
 
 .App-header {
