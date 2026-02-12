@@ -12,6 +12,7 @@ const API_BASE_URL = getApiUrl();
 interface ModelComparison {
   model: string;
   model_id?: string;
+  bet_type: string;
   is_user_model?: boolean;
   sample_size: number;
   original_accuracy: number;
@@ -172,11 +173,12 @@ export const ModelComparison: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {data.models.map((model) => (
-              <tr key={model.model_id || model.model}>
+            {data.models.map((model, index) => (
+              <tr key={`${model.model_id || model.model}-${model.bet_type}-${index}`}>
                 <td>
                   <div className="model-name">
                     {model.model}
+                    <span className="badge bet-type">{model.bet_type === 'game' ? 'Games' : 'Props'}</span>
                     {model.is_user_model && <span className="badge">My Model</span>}
                   </div>
                 </td>

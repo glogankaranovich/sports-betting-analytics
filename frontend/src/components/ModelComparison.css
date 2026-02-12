@@ -165,6 +165,13 @@
   color: #00d4ff;
 }
 
+.badge.bet-type {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+  margin-right: 0.5rem;
+}
+
 .accuracy-cell {
   display: flex;
   flex-direction: column;

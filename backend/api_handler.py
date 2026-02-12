@@ -801,7 +801,9 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
                 model, sport, cutoff_time, is_user_model=False
             )
             if model_data:
-                comparison.append(model_data)
+                comparison.extend(
+                    model_data
+                )  # extend instead of append (returns list now)
 
         # Add user models if user_id provided
         if user_id:
@@ -819,7 +821,7 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
                         model_name=user_model.name,
                     )
                     if model_data:
-                        comparison.append(model_data)
+                        comparison.extend(model_data)  # extend instead of append
 
         # Sort by best performing (either original or inverse)
         comparison.sort(
@@ -1055,16 +1057,18 @@ def _get_model_comparison_data(
     cutoff_time: str,
     is_user_model: bool = False,
     model_name: str = None,
-) -> Dict[str, Any]:
-    """Get comparison data for a single model (includes both games and props)"""
+) -> list:
+    """Get comparison data for a single model (returns list with separate game/prop entries)"""
     try:
         from boto3.dynamodb.conditions import Key
 
-        original_items = []
-        inverse_items = []
+        results = []
 
-        # Query both game and prop predictions
+        # Query games and props separately
         for bet_type in ["game", "prop"]:
+            original_items = []
+            inverse_items = []
+
             # Query original predictions
             if is_user_model:
                 original_pk = f"VERIFIED#{model_id}#{sport}#{bet_type}"
@@ -1075,9 +1079,9 @@ def _get_model_comparison_data(
                 IndexName="VerifiedAnalysisGSI",
                 KeyConditionExpression=Key("verified_analysis_pk").eq(original_pk)
                 & Key("verified_analysis_sk").gte(cutoff_time),
-                Limit=5000,  # Increased for props
+                Limit=5000,
             )
-            original_items.extend(original_response.get("Items", []))
+            original_items = original_response.get("Items", [])
 
             # Query inverse predictions
             inverse_pk = f"{original_pk}#inverse"
@@ -1087,53 +1091,60 @@ def _get_model_comparison_data(
                 & Key("verified_analysis_sk").gte(cutoff_time),
                 Limit=5000,
             )
-            inverse_items.extend(inverse_response.get("Items", []))
+            inverse_items = inverse_response.get("Items", [])
 
-        if not original_items:
-            return None
+            if not original_items:
+                continue  # Skip if no data for this bet type
 
-        # Calculate original metrics
-        original_total = len(original_items)
-        original_correct = sum(
-            1 for item in original_items if item.get("analysis_correct")
-        )
-        original_accuracy = (
-            original_correct / original_total if original_total > 0 else 0
-        )
+            # Calculate original metrics
+            original_total = len(original_items)
+            original_correct = sum(
+                1 for item in original_items if item.get("analysis_correct")
+            )
+            original_accuracy = (
+                original_correct / original_total if original_total > 0 else 0
+            )
 
-        # Calculate inverse metrics
-        inverse_total = len(inverse_items)
-        inverse_correct = sum(
-            1 for item in inverse_items if item.get("analysis_correct")
-        )
-        inverse_accuracy = inverse_correct / inverse_total if inverse_total > 0 else 0
+            # Calculate inverse metrics
+            inverse_total = len(inverse_items)
+            inverse_correct = sum(
+                1 for item in inverse_items if item.get("analysis_correct")
+            )
+            inverse_accuracy = (
+                inverse_correct / inverse_total if inverse_total > 0 else 0
+            )
 
-        # Determine recommendation
-        if inverse_accuracy > original_accuracy and inverse_accuracy > 0.5:
-            recommendation = "INVERSE"
-        elif original_accuracy > 0.5:
-            recommendation = "ORIGINAL"
-        else:
-            recommendation = "AVOID"
+            # Determine recommendation
+            if inverse_accuracy > original_accuracy and inverse_accuracy > 0.5:
+                recommendation = "INVERSE"
+            elif original_accuracy > 0.5:
+                recommendation = "ORIGINAL"
+            else:
+                recommendation = "AVOID"
 
-        return {
-            "model": model_name or model_id,
-            "model_id": model_id,
-            "is_user_model": is_user_model,
-            "sample_size": original_total,
-            "original_accuracy": round(original_accuracy, 3),
-            "original_correct": original_correct,
-            "original_total": original_total,
-            "inverse_accuracy": round(inverse_accuracy, 3),
-            "inverse_correct": inverse_correct,
-            "inverse_total": inverse_total,
-            "recommendation": recommendation,
-            "accuracy_diff": round(inverse_accuracy - original_accuracy, 3),
-        }
+            results.append(
+                {
+                    "model": model_name or model_id,
+                    "model_id": model_id,
+                    "bet_type": bet_type,
+                    "is_user_model": is_user_model,
+                    "sample_size": original_total,
+                    "original_accuracy": round(original_accuracy, 3),
+                    "original_correct": original_correct,
+                    "original_total": original_total,
+                    "inverse_accuracy": round(inverse_accuracy, 3),
+                    "inverse_correct": inverse_correct,
+                    "inverse_total": inverse_total,
+                    "recommendation": recommendation,
+                    "accuracy_diff": round(inverse_accuracy - original_accuracy, 3),
+                }
+            )
+
+        return results
 
     except Exception as e:
         print(f"Error getting comparison data for {model_id}: {e}")
-        return None
+        return []
 
 
 # User Models API Handlers
