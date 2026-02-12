@@ -244,7 +244,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       if (token) {
         // Fetch ROI rankings instead of just accuracy
         const response = await fetch(
-          `${process.env.REACT_APP_API_BASE_URL}/model-rankings?sport=${settings.sport}&days=30&mode=both`,
+          `${process.env.REACT_APP_API_URL}/model-rankings?sport=${settings.sport}&days=30&mode=both`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -260,13 +260,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const data = await response.json();
         console.log('Model rankings data:', data);
         
-        // Show top 5 by ROI (include negative ROI too)
-        const topByROI = (data.rankings || [])
-          .sort((a: any, b: any) => b.roi - a.roi)
+        // Show top 5 by accuracy (win_rate)
+        const topByAccuracy = (data.rankings || [])
+          .filter((m: any) => m.total_bets >= 10) // Min 10 bets
+          .sort((a: any, b: any) => b.win_rate - a.win_rate)
           .slice(0, 5);
         
-        console.log('Top 5 by ROI:', topByROI);
-        setModelLeaderboard(topByROI);
+        console.log('Top 5 by accuracy:', topByAccuracy);
+        setModelLeaderboard(topByAccuracy);
       }
     } catch (err) {
       console.error('Error fetching model leaderboard:', err);
@@ -439,11 +440,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             {modelLeaderboard.length > 0 && (
               <>
                 <div className="ticker-item ticker-label">
-                  💰 TOP PROFITABLE ({settings.sport.split('_').pop()?.toUpperCase()}):
+                  🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}):
                 </div>
                 {modelLeaderboard.map((model: any, index: number) => (
                   <div key={model.model_id} className="ticker-item">
-                    🏆 #{index + 1} {model.model} ({model.mode}): {(model.roi * 100).toFixed(1)}% ROI • {model.profit > 0 ? '+' : ''}${model.profit.toFixed(0)} profit
+                    🏆 #{index + 1} {model.model} ({model.mode}): {(model.win_rate * 100).toFixed(1)}% • {model.total_bets} bets
                   </div>
                 ))}
               </>
@@ -459,11 +460,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             {modelLeaderboard.length > 0 && (
               <>
                 <div className="ticker-item ticker-label">
-                  💰 TOP PROFITABLE ({settings.sport.split('_').pop()?.toUpperCase()}):
+                  🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}):
                 </div>
                 {modelLeaderboard.map((model: any, index: number) => (
                   <div key={`dup-${model.model_id}`} className="ticker-item">
-                    🏆 #{index + 1} {model.model} ({model.mode}): {(model.roi * 100).toFixed(1)}% ROI • {model.profit > 0 ? '+' : ''}${model.profit.toFixed(0)} profit
+                    🏆 #{index + 1} {model.model} ({model.mode}): {(model.win_rate * 100).toFixed(1)}% • {model.total_bets} bets
                   </div>
                 ))}
               </>

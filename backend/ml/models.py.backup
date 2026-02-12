@@ -138,18 +138,15 @@ class ConsensusModel(BaseAnalysisModel):
         self, game_id: str, odds_items: List[Dict], game_info: Dict
     ) -> AnalysisResult:
         spreads = []
-        odds_prices = []
         for item in odds_items:
             if "spreads" in item.get("sk", "") and "outcomes" in item:
                 if len(item["outcomes"]) >= 2:
                     spreads.append(float(item["outcomes"][0].get("point", 0)))
-                    odds_prices.append(int(item["outcomes"][0].get("price", -110)))
 
         if not spreads:
             return None
 
         avg_spread = sum(spreads) / len(spreads)
-        avg_odds = int(sum(odds_prices) / len(odds_prices)) if odds_prices else -110
         confidence = min(0.95, 0.6 + (len(spreads) * 0.05))
 
         return AnalysisResult(
@@ -163,7 +160,6 @@ class ConsensusModel(BaseAnalysisModel):
             prediction=f"{game_info.get('home_team')} {avg_spread:+.1f}",
             confidence=confidence,
             reasoning=f"Consensus across {len(spreads)} bookmakers: {avg_spread:+.1f}",
-            recommended_odds=avg_odds,
         )
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
@@ -213,7 +209,6 @@ class ConsensusModel(BaseAnalysisModel):
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=f"Consensus across {len(prop_item.get('bookmakers', []))} bookmakers: {prediction}",
-                recommended_odds=-110,
             )
 
         except Exception as e:
@@ -256,7 +251,6 @@ class ValueModel(BaseAnalysisModel):
             prediction=f"{game_info.get('home_team')} {selected_spread[0]:+.1f} @ {current_bookmaker}",
             confidence=confidence,
             reasoning=f"Value bet: {selected_spread[0]:+.1f} vs consensus {avg_spread:+.1f}",
-            recommended_odds=-110,
         )
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
@@ -340,7 +334,6 @@ class ValueModel(BaseAnalysisModel):
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,
-                recommended_odds=-110,
             )
 
         except Exception as e:
@@ -402,7 +395,6 @@ class MomentumModel(BaseAnalysisModel):
             prediction=f"{game_info.get('home_team')} {new_spread:+.1f}",
             confidence=confidence,
             reasoning=reasoning,
-            recommended_odds=-110,
         )
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
@@ -468,7 +460,6 @@ class MomentumModel(BaseAnalysisModel):
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,
-                recommended_odds=-110,
             )
 
         except Exception as e:
@@ -550,7 +541,6 @@ class ContrarianModel(BaseAnalysisModel):
             prediction=prediction,
             confidence=confidence,
             reasoning=reasoning,
-            recommended_odds=-110,
         )
 
     def _analyze_odds_imbalance(
@@ -617,7 +607,6 @@ class ContrarianModel(BaseAnalysisModel):
             prediction=prediction,
             confidence=confidence,
             reasoning=reasoning,
-            recommended_odds=-110,
         )
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
@@ -680,7 +669,6 @@ class ContrarianModel(BaseAnalysisModel):
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,
-                recommended_odds=-110,
             )
 
         except Exception as e:
@@ -765,7 +753,6 @@ class HotColdModel(BaseAnalysisModel):
             prediction=prediction,
             confidence=confidence,
             reasoning=reasoning,
-            recommended_odds=-110,
         )
 
     def _get_recent_record(
@@ -885,7 +872,6 @@ class HotColdModel(BaseAnalysisModel):
                     prediction=f"Over {line}",
                     confidence=0.55,
                     reasoning=f"Insufficient data for {player_name}. Neutral prediction.",
-                    recommended_odds=-110,
                 )
 
             # Calculate if player is hot or cold
@@ -937,7 +923,6 @@ class HotColdModel(BaseAnalysisModel):
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,
-                recommended_odds=-110,
             )
 
         except Exception as e:
@@ -1068,7 +1053,6 @@ class RestScheduleModel(BaseAnalysisModel):
             prediction=pick,
             confidence=confidence,
             reasoning=reasoning,
-            recommended_odds=-110,
         )
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
@@ -1101,7 +1085,6 @@ class RestScheduleModel(BaseAnalysisModel):
             prediction=pick,
             confidence=confidence,
             reasoning=reasoning,
-            recommended_odds=-110,
         )
 
     def _get_rest_score(
@@ -1225,7 +1208,6 @@ class MatchupModel(BaseAnalysisModel):
             prediction=pick,
             confidence=confidence,
             reasoning=reasoning,
-            recommended_odds=-110,
         )
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
@@ -1285,7 +1267,6 @@ class MatchupModel(BaseAnalysisModel):
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,
-                recommended_odds=-110,
             )
         except Exception as e:
             logger.error(f"Error analyzing prop matchup: {e}", exc_info=True)
@@ -1507,7 +1488,6 @@ class InjuryAwareModel(BaseAnalysisModel):
             prediction=prediction,
             confidence=confidence,
             reasoning=reasoning,
-            recommended_odds=-110,
         )
 
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
@@ -1536,7 +1516,6 @@ class InjuryAwareModel(BaseAnalysisModel):
                     prediction="AVOID",
                     confidence=0.9,
                     reasoning=f"{player_name} listed as {player_injury['status']} ({player_injury.get('injury_type', 'injury')}). Avoid this prop.",
-                    recommended_odds=-110,
                 )
 
             # Player is healthy or questionable
@@ -1559,7 +1538,6 @@ class InjuryAwareModel(BaseAnalysisModel):
                 prediction=f"Over {line}",
                 confidence=confidence,
                 reasoning=f"{player_name} healthy{status_note}. Monitor injury reports before game.",
-                recommended_odds=-110,
             )
 
         except Exception as e:
@@ -1870,7 +1848,6 @@ class EnsembleModel(BaseAnalysisModel):
                 confidence=weighted_confidence,
                 reasoning=f"Ensemble of {len(predictions)} models. "
                 + " | ".join(reasoning_parts),
-                recommended_odds=-110,
             )
         except Exception as e:
             logger.error(f"Error in Ensemble game analysis: {e}")
@@ -1919,7 +1896,6 @@ class EnsembleModel(BaseAnalysisModel):
                 prediction=best_prediction.prediction,
                 confidence=weighted_confidence,
                 reasoning=f"Ensemble prediction (weighted confidence from {len(predictions)} models)",
-                recommended_odds=-110,
             )
         except Exception as e:
             logger.error(f"Error in Ensemble prop analysis: {e}")

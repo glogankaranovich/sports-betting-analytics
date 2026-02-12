@@ -53,6 +53,7 @@ export class OutcomeCollectorStack extends cdk.Stack {
       actions: [
         'dynamodb:Query',
         'dynamodb:Scan',
+        'dynamodb:GetItem',
         'dynamodb:PutItem',
         'dynamodb:UpdateItem',
         'dynamodb:BatchWriteItem'

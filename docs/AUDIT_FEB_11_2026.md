@@ -27,13 +27,19 @@
 - Reveals which models consistently predict wrong
 
 **Testing Status:**
-- [ ] Unit tests exist?
-- [ ] Manual test in dev
-- [ ] Verified in DynamoDB
+- [x] Unit tests exist? YES
+- [ ] Manual test in dev - PENDING DEPLOYMENT
+- [x] Verified in DynamoDB - NO DATA (permission issue)
 
 **Concerns:**
 - Doubles the number of prediction records stored
 - Impact on query performance?
+
+**CRITICAL ISSUE FOUND:**
+- ❌ Lambda missing `dynamodb:GetItem` permission
+- ✅ FIXED: Added GetItem to outcome-collector-stack.ts
+- 🔄 DEPLOYING: Manual deployment in progress
+- After deploy: Need to wait for next outcome collector run to verify
 
 ---
 
@@ -52,13 +58,27 @@
 - Includes user models
 
 **Testing Status:**
-- [ ] Frontend loads without errors
-- [ ] API returns valid data
-- [ ] Recommendations make sense
+- [x] Frontend loads without errors - NO (multiple errors)
+- [x] API returns valid data - UNKNOWN (can't test due to auth)
+- [ ] Recommendations make sense - CAN'T TEST
 
 **Concerns:**
 - New frontend component - tested on all screen sizes?
 - API performance with large datasets?
+
+**CRITICAL ISSUES FOUND:**
+- ❌ Missing Amplify auth import (✅ FIXED)
+- ❌ TypeScript type error (✅ FIXED)
+- ❌ NOT SENDING AUTH TOKEN (✅ FIXED - added Authorization header)
+- ❌ **STYLING COMPLETELY WRONG** - Uses Tailwind classes, site uses custom CSS with dark theme
+  - Component has light background, site is dark
+  - Uses Tailwind utility classes (px-4, py-2, border, rounded)
+  - Site uses semantic CSS classes (filter-select, modal-overlay, etc.)
+  - **NEEDS COMPLETE REDESIGN** - Not a quick fix
+- ❌ **NO DATA TO DISPLAY** - Depends on Feature 1.1 which is broken
+
+**Status:** ❌ **PARTIALLY FIXED** - Auth works now, but styling is completely wrong
+**Recommendation:** REMOVE this component from navigation until properly styled
 
 ---
 

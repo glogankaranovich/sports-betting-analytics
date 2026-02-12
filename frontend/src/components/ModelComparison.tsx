@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { fetchAuthSession } from 'aws-amplify/auth';
+import './ModelComparison.css';
 
-// Get API URL based on environment
 const getApiUrl = (): string => {
   const defaultUrl = 'https://lpykx3ka6a.execute-api.us-east-1.amazonaws.com/prod';
   return process.env.REACT_APP_API_URL || defaultUrl;
@@ -15,8 +16,10 @@ interface ModelComparison {
   sample_size: number;
   original_accuracy: number;
   original_correct: number;
+  original_total: number;
   inverse_accuracy: number;
   inverse_correct: number;
+  inverse_total: number;
   recommendation: 'ORIGINAL' | 'INVERSE' | 'AVOID';
   accuracy_diff: number;
 }
@@ -37,18 +40,17 @@ export const ModelComparison: React.FC = () => {
   const [data, setData] = useState<ComparisonData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sport, setSport] = useState('basketball_nba');
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(90);  // Default to 90 days for better sample size
   const [includeUserModels, setIncludeUserModels] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
-  // Get user ID from auth
   useEffect(() => {
     const getUserId = async () => {
       try {
-        const { tokens } = await (window as any).fetchAuthSession();
+        const { tokens } = await fetchAuthSession();
         const idToken = tokens?.idToken?.payload;
-        const uid = idToken?.sub || idToken?.['cognito:username'];
-        setUserId(uid);
+        const uid = (idToken?.sub || idToken?.['cognito:username']) as string | undefined;
+        setUserId(uid || null);
       } catch (error) {
         console.error('Error getting user ID:', error);
       }
@@ -65,12 +67,30 @@ export const ModelComparison: React.FC = () => {
   const fetchComparison = async () => {
     setLoading(true);
     try {
+      const { tokens } = await fetchAuthSession();
+      const token = tokens?.idToken?.toString();
+      
+      if (!token) {
+        console.error('No auth token available');
+        setLoading(false);
+        return;
+      }
+      
       let url = `${API_BASE_URL}/model-comparison?sport=${sport}&days=${days}`;
       if (includeUserModels && userId) {
         url += `&user_id=${userId}`;
       }
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
       const result = await response.json();
       setData(result);
     } catch (error) {
@@ -80,164 +100,106 @@ export const ModelComparison: React.FC = () => {
     }
   };
 
-  const getRecommendationColor = (rec: string) => {
-    switch (rec) {
-      case 'ORIGINAL':
-        return 'text-green-600 bg-green-50';
-      case 'INVERSE':
-        return 'text-orange-600 bg-orange-50';
-      case 'AVOID':
-        return 'text-red-600 bg-red-50';
-      default:
-        return 'text-gray-600 bg-gray-50';
-    }
-  };
-
   const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
   if (loading) {
-    return <div className="p-4">Loading model comparison...</div>;
+    return <div className="loading-state">Loading model comparison...</div>;
   }
 
   if (!data) {
-    return <div className="p-4">No data available</div>;
+    return <div className="loading-state">No data available</div>;
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-4">Model Performance Comparison</h1>
+    <div className="model-comparison">
+      <div className="comparison-header">
+        <h2>Model Performance Comparison</h2>
         
-        <div className="flex gap-4 mb-4">
-          <select
-            value={sport}
-            onChange={(e) => setSport(e.target.value)}
-            className="px-4 py-2 border rounded"
-          >
+        <div className="filters">
+          <select value={sport} onChange={(e) => setSport(e.target.value)} className="filter-select">
             <option value="basketball_nba">NBA</option>
             <option value="americanfootball_nfl">NFL</option>
-            <option value="baseball_mlb">MLB</option>
-            <option value="icehockey_nhl">NHL</option>
-            <option value="soccer_epl">EPL</option>
           </select>
 
-          <select
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
-            className="px-4 py-2 border rounded"
-          >
-            <option value={7}>Last 7 days</option>
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="filter-select">
             <option value={30}>Last 30 days</option>
             <option value={90}>Last 90 days</option>
+            <option value={180}>Last 6 months</option>
+            <option value={365}>Last year</option>
+            <option value={9999}>All time</option>
           </select>
 
-          <label className="flex items-center gap-2 px-4 py-2 border rounded bg-white cursor-pointer">
+          <label className="checkbox-label">
             <input
               type="checkbox"
               checked={includeUserModels}
               onChange={(e) => setIncludeUserModels(e.target.checked)}
-              className="cursor-pointer"
             />
             <span>Include My Models</span>
           </label>
         </div>
 
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <div className="text-sm text-gray-600">Total Models</div>
-            <div className="text-2xl font-bold">{data.summary.total_models}</div>
+        <div className="summary-cards">
+          <div className="summary-card">
+            <div className="card-label">Total Models</div>
+            <div className="card-value">{data.summary.total_models}</div>
           </div>
-          <div className="bg-green-50 p-4 rounded-lg shadow">
-            <div className="text-sm text-green-600">Use Original</div>
-            <div className="text-2xl font-bold text-green-600">
-              {data.summary.original_recommended}
-            </div>
+          <div className="summary-card success">
+            <div className="card-label">Use Original</div>
+            <div className="card-value">{data.summary.original_recommended}</div>
           </div>
-          <div className="bg-orange-50 p-4 rounded-lg shadow">
-            <div className="text-sm text-orange-600">Bet Against (Inverse)</div>
-            <div className="text-2xl font-bold text-orange-600">
-              {data.summary.inverse_recommended}
-            </div>
+          <div className="summary-card warning">
+            <div className="card-label">Bet Against (Inverse)</div>
+            <div className="card-value">{data.summary.inverse_recommended}</div>
           </div>
-          <div className="bg-red-50 p-4 rounded-lg shadow">
-            <div className="text-sm text-red-600">Avoid</div>
-            <div className="text-2xl font-bold text-red-600">
-              {data.summary.avoid}
-            </div>
+          <div className="summary-card danger">
+            <div className="card-label">Avoid</div>
+            <div className="card-value">{data.summary.avoid}</div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="comparison-table-container">
+        <table className="comparison-table">
+          <thead>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Model
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Sample Size
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Original Accuracy
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Inverse Accuracy
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Difference
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Recommendation
-              </th>
+              <th>Model</th>
+              <th>Sample Size</th>
+              <th>Original Accuracy</th>
+              <th>Inverse Accuracy</th>
+              <th>Difference</th>
+              <th>Recommendation</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody>
             {data.models.map((model) => (
-              <tr key={model.model_id || model.model} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="font-medium">{model.model}</div>
-                  {model.is_user_model && (
-                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                      My Model
-                    </span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {model.sample_size}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium">
-                    {formatPercent(model.original_accuracy)}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {model.original_correct}/{model.sample_size}
+              <tr key={model.model_id || model.model}>
+                <td>
+                  <div className="model-name">
+                    {model.model}
+                    {model.is_user_model && <span className="badge">My Model</span>}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium">
-                    {formatPercent(model.inverse_accuracy)}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {model.inverse_correct}/{model.sample_size}
+                <td>{model.sample_size}</td>
+                <td>
+                  <div className="accuracy-cell">
+                    <div className="accuracy-value">{formatPercent(model.original_accuracy)}</div>
+                    <div className="accuracy-detail">{model.original_correct}/{model.original_total}</div>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`text-sm font-medium ${
-                      model.accuracy_diff > 0 ? 'text-orange-600' : 'text-green-600'
-                    }`}
-                  >
-                    {model.accuracy_diff > 0 ? '+' : ''}
-                    {formatPercent(model.accuracy_diff)}
+                <td>
+                  <div className="accuracy-cell">
+                    <div className="accuracy-value">{formatPercent(model.inverse_accuracy)}</div>
+                    <div className="accuracy-detail">{model.inverse_correct}/{model.inverse_total}</div>
+                  </div>
+                </td>
+                <td>
+                  <span className={`diff ${model.accuracy_diff > 0 ? 'positive' : 'negative'}`}>
+                    {model.accuracy_diff > 0 ? '+' : ''}{formatPercent(model.accuracy_diff)}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${getRecommendationColor(
-                      model.recommendation
-                    )}`}
-                  >
+                <td>
+                  <span className={`recommendation-badge ${model.recommendation.toLowerCase()}`}>
                     {model.recommendation}
                   </span>
                 </td>
@@ -247,25 +209,13 @@ export const ModelComparison: React.FC = () => {
         </table>
       </div>
 
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-        <h3 className="font-semibold mb-2">How to Read This:</h3>
-        <ul className="text-sm space-y-1">
-          <li>
-            <span className="font-medium text-green-600">ORIGINAL:</span> Model predictions
-            are accurate - use them as-is
-          </li>
-          <li>
-            <span className="font-medium text-orange-600">INVERSE:</span> Model consistently
-            predicts wrong - bet against it
-          </li>
-          <li>
-            <span className="font-medium text-red-600">AVOID:</span> Neither original nor
-            inverse is profitable
-          </li>
-          <li>
-            <span className="font-medium">Difference:</span> Positive means inverse performs
-            better
-          </li>
+      <div className="help-section">
+        <h3>How to Read This:</h3>
+        <ul>
+          <li><span className="success">ORIGINAL:</span> Model predictions are accurate - use them as-is</li>
+          <li><span className="warning">INVERSE:</span> Model consistently predicts wrong - bet against it</li>
+          <li><span className="danger">AVOID:</span> Neither original nor inverse is profitable</li>
+          <li><strong>Difference:</strong> Positive means inverse performs better</li>
         </ul>
       </div>
     </div>

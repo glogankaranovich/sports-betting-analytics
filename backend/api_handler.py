@@ -768,12 +768,16 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
     """Get model comparison with original vs inverse performance"""
     try:
         sport = query_params.get("sport", "basketball_nba")
-        days = int(query_params.get("days", 30))
+        days = int(query_params.get("days", 90))  # Default to 90 days
         user_id = query_params.get("user_id")  # Optional: filter to user's models
 
         from datetime import datetime, timedelta
 
-        cutoff_time = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        # Handle "all time" query (days >= 9999 means no time filter)
+        if days >= 9999:
+            cutoff_time = "2000-01-01T00:00:00"  # Far past date = all time
+        else:
+            cutoff_time = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
         # System models
         system_models = [
@@ -1052,33 +1056,38 @@ def _get_model_comparison_data(
     is_user_model: bool = False,
     model_name: str = None,
 ) -> Dict[str, Any]:
-    """Get comparison data for a single model"""
+    """Get comparison data for a single model (includes both games and props)"""
     try:
         from boto3.dynamodb.conditions import Key
 
-        # Query original predictions
-        if is_user_model:
-            original_pk = f"VERIFIED#{model_id}#{sport}#game"
-        else:
-            original_pk = f"VERIFIED#{model_id}#{sport}#game"
+        original_items = []
+        inverse_items = []
 
-        original_response = table.query(
-            IndexName="VerifiedAnalysisGSI",
-            KeyConditionExpression=Key("verified_analysis_pk").eq(original_pk)
-            & Key("verified_analysis_sk").gte(cutoff_time),
-            Limit=1000,
-        )
-        original_items = original_response.get("Items", [])
+        # Query both game and prop predictions
+        for bet_type in ["game", "prop"]:
+            # Query original predictions
+            if is_user_model:
+                original_pk = f"VERIFIED#{model_id}#{sport}#{bet_type}"
+            else:
+                original_pk = f"VERIFIED#{model_id}#{sport}#{bet_type}"
 
-        # Query inverse predictions
-        inverse_pk = f"{original_pk}#inverse"
-        inverse_response = table.query(
-            IndexName="VerifiedAnalysisGSI",
-            KeyConditionExpression=Key("verified_analysis_pk").eq(inverse_pk)
-            & Key("verified_analysis_sk").gte(cutoff_time),
-            Limit=1000,
-        )
-        inverse_items = inverse_response.get("Items", [])
+            original_response = table.query(
+                IndexName="VerifiedAnalysisGSI",
+                KeyConditionExpression=Key("verified_analysis_pk").eq(original_pk)
+                & Key("verified_analysis_sk").gte(cutoff_time),
+                Limit=5000,  # Increased for props
+            )
+            original_items.extend(original_response.get("Items", []))
+
+            # Query inverse predictions
+            inverse_pk = f"{original_pk}#inverse"
+            inverse_response = table.query(
+                IndexName="VerifiedAnalysisGSI",
+                KeyConditionExpression=Key("verified_analysis_pk").eq(inverse_pk)
+                & Key("verified_analysis_sk").gte(cutoff_time),
+                Limit=5000,
+            )
+            inverse_items.extend(inverse_response.get("Items", []))
 
         if not original_items:
             return None
@@ -1114,8 +1123,10 @@ def _get_model_comparison_data(
             "sample_size": original_total,
             "original_accuracy": round(original_accuracy, 3),
             "original_correct": original_correct,
+            "original_total": original_total,
             "inverse_accuracy": round(inverse_accuracy, 3),
             "inverse_correct": inverse_correct,
+            "inverse_total": inverse_total,
             "recommendation": recommendation,
             "accuracy_diff": round(inverse_accuracy - original_accuracy, 3),
         }
