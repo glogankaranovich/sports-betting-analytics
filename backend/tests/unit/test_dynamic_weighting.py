@@ -99,7 +99,13 @@ def test_calculate_adjusted_confidence_reduce():
     """Test confidence reduction for underperforming model."""
     weighting = DynamicModelWeighting()
 
-    with patch.object(weighting, "get_recent_accuracy", return_value=0.5):
+    # Mock both original and inverse accuracy calls
+    def mock_accuracy(model, sport, bet_type, inverse=False):
+        if inverse:
+            return 0.4  # Inverse is worse
+        return 0.5  # Original is 50%
+    
+    with patch.object(weighting, "get_recent_accuracy", side_effect=mock_accuracy):
         adjusted = weighting.calculate_adjusted_confidence(
             0.7, "consensus", "basketball_nba", "game"
         )
