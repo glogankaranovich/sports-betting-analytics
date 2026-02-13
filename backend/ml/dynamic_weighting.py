@@ -145,24 +145,34 @@ class DynamicModelWeighting:
             models = ["consensus", "value", "momentum"]
 
         performances = {}
+        inversions = {}  # Track which models should be inverted
+        
         for model in models:
             accuracy = self.get_recent_accuracy(model, sport, bet_type)
+            inverse_accuracy = self.get_recent_accuracy(model, sport, bet_type, inverse=True)
             brier_score = self.get_recent_brier_score(model, sport, bet_type)
 
             # If no data, use neutral weight
             if accuracy is None or brier_score is None:
                 performances[model] = 0.5
+                inversions[model] = False
             else:
-                # Combined performance score (70% accuracy, 30% calibration)
-                performances[model] = (accuracy * 0.7) + ((1 - brier_score) * 0.3)
+                # Use inverse accuracy if it's better
+                if inverse_accuracy and inverse_accuracy > accuracy:
+                    performances[model] = (inverse_accuracy * 0.7) + ((1 - brier_score) * 0.3)
+                    inversions[model] = True
+                else:
+                    performances[model] = (accuracy * 0.7) + ((1 - brier_score) * 0.3)
+                    inversions[model] = False
 
         # Normalize to weights
         total = sum(performances.values())
         if total == 0:
             # Equal weights if no performance data
-            return {m: 1.0 / len(models) for m in models}
+            return {m: 1.0 / len(models) for m in models}, {m: False for m in models}
 
-        return {m: p / total for m, p in performances.items()}
+        weights = {m: p / total for m, p in performances.items()}
+        return weights, inversions
 
     def get_model_recommendation(self, model, sport, bet_type="game"):
         """Get recommendation for a model: ORIGINAL, INVERSE, or AVOID."""
