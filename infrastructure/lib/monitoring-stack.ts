@@ -54,32 +54,48 @@ export class MonitoringStack extends cdk.Stack {
     });
 
     // Helper function to create Lambda metrics
-    const createLambdaMetrics = (fn: lambda.IFunction, name: string) => {
+    const createLambdaMetrics = (fn: lambda.IFunction, name: string, scheduleMinutes?: number) => {
+      // For scheduled Lambdas, use their schedule period
+      // For API Lambdas, use 5-minute rolling window
+      // CloudWatch requires periods >24h to be multiples of 3600 (1 hour)
+      let period: cdk.Duration;
+      if (scheduleMinutes) {
+        if (scheduleMinutes >= 1440) { // >= 24 hours
+          period = cdk.Duration.hours(Math.ceil(scheduleMinutes / 60));
+        } else {
+          period = cdk.Duration.minutes(scheduleMinutes);
+        }
+      } else {
+        period = cdk.Duration.minutes(5);
+      }
+      
+      const evaluationPeriods = scheduleMinutes ? 1 : 10; // Immediate alert for scheduled, 10 periods for API
+
       const errors = fn.metricErrors({
         statistic: 'Sum',
-        period: cdk.Duration.minutes(5),
+        period: period,
       });
 
       const throttles = fn.metricThrottles({
         statistic: 'Sum',
-        period: cdk.Duration.minutes(5),
+        period: period,
       });
 
       const duration = fn.metricDuration({
         statistic: 'Average',
-        period: cdk.Duration.minutes(5),
+        period: period,
       });
 
       const invocations = fn.metricInvocations({
         statistic: 'Sum',
-        period: cdk.Duration.minutes(5),
+        period: period,
       });
 
       // Create alarm for errors
       const errorAlarm = new cloudwatch.Alarm(this, `${name}ErrorAlarm`, {
         metric: errors,
         threshold: 1,
-        evaluationPeriods: 10,
+        evaluationPeriods: evaluationPeriods,
         alarmDescription: `${name} has errors`,
         alarmName: `${props.environment}-${name}-Errors`,
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
@@ -90,7 +106,7 @@ export class MonitoringStack extends cdk.Stack {
       const throttleAlarm = new cloudwatch.Alarm(this, `${name}ThrottleAlarm`, {
         metric: throttles,
         threshold: 1,
-        evaluationPeriods: 10,
+        evaluationPeriods: evaluationPeriods,
         alarmDescription: `${name} is being throttled`,
         alarmName: `${props.environment}-${name}-Throttles`,
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
@@ -101,25 +117,28 @@ export class MonitoringStack extends cdk.Stack {
     };
 
     // Create metrics for all functions
-    const oddsMetrics = createLambdaMetrics(props.oddsCollectorFunction, 'OddsCollector');
-    const propsMetrics = createLambdaMetrics(props.propsCollectorFunction, 'PropsCollector');
-    const scheduleMetrics = createLambdaMetrics(props.scheduleCollectorFunction, 'ScheduleCollector');
-    const playerStatsMetrics = createLambdaMetrics(props.playerStatsCollectorFunction, 'PlayerStatsCollector');
-    const teamStatsMetrics = createLambdaMetrics(props.teamStatsCollectorFunction, 'TeamStatsCollector');
-    const outcomeMetrics = createLambdaMetrics(props.outcomeCollectorFunction, 'OutcomeCollector');
-    const modelAnalyticsMetrics = createLambdaMetrics(props.modelAnalyticsFunction, 'ModelAnalytics');
-    const seasonManagerMetrics = createLambdaMetrics(props.seasonManagerFunction, 'SeasonManager');
-    const complianceMetrics = createLambdaMetrics(props.complianceLoggerFunction, 'ComplianceLogger');
-    const bennyTraderMetrics = createLambdaMetrics(props.bennyTraderFunction, 'BennyTrader');
+    // Scheduled Lambdas (with schedule period in minutes)
+    const oddsMetrics = createLambdaMetrics(props.oddsCollectorFunction, 'OddsCollector', 60);
+    const propsMetrics = createLambdaMetrics(props.propsCollectorFunction, 'PropsCollector', 60);
+    const scheduleMetrics = createLambdaMetrics(props.scheduleCollectorFunction, 'ScheduleCollector', 1440);
+    const playerStatsMetrics = createLambdaMetrics(props.playerStatsCollectorFunction, 'PlayerStatsCollector', 1440);
+    const teamStatsMetrics = createLambdaMetrics(props.teamStatsCollectorFunction, 'TeamStatsCollector', 1440);
+    const outcomeMetrics = createLambdaMetrics(props.outcomeCollectorFunction, 'OutcomeCollector', 60);
+    const modelAnalyticsMetrics = createLambdaMetrics(props.modelAnalyticsFunction, 'ModelAnalytics', 60);
+    const seasonManagerMetrics = createLambdaMetrics(props.seasonManagerFunction, 'SeasonManager', 1440);
+    const complianceMetrics = createLambdaMetrics(props.complianceLoggerFunction, 'ComplianceLogger', 1440);
+    const bennyTraderMetrics = createLambdaMetrics(props.bennyTraderFunction, 'BennyTrader', 1440);
+    
+    // API Lambdas (no schedule)
     const betApiMetrics = createLambdaMetrics(props.betCollectorApiFunction, 'BetCollectorAPI');
     const userModelsApiMetrics = createLambdaMetrics(props.userModelsApiFunction, 'UserModelsAPI');
     const aiAgentApiMetrics = createLambdaMetrics(props.aiAgentApiFunction, 'AIAgentAPI');
     const modelExecutorMetrics = createLambdaMetrics(props.modelExecutorFunction, 'ModelExecutor');
     const queueLoaderMetrics = createLambdaMetrics(props.queueLoaderFunction, 'QueueLoader');
     
-    // Create metrics for analysis generators (one per sport)
+    // Create metrics for analysis generators (one per sport, scheduled every 60 minutes)
     const analysisMetrics = props.analysisGeneratorFunctions.flatMap((fn, i) => 
-      createLambdaMetrics(fn, `AnalysisGen${['NBA','NFL','MLB','NHL','EPL'][i]}`)
+      createLambdaMetrics(fn, `AnalysisGen${['NBA','NFL','MLB','NHL','EPL'][i]}`, 60)
     );
 
     // Flatten metrics arrays
