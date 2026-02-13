@@ -164,7 +164,7 @@ def test_get_model_weights_with_data(mock_table):
     mock_table.query.side_effect = mock_query
 
     weighting = DynamicModelWeighting()
-    weights = weighting.get_model_weights("basketball_nba", "game")
+    weights, inversions = weighting.get_model_weights("basketball_nba", "game")
 
     # Should return normalized weights for all three models
     assert "consensus" in weights
@@ -178,9 +178,12 @@ def test_get_model_weights_no_data(mock_table):
     mock_table.query.return_value = {"Items": []}
 
     weighting = DynamicModelWeighting()
-    weights = weighting.get_model_weights("basketball_nba", "game")
+    weights, inversions = weighting.get_model_weights("basketball_nba", "game")
 
     # Equal weights when no data
     assert weights["consensus"] == pytest.approx(1 / 3)
     assert weights["value"] == pytest.approx(1 / 3)
     assert weights["momentum"] == pytest.approx(1 / 3)
+    assert inversions["consensus"] == False
+    assert inversions["value"] == False
+    assert inversions["momentum"] == False
