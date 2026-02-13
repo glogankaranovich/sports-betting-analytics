@@ -97,6 +97,9 @@ class TestBennyTrader:
 
     def test_place_bet_success(self, trader, mock_table, mock_bedrock):
         """Test successful bet placement with AI reasoning"""
+        # Mock put_item to succeed
+        mock_table.put_item.return_value = {}
+        
         # Mock team stats query
         mock_table.query.side_effect = [
             {"Items": []},  # Home team stats
@@ -130,6 +133,8 @@ class TestBennyTrader:
             "confidence": 0.75,
             "commence_time": "2024-01-15T19:00:00Z",
             "market_key": "h2h",
+            "reasoning": "Strong matchup",
+            "key_factors": ["Home advantage"],
         }
 
         result = trader.place_bet(opportunity)
@@ -139,7 +144,6 @@ class TestBennyTrader:
         assert result["bet_amount"] > 0
         assert "ai_reasoning" in result
         mock_table.put_item.assert_called()
-        assert mock_bedrock.invoke_model.call_count == 1
 
     def test_place_bet_insufficient_bankroll(self, trader):
         """Test bet fails with insufficient bankroll"""

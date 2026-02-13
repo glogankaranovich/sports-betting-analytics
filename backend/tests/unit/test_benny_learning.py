@@ -90,7 +90,7 @@ class TestBennyLearning(unittest.TestCase):
 
         # Should lower confidence threshold (bet more)
         call_args = self.benny.table.put_item.call_args[1]["Item"]
-        assert call_args["min_confidence_adjustment"] == -0.02
+        assert call_args["min_confidence_adjustment"] == Decimal("-0.02")
 
     def test_update_learning_parameters_low_win_rate(self):
         """Test confidence adjustment with low win rate"""
@@ -110,7 +110,7 @@ class TestBennyLearning(unittest.TestCase):
 
         # Should raise confidence threshold (bet less)
         call_args = self.benny.table.put_item.call_args[1]["Item"]
-        assert call_args["min_confidence_adjustment"] == 0.05
+        assert call_args["min_confidence_adjustment"] == Decimal("0.05")
 
     def test_update_learning_parameters_tracks_by_sport(self):
         """Test performance tracking by sport"""

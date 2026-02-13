@@ -26,9 +26,11 @@ class BennyTrader:
     MAX_BET_PERCENTAGE = 0.20  # Max 20% of bankroll per bet
 
     def __init__(self, table_name=None):
-        self.table = dynamodb.Table(
-            table_name or os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev")
-        )
+        # Use module-level table for easier testing, or create new instance if table_name provided
+        if table_name:
+            self.table = dynamodb.Table(table_name)
+        else:
+            self.table = table
         self.bankroll = self._get_current_bankroll()
         self.week_start = self._get_week_start()
         self.learning_params = self._get_learning_parameters()

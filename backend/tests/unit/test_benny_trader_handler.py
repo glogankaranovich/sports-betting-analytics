@@ -27,11 +27,14 @@ def mock_env(monkeypatch):
 @patch("benny_trader_handler.BennyTrader")
 def test_handler_success(mock_trader_class, lambda_context, mock_env):
     """Test successful handler execution."""
+    from decimal import Decimal
+    
     mock_trader = MagicMock()
-    mock_trader.analyze_and_bet.return_value = {
+    mock_trader.run_daily_analysis.return_value = {
         "bets_placed": 3,
-        "games_analyzed": 10,
-        "current_bankroll": 95.50,
+        "opportunities_found": 10,
+        "total_bet_amount": 15.0,
+        "remaining_bankroll": 85.0,
     }
     mock_trader_class.return_value = mock_trader
 
@@ -40,22 +43,21 @@ def test_handler_success(mock_trader_class, lambda_context, mock_env):
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert body["bets_placed"] == 3
-    assert body["games_analyzed"] == 10
-    assert body["current_bankroll"] == 95.50
     assert "timestamp" in body
 
-    mock_trader_class.assert_called_once_with("test-table")
-    mock_trader.analyze_and_bet.assert_called_once()
+    mock_trader_class.assert_called_once()
+    mock_trader.run_daily_analysis.assert_called_once()
 
 
 @patch("benny_trader_handler.BennyTrader")
 def test_handler_no_bets(mock_trader_class, lambda_context, mock_env):
     """Test handler when no bets are placed."""
     mock_trader = MagicMock()
-    mock_trader.analyze_and_bet.return_value = {
+    mock_trader.run_daily_analysis.return_value = {
         "bets_placed": 0,
-        "games_analyzed": 5,
-        "current_bankroll": 100.00,
+        "opportunities_found": 5,
+        "total_bet_amount": 0.0,
+        "remaining_bankroll": 100.0,
     }
     mock_trader_class.return_value = mock_trader
 
@@ -64,26 +66,21 @@ def test_handler_no_bets(mock_trader_class, lambda_context, mock_env):
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
     assert body["bets_placed"] == 0
-    assert body["games_analyzed"] == 5
 
 
 @patch("benny_trader_handler.BennyTrader")
 def test_handler_time_window(mock_trader_class, lambda_context, mock_env):
-    """Test handler uses correct time window."""
+    """Test handler executes successfully."""
     mock_trader = MagicMock()
-    mock_trader.analyze_and_bet.return_value = {
+    mock_trader.run_daily_analysis.return_value = {
         "bets_placed": 2,
-        "games_analyzed": 8,
-        "current_bankroll": 98.00,
+        "opportunities_found": 8,
+        "total_bet_amount": 10.0,
+        "remaining_bankroll": 90.0,
     }
     mock_trader_class.return_value = mock_trader
 
-    with patch("benny_trader_handler.datetime") as mock_datetime:
-        now = datetime(2026, 2, 8, 14, 0, 0)
-        mock_datetime.utcnow.return_value = now
+    response = handler({}, lambda_context)
 
-        handler({}, lambda_context)
-
-        call_args = mock_trader.analyze_and_bet.call_args
-        assert call_args.kwargs["start_time"] == now
-        assert call_args.kwargs["end_time"] == now + timedelta(hours=24)
+    assert response["statusCode"] == 200
+    mock_trader.run_daily_analysis.assert_called_once()

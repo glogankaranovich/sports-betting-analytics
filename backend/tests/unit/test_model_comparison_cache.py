@@ -46,16 +46,35 @@ def test_compute_model_comparison_basic(mock_table):
 def test_compute_model_comparison_inverse_better(mock_table):
     """Test when inverse accuracy is better than original."""
     # Mock a model that performs better inverted
-    mock_table.query.return_value = {
-        "Items": [
-            {"model": "contrarian", "analysis_correct": False, "bet_type": "game"}
-            for _ in range(7)
-        ]
-        + [
-            {"model": "contrarian", "analysis_correct": True, "bet_type": "game"}
-            for _ in range(3)
-        ]
-    }
+    # Need to mock multiple queries - one for original, one for inverse
+    def mock_query(**kwargs):
+        # Check if querying for inverse
+        if "inverse" in kwargs.get("ExpressionAttributeValues", {}).get(":pk", ""):
+            # Inverse predictions: 7 correct out of 10
+            return {
+                "Items": [
+                    {"model": "contrarian", "analysis_correct": True, "bet_type": "game"}
+                    for _ in range(7)
+                ]
+                + [
+                    {"model": "contrarian", "analysis_correct": False, "bet_type": "game"}
+                    for _ in range(3)
+                ]
+            }
+        else:
+            # Original predictions: 3 correct out of 10
+            return {
+                "Items": [
+                    {"model": "contrarian", "analysis_correct": False, "bet_type": "game"}
+                    for _ in range(7)
+                ]
+                + [
+                    {"model": "contrarian", "analysis_correct": True, "bet_type": "game"}
+                    for _ in range(3)
+                ]
+            }
+    
+    mock_table.query.side_effect = mock_query
 
     result = compute_model_comparison("basketball_nba", 90)
 
