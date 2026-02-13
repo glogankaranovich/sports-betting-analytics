@@ -46,8 +46,10 @@ class BennyTrader:
             default_params = {
                 "pk": "BENNY#LEARNING",
                 "sk": "PARAMETERS",
-                "min_confidence_adjustment": 0.0,  # Added to BASE_MIN_CONFIDENCE
-                "kelly_fraction": 0.25,  # Conservative Kelly (1/4 Kelly)
+                "min_confidence_adjustment": Decimal(
+                    "0.0"
+                ),  # Added to BASE_MIN_CONFIDENCE
+                "kelly_fraction": Decimal("0.25"),  # Conservative Kelly (1/4 Kelly)
                 "performance_by_sport": {},
                 "performance_by_bet_type": {},
                 "last_updated": datetime.utcnow().isoformat(),
@@ -630,10 +632,10 @@ Respond with JSON only:
             # Update learning parameters
             self.learning_params.update(
                 {
-                    "min_confidence_adjustment": adjustment,
+                    "min_confidence_adjustment": Decimal(str(adjustment)),
                     "performance_by_sport": perf_by_sport,
                     "performance_by_bet_type": perf_by_bet_type,
-                    "overall_win_rate": win_rate,
+                    "overall_win_rate": Decimal(str(win_rate)),
                     "total_bets_analyzed": len(bets),
                     "last_updated": datetime.utcnow().isoformat(),
                 }

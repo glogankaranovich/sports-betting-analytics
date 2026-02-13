@@ -29,12 +29,8 @@ interface ComparisonData {
   sport: string;
   days: number;
   models: ModelComparison[];
-  summary: {
-    total_models: number;
-    inverse_recommended: number;
-    original_recommended: number;
-    avoid: number;
-  };
+  cached?: boolean;
+  computed_at?: string;
 }
 
 export const ModelComparison: React.FC = () => {
@@ -113,6 +109,8 @@ export const ModelComparison: React.FC = () => {
     return <div className="loading-state">No data available</div>;
   }
 
+  const filteredModels = data.models.filter(model => betTypeFilter === 'all' || model.bet_type === betTypeFilter);
+
   return (
     <div className="model-comparison">
       <div className="games-header">
@@ -177,19 +175,19 @@ export const ModelComparison: React.FC = () => {
       <div className="summary-cards">
         <div className="summary-card">
           <div className="card-label">Total Models</div>
-          <div className="card-value">{data.summary.total_models}</div>
+          <div className="card-value">{filteredModels.length}</div>
         </div>
         <div className="summary-card success">
           <div className="card-label">Use Original</div>
-          <div className="card-value">{data.summary.original_recommended}</div>
+          <div className="card-value">{filteredModels.filter((m: ModelComparison) => m.recommendation === 'ORIGINAL').length}</div>
         </div>
         <div className="summary-card warning">
           <div className="card-label">Bet Against (Inverse)</div>
-          <div className="card-value">{data.summary.inverse_recommended}</div>
+          <div className="card-value">{filteredModels.filter((m: ModelComparison) => m.recommendation === 'INVERSE').length}</div>
         </div>
         <div className="summary-card danger">
           <div className="card-label">Avoid</div>
-          <div className="card-value">{data.summary.avoid}</div>
+          <div className="card-value">{filteredModels.filter((m: ModelComparison) => m.recommendation === 'AVOID').length}</div>
         </div>
       </div>
 
@@ -198,6 +196,7 @@ export const ModelComparison: React.FC = () => {
           <thead>
             <tr>
               <th>Model</th>
+              <th>Bet Type</th>
               <th>Sample Size</th>
               <th>Original Accuracy</th>
               <th>Inverse Accuracy</th>
@@ -206,17 +205,15 @@ export const ModelComparison: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {data.models
-              .filter(model => betTypeFilter === 'all' || model.bet_type === betTypeFilter)
-              .map((model, index) => (
+            {filteredModels.map((model, index) => (
               <tr key={`${model.model_id || model.model}-${model.bet_type}-${index}`}>
                 <td>
                   <div className="model-name">
                     {model.model}
-                    <span className="badge bet-type">{model.bet_type === 'game' ? 'Games' : 'Props'}</span>
                     {model.is_user_model && <span className="badge">My Model</span>}
                   </div>
                 </td>
+                <td>{model.bet_type === 'game' ? 'Games' : 'Props'}</td>
                 <td>{model.sample_size}</td>
                 <td>
                   <div className="accuracy-cell">
@@ -231,8 +228,8 @@ export const ModelComparison: React.FC = () => {
                   </div>
                 </td>
                 <td>
-                  <span className={`diff ${model.accuracy_diff > 0 ? 'positive' : 'negative'}`}>
-                    {model.accuracy_diff > 0 ? '+' : ''}{formatPercent(model.accuracy_diff)}
+                  <span className={`diff ${Number(model.inverse_accuracy) - Number(model.original_accuracy) > 0 ? 'positive' : 'negative'}`}>
+                    {Number(model.inverse_accuracy) - Number(model.original_accuracy) > 0 ? '+' : ''}{formatPercent(Number(model.inverse_accuracy) - Number(model.original_accuracy))}
                   </span>
                 </td>
                 <td>

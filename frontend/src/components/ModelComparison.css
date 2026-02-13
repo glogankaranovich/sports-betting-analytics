@@ -1,7 +1,7 @@
 .model-comparison {
-  padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  padding: 0;
+  width: 100%;
+  margin: 0;
 }
 
 .model-comparison h2 {

@@ -289,9 +289,9 @@ export const BennyDashboard: React.FC = () => {
 
       <style>{`
         .benny-dashboard {
-          padding: 20px;
-          max-width: 1400px;
-          margin: 0 auto;
+          padding: 0;
+          width: 100%;
+          margin: 0;
         }
 
         .benny-header {
