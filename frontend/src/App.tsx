@@ -285,10 +285,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const propPerformance: any[] = [];
         
         data.models?.forEach((model: any) => {
+          const useInverse = model.inverse_accuracy > model.original_accuracy;
           const perf = {
             model_name: model.model,
-            accuracy: Math.max(model.original_accuracy, model.inverse_accuracy) * 100, // Convert to percentage
+            accuracy: Math.max(model.original_accuracy, model.inverse_accuracy) * 100,
             total: model.sample_size,
+            strategy: useInverse ? 'INVERSE' : 'ORIGINAL',
           };
           
           if (model.bet_type === 'game') {
@@ -472,11 +474,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 {modelLeaderboard.map((section: any) => (
                   <React.Fragment key={section.type}>
                     <div className="ticker-item ticker-label">
-                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS (Best of Original/Inverse):
+                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
                     </div>
                     {section.models.map((model: any, index: number) => (
                       <div key={model.model_name} className="ticker-item">
-                        🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% • {model.total} predictions
+                        🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% • {model.total} predictions • {model.strategy === 'INVERSE' ? '⚠️ Bet Against' : '✓ Follow'}
                       </div>
                     ))}
                   </React.Fragment>
@@ -496,11 +498,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 {modelLeaderboard.map((section: any) => (
                   <React.Fragment key={`dup-${section.type}`}>
                     <div className="ticker-item ticker-label">
-                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS (Best of Original/Inverse):
+                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
                     </div>
                     {section.models.map((model: any, index: number) => (
                       <div key={`dup-${model.model_name}`} className="ticker-item">
-                        🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% • {model.total} predictions
+                        🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% • {model.total} predictions • {model.strategy === 'INVERSE' ? '⚠️ Bet Against' : '✓ Follow'}
                       </div>
                     ))}
                   </React.Fragment>
