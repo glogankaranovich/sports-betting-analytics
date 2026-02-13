@@ -26,9 +26,9 @@ class TestUserModelsAPI(unittest.TestCase):
     @patch("user_models.UserModel")
     def test_list_user_models(self, mock_model):
         """Test listing user models"""
-        mock_model.list_by_user.return_value = [
-            {"model_id": "model1", "name": "Test Model"}
-        ]
+        mock_instance = MagicMock()
+        mock_instance.to_dynamodb.return_value = {"model_id": "model1", "name": "Test Model"}
+        mock_model.list_by_user.return_value = [mock_instance]
 
         result = handle_list_user_models({"user_id": "user123"})
 

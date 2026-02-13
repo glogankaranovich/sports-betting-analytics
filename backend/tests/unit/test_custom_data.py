@@ -42,7 +42,6 @@ def sample_dataset():
         s3_key="datasets/test.json",
         row_count=100,
         dataset_id="dataset_abc123",
-        allow_benny_access=True,
         created_at="2026-02-08T12:00:00",
     )
 
@@ -89,13 +88,11 @@ class TestCustomDataset:
         assert dataset.user_id == "user123"
         assert dataset.name == "Test"
         assert dataset.dataset_id.startswith("dataset_")
-        assert dataset.allow_benny_access is False
         assert dataset.created_at is not None
 
     def test_init_with_all_params(self, sample_dataset):
         assert sample_dataset.dataset_id == "dataset_abc123"
         assert sample_dataset.user_id == "user123"
-        assert sample_dataset.allow_benny_access is True
         assert sample_dataset.created_at == "2026-02-08T12:00:00"
 
     def test_to_dynamodb(self, sample_dataset):
@@ -110,7 +107,6 @@ class TestCustomDataset:
         assert item["data_type"] == "team"
         assert item["columns"] == ["team", "stat1", "stat2"]
         assert item["row_count"] == 100
-        assert item["allow_benny_access"] is True
 
     def test_from_dynamodb(self):
         item = {
@@ -123,7 +119,6 @@ class TestCustomDataset:
             "columns": ["player", "yards"],
             "s3_key": "datasets/xyz.json",
             "row_count": 50,
-            "allow_benny_access": False,
             "created_at": "2026-02-01T10:00:00",
         }
         dataset = CustomDataset.from_dynamodb(item)
@@ -132,7 +127,6 @@ class TestCustomDataset:
         assert dataset.name == "My Dataset"
         assert dataset.sport == "nfl"
         assert dataset.data_type == "player"
-        assert dataset.allow_benny_access is False
 
     def test_save(self, sample_dataset, mock_dynamodb):
         sample_dataset.save()
@@ -200,35 +194,6 @@ class TestCustomDataset:
         assert len(datasets) == 2
         assert datasets[0].dataset_id == "dataset_1"
         assert datasets[1].dataset_id == "dataset_2"
-
-    def test_list_benny_accessible_all_sports(self, mock_dynamodb):
-        mock_dynamodb.scan.return_value = {
-            "Items": [
-                {
-                    "dataset_id": "dataset_1",
-                    "user_id": "user123",
-                    "name": "Public Dataset",
-                    "description": "Desc",
-                    "sport": "nba",
-                    "data_type": "team",
-                    "columns": ["team"],
-                    "s3_key": "key",
-                    "row_count": 10,
-                    "allow_benny_access": True,
-                    "created_at": "2026-02-08T12:00:00",
-                }
-            ]
-        }
-        datasets = CustomDataset.list_benny_accessible()
-        assert len(datasets) == 1
-        assert datasets[0].allow_benny_access is True
-
-    def test_list_benny_accessible_filtered_by_sport(self, mock_dynamodb):
-        mock_dynamodb.scan.return_value = {"Items": []}
-        CustomDataset.list_benny_accessible(sport="nba")
-        call_args = mock_dynamodb.scan.call_args[1]
-        assert ":sport" in call_args["ExpressionAttributeValues"]
-        assert call_args["ExpressionAttributeValues"][":sport"] == "nba"
 
     def test_delete(self, sample_dataset, mock_dynamodb, mock_s3):
         sample_dataset.delete()

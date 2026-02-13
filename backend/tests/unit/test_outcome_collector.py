@@ -51,10 +51,12 @@ class TestOutcomeCollector(unittest.TestCase):
 
         collector._store_outcome(game)
 
-        # Verify put_item was called
-        mock_table.put_item.assert_called_once()
-        call_args = mock_table.put_item.call_args[1]
-        item = call_args["Item"]
+        # Verify put_item was called 3 times (outcome + 2 team outcomes)
+        assert mock_table.put_item.call_count == 3
+        
+        # Check the main outcome record (first call)
+        first_call = mock_table.put_item.call_args_list[0][1]
+        item = first_call["Item"]
 
         # Check basic fields
         self.assertEqual(item["pk"], "OUTCOME#basketball_nba#game123")
@@ -66,6 +68,19 @@ class TestOutcomeCollector(unittest.TestCase):
         # Check H2H fields (teams sorted alphabetically)
         self.assertEqual(item["h2h_pk"], "H2H#basketball_nba#celtics#lakers")
         self.assertEqual(item["h2h_sk"], "2026-01-25T10:00:00Z")
+        
+        # Check team outcome records (second and third calls)
+        lakers_call = mock_table.put_item.call_args_list[1][1]
+        lakers_item = lakers_call["Item"]
+        self.assertEqual(lakers_item["pk"], "TEAM_OUTCOME#basketball_nba#lakers")
+        self.assertEqual(lakers_item["team"], "Lakers")
+        self.assertEqual(lakers_item["is_home"], True)
+        
+        celtics_call = mock_table.put_item.call_args_list[2][1]
+        celtics_item = celtics_call["Item"]
+        self.assertEqual(celtics_item["pk"], "TEAM_OUTCOME#basketball_nba#celtics")
+        self.assertEqual(celtics_item["team"], "Celtics")
+        self.assertEqual(celtics_item["is_home"], False)
 
     @patch("outcome_collector.boto3")
     def test_store_prop_outcomes(self, mock_boto3):

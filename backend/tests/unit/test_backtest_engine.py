@@ -9,8 +9,14 @@ from backtest_engine import BacktestEngine
 
 
 @pytest.fixture
-def mock_table():
-    with patch("backtest_engine.table") as mock:
+def mock_bets_table():
+    with patch("backtest_engine.bets_table") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_user_models_table():
+    with patch("backtest_engine.user_models_table") as mock:
         yield mock
 
 
@@ -66,7 +72,7 @@ class TestBacktestEngine:
             "away_team": "Warriors",
             "sport": "basketball_nba",
             "commence_time": "2024-01-01T19:00:00Z",
-            "outcome": "Lakers",
+            "outcome": {"winner": "Lakers"},
         }
 
         model_config = {
@@ -93,7 +99,7 @@ class TestBacktestEngine:
             "away_team": "Warriors",
             "sport": "basketball_nba",
             "commence_time": "2024-01-01T19:00:00Z",
-            "outcome": "Warriors",
+            "outcome": {"winner": "Warriors"},
         }
 
         model_config = {
@@ -110,7 +116,7 @@ class TestBacktestEngine:
         assert result["prediction"] == "Warriors"
         assert result["correct"] is True
 
-    def test_store_backtest(self, engine, mock_table):
+    def test_store_backtest(self, engine, mock_user_models_table):
         """Test storing backtest results"""
         result = {
             "backtest_id": "bt123",
@@ -126,27 +132,27 @@ class TestBacktestEngine:
 
         engine._store_backtest(result)
 
-        mock_table.put_item.assert_called_once()
-        call_args = mock_table.put_item.call_args[1]
+        mock_user_models_table.put_item.assert_called_once()
+        call_args = mock_user_models_table.put_item.call_args[1]
         assert call_args["Item"]["PK"] == "USER#user123"
         assert call_args["Item"]["SK"] == "BACKTEST#bt123"
 
-    def test_get_backtest(self, mock_table):
+    def test_get_backtest(self, mock_user_models_table):
         """Test retrieving backtest"""
-        mock_table.get_item.return_value = {
+        mock_user_models_table.get_item.return_value = {
             "Item": {"backtest_id": "bt123", "metrics": {"accuracy": 0.7}}
         }
 
         result = BacktestEngine.get_backtest("user123", "bt123")
 
         assert result["backtest_id"] == "bt123"
-        mock_table.get_item.assert_called_once_with(
+        mock_user_models_table.get_item.assert_called_once_with(
             Key={"PK": "USER#user123", "SK": "BACKTEST#bt123"}
         )
 
-    def test_list_backtests(self, mock_table):
+    def test_list_backtests(self, mock_user_models_table):
         """Test listing backtests for a model"""
-        mock_table.query.return_value = {
+        mock_user_models_table.query.return_value = {
             "Items": [
                 {"backtest_id": "bt1"},
                 {"backtest_id": "bt2"},
@@ -156,4 +162,4 @@ class TestBacktestEngine:
         results = BacktestEngine.list_backtests("model123")
 
         assert len(results) == 2
-        mock_table.query.assert_called_once()
+        mock_user_models_table.query.assert_called_once()

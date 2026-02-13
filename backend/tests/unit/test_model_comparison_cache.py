@@ -45,43 +45,26 @@ def test_compute_model_comparison_basic(mock_table):
 
 def test_compute_model_comparison_inverse_better(mock_table):
     """Test when inverse accuracy is better than original."""
-    # Mock a model that performs better inverted
-    # Need to mock multiple queries - one for original, one for inverse
-    def mock_query(**kwargs):
-        # Check if querying for inverse
-        if "inverse" in kwargs.get("ExpressionAttributeValues", {}).get(":pk", ""):
-            # Inverse predictions: 7 correct out of 10
-            return {
-                "Items": [
-                    {"model": "contrarian", "analysis_correct": True, "bet_type": "game"}
-                    for _ in range(7)
-                ]
-                + [
-                    {"model": "contrarian", "analysis_correct": False, "bet_type": "game"}
-                    for _ in range(3)
-                ]
-            }
-        else:
-            # Original predictions: 3 correct out of 10
-            return {
-                "Items": [
-                    {"model": "contrarian", "analysis_correct": False, "bet_type": "game"}
-                    for _ in range(7)
-                ]
-                + [
-                    {"model": "contrarian", "analysis_correct": True, "bet_type": "game"}
-                    for _ in range(3)
-                ]
-            }
-    
-    mock_table.query.side_effect = mock_query
+    # Function queries twice per bet type: original then inverse
+    # Return alternating results: original (bad), inverse (good), original (bad), inverse (good)...
+    query_results = [
+        # Game original (30% correct)
+        {"Items": [{"analysis_correct": False} for _ in range(7)] + [{"analysis_correct": True} for _ in range(3)]},
+        # Game inverse (70% correct)  
+        {"Items": [{"analysis_correct": True} for _ in range(7)] + [{"analysis_correct": False} for _ in range(3)]},
+        # Prop original (30% correct)
+        {"Items": [{"analysis_correct": False} for _ in range(7)] + [{"analysis_correct": True} for _ in range(3)]},
+        # Prop inverse (70% correct)
+        {"Items": [{"analysis_correct": True} for _ in range(7)] + [{"analysis_correct": False} for _ in range(3)]},
+    ]
+    mock_table.query.side_effect = query_results * 10  # Repeat for all models
 
     result = compute_model_comparison("basketball_nba", 90)
 
-    contrarian = next((m for m in result if m["model"] == "contrarian"), None)
+    contrarian = next((m for m in result if m["model"] == "contrarian" and m["bet_type"] == "game"), None)
     assert contrarian is not None
     assert contrarian["inverse_accuracy"] > contrarian["original_accuracy"]
-    assert contrarian["recommendation"] in ["INVERSE", "AVOID"]
+    assert contrarian["recommendation"] == "INVERSE"
 
 
 def test_compute_model_comparison_decimal_types(mock_table):
