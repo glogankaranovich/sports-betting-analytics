@@ -262,9 +262,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        // Fetch 90-day accuracy by bet type
+        // Fetch model comparison data (uses cache)
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL}/analytics?type=by_bet_type&model=all&days=90`,
+          `${process.env.REACT_APP_API_URL}/model-comparison?sport=${settings.sport}&days=90`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -273,31 +273,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         );
         
         if (!response.ok) {
-          console.error('Analytics API error:', response.status, await response.text());
+          console.error('Model comparison API error:', response.status, await response.text());
           return;
         }
         
         const data = await response.json();
-        console.log('Model bet type data:', data);
+        console.log('Model comparison data:', data);
         
         // Separate game and prop performance
         const gamePerformance: any[] = [];
         const propPerformance: any[] = [];
         
-        Object.entries(data).forEach(([modelName, betTypes]: [string, any]) => {
-          if (betTypes.game) {
-            gamePerformance.push({
-              model_name: modelName,
-              accuracy: betTypes.game.accuracy,
-              total: betTypes.game.total,
-            });
-          }
-          if (betTypes.prop) {
-            propPerformance.push({
-              model_name: modelName,
-              accuracy: betTypes.prop.accuracy,
-              total: betTypes.prop.total,
-            });
+        data.models?.forEach((model: any) => {
+          const perf = {
+            model_name: model.model,
+            accuracy: Math.max(model.original_accuracy, model.inverse_accuracy) * 100, // Convert to percentage
+            total: model.sample_size,
+          };
+          
+          if (model.bet_type === 'game') {
+            gamePerformance.push(perf);
+          } else if (model.bet_type === 'prop') {
+            propPerformance.push(perf);
           }
         });
         
