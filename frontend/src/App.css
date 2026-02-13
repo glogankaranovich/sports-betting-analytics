@@ -344,7 +344,7 @@ body {
 
 main {
   flex: 1;
-  padding: 3rem;
+  padding: 0 3rem 3rem 3rem;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
@@ -367,6 +367,7 @@ main {
 .games-header h2 {
   font-size: 1.5rem;
   font-weight: 600;
+  margin: 0;
 }
 
 .filters {
@@ -389,6 +390,7 @@ main {
   align-items: center;
   gap: 0.5rem;
   position: relative;
+  line-height: 1;
 }
 
 .filter-icon-btn:hover {

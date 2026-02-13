@@ -45,6 +45,7 @@ export const ModelComparison: React.FC = () => {
   const [betTypeFilter, setBetTypeFilter] = useState<'all' | 'game' | 'prop'>('all');
   const [includeUserModels, setIncludeUserModels] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const getUserId = async () => {
@@ -114,10 +115,25 @@ export const ModelComparison: React.FC = () => {
 
   return (
     <div className="model-comparison">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>Model Performance Comparison</h2>
+      <div className="games-header">
+        <h2>Model Comparison</h2>
         
         <div className="filters">
+          <button 
+            className="filter-icon-btn"
+            onClick={() => setShowFilters(!showFilters)}
+            aria-label="Toggle filters"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+              <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
+            </svg>
+            Filter
+          </button>
+        </div>
+      </div>
+      
+      {showFilters && (
+        <div className="filter-panel">
           <select value={sport} onChange={(e) => setSport(e.target.value)} className="filter-select">
             <option value="basketball_nba">NBA</option>
             <option value="americanfootball_nfl">NFL</option>
@@ -146,7 +162,7 @@ export const ModelComparison: React.FC = () => {
             <span>Include My Models</span>
           </label>
         </div>
-      </div>
+      )}
 
       <div className="help-section">
         <h3>How to Read This:</h3>

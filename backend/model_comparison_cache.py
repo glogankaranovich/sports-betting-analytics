@@ -7,6 +7,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
+from decimal import Decimal
 import boto3
 from boto3.dynamodb.conditions import Key
 from constants import SUPPORTED_SPORTS, SYSTEM_MODELS, TIME_RANGES
@@ -79,10 +80,10 @@ def _get_model_comparison_data(
                 "bet_type": bet_type,
                 "is_user_model": is_user_model,
                 "sample_size": original_total,
-                "original_accuracy": round(original_accuracy, 3),
+                "original_accuracy": Decimal(str(round(original_accuracy, 3))),
                 "original_correct": original_correct,
                 "original_total": original_total,
-                "inverse_accuracy": round(inverse_accuracy, 3),
+                "inverse_accuracy": Decimal(str(round(inverse_accuracy, 3))),
                 "inverse_correct": inverse_correct,
                 "inverse_total": inverse_total,
                 "recommendation": recommendation,
