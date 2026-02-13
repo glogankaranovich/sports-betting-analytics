@@ -486,11 +486,17 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     <div className="ticker-item ticker-label">
                       🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
                     </div>
-                    {section.models.map((model: any, index: number) => (
-                      <div key={model.model_name} className="ticker-item">
-                        🏆 #{index + 1} {model.model_name}: {model.strategy} • {model.total} predictions
+                    {section.models.length > 0 ? (
+                      section.models.map((model: any, index: number) => (
+                        <div key={model.model_name} className="ticker-item">
+                          🏆 #{index + 1} {model.model_name}: {model.strategy} • {model.total} predictions
+                        </div>
+                      ))
+                    ) : (
+                      <div className="ticker-item">
+                        ⚠️ No models with &gt;50% accuracy in last 90 days
                       </div>
-                    ))}
+                    )}
                   </React.Fragment>
                 ))}
               </>
@@ -510,11 +516,17 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     <div className="ticker-item ticker-label">
                       🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
                     </div>
-                    {section.models.map((model: any, index: number) => (
-                      <div key={`dup-${model.model_name}`} className="ticker-item">
-                        🏆 #{index + 1} {model.model_name}: {model.strategy} • {model.total} predictions
+                    {section.models.length > 0 ? (
+                      section.models.map((model: any, index: number) => (
+                        <div key={`dup-${model.model_name}`} className="ticker-item">
+                          🏆 #{index + 1} {model.model_name}: {model.strategy} • {model.total} predictions
+                        </div>
+                      ))
+                    ) : (
+                      <div className="ticker-item">
+                        ⚠️ No models with &gt;50% accuracy in last 90 days
                       </div>
-                    ))}
+                    )}
                   </React.Fragment>
                 ))}
               </>
