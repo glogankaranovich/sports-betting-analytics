@@ -109,9 +109,9 @@ def test_calculate_adjusted_confidence_reduce():
         adjusted = weighting.calculate_adjusted_confidence(
             0.7, "consensus", "basketball_nba", "game"
         )
-        # 50% accuracy: multiplier = 0.5/0.6 = 0.833
-        # 0.7 * 0.833 = 0.583
-        assert abs(adjusted - 0.583) < 0.01
+        # 50% accuracy: multiplier = 0.8 + (0.5-0.5)*2 = 0.8
+        # 0.7 * 0.8 = 0.56
+        assert abs(adjusted - 0.56) < 0.01
 
 
 def test_calculate_adjusted_confidence_no_data():

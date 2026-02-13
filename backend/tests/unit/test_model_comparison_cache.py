@@ -1,13 +1,18 @@
 """Unit tests for model comparison cache."""
+import os
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 from decimal import Decimal
-from backend.model_comparison_cache import compute_model_comparison
+
+# Set required env vars before importing
+os.environ["DYNAMODB_TABLE"] = "test-table"
+
+from model_comparison_cache import compute_model_comparison
 
 
 @pytest.fixture
 def mock_table():
-    with patch("backend.model_comparison_cache.table") as mock:
+    with patch("model_comparison_cache.table") as mock:
         yield mock
 
 
