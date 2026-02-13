@@ -285,12 +285,22 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         const propPerformance: any[] = [];
         
         data.models?.forEach((model: any) => {
-          const useInverse = model.inverse_accuracy > model.original_accuracy;
+          const originalAcc = model.original_accuracy * 100;
+          const inverseAcc = model.inverse_accuracy * 100;
+          const bestAcc = Math.max(originalAcc, inverseAcc);
+          
+          let strategy = '';
+          if (inverseAcc > originalAcc) {
+            strategy = `${inverseAcc.toFixed(1)}% when betting AGAINST`;
+          } else {
+            strategy = `${originalAcc.toFixed(1)}% when FOLLOWING`;
+          }
+          
           const perf = {
             model_name: model.model,
-            accuracy: Math.max(model.original_accuracy, model.inverse_accuracy) * 100,
+            accuracy: bestAcc,
             total: model.sample_size,
-            strategy: useInverse ? 'INVERSE' : 'ORIGINAL',
+            strategy: strategy,
           };
           
           if (model.bet_type === 'game') {
@@ -300,14 +310,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           }
         });
         
-        // Top 5 for each, min 10 predictions
+        // Top 5 for each, min 10 predictions, and >50% accuracy
         const topGames = gamePerformance
-          .filter(m => m.total >= 10)
+          .filter(m => m.total >= 10 && m.accuracy > 50)
           .sort((a, b) => b.accuracy - a.accuracy)
           .slice(0, 5);
         
         const topProps = propPerformance
-          .filter(m => m.total >= 10)
+          .filter(m => m.total >= 10 && m.accuracy > 50)
           .sort((a, b) => b.accuracy - a.accuracy)
           .slice(0, 5);
         
@@ -478,7 +488,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     </div>
                     {section.models.map((model: any, index: number) => (
                       <div key={model.model_name} className="ticker-item">
-                        🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% • {model.total} predictions • {model.strategy === 'INVERSE' ? '⚠️ Bet Against' : '✓ Follow'}
+                        🏆 #{index + 1} {model.model_name}: {model.strategy} • {model.total} predictions
                       </div>
                     ))}
                   </React.Fragment>
@@ -502,7 +512,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     </div>
                     {section.models.map((model: any, index: number) => (
                       <div key={`dup-${model.model_name}`} className="ticker-item">
-                        🏆 #{index + 1} {model.model_name}: {model.accuracy.toFixed(1)}% • {model.total} predictions • {model.strategy === 'INVERSE' ? '⚠️ Bet Against' : '✓ Follow'}
+                        🏆 #{index + 1} {model.model_name}: {model.strategy} • {model.total} predictions
                       </div>
                     ))}
                   </React.Fragment>
