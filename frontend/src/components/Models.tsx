@@ -106,11 +106,6 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
               <h3>{info.name}</h3>
               <p className="model-desc">{info.description}</p>
               <p className="model-method">{info.methodology}</p>
-              {accuracy && (
-                <div className="model-stats">
-                  <span className="accuracy">{accuracy}% Overall Accuracy</span>
-                </div>
-              )}
               
               <button 
                 className="view-details-btn"

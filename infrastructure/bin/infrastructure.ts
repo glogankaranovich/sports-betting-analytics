@@ -24,6 +24,7 @@ import { UserModelsStack } from '../lib/user-models-stack';
 import { AIAgentStack } from '../lib/ai-agent-stack';
 import { BennyTraderStack } from '../lib/benny-trader-stack';
 import { BennyTraderScheduleStack } from '../lib/benny-trader-schedule-stack';
+import { ModelComparisonCacheStack } from '../lib/model-comparison-cache-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -199,6 +200,14 @@ if (environment === 'dev') {
 
   new ModelAnalyticsScheduleStack(app, StackNames.forEnvironment('dev', 'ModelAnalyticsSchedule'), {
     modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
+    env: ENVIRONMENTS.dev,
+  });
+
+  // Model Comparison Cache Stack
+  new ModelComparisonCacheStack(app, StackNames.forEnvironment('dev', 'ModelComparisonCache'), {
+    environment: 'dev',
+    tableName: 'carpool-bets-v2-dev',
+    tableArn: dynamoStack.betsTable.tableArn,
     env: ENVIRONMENTS.dev,
   });
 } else {

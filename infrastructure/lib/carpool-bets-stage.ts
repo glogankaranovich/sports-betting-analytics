@@ -22,6 +22,7 @@ import { UserModelsStack } from './user-models-stack';
 import { AIAgentStack } from './ai-agent-stack';
 import { BennyTraderStack } from './benny-trader-stack';
 import { BennyTraderScheduleStack } from './benny-trader-schedule-stack';
+import { ModelComparisonCacheStack } from './model-comparison-cache-stack';
 import { CustomDataStack } from './custom-data-stack';
 import { StackNames } from './utils/stack-names';
 
@@ -191,6 +192,13 @@ export class CarpoolBetsStage extends cdk.Stage {
 
     new ModelAnalyticsScheduleStack(this, 'ModelAnalyticsSchedule', {
       modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
+    });
+
+    // Model Comparison Cache Stack
+    new ModelComparisonCacheStack(this, 'ModelComparisonCache', {
+      environment: props.stage,
+      tableName: `carpool-bets-v2-${props.stage}`,
+      tableArn: dynamoStack.betsTable.tableArn,
     });
 
     // Integration test role for pipeline access

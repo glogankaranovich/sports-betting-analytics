@@ -22,21 +22,16 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
       { label: 'Subscription', page: 'subscription' },
     ],
     'analysis-home': [
-      { label: 'Top Insights', page: 'games' },
-      { label: 'Game Predictions', page: 'game-analysis' },
-      { label: 'Prop Predictions', page: 'prop-analysis' },
+      { label: 'Game Bets', page: 'games' },
+      { label: 'Prop Bets', page: 'player-props' },
+      { label: 'Game Analysis', page: 'game-analysis' },
+      { label: 'Prop Analysis', page: 'prop-analysis' },
+      { label: 'Benny AI', page: 'benny-dashboard' },
     ],
     'models-home': [
       { label: 'System Models', page: 'system-models' },
       { label: 'My Models', page: 'my-models' },
-      { label: 'Model Analytics', page: 'model-analytics' },
       { label: 'Model Comparison', page: 'model-comparison' },
-      { label: 'Benny Dashboard', page: 'benny-dashboard' },
-    ],
-    'about': [
-      { label: 'How It Works', page: 'how-it-works' },
-      { label: 'Terms of Service', page: 'terms' },
-      { label: 'Privacy Policy', page: 'privacy' },
     ],
   };
 
@@ -46,7 +41,6 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
     if (section === 'user-home') return 'User';
     if (section === 'analysis-home') return 'Analysis';
     if (section === 'models-home') return 'Models';
-    if (section === 'about') return 'About';
     return '';
   };
 

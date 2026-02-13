@@ -4,6 +4,8 @@ from typing import Any, Dict, List
 
 import boto3
 
+from constants import SUPPORTED_SPORTS, BET_TYPES
+
 
 class ModelAnalytics:
     def __init__(self, table_name: str):
@@ -214,17 +216,9 @@ class ModelAnalytics:
     ) -> List[Dict[str, Any]]:
         """Get recent verified predictions for a model"""
         predictions = []
-        sports = [
-            "basketball_nba",
-            "americanfootball_nfl",
-            "baseball_mlb",
-            "icehockey_nhl",
-            "soccer_epl",
-        ]
-        bet_types = ["game", "prop"]
 
-        for sport in sports:
-            for bet_type in bet_types:
+        for sport in SUPPORTED_SPORTS:
+            for bet_type in BET_TYPES:
                 pk = f"VERIFIED#{model}#{sport}#{bet_type}"
 
                 response = self.table.query(

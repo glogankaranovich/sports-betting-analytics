@@ -7,6 +7,8 @@ import boto3
 import requests
 from boto3.dynamodb.conditions import Key
 
+from constants import SUPPORTED_SPORTS
+
 
 class OutcomeCollector:
     def __init__(self, table_name: str, odds_api_key: str):
@@ -53,15 +55,8 @@ class OutcomeCollector:
     def _get_completed_games(self, days_back: int) -> List[Dict[str, Any]]:
         """Get completed games from The Odds API"""
         completed_games = []
-        sports = [
-            "americanfootball_nfl",
-            "basketball_nba",
-            "baseball_mlb",
-            "icehockey_nhl",
-            "soccer_epl",
-        ]
 
-        for sport in sports:
+        for sport in SUPPORTED_SPORTS:
             try:
                 # Get scores for completed games
                 url = f"{self.base_url}/sports/{sport}/scores"

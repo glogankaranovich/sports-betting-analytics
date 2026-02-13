@@ -61,10 +61,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [gameAnalysisSortDir, setGameAnalysisSortDir] = useState<'asc' | 'desc'>('desc');
   const [propAnalysisSort, setPropAnalysisSort] = useState<'confidence' | 'time'>('confidence');
   const [propAnalysisSortDir, setPropAnalysisSortDir] = useState<'asc' | 'desc'>('desc');
+  const [showGameAnalysisFilters, setShowGameAnalysisFilters] = useState(false);
+  const [showGameAnalysisSort, setShowGameAnalysisSort] = useState(false);
+  const [showPropAnalysisFilters, setShowPropAnalysisFilters] = useState(false);
+  const [showPropAnalysisSort, setShowPropAnalysisSort] = useState(false);
   const [teamFilter, setTeamFilter] = useState<string>('');
   const [playerFilter, setPlayerFilter] = useState<string>('');
   const [gamesSort, setGamesSort] = useState<'time' | 'team'>('time');
   const [gamesSortDir, setGamesSortDir] = useState<'asc' | 'desc'>('asc');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showSort, setShowSort] = useState(false);
   const [token, setToken] = useState<string>('');
   const [settings, setSettings] = useState({
     sport: 'basketball_nba',
@@ -295,16 +301,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           }
         });
         
-        // Top 3 for each, min 10 predictions
+        // Top 5 for each, min 10 predictions
         const topGames = gamePerformance
           .filter(m => m.total >= 10)
           .sort((a, b) => b.accuracy - a.accuracy)
-          .slice(0, 3);
+          .slice(0, 5);
         
         const topProps = propPerformance
           .filter(m => m.total >= 10)
           .sort((a, b) => b.accuracy - a.accuracy)
-          .slice(0, 3);
+          .slice(0, 5);
         
         setModelLeaderboard([
           { type: 'games', models: topGames },
@@ -512,8 +518,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         <div className="main-content-wrapper">
           <Breadcrumbs 
             section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
-                    activePage.includes('analysis') || ['games', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
-                    activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison', 'benny-dashboard'].includes(activePage) ? 'models-home' :
+                    activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-dashboard'].includes(activePage) ? 'analysis-home' :
+                    activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison'].includes(activePage) ? 'models-home' :
                     activePage === 'about' || ['how-it-works', 'terms', 'privacy'].includes(activePage) ? 'about' : 
                     activePage === 'marketplace' ? 'marketplace' : ''}
             currentPage={activePage}
@@ -522,11 +528,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onToggleCollapse={() => setSideNavCollapsed(!sideNavCollapsed)}
           />
           <div className="content-with-sidenav">
-            {['user-home', 'analysis-home', 'models-home', 'about', 'profile', 'settings', 'subscription', 'games', 'game-analysis', 'prop-analysis', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'benny-dashboard', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
+            {['user-home', 'analysis-home', 'models-home', 'about', 'profile', 'settings', 'subscription', 'games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-dashboard', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
               <SideNav 
                 section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
-                        activePage.includes('analysis') || ['games', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
-                        activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison', 'benny-dashboard'].includes(activePage) ? 'models-home' :
+                        activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-dashboard'].includes(activePage) ? 'analysis-home' :
+                        activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison'].includes(activePage) ? 'models-home' :
                         activePage === 'about' || ['how-it-works', 'terms', 'privacy'].includes(activePage) ? 'about' : ''}
                 currentPage={activePage}
                 onNavigate={setActivePage}
@@ -544,7 +550,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           {activePage === 'analysis-home' && (
             <div className="page-container">
               <h2>Analysis Dashboard</h2>
-              <p>View game predictions, prop predictions, and top insights.</p>
+              <p>View game bets, prop bets, and detailed analysis.</p>
             </div>
           )}
 
@@ -568,6 +574,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             <div className="games-header">
               <h2>Available Games</h2>
               <div className="filters">
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowFilters(!showFilters)}
+                  aria-label="Toggle filters"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
+                  </svg>
+                  Filter {(teamFilter || marketFilter !== 'all') && <span className="filter-badge">•</span>}
+                </button>
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowSort(!showSort)}
+                  aria-label="Toggle sort options"
+                >
+                  ⇅ Sort
+                </button>
+              </div>
+            </div>
+            
+            {showFilters && (
+              <div className="filter-panel">
                 <input
                   type="text"
                   placeholder="Filter by team..."
@@ -587,6 +615,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   <option key="spreads" value="spreads">Spread</option>
                   <option key="totals" value="totals">Total</option>
                 </select>
+              </div>
+            )}
+            
+            {showSort && (
+              <div className="filter-panel">
                 <select 
                   className="filter-select"
                   aria-label="Sort games by"
@@ -605,7 +638,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   <option value="desc">Descending</option>
                 </select>
               </div>
-            </div>
+            )}
             
             {loadingGames ? (
               <GamesGridSkeleton count={6} />
@@ -690,6 +723,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             <div className="games-header">
               <h2>Game Analysis</h2>
               <div className="filters">
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowGameAnalysisFilters(!showGameAnalysisFilters)}
+                  aria-label="Toggle filters"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
+                  </svg>
+                  Filter {teamFilter && <span className="filter-badge">•</span>}
+                </button>
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowGameAnalysisSort(!showGameAnalysisSort)}
+                  aria-label="Toggle sort options"
+                >
+                  ⇅ Sort
+                </button>
+              </div>
+            </div>
+            
+            {showGameAnalysisFilters && (
+              <div className="filter-panel">
                 <input
                   type="text"
                   placeholder="Filter by team..."
@@ -697,6 +752,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   onChange={(e) => setTeamFilter(e.target.value)}
                   className="filter-select"
                 />
+              </div>
+            )}
+            
+            {showGameAnalysisSort && (
+              <div className="filter-panel">
                 <select 
                   className="filter-select"
                   value={gameAnalysisSort} 
@@ -714,7 +774,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   <option value="asc">Ascending</option>
                 </select>
               </div>
-            </div>
+            )}
             {loadingGameAnalysis ? (
               <AnalysisGridSkeleton count={4} />
             ) : (
@@ -810,6 +870,28 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             <div className="games-header">
               <h2>Player Prop Analysis</h2>
               <div className="filters">
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowPropAnalysisFilters(!showPropAnalysisFilters)}
+                  aria-label="Toggle filters"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
+                  </svg>
+                  Filter {(playerFilter || marketFilter !== 'all') && <span className="filter-badge">•</span>}
+                </button>
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowPropAnalysisSort(!showPropAnalysisSort)}
+                  aria-label="Toggle sort options"
+                >
+                  ⇅ Sort
+                </button>
+              </div>
+            </div>
+            
+            {showPropAnalysisFilters && (
+              <div className="filter-panel">
                 <input
                   type="text"
                   placeholder="Filter by player..."
@@ -840,6 +922,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     </>
                   )}
                 </select>
+              </div>
+            )}
+            
+            {showPropAnalysisSort && (
+              <div className="filter-panel">
                 <select 
                   className="filter-select"
                   value={propAnalysisSort} 
@@ -857,7 +944,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   <option value="asc">Ascending</option>
                 </select>
               </div>
-            </div>
+            )}
             {loadingPropAnalysis ? (
               <AnalysisGridSkeleton count={4} />
             ) : (
@@ -941,14 +1028,24 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         )}
 
         {activePage === 'player-props' && (
-          <PlayerProps 
-            token={token} 
-            games={games}
-            currentPage={currentPage}
-            itemsPerPage={itemsPerPage}
-            onPageChange={setCurrentPage}
-            settings={settings}
-          />
+          <>
+            <Settings 
+              settings={settings}
+              onSettingsChange={setSettings}
+              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+              userModels={userModels}
+              token={token}
+            />
+            <PlayerProps 
+              token={token} 
+              games={games}
+              currentPage={currentPage}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+              settings={settings}
+            />
+          </>
         )}
 
         {activePage === 'settings' && (

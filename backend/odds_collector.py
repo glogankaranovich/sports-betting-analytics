@@ -8,6 +8,8 @@ from typing import Any, Dict, List
 import boto3
 import requests
 
+from constants import SUPPORTED_SPORTS
+
 
 def get_secret(secret_arn: str) -> str:
     """Retrieve secret from AWS Secrets Manager"""
@@ -55,18 +57,7 @@ class OddsCollector:
         active = [
             sport["key"]
             for sport in sports
-            if sport["active"]
-            and sport["key"]
-            in [
-                "americanfootball_nfl",
-                "basketball_nba",
-                "baseball_mlb",
-                "icehockey_nhl",
-                "soccer_epl",
-                "soccer_usa_mls",
-                "mma_mixed_martial_arts",
-                "boxing_boxing",
-            ]
+            if sport["active"] and sport["key"] in SUPPORTED_SPORTS
         ]
         return active
 

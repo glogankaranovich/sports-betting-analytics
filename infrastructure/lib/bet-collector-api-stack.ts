@@ -7,6 +7,7 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
+import { getPlatformEnvironment } from './utils/constants';
 
 export interface BetCollectorApiStackProps extends cdk.StackProps {
   environment: string;
@@ -71,6 +72,7 @@ export class BetCollectorApiStack extends cdk.Stack {
         MODEL_ANALYTICS_FUNCTION: props.modelAnalyticsFunction?.functionName || '',
         CUSTOM_DATA_TABLE: props.customDataTableName || `${props.environment === 'dev' ? 'Dev-' : ''}CustomData-CustomData`,
         CUSTOM_DATA_BUCKET: props.customDataBucketName || `${props.environment}-custom-data-bucket`,
+        ...getPlatformEnvironment(),
       }
     });
 

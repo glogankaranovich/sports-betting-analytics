@@ -37,6 +37,8 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
   });
   const [propsSort, setPropsSort] = useState<'player' | 'time'>('player');
   const [propsSortDir, setPropsSortDir] = useState<'asc' | 'desc'>('asc');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showSort, setShowSort] = useState(false);
 
   const propTypeLabels: { [key: string]: string } = {
     // NFL
@@ -150,6 +152,28 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
       <div className="games-header">
         <h2>Prop Bets</h2>
         <div className="filters">
+          <button 
+            className="filter-icon-btn"
+            onClick={() => setShowFilters(!showFilters)}
+            aria-label="Toggle filters"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+              <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
+            </svg>
+            Filter {(filters.player_name || filters.prop_type) && <span className="filter-badge">•</span>}
+          </button>
+          <button 
+            className="filter-icon-btn"
+            onClick={() => setShowSort(!showSort)}
+            aria-label="Toggle sort options"
+          >
+            ⇅ Sort
+          </button>
+        </div>
+      </div>
+      
+      {showFilters && (
+        <div className="filter-panel">
           <input
             type="text"
             placeholder="Filter by player..."
@@ -167,6 +191,11 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
               <option key={key} value={key}>{propTypeLabels[key]}</option>
             ))}
           </select>
+        </div>
+      )}
+      
+      {showSort && (
+        <div className="filter-panel">
           <select 
             className="filter-select"
             value={propsSort} 
@@ -184,7 +213,7 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
             <option value="desc">Descending</option>
           </select>
         </div>
-      </div>
+      )}
 
       <div className="games-grid">
         {paginatedProps.map(([key, propGroup]) => {

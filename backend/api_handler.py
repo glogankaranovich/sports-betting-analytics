@@ -7,6 +7,7 @@ from typing import Any, Dict
 import boto3
 
 from user_models import ModelPrediction, UserModel
+from constants import SYSTEM_MODELS
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
@@ -781,9 +782,65 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
     """Get model comparison with original vs inverse performance"""
     try:
         sport = query_params.get("sport", "basketball_nba")
-        days = int(query_params.get("days", 90))  # Default to 90 days
-        user_id = query_params.get("user_id")  # Optional: filter to user's models
+        days = int(query_params.get("days", 90))
+        user_id = query_params.get("user_id")
 
+        # Try to get from cache first
+        cache_key = f"MODEL_COMPARISON#{sport}#{days}"
+        try:
+            cache_response = table.get_item(Key={"pk": "CACHE", "sk": cache_key})
+            if "Item" in cache_response:
+                cached_data = cache_response["Item"]["data"]
+                print(f"Cache hit for {cache_key}")
+
+                # If user_id provided, add user models to cached data
+                if user_id:
+                    from datetime import datetime, timedelta
+                    from user_models import UserModel
+
+                    if days >= 9999:
+                        cutoff_time = "2000-01-01T00:00:00"
+                    else:
+                        cutoff_time = (
+                            datetime.utcnow() - timedelta(days=days)
+                        ).isoformat()
+
+                    user_models = UserModel.list_by_user(user_id)
+                    for user_model in user_models:
+                        if user_model.sport == sport and user_model.status == "active":
+                            model_data = _get_model_comparison_data(
+                                user_model.model_id,
+                                sport,
+                                cutoff_time,
+                                is_user_model=True,
+                                model_name=user_model.name,
+                            )
+                            if model_data:
+                                cached_data.extend(model_data)
+
+                    # Re-sort with user models included
+                    cached_data.sort(
+                        key=lambda x: max(
+                            x["original_accuracy"], x["inverse_accuracy"]
+                        ),
+                        reverse=True,
+                    )
+
+                return create_response(
+                    200,
+                    {
+                        "sport": sport,
+                        "days": days,
+                        "models": cached_data,
+                        "cached": True,
+                        "computed_at": cache_response["Item"].get("computed_at"),
+                    },
+                )
+        except Exception as cache_error:
+            print(f"Cache miss or error: {cache_error}")
+
+        # Fallback: compute on-demand if cache miss
+        print(f"Computing model comparison on-demand for {sport}, {days} days")
         from datetime import datetime, timedelta
 
         # Handle "all time" query (days >= 9999 means no time filter)
@@ -792,24 +849,10 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
         else:
             cutoff_time = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
-        # System models
-        system_models = [
-            "consensus",
-            "value",
-            "momentum",
-            "contrarian",
-            "hot_cold",
-            "rest_schedule",
-            "matchup",
-            "injury_aware",
-            "ensemble",
-            "benny",
-        ]
-
         comparison = []
 
         # Add system models
-        for model in system_models:
+        for model in SYSTEM_MODELS:
             model_data = _get_model_comparison_data(
                 model, sport, cutoff_time, is_user_model=False
             )
@@ -884,23 +927,10 @@ def handle_get_model_rankings(query_params: Dict[str, str]):
 
         cutoff_time = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
-        system_models = [
-            "consensus",
-            "value",
-            "momentum",
-            "contrarian",
-            "hot_cold",
-            "rest_schedule",
-            "matchup",
-            "injury_aware",
-            "ensemble",
-            "benny",
-        ]
-
         rankings = []
 
         # Calculate ROI for system models
-        for model in system_models:
+        for model in SYSTEM_MODELS:
             model_data = _calculate_model_roi(
                 model, sport, cutoff_time, is_user_model=False, mode=mode
             )
