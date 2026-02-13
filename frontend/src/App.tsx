@@ -472,7 +472,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 {modelLeaderboard.map((section: any) => (
                   <React.Fragment key={section.type}>
                     <div className="ticker-item ticker-label">
-                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
+                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS (Best of Original/Inverse):
                     </div>
                     {section.models.map((model: any, index: number) => (
                       <div key={model.model_name} className="ticker-item">
@@ -496,7 +496,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 {modelLeaderboard.map((section: any) => (
                   <React.Fragment key={`dup-${section.type}`}>
                     <div className="ticker-item ticker-label">
-                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
+                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS (Best of Original/Inverse):
                     </div>
                     {section.models.map((model: any, index: number) => (
                       <div key={`dup-${model.model_name}`} className="ticker-item">
