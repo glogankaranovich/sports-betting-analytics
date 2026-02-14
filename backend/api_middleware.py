@@ -20,9 +20,9 @@ def check_feature_access(user_id: str, feature_name: str) -> Dict:
 def check_rate_limit(user_id: str) -> Dict:
     """Check if user is within rate limits"""
     subscription = UserSubscription.get(user_id)
+    limits = get_user_limits(user_id)
 
     if not subscription.increment_api_calls():
-        limits = get_user_limits(user_id)
         return {
             "allowed": False,
             "error": f"Daily API limit reached ({limits['api_calls_per_day']} calls). Upgrade for more.",

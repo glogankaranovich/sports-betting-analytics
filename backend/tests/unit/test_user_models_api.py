@@ -5,6 +5,7 @@ import os
 
 # Set environment variable before importing api_handler
 os.environ["DYNAMODB_TABLE"] = "test-table"
+os.environ["ENVIRONMENT"] = "dev"  # Enable user_models feature
 
 import json  # noqa: E402
 import unittest  # noqa: E402
@@ -23,11 +24,16 @@ from api_handler import (
 class TestUserModelsAPI(unittest.TestCase):
     """Test user models API handlers"""
 
+    @patch("api_middleware.check_feature_access")
     @patch("user_models.UserModel")
-    def test_list_user_models(self, mock_model):
+    def test_list_user_models(self, mock_model, mock_feature_check):
         """Test listing user models"""
+        mock_feature_check.return_value = {"allowed": True}
         mock_instance = MagicMock()
-        mock_instance.to_dynamodb.return_value = {"model_id": "model1", "name": "Test Model"}
+        mock_instance.to_dynamodb.return_value = {
+            "model_id": "model1",
+            "name": "Test Model",
+        }
         mock_model.list_by_user.return_value = [mock_instance]
 
         result = handle_list_user_models({"user_id": "user123"})
@@ -43,13 +49,20 @@ class TestUserModelsAPI(unittest.TestCase):
         body = json.loads(result["body"])
         self.assertIn("user_id parameter required", body["error"])
 
+    @patch("api_middleware.check_resource_limit")
+    @patch("api_middleware.check_feature_access")
     @patch("user_models.validate_model_config")
     @patch("user_models.UserModel")
-    def test_create_user_model(self, mock_model, mock_validate):
+    def test_create_user_model(
+        self, mock_model, mock_validate, mock_feature_check, mock_limit_check
+    ):
         """Test creating a user model"""
+        mock_feature_check.return_value = {"allowed": True}
+        mock_limit_check.return_value = {"allowed": True}
         mock_validate.return_value = (True, None)
         mock_instance = MagicMock()
         mock_model.return_value = mock_instance
+        mock_model.list_by_user.return_value = []
 
         body = {
             "user_id": "user123",
@@ -64,19 +77,34 @@ class TestUserModelsAPI(unittest.TestCase):
         self.assertEqual(result["statusCode"], 201)
         mock_instance.save.assert_called_once()
 
-    def test_create_user_model_missing_fields(self):
+    @patch("user_models.UserModel")
+    @patch("api_middleware.check_resource_limit")
+    @patch("api_middleware.check_feature_access")
+    def test_create_user_model_missing_fields(
+        self, mock_feature_check, mock_limit_check, mock_model
+    ):
         """Test creating model with missing fields"""
+        mock_feature_check.return_value = {"allowed": True}
+        mock_limit_check.return_value = {"allowed": True}
+        mock_model.list_by_user.return_value = []
         result = handle_create_user_model({"user_id": "user123"})
 
         self.assertEqual(result["statusCode"], 400)
         body = json.loads(result["body"])
         self.assertIn("Missing required field", body["error"])
 
+    @patch("api_middleware.check_resource_limit")
+    @patch("api_middleware.check_feature_access")
     @patch("user_models.validate_model_config")
     @patch("user_models.UserModel")
-    def test_create_user_model_invalid_config(self, mock_model, mock_validate):
+    def test_create_user_model_invalid_config(
+        self, mock_model, mock_validate, mock_feature_check, mock_limit_check
+    ):
         """Test creating model with invalid configuration"""
+        mock_feature_check.return_value = {"allowed": True}
+        mock_limit_check.return_value = {"allowed": True}
         mock_validate.return_value = (False, "Invalid weights")
+        mock_model.list_by_user.return_value = []
 
         body = {
             "user_id": "user123",
