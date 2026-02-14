@@ -30,7 +30,7 @@ export const TopNav: React.FC<TopNavProps> = ({ currentPage, onNavigate, onSignO
   return (
     <nav className="top-nav">
       {logo && (
-        <img src={logo} alt="Carpool Bets" className="nav-logo" onClick={() => onNavigate('analysis-home')} />
+        <img src={logo} alt="Carpool Bets" className="nav-logo" onClick={() => onNavigate('game-bets')} />
       )}
       <div className="nav-sections">
         {sections.map((section) => (
