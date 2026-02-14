@@ -1816,6 +1816,7 @@ class EnsembleModel(BaseAnalysisModel):
             "rest_schedule": RestScheduleModel(),
             "matchup": MatchupModel(),
             "injury_aware": InjuryAwareModel(),
+            "news": NewsModel(),
         }
 
     def analyze_game_odds(
@@ -1946,6 +1947,63 @@ class EnsembleModel(BaseAnalysisModel):
             return None
 
 
+class NewsModel(BaseAnalysisModel):
+    """Model based purely on news sentiment analysis"""
+
+    def analyze_game_odds(
+        self, game_id: str, odds_items: List[Dict], game_info: Dict
+    ) -> AnalysisResult:
+        try:
+            from news_features import get_team_sentiment
+
+            sport = game_info.get("sport")
+            home_team = game_info.get("home_team")
+            away_team = game_info.get("away_team")
+
+            if not all([sport, home_team, away_team]):
+                return None
+
+            home_sentiment = get_team_sentiment(sport, home_team)
+            away_sentiment = get_team_sentiment(sport, away_team)
+
+            if home_sentiment["news_count"] == 0 and away_sentiment["news_count"] == 0:
+                return None
+
+            sentiment_diff = (
+                home_sentiment["sentiment_score"] - away_sentiment["sentiment_score"]
+            )
+            avg_impact = (
+                home_sentiment["impact_score"] + away_sentiment["impact_score"]
+            ) / 2
+
+            if abs(sentiment_diff) < 0.05:
+                return None
+
+            prediction = home_team if sentiment_diff > 0 else away_team
+            confidence = min(0.75, 0.5 + (abs(sentiment_diff) * avg_impact * 0.5))
+
+            return AnalysisResult(
+                game_id=game_id,
+                bookmaker=odds_items[0].get("bookmaker") if odds_items else "unknown",
+                model="news",
+                analysis_type="game",
+                sport=sport,
+                home_team=home_team,
+                away_team=away_team,
+                commence_time=game_info.get("commence_time"),
+                player_name=None,
+                prediction=prediction,
+                confidence=confidence,
+                reasoning=f"News sentiment: home={home_sentiment['sentiment_score']:.2f} ({home_sentiment['news_count']} items), away={away_sentiment['sentiment_score']:.2f} ({away_sentiment['news_count']} items)",
+            )
+        except Exception as e:
+            logger.error(f"Error in news model: {e}")
+            return None
+
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        return None
+
+
 class ModelFactory:
     """Factory for creating analysis models"""
 
@@ -1958,6 +2016,7 @@ class ModelFactory:
         "rest_schedule": RestScheduleModel,
         "matchup": MatchupModel,
         "injury_aware": InjuryAwareModel,
+        "news": NewsModel,
         "ensemble": EnsembleModel,
     }
 

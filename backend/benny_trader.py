@@ -297,6 +297,8 @@ class BennyTrader:
                 )
                 home_form = self._get_recent_form(game_data["home_team"], sport)
                 away_form = self._get_recent_form(game_data["away_team"], sport)
+                home_news = self._get_team_news_sentiment(game_data["home_team"], sport)
+                away_news = self._get_team_news_sentiment(game_data["away_team"], sport)
 
                 # Calculate average odds
                 avg_home_price = sum(o["home_price"] for o in game_data["odds"]) / len(
@@ -316,6 +318,8 @@ class BennyTrader:
                     h2h_history,
                     home_form,
                     away_form,
+                    home_news,
+                    away_news,
                 )
 
                 # Use learned confidence threshold
@@ -361,6 +365,8 @@ class BennyTrader:
         h2h_history: List[Dict],
         home_form: Dict,
         away_form: Dict,
+        home_news: Dict,
+        away_news: Dict,
     ) -> Dict[str, Any]:
         """Have AI analyze game data and make independent prediction"""
         try:
@@ -399,6 +405,10 @@ HEAD-TO-HEAD (Last 3 meetings):
 INJURIES:
 Home: {json.dumps(home_injuries, indent=2) if home_injuries else 'None'}
 Away: {json.dumps(away_injuries, indent=2) if away_injuries else 'None'}
+
+NEWS SENTIMENT (Last 48 hours):
+Home: Sentiment={home_news.get('sentiment_score', 0):.2f}, Impact={home_news.get('impact_score', 0):.1f}, Articles={home_news.get('news_count', 0)}
+Away: Sentiment={away_news.get('sentiment_score', 0):.2f}, Impact={away_news.get('impact_score', 0):.1f}, Articles={away_news.get('news_count', 0)}
 
 Analyze and predict:
 1. Which team wins and why?
@@ -457,6 +467,16 @@ Respond with JSON only:
         except Exception as e:
             print(f"Error fetching injuries: {e}")
             return []
+
+    def _get_team_news_sentiment(self, team_name: str, sport: str) -> Dict:
+        """Get news sentiment for a team"""
+        try:
+            from news_features import get_team_sentiment
+
+            return get_team_sentiment(sport, team_name)
+        except Exception as e:
+            print(f"Error fetching news sentiment: {e}")
+            return {"sentiment_score": 0.0, "impact_score": 0.0, "news_count": 0}
 
     def _get_head_to_head(
         self, home_team: str, away_team: str, sport: str

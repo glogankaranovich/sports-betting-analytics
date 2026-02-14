@@ -45,8 +45,8 @@ def get_news_sentiment(sport: str, search_terms: List[str], hours: int = 48) -> 
 
     for news in relevant_news:
         weight = impact_weights.get(news.get("impact", "low"), 1.0)
-        sentiment = news.get("sentiment_positive", 0.5) - news.get(
-            "sentiment_negative", 0.5
+        sentiment = float(news.get("sentiment_positive", 0.5)) - float(
+            news.get("sentiment_negative", 0.5)
         )
         weighted_sentiment += sentiment * weight
         total_weight += weight
@@ -69,3 +69,31 @@ def get_player_sentiment(sport: str, player_name: str, hours: int = 48) -> Dict:
 def get_team_sentiment(sport: str, team_name: str, hours: int = 48) -> Dict:
     """Get news sentiment for a team"""
     return get_news_sentiment(sport, [team_name], hours)
+
+
+def enrich_game_with_news(game_info: Dict) -> Dict:
+    """Add news sentiment features to game_info for predictions"""
+    sport = game_info.get("sport")
+    home_team = game_info.get("home_team")
+    away_team = game_info.get("away_team")
+
+    if not all([sport, home_team, away_team]):
+        return game_info
+
+    try:
+        home_sentiment = get_team_sentiment(sport, home_team)
+        away_sentiment = get_team_sentiment(sport, away_team)
+
+        game_info["home_news_sentiment"] = home_sentiment["sentiment_score"]
+        game_info["home_news_impact"] = home_sentiment["impact_score"]
+        game_info["away_news_sentiment"] = away_sentiment["sentiment_score"]
+        game_info["away_news_impact"] = away_sentiment["impact_score"]
+    except Exception as e:
+        print(f"Error enriching game with news: {e}")
+        # Set defaults on error
+        game_info["home_news_sentiment"] = 0.0
+        game_info["home_news_impact"] = 0.0
+        game_info["away_news_sentiment"] = 0.0
+        game_info["away_news_impact"] = 0.0
+
+    return game_info
