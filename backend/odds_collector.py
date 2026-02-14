@@ -431,20 +431,19 @@ def lambda_handler(event, context):
             message = (
                 f"Successfully collected odds for {len(game_ids)} games in {sport}"
             )
-
-        return {
-            "statusCode": 200,
-            "body": json.dumps(
-                {
-                    "message": message,
-                    "sport": sport,
-                    "props_only": False,
-                    "games_collected": len(game_ids),
-                    "game_ids": game_ids,
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
-            ),
-        }
+            return {
+                "statusCode": 200,
+                "body": json.dumps(
+                    {
+                        "message": message,
+                        "sport": sport,
+                        "props_only": False,
+                        "games_collected": len(game_ids),
+                        "game_ids": game_ids,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                ),
+            }
     except Exception as e:
         print(f"Error: {str(e)}")
         return {

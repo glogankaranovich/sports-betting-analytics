@@ -18,51 +18,71 @@ def test_odds_collector_integration():
 
     print(f"Testing odds collector: {lambda_function_name}")
 
-    print("Testing odds collection with limit=2...")
-    response = lambda_client.invoke(
-        FunctionName=lambda_function_name,
-        InvocationType="RequestResponse",
-        Payload=json.dumps({"sport": "basketball_nba", "limit": 2}),
-    )
+    # Try multiple sports to find one with active games
+    sports_to_try = [
+        "basketball_nba",
+        "americanfootball_nfl",
+        "icehockey_nhl",
+        "baseball_mlb",
+        "soccer_epl",
+    ]
+    game_ids = []
+    sport_used = None
 
-    payload = json.loads(response["Payload"].read())
-    assert response["StatusCode"] == 200, f"Lambda failed: {response['StatusCode']}"
-    assert payload["statusCode"] == 200, f"Function failed: {payload.get('body')}"
+    for sport in sports_to_try:
+        print(f"Testing odds collection for {sport} with limit=2...")
+        response = lambda_client.invoke(
+            FunctionName=lambda_function_name,
+            InvocationType="RequestResponse",
+            Payload=json.dumps({"sport": sport, "limit": 2}),
+        )
 
-    body = json.loads(payload["body"])
-    print(f"✓ Odds collection result: {body['message']}")
+        payload = json.loads(response["Payload"].read())
+        assert response["StatusCode"] == 200, f"Lambda failed: {response['StatusCode']}"
+        assert payload["statusCode"] == 200, f"Function failed: {payload.get('body')}"
 
-    # Get the game IDs that were processed
-    game_ids = body.get("game_ids", [])
-    print(f"📋 Game IDs processed: {game_ids}")
+        body = json.loads(payload["body"])
+        game_ids = body.get("game_ids", [])
 
-    # Verify Lambda returned game IDs (proves it's working)
-    assert len(game_ids) > 0, "Lambda should return game IDs of processed games"
-    print(f"✓ Lambda successfully returned {len(game_ids)} game IDs")
+        if len(game_ids) > 0:
+            sport_used = sport
+            print(f"✓ Odds collection result: {body['message']}")
+            print(f"📋 Game IDs processed: {game_ids}")
+            break
+        else:
+            print(f"  No games available for {sport}, trying next sport...")
+
+    # Verify Lambda returned game IDs from at least one sport
+    assert (
+        len(game_ids) > 0
+    ), f"Lambda should return game IDs from at least one sport (tried: {', '.join(sports_to_try)})"
+    print(f"✓ Lambda successfully returned {len(game_ids)} game IDs from {sport_used}")
 
     # Verify the specific games exist in the main table
     print(f"🔍 Verifying {len(game_ids)} specific games exist in database...")
     for game_id in game_ids[:2]:  # Check first 2 games
-        # Try to get the game directly from main table
-        game_response = table.get_item(
-            Key={
-                "pk": f"GAME#{game_id}",
-                "sk": "fanduel#h2h#LATEST",  # Try the most common market/bookmaker combo
-            }
+        # Query for all records for this game
+        game_response = table.query(
+            KeyConditionExpression="pk = :pk",
+            ExpressionAttributeValues={
+                ":pk": f"GAME#{game_id}",
+            },
+            Limit=20,
         )
-        if "Item" not in game_response:
-            # Try other combinations if fanduel#h2h doesn't exist
-            for bookmaker in ["draftkings", "betmgm", "caesars"]:
-                game_response = table.get_item(
-                    Key={"pk": f"GAME#{game_id}", "sk": f"{bookmaker}#h2h#LATEST"}
-                )
-                if "Item" in game_response:
-                    break
 
-        assert "Item" in game_response, f"Game {game_id} not found in database"
+        # Find any LATEST record
+        latest_items = [
+            item
+            for item in game_response.get("Items", [])
+            if item["sk"].endswith("#LATEST")
+        ]
+        assert (
+            len(latest_items) > 0
+        ), f"Game {game_id} not found in database (no LATEST records)"
+        print(f"  ✓ Found {len(latest_items)} LATEST records for game {game_id}")
 
         # Verify the record was updated recently (within last 5 minutes)
-        item = game_response["Item"]
+        item = latest_items[0]
         updated_at = item.get("updated_at")
         if updated_at:
             updated_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
