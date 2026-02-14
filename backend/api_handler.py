@@ -781,6 +781,8 @@ def handle_get_model_performance(query_params: Dict[str, str]):
 def handle_get_model_comparison(query_params: Dict[str, str]):
     """Get model comparison with original vs inverse performance"""
     try:
+        from api_middleware import check_feature_access
+
         sport = query_params.get("sport", "basketball_nba")
         days = int(query_params.get("days", 90))
         user_id = query_params.get("user_id")
@@ -793,28 +795,33 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
                 cached_data = cache_response["Item"]["data"]
                 print(f"Cache hit for {cache_key}")
 
-                # If user_id provided, add user models to cached data
+                # If user_id provided and feature enabled, add user models to cached data
                 if user_id:
-                    from datetime import datetime, timedelta
-                    from user_models import UserModel
+                    access_check = check_feature_access(user_id, "user_models")
+                    if access_check["allowed"]:
+                        from datetime import datetime, timedelta
+                        from user_models import UserModel
 
-                    if days >= 9999:
-                        cutoff_time = "2000-01-01T00:00:00"
-                    else:
-                        cutoff_time = (
-                            datetime.utcnow() - timedelta(days=days)
-                        ).isoformat()
+                        if days >= 9999:
+                            cutoff_time = "2000-01-01T00:00:00"
+                        else:
+                            cutoff_time = (
+                                datetime.utcnow() - timedelta(days=days)
+                            ).isoformat()
 
-                    user_models = UserModel.list_by_user(user_id)
-                    for user_model in user_models:
-                        if user_model.sport == sport and user_model.status == "active":
-                            model_data = _get_model_comparison_data(
-                                user_model.model_id,
-                                sport,
-                                cutoff_time,
-                                is_user_model=True,
-                                model_name=user_model.name,
-                            )
+                        user_models = UserModel.list_by_user(user_id)
+                        for user_model in user_models:
+                            if (
+                                user_model.sport == sport
+                                and user_model.status == "active"
+                            ):
+                                model_data = _get_model_comparison_data(
+                                    user_model.model_id,
+                                    sport,
+                                    cutoff_time,
+                                    is_user_model=True,
+                                    model_name=user_model.name,
+                                )
                             if model_data:
                                 cached_data.extend(model_data)
 
@@ -1195,10 +1202,16 @@ def handle_list_user_models(query_params: Dict[str, str]):
     """List all models for a user"""
     try:
         from user_models import UserModel
+        from api_middleware import check_feature_access
 
         user_id = query_params.get("user_id")
         if not user_id:
             return create_response(400, {"error": "user_id parameter required"})
+
+        # Check feature access
+        access_check = check_feature_access(user_id, "user_models")
+        if not access_check["allowed"]:
+            return create_response(403, {"error": access_check["error"]})
 
         models = UserModel.list_by_user(user_id)
         return create_response(
