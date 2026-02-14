@@ -25,6 +25,7 @@ import { AIAgentStack } from '../lib/ai-agent-stack';
 import { BennyTraderStack } from '../lib/benny-trader-stack';
 import { BennyTraderScheduleStack } from '../lib/benny-trader-schedule-stack';
 import { ModelComparisonCacheStack } from '../lib/model-comparison-cache-stack';
+import { NewsCollectorsStack } from '../lib/news-collectors-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -205,6 +206,14 @@ if (environment === 'dev') {
 
   // Model Comparison Cache Stack
   new ModelComparisonCacheStack(app, StackNames.forEnvironment('dev', 'ModelComparisonCache'), {
+    environment: 'dev',
+    tableName: 'carpool-bets-v2-dev',
+    tableArn: dynamoStack.betsTable.tableArn,
+    env: ENVIRONMENTS.dev,
+  });
+
+  // News Collectors Stack (ESPN + Reddit)
+  new NewsCollectorsStack(app, StackNames.forEnvironment('dev', 'NewsCollectors'), {
     environment: 'dev',
     tableName: 'carpool-bets-v2-dev',
     tableArn: dynamoStack.betsTable.tableArn,

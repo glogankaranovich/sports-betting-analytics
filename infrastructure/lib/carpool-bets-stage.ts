@@ -24,6 +24,7 @@ import { BennyTraderStack } from './benny-trader-stack';
 import { BennyTraderScheduleStack } from './benny-trader-schedule-stack';
 import { ModelComparisonCacheStack } from './model-comparison-cache-stack';
 import { CustomDataStack } from './custom-data-stack';
+import { NewsCollectorsStack } from './news-collectors-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -160,6 +161,13 @@ export class CarpoolBetsStage extends cdk.Stage {
       analysisGeneratorMLB: analysisGeneratorStack.analysisGeneratorMLB,
       analysisGeneratorNHL: analysisGeneratorStack.analysisGeneratorNHL,
       analysisGeneratorEPL: analysisGeneratorStack.analysisGeneratorEPL,
+    });
+
+    // News Collectors Stack (ESPN + Reddit)
+    new NewsCollectorsStack(this, 'NewsCollectors', {
+      environment: props.stage,
+      tableName: dynamoDBStack.tableName,
+      tableArn: dynamoDBStack.tableArn,
     });
 
     // Monitoring stack
