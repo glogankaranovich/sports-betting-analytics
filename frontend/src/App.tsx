@@ -14,6 +14,7 @@ import { Benny } from './components/Benny';
 import { BennyDashboard } from './components/BennyDashboard';
 import { Subscription } from './components/Subscription';
 import { Profile } from './components/Profile';
+import SettingsPage from './components/SettingsPage';
 import LandingPage from './components/LandingPage';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
@@ -1072,10 +1073,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         )}
 
         {activePage === 'settings' && (
-          <div className="page-container">
-            <h2>Settings</h2>
-            <p>Configure your default sport, bookmaker, and model preferences.</p>
-          </div>
+          <SettingsPage settings={settings} onSettingsChange={setSettings} />
         )}
 
         {activePage === 'profile' && (

@@ -1,0 +1,133 @@
+.settings-page-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.settings-page-header {
+  margin-bottom: 2rem;
+}
+
+.settings-page-header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.settings-page-header p {
+  color: #6c757d;
+}
+
+.settings-page-section {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.settings-page-section h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+}
+
+.section-description {
+  color: #6c757d;
+  margin-bottom: 1.5rem;
+}
+
+.settings-page-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.setting-page-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.setting-page-item label {
+  font-size: 0.875rem;
+  color: #212529;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.setting-page-item select {
+  padding: 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+
+.setting-page-item select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.setting-page-hint {
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.settings-page-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.reset-page-btn,
+.save-page-btn {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  font-size: 1rem;
+}
+
+.reset-page-btn {
+  background: #6c757d;
+  color: white;
+}
+
+.save-page-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.reset-page-btn:hover,
+.save-page-btn:hover {
+  opacity: 0.9;
+}
+
+.settings-page-info {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.settings-page-info h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
+
+.settings-page-info ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.settings-page-info li {
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+}
+
+.settings-page-info li:last-child {
+  margin-bottom: 0;
+}
