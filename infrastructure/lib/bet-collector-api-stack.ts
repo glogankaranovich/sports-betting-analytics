@@ -241,6 +241,14 @@ export class BetCollectorApiStack extends cdk.Stack {
     const userModelPerformance = userModelById.addResource('performance');
     userModelPerformance.addMethod('GET', userModelsIntegration, methodOptions); // Get model performance
 
+    // User profile and subscription endpoints (protected)
+    const profile = betCollectorApi.root.addResource('profile');
+    profile.addMethod('GET', lambdaIntegration, methodOptions);  // Get profile
+    profile.addMethod('PUT', lambdaIntegration, methodOptions);  // Update profile
+    
+    const subscription = betCollectorApi.root.addResource('subscription');
+    subscription.addMethod('GET', lambdaIntegration, methodOptions); // Get subscription info
+
     // AI Agent Lambda
     const aiAgentFunction = new lambda.Function(this, 'AIAgentFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,

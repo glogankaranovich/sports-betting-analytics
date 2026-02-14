@@ -24,32 +24,17 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserId(payload.sub || payload['cognito:username']);
+        const extractedUserId = payload.sub || payload['cognito:username'];
+        setUserId(extractedUserId);
       } catch (error) {
         console.error('Error parsing token:', error);
+        setLoading(false);
       }
     }
-    
-    // Check if user models feature is enabled
-    checkFeatureAccess();
   }, [token]);
 
-  const checkFeatureAccess = async () => {
-    try {
-      // Try to load models - if 403, feature is disabled
-      const models = await bettingApi.getUserModels(token, userId);
-      setUserModels(models);
-      setFeatureEnabled(true);
-    } catch (error: any) {
-      if (error.response?.status === 403) {
-        setFeatureEnabled(false);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    // Load models once we have both token and userId
     if (token && userId) {
       loadUserModels();
     }
@@ -60,8 +45,12 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
       setLoading(true);
       const response = await bettingApi.getUserModels(token, userId);
       setUserModels(response.models || []);
-    } catch (error) {
+      setFeatureEnabled(true);
+    } catch (error: any) {
       console.error('Error loading user models:', error);
+      if (error.response?.status === 403) {
+        setFeatureEnabled(false);
+      }
     } finally {
       setLoading(false);
     }
