@@ -13,6 +13,11 @@ All notable changes to the Carpool Bets platform will be documented in this file
 - **Navigation Improvements**: Added breadcrumbs, reorganized sections, simplified footer
 
 ### Fixed - February 13, 2026
+- **Unit Tests**: Fixed all remaining unit tests - 329 passing (100% pass rate)
+  - Fixed backtest_engine tests to mock user_models_table
+  - Fixed custom_data tests by removing non-existent allow_benny_access attribute
+  - Fixed user_models_api test to return proper mock objects
+  - Updated benny_trader test to match current AI-based implementation
 - **CloudWatch Alarms**: Alarm periods now match Lambda schedules (24h for daily, 1h for hourly)
 - **Benny Trader**: Fixed Float type errors by converting to Decimal for DynamoDB
 - **Model Comparison**: Fixed accuracy difference calculation (was showing NaN%)
