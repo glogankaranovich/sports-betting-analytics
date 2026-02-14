@@ -48,7 +48,6 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
       setLoading(false);
     }
   };
-  }, [token]);
 
   useEffect(() => {
     if (token && userId) {
