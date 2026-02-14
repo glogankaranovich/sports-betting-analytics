@@ -1488,10 +1488,16 @@ def handle_list_custom_data(query_params: Dict[str, str]):
     """List user's custom datasets"""
     try:
         from custom_data import CustomDataset
+        from api_middleware import check_feature_access
 
         user_id = query_params.get("user_id")
         if not user_id:
             return create_response(400, {"error": "user_id is required"})
+
+        # Check feature access
+        access = check_feature_access(user_id, "custom_data")
+        if not access["allowed"]:
+            return create_response(403, {"error": access["error"]})
 
         datasets = CustomDataset.list_by_user(user_id)
 
@@ -1525,6 +1531,7 @@ def handle_upload_custom_data(body: Dict[str, Any]):
         import uuid
 
         from custom_data import CustomDataset, validate_dataset
+        from api_middleware import check_feature_access, check_resource_limit
 
         # Validate required fields
         required = ["user_id", "name", "sport", "data_type", "data"]
@@ -1535,6 +1542,17 @@ def handle_upload_custom_data(body: Dict[str, Any]):
                 )
 
         user_id = body["user_id"]
+
+        # Check feature access
+        access = check_feature_access(user_id, "custom_data")
+        if not access["allowed"]:
+            return create_response(403, {"error": access["error"]})
+
+        # Check dataset limit
+        current_datasets = CustomDataset.list_by_user(user_id)
+        limit_check = check_resource_limit(user_id, "dataset", len(current_datasets))
+        if not limit_check["allowed"]:
+            return create_response(403, {"error": limit_check["error"]})
         name = body["name"]
         description = body.get("description", "")
         sport = body["sport"]
@@ -1598,10 +1616,16 @@ def handle_delete_custom_data(dataset_id: str, query_params: Dict[str, str]):
     """Delete custom dataset"""
     try:
         from custom_data import CustomDataset
+        from api_middleware import check_feature_access
 
         user_id = query_params.get("user_id")
         if not user_id:
             return create_response(400, {"error": "user_id is required"})
+
+        # Check feature access
+        access = check_feature_access(user_id, "custom_data")
+        if not access["allowed"]:
+            return create_response(403, {"error": access["error"]})
 
         dataset = CustomDataset.get(user_id, dataset_id)
         if not dataset:
