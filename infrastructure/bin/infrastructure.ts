@@ -212,11 +212,10 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  // News Collectors Stack (ESPN + Reddit)
+  // News Collectors Stack (ESPN)
   new NewsCollectorsStack(app, StackNames.forEnvironment('dev', 'NewsCollectors'), {
     environment: 'dev',
-    tableName: 'carpool-bets-v2-dev',
-    tableArn: dynamoStack.betsTable.tableArn,
+    betsTable: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,
   });
 } else {

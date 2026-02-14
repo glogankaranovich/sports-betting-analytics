@@ -163,11 +163,10 @@ export class CarpoolBetsStage extends cdk.Stage {
       analysisGeneratorEPL: analysisGeneratorStack.analysisGeneratorEPL,
     });
 
-    // News Collectors Stack (ESPN + Reddit)
+    // News Collectors Stack (ESPN)
     new NewsCollectorsStack(this, 'NewsCollectors', {
       environment: props.stage,
-      tableName: dynamoDBStack.tableName,
-      tableArn: dynamoDBStack.tableArn,
+      betsTable: dynamoStack.betsTable,
     });
 
     // Monitoring stack

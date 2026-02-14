@@ -1,0 +1,124 @@
+.side-nav {
+  width: 240px;
+  background: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.5rem 0;
+  height: 100%;
+  overflow-y: auto;
+  transition: width 0.3s ease, opacity 0.3s ease;
+  opacity: 1;
+  flex-shrink: 0;
+}
+
+.side-nav.hidden {
+  width: 0;
+  opacity: 0;
+  padding: 0;
+  border-right: none;
+  overflow: hidden;
+}
+
+.side-nav-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+  text-align: center;
+}
+
+.side-nav-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0 0.75rem;
+}
+
+.side-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.875rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.side-nav-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #00d4ff;
+}
+
+.side-nav-item.active {
+  background: rgba(0, 212, 255, 0.15);
+  color: #00d4ff;
+  font-weight: 600;
+}
+
+/* Scrollbar styling */
+.side-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.side-nav::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.side-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.side-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+  .side-nav {
+    width: 70px;
+  }
+
+  .side-nav.collapsed {
+    width: 70px;
+  }
+
+  .side-nav-label {
+    display: none;
+  }
+
+  .side-nav-item {
+    justify-content: center;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .side-nav-icon {
+    font-size: 1.1rem;
+  }
+
+  .collapse-button {
+    display: none;
+  }
+}
