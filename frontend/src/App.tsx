@@ -13,6 +13,7 @@ import { UserModels } from './components/UserModels';
 import { Benny } from './components/Benny';
 import { BennyDashboard } from './components/BennyDashboard';
 import { Subscription } from './components/Subscription';
+import { Profile } from './components/Profile';
 import LandingPage from './components/LandingPage';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
@@ -1078,10 +1079,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         )}
 
         {activePage === 'profile' && (
-          <div className="page-container">
-            <h2>Profile</h2>
-            <p>Manage your profile information.</p>
-          </div>
+          <Profile token={token} userId={userId} user={user} />
         )}
 
         {activePage === 'subscription' && (

@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict
 
@@ -73,6 +73,11 @@ def lambda_handler(event, context):
             return handle_compliance_log(body)
         elif path == "/bookmakers":
             return handle_get_bookmakers()
+        elif path == "/profile" and http_method == "GET":
+            return handle_get_profile(query_params)
+        elif path == "/profile" and http_method == "PUT":
+            body = json.loads(event.get("body", "{}"))
+            return handle_update_profile(body)
         elif path == "/subscription":
             return handle_get_subscription(query_params)
         elif path == "/benny/dashboard":
@@ -1674,3 +1679,62 @@ def handle_get_subscription(query_params: Dict[str, str]):
         )
     except Exception as e:
         return create_response(500, {"error": f"Error fetching subscription: {str(e)}"})
+
+
+def handle_get_profile(query_params: Dict[str, str]):
+    """Get user profile"""
+    try:
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id is required"})
+
+        response = table.get_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
+
+        if "Item" not in response:
+            return create_response(404, {"error": "Profile not found"})
+
+        item = response["Item"]
+        return create_response(
+            200,
+            {
+                "user_id": user_id,
+                "email": item.get("email", ""),
+                "created_at": item.get("created_at", ""),
+                "last_login": item.get("last_login"),
+                "preferences": item.get("preferences", {}),
+            },
+        )
+    except Exception as e:
+        return create_response(500, {"error": f"Error fetching profile: {str(e)}"})
+
+
+def handle_update_profile(body: Dict[str, Any]):
+    """Update user profile"""
+    try:
+        user_id = body.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id is required"})
+
+        preferences = body.get("preferences", {})
+
+        # Get existing profile or create new
+        response = table.get_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
+
+        if "Item" in response:
+            item = response["Item"]
+            item["preferences"] = preferences
+            item["updated_at"] = datetime.now(timezone.utc).isoformat()
+        else:
+            item = {
+                "PK": f"USER#{user_id}",
+                "SK": "PROFILE",
+                "email": body.get("email", ""),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "preferences": preferences,
+            }
+
+        table.put_item(Item=item)
+
+        return create_response(200, {"message": "Profile updated successfully"})
+    except Exception as e:
+        return create_response(500, {"error": f"Error updating profile: {str(e)}"})
