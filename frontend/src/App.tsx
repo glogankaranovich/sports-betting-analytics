@@ -12,6 +12,7 @@ import Models from './components/Models';
 import { UserModels } from './components/UserModels';
 import { Benny } from './components/Benny';
 import { BennyDashboard } from './components/BennyDashboard';
+import { Subscription } from './components/Subscription';
 import LandingPage from './components/LandingPage';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
@@ -1084,10 +1085,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         )}
 
         {activePage === 'subscription' && (
-          <div className="page-container">
-            <h2>Subscription</h2>
-            <p>Manage your subscription and billing.</p>
-          </div>
+          <Subscription token={token} userId={userId} />
         )}
 
         {activePage === 'system-models' && (

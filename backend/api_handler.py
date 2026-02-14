@@ -73,6 +73,8 @@ def lambda_handler(event, context):
             return handle_compliance_log(body)
         elif path == "/bookmakers":
             return handle_get_bookmakers()
+        elif path == "/subscription":
+            return handle_get_subscription(query_params)
         elif path == "/benny/dashboard":
             return handle_get_benny_dashboard()
         elif path == "/analytics":
@@ -1636,3 +1638,39 @@ def handle_delete_custom_data(dataset_id: str, query_params: Dict[str, str]):
         return create_response(200, {"message": "Dataset deleted successfully"})
     except Exception as e:
         return create_response(500, {"error": f"Error deleting dataset: {str(e)}"})
+
+
+def handle_get_subscription(query_params: Dict[str, str]):
+    """Get user subscription info"""
+    try:
+        from feature_flags import get_user_limits, get_user_tier
+        from custom_data import CustomDataset
+        from user_models import UserModel
+        from subscriptions import UserSubscription
+
+        user_id = query_params.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id is required"})
+
+        tier = get_user_tier(user_id)
+        limits = get_user_limits(user_id)
+        subscription = UserSubscription.get(user_id)
+
+        # Get usage counts
+        user_models = UserModel.list_by_user(user_id)
+        datasets = CustomDataset.list_by_user(user_id)
+
+        return create_response(
+            200,
+            {
+                "tier": tier.value,
+                "limits": limits,
+                "usage": {
+                    "api_calls_today": subscription.api_calls_today,
+                    "user_models_count": len(user_models),
+                    "datasets_count": len(datasets),
+                },
+            },
+        )
+    except Exception as e:
+        return create_response(500, {"error": f"Error fetching subscription: {str(e)}"})
