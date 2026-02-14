@@ -3,6 +3,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
+import { PLATFORM_CONSTANTS } from './utils/constants';
 
 export interface AnalysisGeneratorScheduleStackProps extends cdk.StackProps {
   environment: string;
@@ -25,7 +26,8 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
       { name: 'EPL', lambda: props.analysisGeneratorEPL }
     ];
 
-    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware', 'ensemble'];
+    // Get models from constant, excluding 'benny' (not a prediction model)
+    const models = PLATFORM_CONSTANTS.SYSTEM_MODELS.split(',').filter(m => m !== 'benny');
     const betTypes = ['games', 'props'];
 
     // Analysis generation - every 2 hours for each sport
