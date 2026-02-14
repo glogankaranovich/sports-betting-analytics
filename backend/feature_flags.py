@@ -76,7 +76,7 @@ FEATURE_ROLLOUT = {
     },
     "user_models": {
         "name": "User Models & Custom Data",
-        "enabled_envs": ["dev", "staging"],  # Not prod yet
+        "enabled_envs": ["dev"],  # Dev only for now
         "beta_users": [],  # Specific beta testers
     },
     "model_marketplace": {
