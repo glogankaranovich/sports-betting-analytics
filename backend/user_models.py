@@ -217,9 +217,14 @@ class ModelPrediction:
 
     @staticmethod
     def list_by_model(model_id: str, limit: int = 100) -> List["ModelPrediction"]:
-        """List predictions for a model"""
+        """List predictions for a model (upcoming games only)"""
+        from datetime import datetime
+
+        now = datetime.utcnow().isoformat()
         response = model_predictions_table.query(
             KeyConditionExpression=Key("PK").eq(f"MODEL#{model_id}"),
+            FilterExpression="commence_time > :now",
+            ExpressionAttributeValues={":now": now},
             ScanIndexForward=False,  # Most recent first
             Limit=limit,
         )
