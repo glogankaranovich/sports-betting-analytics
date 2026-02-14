@@ -45,11 +45,19 @@ export class NewsCollectorsStack extends cdk.Stack {
     // Grant DynamoDB permissions
     betsTable.grantReadWriteData(this.espnCollectorFunction);
 
-    // EventBridge Schedule: ESPN collector every 30 minutes
+    // Grant Comprehend permissions for sentiment analysis
+    this.espnCollectorFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['comprehend:DetectSentiment'],
+        resources: ['*'],
+      })
+    );
+
+    // EventBridge Schedule: ESPN collector every 2 hours
     const espnRule = new events.Rule(this, 'ESPNCollectorSchedule', {
       ruleName: `espn-collector-schedule-${environment}`,
-      schedule: events.Schedule.rate(cdk.Duration.minutes(30)),
-      description: 'Collect ESPN news every 30 minutes',
+      schedule: events.Schedule.rate(cdk.Duration.hours(2)),
+      description: 'Collect ESPN news every 2 hours',
     });
 
     espnRule.addTarget(new targets.LambdaFunction(this.espnCollectorFunction));

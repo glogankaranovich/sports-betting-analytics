@@ -2,12 +2,13 @@
 ESPN API News Collector
 
 Collects official news, injury reports, and updates from ESPN API.
-Completely free - no API key required.
+Uses AWS Comprehend for sentiment analysis.
 """
 
 import json
 import os
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Dict, List, Optional
 
 import boto3
@@ -15,6 +16,7 @@ import boto3
 from constants import SUPPORTED_SPORTS
 
 dynamodb = boto3.resource("dynamodb")
+comprehend = boto3.client("comprehend")
 TABLE_NAME = os.environ.get("TABLE_NAME", "carpool-bets-v2-dev")
 table = dynamodb.Table(TABLE_NAME)
 
@@ -117,10 +119,35 @@ class ESPNCollector:
             print(f"Error parsing article: {e}")
             return None
 
+    def _analyze_sentiment(self, text: str) -> Dict:
+        """Analyze sentiment using AWS Comprehend"""
+        try:
+            response = comprehend.detect_sentiment(Text=text[:5000], LanguageCode="en")
+            return {
+                "sentiment": response["Sentiment"],
+                "positive": response["SentimentScore"]["Positive"],
+                "negative": response["SentimentScore"]["Negative"],
+                "neutral": response["SentimentScore"]["Neutral"],
+                "mixed": response["SentimentScore"]["Mixed"],
+            }
+        except Exception as e:
+            print(f"Error analyzing sentiment: {e}")
+            return {
+                "sentiment": "NEUTRAL",
+                "positive": 0.0,
+                "negative": 0.0,
+                "neutral": 1.0,
+                "mixed": 0.0,
+            }
+
     def _store_news(self, news_data: Dict):
-        """Store news in DynamoDB"""
+        """Store news in DynamoDB with sentiment analysis"""
         pk = f"NEWS#{news_data['sport']}"
         sk = news_data["published"]
+
+        # Analyze sentiment of headline + description
+        combined_text = f"{news_data['headline']}. {news_data['description']}"
+        sentiment = self._analyze_sentiment(combined_text)
 
         # Calculate TTL (7 days from now)
         ttl = int((datetime.utcnow() + timedelta(days=7)).timestamp())
@@ -135,13 +162,17 @@ class ESPNCollector:
             "impact": news_data["impact"],
             "keywords": news_data["keywords"],
             "source": news_data["source"],
+            "sentiment": sentiment["sentiment"],
+            "sentiment_positive": Decimal(str(sentiment["positive"])),
+            "sentiment_negative": Decimal(str(sentiment["negative"])),
+            "sentiment_neutral": Decimal(str(sentiment["neutral"])),
             "ttl": ttl,
             "updated_at": datetime.utcnow().isoformat(),
         }
 
         table.put_item(Item=item)
         print(
-            f"Stored ESPN news: {news_data['headline'][:50]}... (impact: {news_data['impact']})"
+            f"Stored ESPN news: {news_data['headline'][:50]}... (impact: {news_data['impact']}, sentiment: {sentiment['sentiment']})"
         )
 
     def get_recent_news(self, sport: str, hours: int = 24) -> List[Dict]:
