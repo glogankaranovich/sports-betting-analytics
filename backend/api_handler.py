@@ -1212,9 +1212,25 @@ def handle_create_user_model(body: Dict[str, Any]):
     """Create a new user model"""
     try:
         from user_models import UserModel, validate_model_config
+        from api_middleware import check_feature_access, check_resource_limit
+
+        user_id = body.get("user_id")
+        if not user_id:
+            return create_response(400, {"error": "user_id is required"})
+
+        # Check feature access
+        access_check = check_feature_access(user_id, "user_models")
+        if not access_check["allowed"]:
+            return create_response(403, {"error": access_check["error"]})
+
+        # Check model limit
+        current_models = len(UserModel.list_by_user(user_id))
+        limit_check = check_resource_limit(user_id, "user_model", current_models)
+        if not limit_check["allowed"]:
+            return create_response(403, {"error": limit_check["error"]})
 
         # Validate required fields
-        required = ["user_id", "name", "sport", "bet_types", "data_sources"]
+        required = ["name", "sport", "bet_types", "data_sources"]
         for field in required:
             if field not in body:
                 return create_response(
@@ -1228,7 +1244,7 @@ def handle_create_user_model(body: Dict[str, Any]):
 
         # Create model
         model = UserModel(
-            user_id=body["user_id"],
+            user_id=user_id,
             name=body["name"],
             description=body.get("description", ""),
             sport=body["sport"],
