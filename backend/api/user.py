@@ -18,32 +18,30 @@ table = dynamodb.Table(table_name)
 def handle_get_subscription(query_params: Dict[str, str]):
     """Get user subscription info"""
     try:
-        from custom_data import CustomDataset
-        from feature_flags import get_user_limits, get_user_tier
-        from subscriptions import UserSubscription
-        from user_models import UserModel
-
         user_id = query_params.get("user_id")
         if not user_id:
             return create_response(400, {"error": "user_id is required"})
 
-        tier = get_user_tier(user_id)
-        limits = get_user_limits(user_id)
-        subscription = UserSubscription.get(user_id)
-
-        # Get usage counts
-        user_models = UserModel.list_by_user(user_id)
-        datasets = CustomDataset.list_by_user(user_id)
-
+        # TODO: Implement actual subscription logic
+        # For now, return free tier with default limits
         return create_response(
             200,
             {
-                "tier": tier.value,
-                "limits": limits,
+                "tier": "free",
+                "limits": {
+                    "system_models": True,
+                    "benny_ai": True,
+                    "user_models": False,
+                    "custom_data": False,
+                    "model_marketplace": False,
+                    "api_calls_per_day": 100,
+                    "max_user_models": 0,
+                    "max_custom_datasets": 0,
+                },
                 "usage": {
-                    "api_calls_today": subscription.api_calls_today,
-                    "user_models_count": len(user_models),
-                    "datasets_count": len(datasets),
+                    "api_calls_today": 0,
+                    "user_models_count": 0,
+                    "datasets_count": 0,
                 },
             },
         )
