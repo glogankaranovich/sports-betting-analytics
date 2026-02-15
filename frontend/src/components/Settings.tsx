@@ -11,6 +11,7 @@ interface SettingsProps {
   availableBookmakers: string[];
   userModels: any[];
   token: string;
+  subscription?: any;
 }
 
 const Settings: React.FC<SettingsProps> = ({
@@ -18,8 +19,10 @@ const Settings: React.FC<SettingsProps> = ({
   onSettingsChange,
   availableSports,
   availableBookmakers,
-  userModels
+  userModels,
+  subscription
 }) => {
+  const hasBennyAccess = subscription?.limits?.benny_ai !== false;
   const handleChange = (key: string, value: string) => {
     onSettingsChange({ ...settings, [key]: value });
   };
@@ -90,6 +93,7 @@ const Settings: React.FC<SettingsProps> = ({
               <option value="matchup">Matchup</option>
               <option value="injury_aware">Injury-Aware</option>
               <option value="news">News Sentiment</option>
+              {hasBennyAccess && <option value="benny">Benny AI</option>}
             </optgroup>
             {userModels.length > 0 && (
               <optgroup label="My Models">

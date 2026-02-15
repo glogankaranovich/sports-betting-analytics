@@ -778,6 +778,19 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
                 cached_data = cache_response["Item"]["data"]
                 print(f"Cache hit for {cache_key}")
 
+                # Filter out Benny if user doesn't have access
+                from feature_flags import get_user_limits
+
+                if user_id:
+                    limits = get_user_limits(user_id)
+                    if not limits.get("benny_ai", False):
+                        cached_data = [
+                            m for m in cached_data if m.get("model") != "benny"
+                        ]
+                else:
+                    # No user_id means no access to Benny
+                    cached_data = [m for m in cached_data if m.get("model") != "benny"]
+
                 # If user_id provided and feature enabled, add user models to cached data
                 if user_id:
                     access_check = check_feature_access(user_id, "user_models")
@@ -841,8 +854,20 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
 
         comparison = []
 
+        # Filter system models based on user access
+        from feature_flags import get_user_limits
+
+        allowed_models = list(SYSTEM_MODELS)
+        if user_id:
+            limits = get_user_limits(user_id)
+            if not limits.get("benny_ai", False):
+                allowed_models = [m for m in allowed_models if m != "benny"]
+        else:
+            # No user_id means no access to Benny
+            allowed_models = [m for m in allowed_models if m != "benny"]
+
         # Add system models
-        for model in SYSTEM_MODELS:
+        for model in allowed_models:
             model_data = _get_model_comparison_data(
                 model, sport, cutoff_time, is_user_model=False
             )

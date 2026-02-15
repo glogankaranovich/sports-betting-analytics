@@ -618,6 +618,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
               userModels={userModels}
               token={token}
+              subscription={subscription}
             />
             <div className="games-header">
               <h2>Available Games</h2>
@@ -767,6 +768,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
               userModels={userModels}
               token={token}
+              subscription={subscription}
             />
             <div className="games-header">
               <h2>Game Analysis</h2>
@@ -914,6 +916,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
               userModels={userModels}
               token={token}
+              subscription={subscription}
             />
             <div className="games-header">
               <h2>Player Prop Analysis</h2>
@@ -1084,6 +1087,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
               userModels={userModels}
               token={token}
+              subscription={subscription}
             />
             <PlayerProps 
               token={token} 
@@ -1109,7 +1113,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         )}
 
         {activePage === 'system-models' && (
-          <Models token={token} settings={settings} />
+          <Models token={token} settings={settings} subscription={subscription} />
         )}
 
         {activePage === 'model-analytics' && (

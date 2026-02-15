@@ -9,11 +9,13 @@ interface ModelsProps {
   settings: {
     sport: string;
   };
+  subscription?: any;
 }
 
-const Models: React.FC<ModelsProps> = ({ token, settings }) => {
+const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [modelStats, setModelStats] = useState<Record<string, any>>({});
+  const hasBennyAccess = subscription?.limits?.benny_ai !== false;
 
   useEffect(() => {
     if (token) {
@@ -80,6 +82,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       name: 'News Sentiment Model',
       description: 'Predicts based on news sentiment analysis',
       methodology: 'Analyzes ESPN news headlines and descriptions using AWS Comprehend. Calculates sentiment scores (positive, negative, neutral) for each team. Predicts based on sentiment differential between teams. Higher confidence when sentiment strongly favors one side.'
+    },
+    benny: {
+      name: 'Benny AI Model',
+      description: 'AI-powered predictions using advanced machine learning',
+      methodology: 'Uses Claude AI to analyze multiple data sources including team stats, player performance, injuries, news sentiment, and betting trends. Provides detailed reasoning for each prediction with confidence scores.'
     }
   };
 
@@ -102,7 +109,9 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       </p>
 
       <div className="models-grid">
-        {Object.entries(modelInfo).map(([modelKey, info]) => {
+        {Object.entries(modelInfo)
+          .filter(([modelKey]) => modelKey !== 'benny' || hasBennyAccess)
+          .map(([modelKey, info]) => {
           const stats = modelStats[modelKey];
           const accuracy = stats?.accuracy ? stats.accuracy.toFixed(1) : null;
           
