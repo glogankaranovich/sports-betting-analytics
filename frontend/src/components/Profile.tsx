@@ -22,71 +22,35 @@ interface ProfileData {
 export const Profile: React.FC<ProfileProps> = ({ token, userId, user }) => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [preferences, setPreferences] = useState({
-    default_sport: 'basketball_nba',
-    default_bookmaker: 'fanduel',
-    email_notifications: true,
-  });
 
   useEffect(() => {
-    fetchProfile();
-  }, [userId, token]);
-
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/profile?user_id=${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-        if (data.preferences) {
-          setPreferences(data.preferences);
-        }
-      } else {
-        // Profile doesn't exist yet, create default
-        setProfile({
-          user_id: userId,
-          email: user?.signInDetails?.loginId || user?.username || 'N/A',
-          created_at: new Date().toISOString(),
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching profile:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/profile`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `${process.env.REACT_APP_API_URL}/profile?user_id=${userId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          setProfile(data);
+        } else {
+          setProfile({
             user_id: userId,
-            preferences,
-          }),
+            email: user?.signInDetails?.loginId || user?.username || 'N/A',
+            created_at: new Date().toISOString(),
+          });
         }
-      );
-
-      if (response.ok) {
-        setEditing(false);
-        fetchProfile();
+      } catch (err) {
+        console.error('Error fetching profile:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Error saving profile:', err);
-    }
-  };
+    };
+
+    fetchProfile();
+  }, [userId, token, user]);
 
   if (loading) return <div className="page-container"><p>Loading profile...</p></div>;
   if (!profile) return null;
@@ -102,7 +66,6 @@ export const Profile: React.FC<ProfileProps> = ({ token, userId, user }) => {
   return (
     <div className="page-container profile-container">
       <h2>Profile</h2>
-      <p>Your account information</p>
 
       <div className="profile-section">
         <h3>Account Information</h3>
