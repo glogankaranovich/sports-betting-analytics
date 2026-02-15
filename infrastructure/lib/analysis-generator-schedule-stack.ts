@@ -34,8 +34,8 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
     sports.forEach(sport => {
       models.forEach((model, modelIndex) => {
         betTypes.forEach((betType, betTypeIndex) => {
-          // Stagger executions by 1 minute each to avoid overwhelming the system
-          const minuteOffset = (modelIndex * betTypes.length + betTypeIndex) * 1;
+          // Stagger executions by 2 minutes each to prevent overlap
+          const minuteOffset = (modelIndex * betTypes.length + betTypeIndex) * 2;
           
           new events.Rule(this, `AnalysisRule${sport.name}${model}${betType}`, {
             schedule: events.Schedule.rate(cdk.Duration.hours(4)),
