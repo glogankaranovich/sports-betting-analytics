@@ -1614,3 +1614,17 @@ main {
     gap: 1rem;
   }
 }
+
+
+.benny-chat-page {
+  width: 100%;
+  height: 100%;
+  padding: 2rem;
+}
+
+.benny-chat-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+}

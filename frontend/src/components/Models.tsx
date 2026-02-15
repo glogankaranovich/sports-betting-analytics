@@ -75,6 +75,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings }) => {
       name: 'Injury-Aware Model',
       description: 'Adjusts predictions based on player injuries',
       methodology: 'Queries injury reports from ESPN. Calculates injury impact scores for each team. Warns against props for injured players (Out/Doubtful). Factors team injury differentials into game predictions.'
+    },
+    news: {
+      name: 'News Sentiment Model',
+      description: 'Predicts based on news sentiment analysis',
+      methodology: 'Analyzes ESPN news headlines and descriptions using AWS Comprehend. Calculates sentiment scores (positive, negative, neutral) for each team. Predicts based on sentiment differential between teams. Higher confidence when sentiment strongly favors one side.'
     }
   };
 

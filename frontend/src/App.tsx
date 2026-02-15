@@ -542,7 +542,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         <div className="main-content-wrapper">
           <Breadcrumbs 
             section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
-                    activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-dashboard'].includes(activePage) ? 'analysis-home' :
+                    activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
+                    activePage.includes('benny') || ['benny-chat', 'benny-dashboard'].includes(activePage) ? 'benny-home' :
                     activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison'].includes(activePage) ? 'models-home' :
                     activePage === 'about' || ['how-it-works', 'terms', 'privacy'].includes(activePage) ? 'about' : 
                     activePage === 'marketplace' ? 'marketplace' : ''}
@@ -552,10 +553,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onToggleCollapse={() => setSideNavCollapsed(!sideNavCollapsed)}
           />
           <div className="content-with-sidenav">
-            {['user-home', 'analysis-home', 'models-home', 'about', 'profile', 'settings', 'subscription', 'games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-dashboard', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
+            {['user-home', 'analysis-home', 'benny-home', 'models-home', 'about', 'profile', 'settings', 'subscription', 'games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-chat', 'benny-dashboard', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
               <SideNav 
                 section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
-                        activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-dashboard'].includes(activePage) ? 'analysis-home' :
+                        activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
+                        activePage.includes('benny') || ['benny-chat', 'benny-dashboard'].includes(activePage) ? 'benny-home' :
                         activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison'].includes(activePage) ? 'models-home' :
                         activePage === 'about' || ['how-it-works', 'terms', 'privacy'].includes(activePage) ? 'about' : ''}
                 currentPage={activePage}
@@ -1096,6 +1098,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <UserModels token={token} />
         )}
 
+        {activePage === 'benny-chat' && (
+          <div className="benny-chat-page">
+            <div className="benny-chat-container">
+              <Benny userId={userId} isFullPage={true} />
+            </div>
+          </div>
+        )}
+
         {activePage === 'benny-dashboard' && (
           <BennyDashboard />
         )}
@@ -1135,9 +1145,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       </div>
       
       <Footer />
-      
-      {/* Benny - AI Assistant */}
-      <Benny userId={user?.username || user?.signInDetails?.loginId || 'anonymous'} />
     </div>
   );
 }

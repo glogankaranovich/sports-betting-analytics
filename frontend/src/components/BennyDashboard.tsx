@@ -203,19 +203,25 @@ export const BennyDashboard: React.FC = () => {
           {/* Best/Worst Bets */}
           <div className="metric-card">
             <h4>Notable Bets</h4>
-            {data.best_bet && (
-              <div className="notable-bet best">
-                <span className="label">🏆 Best:</span>
-                <span className="game">{data.best_bet.game}</span>
-                <span className="amount positive">+${data.best_bet.profit.toFixed(2)}</span>
-              </div>
-            )}
-            {data.worst_bet && (
-              <div className="notable-bet worst">
-                <span className="label">💔 Worst:</span>
-                <span className="game">{data.worst_bet.game}</span>
-                <span className="amount negative">-${data.worst_bet.loss.toFixed(2)}</span>
-              </div>
+            {!data.best_bet && !data.worst_bet ? (
+              <div className="no-data-message">No bets recorded yet</div>
+            ) : (
+              <>
+                {data.best_bet && (
+                  <div className="notable-bet best">
+                    <span className="label">🏆 Best:</span>
+                    <span className="game">{data.best_bet.game}</span>
+                    <span className="amount positive">+${data.best_bet.profit.toFixed(2)}</span>
+                  </div>
+                )}
+                {data.worst_bet && (
+                  <div className="notable-bet worst">
+                    <span className="label">💔 Worst:</span>
+                    <span className="game">{data.worst_bet.game}</span>
+                    <span className="amount negative">-${data.worst_bet.loss.toFixed(2)}</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -237,8 +243,11 @@ export const BennyDashboard: React.FC = () => {
 
       <div className="benny-bets">
         <h3>Recent Bets</h3>
-        <div className="bets-table">
-          {data.recent_bets.map((bet) => (
+        {data.recent_bets.length === 0 ? (
+          <div className="no-data-message">No recent bets found</div>
+        ) : (
+          <div className="bets-table">
+            {data.recent_bets.map((bet) => (
             <div key={bet.bet_id} className={`bet-card ${bet.status}`}>
               <div 
                 className={`bet-row ${bet.status}`}
@@ -284,7 +293,8 @@ export const BennyDashboard: React.FC = () => {
               )}
             </div>
           ))}
-        </div>
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -355,6 +365,13 @@ export const BennyDashboard: React.FC = () => {
         .stat-subtitle {
           color: #718096;
           font-size: 12px;
+        }
+
+        .no-data-message {
+          text-align: center;
+          padding: 40px 20px;
+          color: #a0aec0;
+          font-size: 14px;
         }
 
         .stat-progress {

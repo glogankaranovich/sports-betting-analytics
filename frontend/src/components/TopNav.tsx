@@ -12,13 +12,15 @@ export const TopNav: React.FC<TopNavProps> = ({ currentPage, onNavigate, onSignO
   const sections = [
     { label: 'User', page: 'profile' },
     { label: 'Analysis', page: 'games' },
+    { label: 'Benny AI', page: 'benny-chat' },
     { label: 'Models', page: 'model-comparison' },
     { label: 'Marketplace', page: 'marketplace' },
   ];
 
   const getCurrentSection = () => {
     if (currentPage.startsWith('user-') || ['profile', 'settings', 'subscription'].includes(currentPage)) return 'user-home';
-    if (currentPage.startsWith('analysis-') || ['games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-dashboard'].includes(currentPage)) return 'analysis-home';
+    if (currentPage.startsWith('analysis-') || ['games', 'player-props', 'game-analysis', 'prop-analysis'].includes(currentPage)) return 'analysis-home';
+    if (currentPage.startsWith('benny-') || ['benny-chat', 'benny-dashboard'].includes(currentPage)) return 'benny-home';
     if (currentPage.startsWith('models-') || ['system-models', 'my-models', 'model-analytics', 'model-comparison'].includes(currentPage)) return 'models-home';
     if (currentPage === 'marketplace') return 'marketplace';
     if (['about', 'how-it-works', 'terms', 'privacy'].includes(currentPage)) return 'about';

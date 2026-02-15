@@ -26,7 +26,10 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
       { label: 'Prop Bets', page: 'player-props' },
       { label: 'Game Analysis', page: 'game-analysis' },
       { label: 'Prop Analysis', page: 'prop-analysis' },
-      { label: 'Benny AI', page: 'benny-dashboard' },
+    ],
+    'benny-home': [
+      { label: 'Chat with Benny', page: 'benny-chat' },
+      { label: 'Dashboard', page: 'benny-dashboard' },
     ],
     'models-home': [
       { label: 'System Models', page: 'system-models' },
@@ -40,6 +43,7 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
   const getSectionTitle = () => {
     if (section === 'user-home') return 'User';
     if (section === 'analysis-home') return 'Analysis';
+    if (section === 'benny-home') return 'Benny AI';
     if (section === 'models-home') return 'Models';
     return '';
   };

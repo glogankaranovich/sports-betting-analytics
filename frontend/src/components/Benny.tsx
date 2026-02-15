@@ -10,10 +10,11 @@ interface Message {
 
 interface BennyProps {
   userId: string;
+  isFullPage?: boolean;
 }
 
-export const Benny: React.FC<BennyProps> = ({ userId }) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const Benny: React.FC<BennyProps> = ({ userId, isFullPage = false }) => {
+  const [isOpen, setIsOpen] = useState(isFullPage);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -87,24 +88,26 @@ export const Benny: React.FC<BennyProps> = ({ userId }) => {
 
   return (
     <>
-      {/* Floating Chat Button */}
-      <button
-        className="benny-button"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Chat with Benny"
-      >
-        {isOpen ? '✕' : '🤖'}
-      </button>
+      {/* Floating Chat Button - hide in full page mode */}
+      {!isFullPage && (
+        <button
+          className="benny-button"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label="Chat with Benny"
+        >
+          {isOpen ? '✕' : '🤖'}
+        </button>
+      )}
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="benny-chat">
+        <div className={`benny-chat ${isFullPage ? 'full-page' : ''}`}>
           <div className="benny-header">
             <div>
               <h3>🤖 Benny</h3>
               <p>Your AI Betting Analyst</p>
             </div>
-            <button onClick={() => setIsOpen(false)}>✕</button>
+            {!isFullPage && <button onClick={() => setIsOpen(false)}>✕</button>}
           </div>
 
           <div className="benny-messages">
@@ -188,6 +191,17 @@ export const Benny: React.FC<BennyProps> = ({ userId }) => {
           flex-direction: column;
           z-index: 1000;
           backdrop-filter: blur(10px);
+        }
+
+        .benny-chat.full-page {
+          position: relative;
+          bottom: auto;
+          right: auto;
+          width: 100%;
+          max-width: 1200px;
+          height: calc(100vh - 200px);
+          margin: 0 auto;
+          border-radius: 12px;
         }
 
         .benny-header {
