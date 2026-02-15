@@ -52,7 +52,7 @@ export const Profile: React.FC<ProfileProps> = ({ token, userId, user }) => {
     fetchProfile();
   }, [userId, token, user]);
 
-  if (loading) return <div className="page-container"><p className="profile-loading">Loading profile...</p></div>;
+  if (loading) return <div className="page-container profile-loading">Loading profile...</div>;
   if (!profile) return null;
 
   const formatDate = (dateString: string) => {
