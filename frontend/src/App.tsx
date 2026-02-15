@@ -75,11 +75,19 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [token, setToken] = useState<string>('');
-  const [settings, setSettings] = useState({
-    sport: 'basketball_nba',
-    bookmaker: 'fanduel',
-    model: 'consensus'
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('userSettings');
+    return saved ? JSON.parse(saved) : {
+      sport: 'basketball_nba',
+      bookmaker: 'fanduel',
+      model: 'consensus'
+    };
   });
+
+  // Save settings to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('userSettings', JSON.stringify(settings));
+  }, [settings]);
   const [gameAnalysisKey, setGameAnalysisKey] = useState<string | null>(null);
   const [propAnalysisKey, setPropAnalysisKey] = useState<string | null>(null);
   const [loadingMoreGame, setLoadingMoreGame] = useState(false);
@@ -1109,7 +1117,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         )}
 
         {activePage === 'settings' && (
-          <SettingsPage settings={settings} onSettingsChange={setSettings} />
+          <SettingsPage settings={settings} onSettingsChange={setSettings} subscription={subscription} />
         )}
 
         {activePage === 'system-models' && (
@@ -1121,23 +1129,23 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         )}
 
         {activePage === 'my-models' && (
-          <UserModels token={token} />
+          <UserModels token={token} subscription={subscription} onNavigate={setActivePage} />
         )}
 
         {activePage === 'benny-chat' && (
           <div className="benny-chat-page">
             <div className="benny-chat-container">
-              <Benny userId={userId} token={token} isFullPage={true} subscription={subscription} />
+              <Benny userId={userId} token={token} isFullPage={true} subscription={subscription} onNavigate={setActivePage} />
             </div>
           </div>
         )}
 
         {activePage === 'benny-dashboard' && (
-          <BennyDashboard />
+          <BennyDashboard subscription={subscription} onNavigate={setActivePage} />
         )}
 
         {activePage === 'model-comparison' && (
-          <ModelComparison />
+          <ModelComparison settings={settings} />
         )}
 
         {activePage === 'marketplace' && (

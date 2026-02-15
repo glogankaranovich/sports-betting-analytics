@@ -14,7 +14,6 @@ class SubscriptionTier(Enum):
     FREE = "free"
     BASIC = "basic"  # $9.99/month
     PRO = "pro"  # $29.99/month
-    ENTERPRISE = "enterprise"  # Custom pricing
 
 
 # Subscription tier limits
@@ -25,7 +24,6 @@ TIER_LIMITS = {
         "user_models": False,
         "custom_data": False,
         "model_marketplace": False,
-        "api_calls_per_day": 100,
         "max_user_models": 0,
         "max_custom_datasets": 0,
     },
@@ -35,7 +33,6 @@ TIER_LIMITS = {
         "user_models": True,
         "custom_data": True,
         "model_marketplace": False,
-        "api_calls_per_day": 1000,
         "max_user_models": 3,
         "max_custom_datasets": 5,
     },
@@ -45,19 +42,8 @@ TIER_LIMITS = {
         "user_models": True,
         "custom_data": True,
         "model_marketplace": True,
-        "api_calls_per_day": 10000,
         "max_user_models": 20,
         "max_custom_datasets": 50,
-    },
-    SubscriptionTier.ENTERPRISE: {
-        "system_models": True,
-        "benny_ai": True,
-        "user_models": True,
-        "custom_data": True,
-        "model_marketplace": True,
-        "api_calls_per_day": -1,  # Unlimited
-        "max_user_models": -1,  # Unlimited
-        "max_custom_datasets": -1,  # Unlimited
     },
 }
 

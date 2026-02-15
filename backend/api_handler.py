@@ -6,7 +6,12 @@ from typing import Any, Dict
 import boto3
 
 from api.utils import create_response, decimal_to_float
-from api.user import handle_get_profile, handle_get_subscription, handle_update_profile
+from api.user import (
+    handle_get_profile,
+    handle_get_subscription,
+    handle_update_profile,
+    handle_upgrade_subscription,
+)
 from constants import SYSTEM_MODELS
 from user_models import ModelPrediction, UserModel
 
@@ -56,6 +61,9 @@ def lambda_handler(event, context):
             return handle_update_profile(body)
         elif path == "/subscription":
             return handle_get_subscription(query_params)
+        elif path == "/subscription/upgrade" and http_method == "POST":
+            body = json.loads(event.get("body", "{}"))
+            return handle_upgrade_subscription(body)
         elif path == "/benny/dashboard":
             return handle_get_benny_dashboard()
         elif path == "/analytics":

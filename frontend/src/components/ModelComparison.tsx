@@ -33,15 +33,26 @@ interface ComparisonData {
   computed_at?: string;
 }
 
-export const ModelComparison: React.FC = () => {
+interface ModelComparisonProps {
+  settings?: any;
+}
+
+export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings }) => {
   const [data, setData] = useState<ComparisonData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sport, setSport] = useState('basketball_nba');
+  const [sport, setSport] = useState(settings?.sport || 'basketball_nba');
   const [days, setDays] = useState(90);  // Default to 90 days for better sample size
   const [betTypeFilter, setBetTypeFilter] = useState<'all' | 'game' | 'prop'>('all');
   const [includeUserModels, setIncludeUserModels] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Update sport when settings change
+  useEffect(() => {
+    if (settings?.sport) {
+      setSport(settings.sport);
+    }
+  }, [settings?.sport]);
 
   useEffect(() => {
     const getUserId = async () => {
@@ -135,6 +146,9 @@ export const ModelComparison: React.FC = () => {
           <select value={sport} onChange={(e) => setSport(e.target.value)} className="filter-select">
             <option value="basketball_nba">NBA</option>
             <option value="americanfootball_nfl">NFL</option>
+            <option value="baseball_mlb">MLB</option>
+            <option value="icehockey_nhl">NHL</option>
+            <option value="soccer_epl">EPL</option>
           </select>
 
           <select value={betTypeFilter} onChange={(e) => setBetTypeFilter(e.target.value as 'all' | 'game' | 'prop')} className="filter-select">

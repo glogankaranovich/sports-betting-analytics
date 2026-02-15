@@ -8,9 +8,11 @@ interface SettingsPageProps {
     model: string;
   };
   onSettingsChange: (settings: any) => void;
+  subscription?: any;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange, subscription }) => {
+  const hasBennyAccess = subscription?.limits?.benny_ai !== false;
   const [localSettings, setLocalSettings] = useState(settings);
   const [saved, setSaved] = useState(false);
 
@@ -84,11 +86,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
               }
             >
               <option value="consensus">Consensus</option>
-              <option value="elo">ELO Rating</option>
-              <option value="form">Recent Form</option>
-              <option value="stats">Statistical</option>
+              <option value="ensemble">Ensemble</option>
+              <option value="value">Value</option>
+              <option value="momentum">Momentum</option>
+              <option value="contrarian">Contrarian</option>
+              <option value="hot_cold">Hot/Cold</option>
+              <option value="rest_schedule">Rest/Schedule</option>
+              <option value="matchup">Matchup</option>
+              <option value="injury_aware">Injury-Aware</option>
               <option value="news">News Sentiment</option>
-              <option value="benny">Benny AI</option>
+              {hasBennyAccess && <option value="benny">Benny AI</option>}
             </select>
             <span className="setting-page-hint">
               The prediction model to use by default

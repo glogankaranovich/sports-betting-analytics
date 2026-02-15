@@ -43,7 +43,6 @@ class TestFeatureFlags(unittest.TestCase):
 
         limits = get_user_limits("user1")
         self.assertEqual(limits["max_user_models"], 0)
-        self.assertEqual(limits["api_calls_per_day"], 100)
         self.assertFalse(limits["user_models"])
 
     @patch("feature_flags.get_user_tier")
@@ -53,7 +52,6 @@ class TestFeatureFlags(unittest.TestCase):
 
         limits = get_user_limits("user1")
         self.assertEqual(limits["max_user_models"], 3)
-        self.assertEqual(limits["api_calls_per_day"], 1000)
         self.assertTrue(limits["user_models"])
 
     @patch("feature_flags.get_user_tier")
@@ -85,31 +83,12 @@ class TestSubscriptions(unittest.TestCase):
             "Item": {
                 "tier": "basic",
                 "status": "active",
-                "api_calls_today": 50,
             }
         }
 
         sub = UserSubscription.get("user1")
         self.assertEqual(sub.tier, "basic")
-        self.assertEqual(sub.api_calls_today, 50)
-
-    @patch("subscriptions.table")
-    def test_increment_api_calls_under_limit(self, mock_table):
-        """Should allow API call under limit"""
-        sub = UserSubscription("user1", "free", api_calls_today=50)
-
-        result = sub.increment_api_calls()
-        self.assertTrue(result)
-        self.assertEqual(sub.api_calls_today, 51)
-
-    @patch("subscriptions.table")
-    def test_increment_api_calls_at_limit(self, mock_table):
-        """Should block API call at limit"""
-        sub = UserSubscription("user1", "free", api_calls_today=100)
-
-        result = sub.increment_api_calls()
-        self.assertFalse(result)
-        self.assertEqual(sub.api_calls_today, 100)
+        self.assertEqual(sub.status, "active")
 
 
 if __name__ == "__main__":

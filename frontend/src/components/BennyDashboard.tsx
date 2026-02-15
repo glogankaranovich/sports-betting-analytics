@@ -56,15 +56,23 @@ interface DashboardData {
   recent_bets: Bet[];
 }
 
-export const BennyDashboard: React.FC = () => {
+interface BennyDashboardProps {
+  subscription?: any;
+  onNavigate?: (page: string) => void;
+}
+
+export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, onNavigate }) => {
+  const hasAccess = subscription?.limits?.benny_ai !== false;
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedBet, setExpandedBet] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    if (hasAccess) {
+      fetchDashboard();
+    }
+  }, [hasAccess]);
 
   const fetchDashboard = async () => {
     try {
@@ -79,6 +87,36 @@ export const BennyDashboard: React.FC = () => {
       setLoading(false);
     }
   };
+
+  if (!hasAccess) return (
+    <div className="benny-chat full-page">
+      <div style={{ 
+        padding: '40px', 
+        textAlign: 'center',
+        background: '#1a1a1a',
+        borderRadius: '8px',
+        border: '1px solid #333'
+      }}>
+        <h3 style={{ marginBottom: '16px' }}>🤖 Benny's Trading Dashboard</h3>
+        <p style={{ color: '#ccc', marginBottom: '24px' }}>
+          Watch Benny, our AI trader, make autonomous bets with a $100/week budget.
+        </p>
+        <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
+          <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Real-time performance tracking</li>
+          <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ AI reasoning for each bet</li>
+          <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Confidence calibration analysis</li>
+          <li style={{ padding: '8px 0' }}>✓ Sport-by-sport breakdowns</li>
+        </ul>
+        <button 
+          className="upgrade-btn" 
+          onClick={() => onNavigate?.('subscription')}
+          style={{ width: '100%' }}
+        >
+          Upgrade to Access Benny
+        </button>
+      </div>
+    </div>
+  );
 
   if (loading) return (
     <div className="loading">Loading Benny's dashboard...</div>

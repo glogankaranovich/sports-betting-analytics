@@ -1,10 +1,9 @@
 """
-API Middleware for Feature Flags and Rate Limiting
+API Middleware for Feature Flags and Resource Limits
 """
 
 from typing import Dict
 from feature_flags import is_feature_enabled, get_user_limits
-from subscriptions import UserSubscription
 
 
 def check_feature_access(user_id: str, feature_name: str) -> Dict:
@@ -15,23 +14,6 @@ def check_feature_access(user_id: str, feature_name: str) -> Dict:
             "error": f"Feature '{feature_name}' not available on your plan. Upgrade to access.",
         }
     return {"allowed": True}
-
-
-def check_rate_limit(user_id: str) -> Dict:
-    """Check if user is within rate limits"""
-    subscription = UserSubscription.get(user_id)
-    limits = get_user_limits(user_id)
-
-    if not subscription.increment_api_calls():
-        return {
-            "allowed": False,
-            "error": f"Daily API limit reached ({limits['api_calls_per_day']} calls). Upgrade for more.",
-        }
-
-    return {
-        "allowed": True,
-        "remaining": limits["api_calls_per_day"] - subscription.api_calls_today,
-    }
 
 
 def check_resource_limit(user_id: str, resource_type: str, current_count: int) -> Dict:

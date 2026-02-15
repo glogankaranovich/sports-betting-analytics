@@ -1,0 +1,150 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 1200px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #fff;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 32px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #fff;
+}
+
+.tiers-grid {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tier-card {
+  background: #2a2a2a;
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.3s;
+  flex: 0 1 280px;
+  min-width: 250px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tier-card:hover {
+  border-color: #4a9eff;
+  transform: translateY(-4px);
+}
+
+.tier-card.current {
+  border-color: #28a745;
+  background: #1a2a1a;
+}
+
+.tier-card h3 {
+  margin: 0 0 12px 0;
+  color: #fff;
+  font-size: 24px;
+}
+
+.tier-price {
+  font-size: 28px;
+  font-weight: bold;
+  color: #4a9eff;
+  margin-bottom: 20px;
+}
+
+.tier-limits {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #1a1a1a;
+  border-radius: 6px;
+}
+
+.tier-limits div {
+  color: #ccc;
+  margin: 4px 0;
+}
+
+.tier-features {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+  text-align: left;
+  flex-grow: 1;
+}
+
+.tier-features li {
+  color: #ccc;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+}
+
+.tier-features li:last-child {
+  border-bottom: none;
+}
+
+.tier-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: auto;
+}
+
+.select-btn {
+  background: #4a9eff;
+  color: #fff;
+}
+
+.select-btn:hover {
+  background: #3a8eef;
+}
+
+.current-btn {
+  background: #28a745;
+  color: #fff;
+  cursor: default;
+}

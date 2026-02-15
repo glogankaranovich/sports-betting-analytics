@@ -1,7 +1,7 @@
 """
 User Subscriptions
 
-Manages user subscription tiers and usage tracking.
+Manages user subscription tiers.
 """
 
 import os
@@ -25,7 +25,6 @@ class UserSubscription:
         stripe_subscription_id: str = None,
         current_period_start: str = None,
         current_period_end: str = None,
-        api_calls_today: int = 0,
     ):
         self.user_id = user_id
         self.tier = tier
@@ -33,7 +32,6 @@ class UserSubscription:
         self.stripe_subscription_id = stripe_subscription_id
         self.current_period_start = current_period_start
         self.current_period_end = current_period_end
-        self.api_calls_today = api_calls_today
 
     @staticmethod
     def get(user_id: str) -> Optional["UserSubscription"]:
@@ -51,7 +49,6 @@ class UserSubscription:
                     stripe_subscription_id=item.get("stripe_subscription_id"),
                     current_period_start=item.get("current_period_start"),
                     current_period_end=item.get("current_period_end"),
-                    api_calls_today=int(item.get("api_calls_today", 0)),
                 )
             # Return free tier if no subscription found
             return UserSubscription(user_id=user_id, tier="free")
@@ -70,33 +67,19 @@ class UserSubscription:
                 "stripe_subscription_id": self.stripe_subscription_id,
                 "current_period_start": self.current_period_start,
                 "current_period_end": self.current_period_end,
-                "api_calls_today": self.api_calls_today,
                 "updated_at": datetime.utcnow().isoformat(),
             }
         )
 
-    def increment_api_calls(self) -> bool:
-        """Increment API call count, return False if limit exceeded"""
-        from feature_flags import TIER_LIMITS, SubscriptionTier
-
-        tier_enum = SubscriptionTier(self.tier)
-        limits = TIER_LIMITS[tier_enum]
-        daily_limit = limits["api_calls_per_day"]
-
-        # Unlimited
-        if daily_limit == -1:
-            return True
-
-        # Check limit
-        if self.api_calls_today >= daily_limit:
-            return False
-
-        # Increment
-        self.api_calls_today += 1
+    def update_tier(self, new_tier: str, stripe_subscription_id: str = None):
+        """Update subscription tier"""
+        self.tier = new_tier
+        if stripe_subscription_id:
+            self.stripe_subscription_id = stripe_subscription_id
         self.save()
-        return True
 
-    def reset_daily_usage(self):
-        """Reset daily API call counter (run daily via cron)"""
-        self.api_calls_today = 0
+    def cancel(self):
+        """Cancel subscription (downgrade to free)"""
+        self.tier = "free"
+        self.status = "cancelled"
         self.save()

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Account.css';
+import { SubscriptionModal } from './SubscriptionModal';
 
 interface AccountProps {
   token: string;
@@ -16,6 +17,7 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
   const [localSettings, setLocalSettings] = useState(settings);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -57,6 +59,36 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
     onSettingsChange(localSettings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleUpgrade = async (tier: string) => {
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/subscription/upgrade`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ user_id: userId, tier })
+        }
+      );
+
+      if (!response.ok) throw new Error('Failed to upgrade subscription');
+
+      const data = await response.json();
+      
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        await fetchData();
+        setShowModal(false);
+        alert('Subscription updated successfully!');
+      }
+    } catch (err) {
+      alert(`Update failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   const handleResetSettings = () => {
@@ -139,22 +171,36 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
             
             <div className="usage-stats">
               <div className="usage-item">
-                <label>API Calls Today</label>
+                <label>User Models</label>
                 <div className="usage-bar">
                   <div 
                     className="usage-fill" 
-                    style={{ width: `${(subscription.usage.api_calls_today / subscription.limits.api_calls_per_day) * 100}%` }}
+                    style={{ 
+                      width: subscription.limits.max_user_models === -1 
+                        ? '0%' 
+                        : `${(subscription.usage.user_models_count / subscription.limits.max_user_models) * 100}%` 
+                    }}
                   />
                 </div>
-                <span>{subscription.usage.api_calls_today} / {subscription.limits.api_calls_per_day}</span>
-              </div>
-              <div className="usage-item">
-                <label>User Models</label>
-                <span>{subscription.usage.user_models_count} / {subscription.limits.max_user_models}</span>
+                <span>
+                  {subscription.usage.user_models_count} / {subscription.limits.max_user_models === -1 ? '∞' : subscription.limits.max_user_models}
+                </span>
               </div>
               <div className="usage-item">
                 <label>Custom Datasets</label>
-                <span>{subscription.usage.datasets_count} / {subscription.limits.max_custom_datasets}</span>
+                <div className="usage-bar">
+                  <div 
+                    className="usage-fill" 
+                    style={{ 
+                      width: subscription.limits.max_custom_datasets === -1 
+                        ? '0%' 
+                        : `${(subscription.usage.datasets_count / subscription.limits.max_custom_datasets) * 100}%` 
+                    }}
+                  />
+                </div>
+                <span>
+                  {subscription.usage.datasets_count} / {subscription.limits.max_custom_datasets === -1 ? '∞' : subscription.limits.max_custom_datasets}
+                </span>
               </div>
             </div>
 
@@ -184,13 +230,27 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
                 </span>
                 Custom Data
               </div>
+              <div className="feature-item">
+                <span className={subscription.limits.model_marketplace ? 'enabled' : 'disabled'}>
+                  {subscription.limits.model_marketplace ? '✓' : '✗'}
+                </span>
+                Model Marketplace
+              </div>
             </div>
 
-            {subscription.tier === 'free' && (
-              <button className="upgrade-btn">Upgrade Plan</button>
-            )}
+            <button className="upgrade-btn" onClick={() => setShowModal(true)}>
+              Change Plan
+            </button>
           </div>
         </div>
+      )}
+
+      {showModal && (
+        <SubscriptionModal
+          currentTier={subscription?.tier || 'free'}
+          onClose={() => setShowModal(false)}
+          onSelectTier={handleUpgrade}
+        />
       )}
 
       {activeTab === 'preferences' && (
@@ -234,20 +294,23 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
                 value={localSettings.model}
                 onChange={(e) => setLocalSettings({ ...localSettings, model: e.target.value })}
               >
-                <option value="consensus">Consensus</option>
-                <option value="ensemble">Ensemble</option>
-                <option value="value">Value</option>
-                <option value="momentum">Momentum</option>
-                <option value="contrarian">Contrarian</option>
-                <option value="hot_cold">Hot/Cold</option>
-                <option value="rest_schedule">Rest/Schedule</option>
-                <option value="matchup">Matchup</option>
-                <option value="injury_aware">Injury-Aware</option>
-                <option value="news">News Sentiment</option>
+                <optgroup label="System Models">
+                  <option value="consensus">Consensus</option>
+                  <option value="ensemble">Ensemble</option>
+                  <option value="value">Value</option>
+                  <option value="momentum">Momentum</option>
+                  <option value="contrarian">Contrarian</option>
+                  <option value="hot_cold">Hot/Cold</option>
+                  <option value="rest_schedule">Rest/Schedule</option>
+                  <option value="matchup">Matchup</option>
+                  <option value="injury_aware">Injury-Aware</option>
+                  <option value="news">News Sentiment</option>
+                  {subscription?.limits?.benny_ai && <option value="benny">Benny AI</option>}
+                </optgroup>
               </select>
             </div>
 
-            <div className="account-actions">
+            <div className="account-actions" style={{ justifyContent: 'flex-end' }}>
               <button className="save-btn" onClick={handleSaveSettings}>
                 {saved ? 'Saved!' : 'Save Changes'}
               </button>

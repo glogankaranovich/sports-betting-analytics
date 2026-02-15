@@ -7,9 +7,12 @@ import { bettingApi } from '../services/api';
 
 interface UserModelsProps {
   token: string;
+  subscription?: any;
+  onNavigate?: (page: string) => void;
 }
 
-export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
+export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onNavigate }) => {
+  const hasAccess = subscription?.limits?.user_models !== false;
   const [selectedModel, setSelectedModel] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
@@ -103,6 +106,38 @@ export const UserModels: React.FC<UserModelsProps> = ({ token }) => {
 
   if (loading) {
     return <div className="loading">Loading your models...</div>;
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="benny-chat full-page">
+        <div style={{ 
+          padding: '40px', 
+          textAlign: 'center',
+          background: '#1a1a1a',
+          borderRadius: '8px',
+          border: '1px solid #333'
+        }}>
+          <h3 style={{ marginBottom: '16px' }}>🎯 Custom Models</h3>
+          <p style={{ color: '#ccc', marginBottom: '24px' }}>
+            Create your own betting models with custom data sources and weights.
+          </p>
+          <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Build custom prediction models</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Upload your own data sources</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Configure custom weights</li>
+            <li style={{ padding: '8px 0' }}>✓ Track model performance</li>
+          </ul>
+          <button 
+            className="upgrade-btn" 
+            onClick={() => onNavigate?.('subscription')}
+            style={{ width: '100%' }}
+          >
+            Upgrade to Create Models
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!featureEnabled) {

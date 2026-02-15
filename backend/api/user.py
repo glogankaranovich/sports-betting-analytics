@@ -22,26 +22,28 @@ def handle_get_subscription(query_params: Dict[str, str]):
         if not user_id:
             return create_response(400, {"error": "user_id is required"})
 
-        # TODO: Implement actual subscription logic
-        # For now, return free tier with default limits
+        from subscriptions import UserSubscription
+        from feature_flags import get_user_limits
+        from user_models import UserModel
+        from custom_data import CustomDataset
+
+        # Get subscription
+        subscription = UserSubscription.get(user_id)
+        limits = get_user_limits(user_id)
+
+        # Get current usage counts
+        user_models = UserModel.list_by_user(user_id)
+        datasets = CustomDataset.list_by_user(user_id)
+
         return create_response(
             200,
             {
-                "tier": "free",
-                "limits": {
-                    "system_models": True,
-                    "benny_ai": False,
-                    "user_models": False,
-                    "custom_data": False,
-                    "model_marketplace": False,
-                    "api_calls_per_day": 100,
-                    "max_user_models": 0,
-                    "max_custom_datasets": 0,
-                },
+                "tier": subscription.tier,
+                "status": subscription.status,
+                "limits": limits,
                 "usage": {
-                    "api_calls_today": 0,
-                    "user_models_count": 0,
-                    "datasets_count": 0,
+                    "user_models_count": len(user_models),
+                    "datasets_count": len(datasets),
                 },
             },
         )
@@ -106,3 +108,32 @@ def handle_update_profile(body: Dict[str, Any]):
         return create_response(200, {"message": "Profile updated successfully"})
     except Exception as e:
         return create_response(500, {"error": f"Error updating profile: {str(e)}"})
+
+
+def handle_upgrade_subscription(body: Dict[str, Any]):
+    """Upgrade user subscription tier"""
+    try:
+        user_id = body.get("user_id")
+        tier = body.get("tier")
+
+        if not user_id or not tier:
+            return create_response(400, {"error": "user_id and tier are required"})
+
+        if tier not in ["basic", "pro"]:
+            return create_response(400, {"error": "Invalid tier"})
+
+        from subscriptions import UserSubscription
+
+        # Get current subscription
+        subscription = UserSubscription.get(user_id)
+
+        # For now, just update the tier directly (no Stripe integration yet)
+        subscription.update_tier(tier)
+
+        return create_response(
+            200, {"message": f"Subscription upgraded to {tier}", "tier": tier}
+        )
+    except Exception as e:
+        return create_response(
+            500, {"error": f"Error upgrading subscription: {str(e)}"}
+        )
