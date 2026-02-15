@@ -33,14 +33,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
   return (
     <div className="page-container settings-page-container">
       <h2>Preferences</h2>
-      <p>Configure your default settings</p>
 
       <div className="settings-page-section">
-        <h3>Default Preferences</h3>
-        <p className="section-description">
-          These settings will be applied when you first load the app
-        </p>
-
         <div className="settings-page-grid">
           <div className="setting-page-item">
             <label>Default Sport</label>
@@ -110,15 +104,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
         <button className="save-page-btn" onClick={handleSave}>
           {saved ? '✓ Saved!' : 'Save Settings'}
         </button>
-      </div>
-
-      <div className="settings-page-info">
-        <h4>About Settings</h4>
-        <ul>
-          <li>Settings are saved locally in your browser</li>
-          <li>You can change sport, bookmaker, and model anytime from the main page</li>
-          <li>These defaults only affect the initial view when you load the app</li>
-        </ul>
       </div>
     </div>
   );
