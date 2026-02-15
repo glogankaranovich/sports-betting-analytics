@@ -57,7 +57,10 @@ def handle_chat(event: Dict[str, Any]) -> Dict[str, Any]:
 
         # Non-streaming response for Lambda
         response = agent.chat(
-            message=message, conversation_history=conversation_history, stream=False
+            message=message,
+            user_id=user_id,
+            conversation_history=conversation_history,
+            stream=False,
         )
 
         return {
