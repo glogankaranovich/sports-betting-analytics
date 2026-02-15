@@ -72,7 +72,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
   return (
     <div className="page-container subscription-container">
       <h2>Subscription</h2>
-      <p>Manage your plan and usage</p>
 
       <div className="current-plan">
         <div className="tier-badge" style={{ backgroundColor: tierInfo.color }}>
