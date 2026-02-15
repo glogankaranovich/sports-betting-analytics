@@ -13,6 +13,7 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ section, currentPage, 
   const getSectionName = () => {
     if (section === 'user-home') return 'User';
     if (section === 'analysis-home') return 'Analysis';
+    if (section === 'benny-home') return 'Benny AI';
     if (section === 'models-home') return 'Models';
     if (section === 'about') return 'About';
     if (section === 'marketplace') return 'Marketplace';
@@ -32,7 +33,8 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ section, currentPage, 
       'my-models': 'My Models',
       'model-analytics': 'Model Analytics',
       'model-comparison': 'Model Comparison',
-      'benny-dashboard': 'Benny Dashboard',
+      'benny-chat': 'Chat',
+      'benny-dashboard': 'Dashboard',
       'how-it-works': 'How It Works',
       'terms': 'Terms of Service',
       'privacy': 'Privacy Policy',

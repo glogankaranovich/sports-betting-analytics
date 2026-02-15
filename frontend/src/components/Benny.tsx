@@ -11,14 +11,32 @@ interface Message {
 interface BennyProps {
   userId: string;
   isFullPage?: boolean;
+  subscription?: any;
 }
 
-export const Benny: React.FC<BennyProps> = ({ userId, isFullPage = false }) => {
+export const Benny: React.FC<BennyProps> = ({ userId, isFullPage = false, subscription }) => {
+  const hasAccess = subscription?.limits?.benny_ai !== false;
+  const canCreateModels = subscription?.limits?.user_models !== false;
+  
+  const getWelcomeMessage = () => {
+    const features = [
+      'Analyze prediction performance',
+      'Query historical stats',
+      'Explain predictions'
+    ];
+    
+    if (canCreateModels) {
+      features.unshift('Create custom betting models');
+    }
+    
+    return `Hey! I'm Benny, your AI betting analyst. I can help you:\n\n${features.map(f => `• ${f}`).join('\n')}\n\nWhat would you like to do?`;
+  };
+
   const [isOpen, setIsOpen] = useState(isFullPage);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hey! I\'m Benny, your AI betting analyst. I can help you:\n\n• Create custom betting models\n• Analyze prediction performance\n• Query historical stats\n• Explain predictions\n\nWhat would you like to do?'
+      content: getWelcomeMessage()
     }
   ]);
   const [input, setInput] = useState('');
@@ -100,7 +118,23 @@ export const Benny: React.FC<BennyProps> = ({ userId, isFullPage = false }) => {
       )}
 
       {/* Chat Window */}
-      {isOpen && (
+      {isOpen && !hasAccess && (
+        <div className={`benny-chat ${isFullPage ? 'full-page' : ''}`}>
+          <div className="benny-upgrade-prompt">
+            <h3>🤖 Benny AI</h3>
+            <p>Get AI-powered betting insights and analysis with Benny.</p>
+            <ul>
+              <li>Analyze prediction performance</li>
+              <li>Query historical stats</li>
+              <li>Explain predictions</li>
+              <li>Get personalized recommendations</li>
+            </ul>
+            <button className="upgrade-button">Upgrade to Access Benny</button>
+          </div>
+        </div>
+      )}
+
+      {isOpen && hasAccess && (
         <div className={`benny-chat ${isFullPage ? 'full-page' : ''}`}>
           <div className="benny-header">
             <div>
@@ -152,6 +186,67 @@ export const Benny: React.FC<BennyProps> = ({ userId, isFullPage = false }) => {
       )}
 
       <style>{`
+        .benny-upgrade-prompt {
+          padding: 3rem 2rem;
+          text-align: center;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .benny-upgrade-prompt h3 {
+          font-size: 2rem;
+          margin-bottom: 1rem;
+          color: #fff;
+        }
+
+        .benny-upgrade-prompt p {
+          font-size: 1.1rem;
+          margin-bottom: 2rem;
+          color: rgba(255, 255, 255, 0.8);
+        }
+
+        .benny-upgrade-prompt ul {
+          list-style: none;
+          padding: 0;
+          margin: 2rem 0;
+          text-align: left;
+          max-width: 400px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        .benny-upgrade-prompt li {
+          padding: 0.75rem 0;
+          padding-left: 2rem;
+          position: relative;
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        .benny-upgrade-prompt li:before {
+          content: '✓';
+          position: absolute;
+          left: 0;
+          color: #48bb78;
+          font-weight: bold;
+        }
+
+        .upgrade-button {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          padding: 1rem 2rem;
+          font-size: 1.1rem;
+          font-weight: 600;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+          margin-top: 1rem;
+        }
+
+        .upgrade-button:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
         .benny-button {
           position: fixed;
           bottom: 60px;

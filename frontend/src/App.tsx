@@ -98,6 +98,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   }, [sideNavCollapsed]);
   
   const [userId, setUserId] = useState<string>('');
+  const [subscription, setSubscription] = useState<any>(null);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -135,6 +136,27 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       }
     };
     fetchUserModels();
+  }, [token, userId]);
+
+  // Fetch subscription
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      if (token && userId) {
+        try {
+          const response = await fetch(
+            `${process.env.REACT_APP_API_URL}/subscription?user_id=${userId}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setSubscription(data);
+          }
+        } catch (error) {
+          console.error('Error fetching subscription:', error);
+        }
+      }
+    };
+    fetchSubscription();
   }, [token, userId]);
 
   // Refetch data when settings change
@@ -1101,7 +1123,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         {activePage === 'benny-chat' && (
           <div className="benny-chat-page">
             <div className="benny-chat-container">
-              <Benny userId={userId} isFullPage={true} />
+              <Benny userId={userId} isFullPage={true} subscription={subscription} />
             </div>
           </div>
         )}
