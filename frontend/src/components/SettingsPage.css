@@ -1,38 +1,26 @@
 .settings-page-container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.settings-page-header {
-  margin-bottom: 2rem;
-}
-
-.settings-page-header h1 {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.settings-page-header p {
-  color: #6c757d;
+  max-width: 800px;
 }
 
 .settings-page-section {
-  background: white;
-  border: 1px solid #dee2e6;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 2rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .settings-page-section h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
 }
 
 .section-description {
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.6);
   margin-bottom: 1.5rem;
+  font-size: 0.95rem;
 }
 
 .settings-page-grid {
@@ -43,91 +31,67 @@
 .setting-page-item {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
 .setting-page-item label {
-  font-size: 0.875rem;
-  color: #212529;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .setting-page-item select {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
   padding: 0.75rem;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
+  color: #fff;
   font-size: 1rem;
-  background: white;
   cursor: pointer;
-  margin-bottom: 0.5rem;
 }
 
 .setting-page-item select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #00d4ff;
 }
 
 .setting-page-hint {
-  font-size: 0.875rem;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
 }
 
 .settings-page-actions {
   display: flex;
   gap: 1rem;
-  justify-content: flex-end;
-  margin-bottom: 1.5rem;
+  margin-top: 2rem;
 }
 
-.reset-page-btn,
-.save-page-btn {
-  padding: 0.75rem 2rem;
-  border: none;
+.save-page-btn, .reset-page-btn {
+  padding: 0.75rem 1.5rem;
   border-radius: 8px;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
-  font-size: 1rem;
+  transition: all 0.2s;
+  border: none;
+}
+
+.save-page-btn {
+  background: linear-gradient(135deg, #00d4ff, #48bb78);
+  color: #fff;
+}
+
+.save-page-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
 }
 
 .reset-page-btn {
-  background: #6c757d;
-  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.save-page-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.reset-page-btn:hover,
-.save-page-btn:hover {
-  opacity: 0.9;
-}
-
-.settings-page-info {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 12px;
-  padding: 1.5rem;
-}
-
-.settings-page-info h4 {
-  margin: 0 0 1rem 0;
-  font-size: 1rem;
-}
-
-.settings-page-info ul {
-  margin: 0;
-  padding-left: 1.5rem;
-}
-
-.settings-page-info li {
-  color: #6c757d;
-  margin-bottom: 0.5rem;
-}
-
-.settings-page-info li:last-child {
-  margin-bottom: 0;
+.reset-page-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
 }

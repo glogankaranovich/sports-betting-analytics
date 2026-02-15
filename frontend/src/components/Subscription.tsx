@@ -62,42 +62,81 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
     }
   };
 
-  if (loading) return <div className="subscription-loading">Loading subscription...</div>;
-  if (error) return <div className="subscription-error">Error: {error}</div>;
+  if (loading) return <div className="page-container"><p>Loading subscription...</p></div>;
+  if (error) return <div className="page-container"><p>Error: {error}</p></div>;
   if (!subscription) return null;
 
   const tierInfo = TIER_INFO[subscription.tier as keyof typeof TIER_INFO];
   const { limits, usage } = subscription;
 
   return (
-    <div className="subscription-container">
-      <div className="subscription-header">
-        <h1>Subscription</h1>
-        <p>Manage your plan and usage</p>
-      </div>
+    <div className="page-container subscription-container">
+      <h2>Subscription</h2>
+      <p>Manage your plan and usage</p>
 
       <div className="current-plan">
-        <div className="plan-badge" style={{ backgroundColor: tierInfo.color }}>
+        <div className="tier-badge" style={{ backgroundColor: tierInfo.color }}>
           {tierInfo.name}
         </div>
-        <h2>Current Plan: {tierInfo.name}</h2>
-        <p className="plan-price">{tierInfo.price}</p>
-      </div>
-
-      <div className="usage-stats">
-        <h3>Usage This Period</h3>
-        <div className="stats-grid">
-          <div className="stat-card">
-            <div className="stat-label">API Calls</div>
-            <div className="stat-value">
-              {usage.api_calls_today} / {limits.api_calls_per_day === -1 ? '∞' : limits.api_calls_per_day}
-            </div>
-            <div className="stat-bar">
+        <h2>Current Plan</h2>
+        <p className="tier-price">{tierInfo.price}</p>
+        
+        <div className="usage-stats">
+          <div className="usage-item">
+            <label>API Calls Today</label>
+            <div className="usage-bar">
               <div 
-                className="stat-bar-fill" 
-                style={{ 
-                  width: limits.api_calls_per_day === -1 ? '0%' : 
-                    `${Math.min((usage.api_calls_today / limits.api_calls_per_day) * 100, 100)}%` 
+                className="usage-fill" 
+                style={{ width: `${(usage.api_calls_today / limits.api_calls_per_day) * 100}%` }}
+              />
+            </div>
+            <span>{usage.api_calls_today} / {limits.api_calls_per_day}</span>
+          </div>
+          <div className="usage-item">
+            <label>User Models</label>
+            <span>{usage.user_models_count} / {limits.max_user_models}</span>
+          </div>
+          <div className="usage-item">
+            <label>Custom Datasets</label>
+            <span>{usage.datasets_count} / {limits.max_custom_datasets}</span>
+          </div>
+        </div>
+
+        <div className="features-list">
+          <h3>Plan Features</h3>
+          <div className="feature-item">
+            <span className={limits.system_models ? 'enabled' : 'disabled'}>
+              {limits.system_models ? '✓' : '✗'}
+            </span>
+            System Models
+          </div>
+          <div className="feature-item">
+            <span className={limits.benny_ai ? 'enabled' : 'disabled'}>
+              {limits.benny_ai ? '✓' : '✗'}
+            </span>
+            Benny AI
+          </div>
+          <div className="feature-item">
+            <span className={limits.user_models ? 'enabled' : 'disabled'}>
+              {limits.user_models ? '✓' : '✗'}
+            </span>
+            Custom Models
+          </div>
+          <div className="feature-item">
+            <span className={limits.custom_data ? 'enabled' : 'disabled'}>
+              {limits.custom_data ? '✓' : '✗'}
+            </span>
+            Custom Data
+          </div>
+        </div>
+
+        {subscription.tier === 'free' && (
+          <button className="upgrade-btn">Upgrade Plan</button>
+        )}
+      </div>
+    </div>
+  );
+}; 
                 }}
               />
             </div>

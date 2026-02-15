@@ -31,11 +31,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange 
   };
 
   return (
-    <div className="settings-page-container">
-      <div className="settings-page-header">
-        <h1>Settings</h1>
-        <p>Configure your default preferences for analysis</p>
-      </div>
+    <div className="page-container settings-page-container">
+      <h2>Preferences</h2>
+      <p>Configure your default settings</p>
 
       <div className="settings-page-section">
         <h3>Default Preferences</h3>
