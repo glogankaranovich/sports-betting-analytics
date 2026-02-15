@@ -62,8 +62,8 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
     }
   };
 
-  if (loading) return <div className="page-container"><p>Loading subscription...</p></div>;
-  if (error) return <div className="page-container"><p>Error: {error}</p></div>;
+  if (loading) return <div className="page-container"><p className="subscription-loading">Loading subscription...</p></div>;
+  if (error) return <div className="page-container"><p className="subscription-error">Error: {error}</p></div>;
   if (!subscription) return null;
 
   const tierInfo = TIER_INFO[subscription.tier as keyof typeof TIER_INFO];
