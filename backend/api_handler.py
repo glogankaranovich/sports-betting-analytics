@@ -21,6 +21,37 @@ table_name = os.getenv("DYNAMODB_TABLE")
 table = dynamodb.Table(table_name)
 
 
+def calculate_roi(odds: int, confidence: float) -> dict:
+    """Calculate ROI and risk level from odds and confidence"""
+    if not odds:
+        return {"roi": None, "risk_level": "unknown"}
+
+    # Calculate implied probability from odds
+    if odds < 0:
+        implied_prob = abs(odds) / (abs(odds) + 100)
+        roi_multiplier = 100 / abs(odds)
+    else:
+        implied_prob = 100 / (odds + 100)
+        roi_multiplier = odds / 100
+
+    # Calculate expected ROI: (confidence * roi_multiplier) - (1 - confidence)
+    expected_roi = (confidence * roi_multiplier) - (1 - confidence)
+
+    # Determine risk level
+    if confidence >= 0.65:
+        risk_level = "conservative"
+    elif confidence >= 0.55:
+        risk_level = "moderate"
+    else:
+        risk_level = "aggressive"
+
+    return {
+        "roi": round(expected_roi * 100, 1),  # As percentage
+        "risk_level": risk_level,
+        "implied_probability": round(implied_prob * 100, 1),
+    }
+
+
 def lambda_handler(event, context):
     """Main Lambda handler for API requests"""
     try:
@@ -777,6 +808,72 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
         sport = query_params.get("sport", "basketball_nba")
         days = int(query_params.get("days", 90))
         user_id = query_params.get("user_id")
+
+        # Handle "all sports" request
+        if sport == "all":
+            all_sports = [
+                "basketball_nba",
+                "americanfootball_nfl",
+                "baseball_mlb",
+                "icehockey_nhl",
+                "soccer_epl",
+            ]
+            all_models = []
+
+            for s in all_sports:
+                # Try cache first
+                cache_key = f"MODEL_COMPARISON#{s}#{days}"
+                try:
+                    cache_response = table.get_item(
+                        Key={"pk": "CACHE", "sk": cache_key}
+                    )
+                    if "Item" in cache_response:
+                        all_models.extend(cache_response["Item"]["data"])
+                        continue
+                except Exception:
+                    pass
+
+                # Compute if not cached
+                cutoff_time = (
+                    (datetime.utcnow() - timedelta(days=days)).isoformat()
+                    if days < 9999
+                    else "2000-01-01T00:00:00"
+                )
+
+                for model in SYSTEM_MODELS:
+                    if model == "benny" and not user_id:
+                        continue
+                    model_data = _get_model_comparison_data(
+                        model, s, cutoff_time, is_user_model=False
+                    )
+                    if model_data:
+                        all_models.extend(model_data)
+
+            # Filter Benny based on access
+            if user_id:
+                from feature_flags import get_user_limits
+
+                limits = get_user_limits(user_id)
+                if not limits.get("benny_ai", False):
+                    all_models = [m for m in all_models if m.get("model") != "benny"]
+            else:
+                all_models = [m for m in all_models if m.get("model") != "benny"]
+
+            # Sort by best accuracy
+            all_models.sort(
+                key=lambda x: max(x["original_accuracy"], x["inverse_accuracy"]),
+                reverse=True,
+            )
+
+            return create_response(
+                200,
+                {
+                    "sport": "all",
+                    "days": days,
+                    "models": all_models,
+                    "cached": False,
+                },
+            )
 
         # Try to get from cache first
         cache_key = f"MODEL_COMPARISON#{sport}#{days}"

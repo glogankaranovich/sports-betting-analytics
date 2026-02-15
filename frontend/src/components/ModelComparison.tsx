@@ -40,19 +40,12 @@ interface ModelComparisonProps {
 export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings }) => {
   const [data, setData] = useState<ComparisonData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sport, setSport] = useState(settings?.sport || 'basketball_nba');
+  const [sport, setSport] = useState('all');
   const [days, setDays] = useState(90);  // Default to 90 days for better sample size
   const [betTypeFilter, setBetTypeFilter] = useState<'all' | 'game' | 'prop'>('all');
   const [includeUserModels, setIncludeUserModels] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-
-  // Update sport when settings change
-  useEffect(() => {
-    if (settings?.sport) {
-      setSport(settings.sport);
-    }
-  }, [settings?.sport]);
 
   useEffect(() => {
     const getUserId = async () => {

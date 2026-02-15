@@ -60,10 +60,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [gameAnalysisPage, setGameAnalysisPage] = useState(1);
   const itemsPerPage = 20;
   const [marketFilter, setMarketFilter] = useState<string>('all');
-  const [gameAnalysisSort, setGameAnalysisSort] = useState<'confidence' | 'time'>('confidence');
+  const [gameAnalysisSort, setGameAnalysisSort] = useState<'confidence' | 'time' | 'roi'>('confidence');
   const [gameAnalysisSortDir, setGameAnalysisSortDir] = useState<'asc' | 'desc'>('desc');
-  const [propAnalysisSort, setPropAnalysisSort] = useState<'confidence' | 'time'>('confidence');
+  const [propAnalysisSort, setPropAnalysisSort] = useState<'confidence' | 'time' | 'roi'>('confidence');
   const [propAnalysisSortDir, setPropAnalysisSortDir] = useState<'asc' | 'desc'>('desc');
+  const [riskFilter, setRiskFilter] = useState<'all' | 'conservative' | 'moderate' | 'aggressive'>('all');
   const [showGameAnalysisFilters, setShowGameAnalysisFilters] = useState(false);
   const [showGameAnalysisSort, setShowGameAnalysisSort] = useState(false);
   const [showPropAnalysisFilters, setShowPropAnalysisFilters] = useState(false);
@@ -73,6 +74,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [gamesSort, setGamesSort] = useState<'time' | 'team'>('time');
   const [gamesSortDir, setGamesSortDir] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState(false);
+  const [predictionTypeFilter, setPredictionTypeFilter] = useState<'all' | 'original' | 'inverse'>('all');
   const [showSort, setShowSort] = useState(false);
   const [token, setToken] = useState<string>('');
   const [settings, setSettings] = useState(() => {
@@ -295,9 +297,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       const token = session.tokens?.idToken?.toString();
       
       if (token) {
-        // Fetch model comparison data (uses cache)
+        // Fetch model comparison data for all sports (uses cache)
         const response = await fetch(
-          `${process.env.REACT_APP_API_URL}/model-comparison?sport=${settings.sport}&days=90`,
+          `${process.env.REACT_APP_API_URL}/model-comparison?sport=all&days=90`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -362,7 +364,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     } catch (err) {
       console.error('Error fetching model leaderboard:', err);
     }
-  }, [settings.sport]);
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -810,6 +812,25 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   onChange={(e) => setTeamFilter(e.target.value)}
                   className="filter-select"
                 />
+                <select
+                  value={predictionTypeFilter}
+                  onChange={(e) => setPredictionTypeFilter(e.target.value as 'all' | 'original' | 'inverse')}
+                  className="filter-select"
+                >
+                  <option value="all">All Predictions</option>
+                  <option value="original">Original Only (Bet With Model)</option>
+                  <option value="inverse">Inverse Only (Bet Against Model)</option>
+                </select>
+                <select
+                  value={riskFilter}
+                  onChange={(e) => setRiskFilter(e.target.value as 'all' | 'conservative' | 'moderate' | 'aggressive')}
+                  className="filter-select"
+                >
+                  <option value="all">All Risk Levels</option>
+                  <option value="conservative">Conservative</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="aggressive">Aggressive</option>
+                </select>
               </div>
             )}
             
@@ -818,9 +839,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 <select 
                   className="filter-select"
                   value={gameAnalysisSort} 
-                  onChange={(e) => setGameAnalysisSort(e.target.value as 'confidence' | 'time')}
+                  onChange={(e) => setGameAnalysisSort(e.target.value as 'confidence' | 'time' | 'roi')}
                 >
                   <option value="confidence">Sort by Confidence</option>
+                  <option value="roi">Sort by ROI</option>
                   <option value="time">Sort by Time</option>
                 </select>
                 <select 
@@ -841,15 +863,24 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   {gameAnalysis.length > 0 ? (
                     gameAnalysis
                       .filter((analysis: any) => {
-                        if (!teamFilter) return true;
-                        const filter = teamFilter.toLowerCase();
-                        return analysis.home_team?.toLowerCase().includes(filter) || 
-                               analysis.away_team?.toLowerCase().includes(filter);
+                        if (teamFilter) {
+                          const filter = teamFilter.toLowerCase();
+                          const teamMatch = analysis.home_team?.toLowerCase().includes(filter) || 
+                                 analysis.away_team?.toLowerCase().includes(filter);
+                          if (!teamMatch) return false;
+                        }
+                        const isInverse = analysis.reasoning?.toLowerCase().includes('inverse');
+                        if (predictionTypeFilter === 'inverse' && !isInverse) return false;
+                        if (predictionTypeFilter === 'original' && isInverse) return false;
+                        if (riskFilter !== 'all' && analysis.risk_level !== riskFilter) return false;
+                        return true;
                       })
                       .sort((a: any, b: any) => {
                         let comparison = 0;
                         if (gameAnalysisSort === 'confidence') {
                           comparison = b.confidence - a.confidence;
+                        } else if (gameAnalysisSort === 'roi') {
+                          comparison = (b.roi || 0) - (a.roi || 0);
                         } else {
                           comparison = new Date(b.commence_time).getTime() - new Date(a.commence_time).getTime();
                         }
@@ -879,6 +910,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                             </div>
                           </div>
                           <div className="game-meta">
+                            <span className={`prediction-badge ${analysis.reasoning?.toLowerCase().includes('inverse') ? 'against-model' : 'with-model'}`}>
+                              {analysis.reasoning?.toLowerCase().includes('inverse') ? 'BET AGAINST' : 'BET WITH'}
+                            </span>
                             <span className="model">Model: {analysis.model}</span>
                             <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
                           </div>
@@ -981,6 +1015,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     </>
                   )}
                 </select>
+                <select
+                  value={riskFilter}
+                  onChange={(e) => setRiskFilter(e.target.value as 'all' | 'conservative' | 'moderate' | 'aggressive')}
+                  className="filter-select"
+                >
+                  <option value="all">All Risk Levels</option>
+                  <option value="conservative">Conservative</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="aggressive">Aggressive</option>
+                </select>
               </div>
             )}
             
@@ -989,9 +1033,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 <select 
                   className="filter-select"
                   value={propAnalysisSort} 
-                  onChange={(e) => setPropAnalysisSort(e.target.value as 'confidence' | 'time')}
+                  onChange={(e) => setPropAnalysisSort(e.target.value as 'confidence' | 'time' | 'roi')}
                 >
                   <option value="confidence">Sort by Confidence</option>
+                  <option value="roi">Sort by ROI</option>
                   <option value="time">Sort by Time</option>
                 </select>
                 <select 
@@ -1013,13 +1058,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     propAnalysis
                       .filter((analysis: any) => {
                         if (marketFilter !== 'all' && analysis.market_key !== marketFilter) return false;
-                        if (!playerFilter) return true;
-                        return analysis.player_name?.toLowerCase().includes(playerFilter.toLowerCase());
+                        if (playerFilter && !analysis.player_name?.toLowerCase().includes(playerFilter.toLowerCase())) return false;
+                        if (riskFilter !== 'all' && analysis.risk_level !== riskFilter) return false;
+                        return true;
                       })
                       .sort((a: any, b: any) => {
                         let comparison = 0;
                         if (propAnalysisSort === 'confidence') {
                           comparison = b.confidence - a.confidence;
+                        } else if (propAnalysisSort === 'roi') {
+                          comparison = (b.roi || 0) - (a.roi || 0);
                         } else {
                           comparison = new Date(b.commence_time).getTime() - new Date(a.commence_time).getTime();
                         }
@@ -1050,6 +1098,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                             <span>{analysis.reasoning}</span>
                           </div>
                           <div className="game-meta">
+                            <span className={`prediction-badge ${analysis.reasoning?.toLowerCase().includes('inverse') ? 'against-model' : 'with-model'}`}>
+                              {analysis.reasoning?.toLowerCase().includes('inverse') ? 'BET AGAINST' : 'BET WITH'}
+                            </span>
                             <span className="model">Model: {analysis.model}</span>
                             <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
                           </div>

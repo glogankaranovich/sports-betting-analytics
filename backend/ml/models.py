@@ -61,6 +61,36 @@ class AnalysisResult:
     market_key: str = None  # For props: player_points, player_assists, etc.
     recommended_odds: int = None  # American odds for ROI calculation
 
+    @property
+    def roi(self) -> float:
+        """Calculate expected ROI"""
+        if not self.recommended_odds:
+            return None
+        odds = self.recommended_odds
+        roi_multiplier = 100 / abs(odds) if odds < 0 else odds / 100
+        return round(
+            (self.confidence * roi_multiplier - (1 - self.confidence)) * 100, 1
+        )
+
+    @property
+    def risk_level(self) -> str:
+        """Determine risk level based on confidence"""
+        if self.confidence >= 0.65:
+            return "conservative"
+        elif self.confidence >= 0.55:
+            return "moderate"
+        else:
+            return "aggressive"
+
+    @property
+    def implied_probability(self) -> float:
+        """Calculate implied probability from odds"""
+        if not self.recommended_odds:
+            return None
+        odds = self.recommended_odds
+        implied_prob = abs(odds) / (abs(odds) + 100) if odds < 0 else 100 / (odds + 100)
+        return round(implied_prob * 100, 1)
+
     def to_dynamodb_item(self) -> Dict[str, Any]:
         """Convert to DynamoDB item format with GSI attributes"""
         # For props, include player_name in PK to avoid collisions with game analyses
@@ -97,6 +127,9 @@ class AnalysisResult:
             "confidence": self.confidence,
             "reasoning": self.reasoning,
             "recommended_odds": self.recommended_odds,
+            "roi": self.roi,
+            "risk_level": self.risk_level,
+            "implied_probability": self.implied_probability,
             "created_at": datetime.utcnow().isoformat(),
             "latest": True,
         }

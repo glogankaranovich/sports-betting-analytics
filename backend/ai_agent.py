@@ -55,6 +55,8 @@ Always be concise, data-driven, and actionable."""
             return self._explain_prediction(tool_input, user_id)
         elif tool_name == "list_user_models":
             return self._list_user_models(tool_input, user_id)
+        elif tool_name == "analyze_bet":
+            return self._analyze_bet(tool_input)
         else:
             return {"error": f"Unknown tool: {tool_name}"}
 
@@ -398,6 +400,66 @@ Always be concise, data-driven, and actionable."""
 
         return json.loads(response["body"].read())
 
+    def _analyze_bet(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze a specific bet on-the-spot"""
+        try:
+            sport = params["sport"]
+            bet_type = params["bet_type"]
+            team_or_player = params["team_or_player"]
+            opponent = params.get("opponent")
+            line = params["line"]
+            odds = params.get("odds", -110)
+
+            # Calculate implied probability and ROI
+            if odds < 0:
+                implied_prob = abs(odds) / (abs(odds) + 100)
+                roi_multiplier = 100 / abs(odds)
+            else:
+                implied_prob = 100 / (odds + 100)
+                roi_multiplier = odds / 100
+
+            # Query recent performance
+            stats_result = self._query_stats(
+                {
+                    "query_type": "team_stats"
+                    if bet_type != "prop"
+                    else "player_stats",
+                    "team": team_or_player if bet_type != "prop" else None,
+                    "player": team_or_player if bet_type == "prop" else None,
+                    "opponent": opponent,
+                    "days_back": 30,
+                }
+            )
+
+            # Calculate risk level based on implied probability
+            if implied_prob > 0.65:
+                risk_level = "conservative"
+            elif implied_prob > 0.55:
+                risk_level = "moderate"
+            else:
+                risk_level = "aggressive"
+
+            return {
+                "success": True,
+                "bet_details": {
+                    "sport": sport,
+                    "bet_type": bet_type,
+                    "team_or_player": team_or_player,
+                    "opponent": opponent,
+                    "line": line,
+                    "odds": odds,
+                },
+                "analysis": {
+                    "implied_probability": round(implied_prob * 100, 1),
+                    "roi_multiplier": round(roi_multiplier, 2),
+                    "risk_level": risk_level,
+                    "recent_stats": stats_result,
+                },
+                "recommendation": f"This is a {risk_level} risk bet with {round(implied_prob * 100, 1)}% implied probability. ROI multiplier: {round(roi_multiplier, 2)}x",
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def _get_tools(self) -> List[Dict[str, Any]]:
         """Define available tools for the agent"""
         return [
@@ -570,6 +632,41 @@ Always be concise, data-driven, and actionable."""
                         },
                     },
                     "required": ["user_id"],
+                },
+            },
+            {
+                "name": "analyze_bet",
+                "description": "Analyze a specific bet idea on-the-spot - calculate risk, ROI potential, key factors. Use when user asks about a bet that isn't in our predictions.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "sport": {
+                            "type": "string",
+                            "description": "Sport (e.g., basketball_nba, americanfootball_nfl)",
+                        },
+                        "bet_type": {
+                            "type": "string",
+                            "enum": ["h2h", "spread", "total", "prop"],
+                            "description": "Type of bet",
+                        },
+                        "team_or_player": {
+                            "type": "string",
+                            "description": "Team or player name",
+                        },
+                        "opponent": {
+                            "type": "string",
+                            "description": "Opponent team (optional)",
+                        },
+                        "line": {
+                            "type": "string",
+                            "description": "Betting line (e.g., '-5.5', 'over 220.5', 'over 25.5 points')",
+                        },
+                        "odds": {
+                            "type": "number",
+                            "description": "American odds (e.g., -110, +150)",
+                        },
+                    },
+                    "required": ["sport", "bet_type", "team_or_player", "line"],
                 },
             },
         ]

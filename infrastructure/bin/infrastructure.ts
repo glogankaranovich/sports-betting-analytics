@@ -26,6 +26,7 @@ import { BennyTraderStack } from '../lib/benny-trader-stack';
 import { BennyTraderScheduleStack } from '../lib/benny-trader-schedule-stack';
 import { ModelComparisonCacheStack } from '../lib/model-comparison-cache-stack';
 import { NewsCollectorsStack } from '../lib/news-collectors-stack';
+import { CustomDataStack } from '../lib/custom-data-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -57,9 +58,25 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
+  const userModelsStack = new UserModelsStack(app, StackNames.forEnvironment('dev', 'UserModels'), {
+    betsTableName: 'carpool-bets-v2-dev',
+    env: ENVIRONMENTS.dev,
+  });
+
+  const customDataStack = new CustomDataStack(app, StackNames.forEnvironment('dev', 'CustomData'), {
+    environment: 'dev',
+    env: ENVIRONMENTS.dev,
+  });
+
   const betCollectorApiStack = new BetCollectorApiStack(app, StackNames.forEnvironment('dev', 'BetCollectorApi'), {
     environment: 'dev',
     betsTableName: 'carpool-bets-v2-dev',
+    userModelsTableName: userModelsStack.userModelsTable.tableName,
+    modelPredictionsTableName: userModelsStack.modelPredictionsTable.tableName,
+    customDataTableName: customDataStack.customDataTable.tableName,
+    customDataBucketName: customDataStack.customDataBucket.bucketName,
+    customDataTable: customDataStack.customDataTable,
+    customDataBucket: customDataStack.customDataBucket,
     userPool: authStack.userPool,
     modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,
     env: ENVIRONMENTS.dev,
@@ -108,10 +125,6 @@ if (environment === 'dev') {
   });
 
   const complianceStack = new ComplianceStack(app, StackNames.forEnvironment('dev', 'Compliance'), {
-    env: ENVIRONMENTS.dev,
-  });
-
-  const userModelsStack = new UserModelsStack(app, StackNames.forEnvironment('dev', 'UserModels'), {
     env: ENVIRONMENTS.dev,
   });
 

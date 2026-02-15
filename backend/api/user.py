@@ -24,16 +24,30 @@ def handle_get_subscription(query_params: Dict[str, str]):
 
         from subscriptions import UserSubscription
         from feature_flags import get_user_limits
-        from user_models import UserModel
-        from custom_data import CustomDataset
 
         # Get subscription
         subscription = UserSubscription.get(user_id)
         limits = get_user_limits(user_id)
 
-        # Get current usage counts
-        user_models = UserModel.list_by_user(user_id)
-        datasets = CustomDataset.list_by_user(user_id)
+        # Get current usage counts (with error handling)
+        user_models_count = 0
+        datasets_count = 0
+
+        try:
+            from user_models import UserModel
+
+            user_models = UserModel.list_by_user(user_id)
+            user_models_count = len(user_models)
+        except Exception as e:
+            print(f"Error fetching user models: {e}")
+
+        try:
+            from custom_data import CustomDataset
+
+            datasets = CustomDataset.list_by_user(user_id)
+            datasets_count = len(datasets)
+        except Exception as e:
+            print(f"Error fetching datasets: {e}")
 
         return create_response(
             200,
@@ -42,8 +56,8 @@ def handle_get_subscription(query_params: Dict[str, str]):
                 "status": subscription.status,
                 "limits": limits,
                 "usage": {
-                    "user_models_count": len(user_models),
-                    "datasets_count": len(datasets),
+                    "user_models_count": user_models_count,
+                    "datasets_count": datasets_count,
                 },
             },
         )
