@@ -17,9 +17,7 @@ interface SideNavProps {
 export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNavigate, isCollapsed }) => {
   const navItems: Record<string, SideNavItem[]> = {
     'user-home': [
-      { label: 'Profile', page: 'profile' },
-      { label: 'Settings', page: 'settings' },
-      { label: 'Subscription', page: 'subscription' },
+      { label: 'Account', page: 'profile' },
     ],
     'analysis-home': [
       { label: 'Game Bets', page: 'games' },

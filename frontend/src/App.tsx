@@ -12,9 +12,7 @@ import Models from './components/Models';
 import { UserModels } from './components/UserModels';
 import { Benny } from './components/Benny';
 import { BennyDashboard } from './components/BennyDashboard';
-import { Subscription } from './components/Subscription';
-import { Profile } from './components/Profile';
-import SettingsPage from './components/SettingsPage';
+import Account from './components/Account';
 import LandingPage from './components/LandingPage';
 import { GamesGridSkeleton, AnalysisGridSkeleton } from './components/SkeletonLoader';
 import TermsOfService from './components/TermsOfService';
@@ -1074,16 +1072,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           </>
         )}
 
-        {activePage === 'settings' && (
-          <SettingsPage settings={settings} onSettingsChange={setSettings} />
-        )}
-
-        {activePage === 'profile' && (
-          <Profile token={token} userId={userId} user={user} />
-        )}
-
-        {activePage === 'subscription' && (
-          <Subscription token={token} userId={userId} />
+        {(activePage === 'settings' || activePage === 'profile' || activePage === 'subscription') && (
+          <Account 
+            token={token} 
+            userId={userId} 
+            user={user}
+            settings={settings}
+            onSettingsChange={setSettings}
+          />
         )}
 
         {activePage === 'system-models' && (
