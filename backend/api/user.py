@@ -30,7 +30,7 @@ def handle_get_subscription(query_params: Dict[str, str]):
                 "tier": "free",
                 "limits": {
                     "system_models": True,
-                    "benny_ai": True,
+                    "benny_ai": False,
                     "user_models": False,
                     "custom_data": False,
                     "model_marketplace": False,
