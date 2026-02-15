@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'https://ddzbfblwr0.execute-api.us-east-1.amazonaws.com/prod';
+const AI_AGENT_API_URL = process.env.REACT_APP_AI_AGENT_API_URL || 'https://ddzbfblwr0.execute-api.us-east-1.amazonaws.com/prod';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -69,7 +69,7 @@ export const Benny: React.FC<BennyProps> = ({ userId, token, isFullPage = false,
       }));
 
       const response = await axios.post(
-        `${API_URL}/ai-agent/chat`,
+        `${AI_AGENT_API_URL}/ai-agent/chat`,
         {
           message: input,
           user_id: userId,
