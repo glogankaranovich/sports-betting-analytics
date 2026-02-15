@@ -89,6 +89,7 @@ const Settings: React.FC<SettingsProps> = ({
               <option value="rest_schedule">Rest/Schedule</option>
               <option value="matchup">Matchup</option>
               <option value="injury_aware">Injury-Aware</option>
+              <option value="news">News Sentiment</option>
             </optgroup>
             {userModels.length > 0 && (
               <optgroup label="My Models">
