@@ -10,11 +10,12 @@ interface Message {
 
 interface BennyProps {
   userId: string;
+  token: string;
   isFullPage?: boolean;
   subscription?: any;
 }
 
-export const Benny: React.FC<BennyProps> = ({ userId, isFullPage = false, subscription }) => {
+export const Benny: React.FC<BennyProps> = ({ userId, token, isFullPage = false, subscription }) => {
   const hasAccess = subscription?.limits?.benny_ai !== false;
   const canCreateModels = subscription?.limits?.user_models !== false;
   
@@ -73,6 +74,9 @@ export const Benny: React.FC<BennyProps> = ({ userId, isFullPage = false, subscr
           message: input,
           user_id: userId,
           conversation_history: conversationHistory.slice(-10)
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
         }
       );
 

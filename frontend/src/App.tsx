@@ -1127,7 +1127,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         {activePage === 'benny-chat' && (
           <div className="benny-chat-page">
             <div className="benny-chat-container">
-              <Benny userId={userId} isFullPage={true} subscription={subscription} />
+              <Benny userId={userId} token={token} isFullPage={true} subscription={subscription} />
             </div>
           </div>
         )}
