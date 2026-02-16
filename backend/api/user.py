@@ -125,7 +125,7 @@ def handle_update_profile(body: Dict[str, Any]):
 
 
 def handle_upgrade_subscription(body: Dict[str, Any]):
-    """Upgrade user subscription tier"""
+    """Upgrade or downgrade user subscription tier"""
     try:
         user_id = body.get("user_id")
         tier = body.get("tier")
@@ -133,7 +133,7 @@ def handle_upgrade_subscription(body: Dict[str, Any]):
         if not user_id or not tier:
             return create_response(400, {"error": "user_id and tier are required"})
 
-        if tier not in ["basic", "pro"]:
+        if tier not in ["free", "basic", "pro"]:
             return create_response(400, {"error": "Invalid tier"})
 
         from subscriptions import UserSubscription
@@ -145,9 +145,9 @@ def handle_upgrade_subscription(body: Dict[str, Any]):
         subscription.update_tier(tier)
 
         return create_response(
-            200, {"message": f"Subscription upgraded to {tier}", "tier": tier}
+            200, {"message": f"Subscription updated to {tier}", "tier": tier}
         )
     except Exception as e:
         return create_response(
-            500, {"error": f"Error upgrading subscription: {str(e)}"}
+            500, {"error": f"Error updating subscription: {str(e)}"}
         )
