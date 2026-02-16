@@ -91,23 +91,29 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
   };
 
   if (selectedModel) {
-    // Gate analytics to BASIC tier and above
-    if (subscription?.limits?.show_reasoning === false) {
+    // Check if Benny is locked
+    if (selectedModel === 'benny' && !hasBennyAccess) {
       return (
         <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setSelectedModel(null)} className="close-button">×</button>
             <div style={{ padding: '40px', textAlign: 'center' }}>
-              <h2 style={{ marginBottom: '16px' }}>📊 Model Analytics</h2>
+              <h2 style={{ marginBottom: '16px' }}>🤖 Benny AI Model</h2>
               <p style={{ color: '#ccc', marginBottom: '24px' }}>
-                View detailed performance metrics, accuracy trends, and historical data for this model.
+                Advanced AI-powered predictions with detailed reasoning and personalized insights.
               </p>
+              <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0, maxWidth: '400px', margin: '0 auto 24px' }}>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ AI-powered analysis</li>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Detailed reasoning</li>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Chat interface</li>
+                <li style={{ padding: '8px 0' }}>✓ Performance dashboard</li>
+              </ul>
               <button 
                 className="upgrade-btn"
                 onClick={() => window.location.hash = '#subscription'}
                 style={{ padding: '12px 24px' }}
               >
-                Upgrade to View Analytics
+                Upgrade to PRO for Benny AI
               </button>
             </div>
           </div>
@@ -115,6 +121,37 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
       );
     }
     
+    // Check if model is locked for free tier (not Carpool/Ensemble)
+    if (selectedModel !== 'ensemble' && subscription?.limits?.show_reasoning === false) {
+      return (
+        <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setSelectedModel(null)} className="close-button">×</button>
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+              <h2 style={{ marginBottom: '16px' }}>🔒 Premium Model</h2>
+              <p style={{ color: '#ccc', marginBottom: '24px' }}>
+                Access all 10 system models with detailed analytics and reasoning.
+              </p>
+              <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0, maxWidth: '400px', margin: '0 auto 24px' }}>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ All 10 system models</li>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Detailed reasoning</li>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Model comparison</li>
+                <li style={{ padding: '8px 0' }}>✓ Performance analytics</li>
+              </ul>
+              <button 
+                className="upgrade-btn"
+                onClick={() => window.location.hash = '#subscription'}
+                style={{ padding: '12px 24px' }}
+              >
+                Upgrade to BASIC
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Show analytics for Carpool (free tier) or any model for BASIC+ tier
     return (
       <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -134,13 +171,44 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
 
       <div className="models-grid">
         {Object.entries(modelInfo)
-          .filter(([modelKey]) => modelKey !== 'benny' || hasBennyAccess)
           .map(([modelKey, info]) => {
           const stats = modelStats[modelKey];
           const accuracy = stats?.accuracy ? stats.accuracy.toFixed(1) : null;
+          const isBennyLocked = modelKey === 'benny' && !hasBennyAccess;
+          const isModelLocked = modelKey !== 'ensemble' && subscription?.limits?.show_reasoning === false;
           
           return (
-            <div key={modelKey} className="model-card">
+            <div key={modelKey} className="model-card" style={(isBennyLocked || isModelLocked) ? { opacity: 0.7, position: 'relative' } : {}}>
+              {isBennyLocked && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '10px', 
+                  right: '10px', 
+                  background: '#ffc107', 
+                  color: '#000', 
+                  padding: '4px 8px', 
+                  borderRadius: '4px', 
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }}>
+                  🔒 PRO
+                </div>
+              )}
+              {isModelLocked && !isBennyLocked && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '10px', 
+                  right: '10px', 
+                  background: '#0d6efd', 
+                  color: '#fff', 
+                  padding: '4px 8px', 
+                  borderRadius: '4px', 
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }}>
+                  🔒 BASIC
+                </div>
+              )}
               <h3>{info.name}</h3>
               <p className="model-desc">{info.description}</p>
               <p className="model-method">{info.methodology}</p>
