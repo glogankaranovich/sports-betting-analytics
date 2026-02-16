@@ -1,6 +1,8 @@
 .legal-page {
-  padding: 0;
+  padding: 1rem;
   color: #e0e0e0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .legal-container {

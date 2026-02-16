@@ -10,7 +10,7 @@ export const AboutPage: React.FC = () => {
   const domain = getEmailDomain();
   
   return (
-    <div className="about-page">
+    <div className="about-page" style={{ height: '100%', overflowY: 'auto' }}>
       <section className="about-section">
         <h2>About Carpool Bets</h2>
         <p>
