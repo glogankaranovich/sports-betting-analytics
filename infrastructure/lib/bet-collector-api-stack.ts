@@ -220,13 +220,16 @@ export class BetCollectorApiStack extends cdk.Stack {
 
     // User profile and subscription endpoints (protected, using separate Lambda)
     const profile = betCollectorApi.root.addResource('profile');
+    profile.addMethod('OPTIONS', userProfileIntegration); // CORS preflight
     profile.addMethod('GET', userProfileIntegration, methodOptions);
     profile.addMethod('PUT', userProfileIntegration, methodOptions);
     
     const subscription = betCollectorApi.root.addResource('subscription');
+    subscription.addMethod('OPTIONS', userProfileIntegration); // CORS preflight
     subscription.addMethod('GET', userProfileIntegration, methodOptions);
     
     const subscriptionUpgrade = subscription.addResource('upgrade');
+    subscriptionUpgrade.addMethod('OPTIONS', userProfileIntegration); // CORS preflight
     subscriptionUpgrade.addMethod('POST', userProfileIntegration, methodOptions);
 
     // Separate Lambda for user models to avoid policy size limits
