@@ -44,6 +44,12 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
   }, [token, userId]);
 
   const loadUserModels = async () => {
+    if (!hasAccess) {
+      setLoading(false);
+      setFeatureEnabled(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const response = await bettingApi.getUserModels(token, userId);

@@ -34,7 +34,7 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ subscription, onNaviga
 
   if (!featureEnabled) {
     return (
-      <div className="marketplace-container">
+      <div className="page-container">
         <h2>Model Marketplace</h2>
         <p>Coming soon - Browse and subscribe to community models</p>
       </div>
@@ -45,18 +45,40 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ subscription, onNaviga
 
   if (!hasAccess) {
     return (
-      <div className="marketplace-container">
-        <h2>Model Marketplace</h2>
-        <p>Upgrade to Premium or Pro to access the Model Marketplace</p>
-        <button onClick={() => onNavigate('subscription')} className="cta-button">
-          View Subscription Plans
-        </button>
+      <div className="page-container">
+        <div style={{ 
+          padding: '40px', 
+          textAlign: 'center',
+          background: '#1a1a1a',
+          borderRadius: '8px',
+          border: '1px solid #333',
+          maxWidth: '600px',
+          margin: '40px auto'
+        }}>
+          <h3 style={{ marginBottom: '16px' }}>🏪 Model Marketplace</h3>
+          <p style={{ color: '#ccc', marginBottom: '24px' }}>
+            Access community-built models and share your own strategies.
+          </p>
+          <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Browse proven models</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Subscribe to top performers</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Share your models</li>
+            <li style={{ padding: '8px 0' }}>✓ Earn from your strategies</li>
+          </ul>
+          <button 
+            className="upgrade-btn" 
+            onClick={() => onNavigate('subscription')}
+            style={{ width: '100%' }}
+          >
+            Upgrade to Premium or Pro
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="marketplace-container">
+    <div className="page-container">
       <h2>Model Marketplace</h2>
       <p>Coming soon - Browse and subscribe to community models</p>
     </div>

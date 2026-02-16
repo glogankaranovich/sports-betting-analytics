@@ -135,10 +135,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     initializeData();
   }, []);
 
-  // Fetch user models
+  // Fetch user models (only if subscription allows)
   useEffect(() => {
     const fetchUserModels = async () => {
-      if (token) {
+      if (token && subscription?.limits?.user_models) {
         try {
           const response = await bettingApi.getUserModels(token, userId);
           setUserModels(response.models || []);
@@ -148,7 +148,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       }
     };
     fetchUserModels();
-  }, [token, userId]);
+  }, [token, userId, subscription]);
 
   // Fetch subscription
   useEffect(() => {
@@ -348,16 +348,19 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           }
         });
         
-        // Top 5 for each, min 10 predictions, and >50% accuracy
+        // Top 10 for each, min 10 predictions, and >50% accuracy
         const topGames = gamePerformance
           .filter(m => m.total >= 10 && m.accuracy > 50)
           .sort((a, b) => b.accuracy - a.accuracy)
-          .slice(0, 5);
+          .slice(0, 10);
         
         const topProps = propPerformance
           .filter(m => m.total >= 10 && m.accuracy > 50)
           .sort((a, b) => b.accuracy - a.accuracy)
-          .slice(0, 5);
+          .slice(0, 10);
+        
+        console.log('Top games:', topGames);
+        console.log('Top props:', topProps);
         
         setModelLeaderboard([
           { type: 'games', models: topGames },
