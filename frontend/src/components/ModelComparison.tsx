@@ -35,9 +35,10 @@ interface ComparisonData {
 
 interface ModelComparisonProps {
   settings?: any;
+  subscription?: any;
 }
 
-export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings }) => {
+export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings, subscription }) => {
   const [data, setData] = useState<ComparisonData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sport, setSport] = useState(settings?.sport || 'basketball_nba');
@@ -104,6 +105,40 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings }) =>
   };
 
   const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
+
+  // Gate access to BASIC tier and above
+  if (subscription?.limits?.show_reasoning === false) {
+    return (
+      <div className="model-comparison" style={{ padding: '40px', textAlign: 'center' }}>
+        <div style={{ 
+          background: '#1a1a1a', 
+          borderRadius: '8px', 
+          border: '1px solid #333',
+          padding: '40px',
+          maxWidth: '600px',
+          margin: '0 auto'
+        }}>
+          <h2 style={{ marginBottom: '16px' }}>📊 Model Performance Comparison</h2>
+          <p style={{ color: '#ccc', marginBottom: '24px' }}>
+            Compare accuracy and performance metrics across all prediction models.
+          </p>
+          <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ See which models perform best</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Compare accuracy by sport and bet type</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Track original vs inverse strategies</li>
+            <li style={{ padding: '8px 0' }}>✓ Make data-driven decisions</li>
+          </ul>
+          <button 
+            className="upgrade-btn"
+            onClick={() => window.location.hash = '#subscription'}
+            style={{ width: '100%' }}
+          >
+            Upgrade to Access Model Comparison
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return <div className="loading-state">Loading model comparison...</div>;

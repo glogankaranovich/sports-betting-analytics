@@ -538,7 +538,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </div>
               </>
             )}
-            {modelLeaderboard.length > 0 && (
+            {modelLeaderboard.length > 0 && subscription?.limits?.show_reasoning !== false && (
               <>
                 {modelLeaderboard.map((section: any) => (
                   <React.Fragment key={section.type}>
@@ -568,7 +568,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </div>
               </>
             )}
-            {modelLeaderboard.length > 0 && (
+            {modelLeaderboard.length > 0 && subscription?.limits?.show_reasoning !== false && (
               <>
                 {modelLeaderboard.map((section: any) => (
                   <React.Fragment key={`dup-${section.type}`}>
@@ -1335,7 +1335,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         )}
 
         {activePage === 'model-comparison' && (
-          <ModelComparison settings={settings} />
+          <ModelComparison settings={settings} subscription={subscription} />
         )}
 
         {activePage === 'about' && (
