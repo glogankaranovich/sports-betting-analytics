@@ -194,6 +194,41 @@ export class BetCollectorApiStack extends cdk.Stack {
     const modelRankings = betCollectorApi.root.addResource('model-rankings');
     modelRankings.addMethod('GET', lambdaIntegration, methodOptions);
 
+    // Separate Lambda for user profile/subscription to avoid policy size limits
+    const userProfileFunction = new lambda.Function(this, 'UserProfileApiFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'api_handler.lambda_handler',
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ]
+        }
+      }),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+      }
+    });
+
+    userProfileFunction.role?.addManagedPolicy(dynamoDbPolicy);
+
+    const userProfileIntegration = new apigateway.LambdaIntegration(userProfileFunction);
+
+    // User profile and subscription endpoints (protected, using separate Lambda)
+    const profile = betCollectorApi.root.addResource('profile');
+    profile.addMethod('GET', userProfileIntegration, methodOptions);
+    profile.addMethod('PUT', userProfileIntegration, methodOptions);
+    
+    const subscription = betCollectorApi.root.addResource('subscription');
+    subscription.addMethod('GET', userProfileIntegration, methodOptions);
+    
+    const subscriptionUpgrade = subscription.addResource('upgrade');
+    subscriptionUpgrade.addMethod('POST', userProfileIntegration, methodOptions);
+
     // Separate Lambda for user models to avoid policy size limits
     const userModelsFunction = new lambda.Function(this, 'UserModelsApiFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
@@ -240,14 +275,6 @@ export class BetCollectorApiStack extends cdk.Stack {
     
     const userModelPerformance = userModelById.addResource('performance');
     userModelPerformance.addMethod('GET', userModelsIntegration, methodOptions); // Get model performance
-
-    // User profile and subscription endpoints (protected)
-    const profile = betCollectorApi.root.addResource('profile');
-    profile.addMethod('GET', lambdaIntegration, methodOptions);  // Get profile
-    profile.addMethod('PUT', lambdaIntegration, methodOptions);  // Update profile
-    
-    const subscription = betCollectorApi.root.addResource('subscription');
-    subscription.addMethod('GET', lambdaIntegration, methodOptions); // Get subscription info
 
     // AI Agent Lambda
     const aiAgentFunction = new lambda.Function(this, 'AIAgentFunction', {
