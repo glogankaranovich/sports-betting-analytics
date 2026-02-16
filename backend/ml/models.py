@@ -925,23 +925,26 @@ class HotColdModel(BaseAnalysisModel):
             avg_stat = recent_stats["average"]
             over_rate = recent_stats["over_count"] / recent_stats["games"]
 
+            # Convert line to float for comparison
+            line_float = float(line)
+            
             # Determine prediction based on recent performance
-            if avg_stat > line * 1.1 and over_rate > 0.7:
+            if avg_stat > line_float * 1.1 and over_rate > 0.7:
                 # Hot player, well above line
                 confidence = 0.75
                 prediction = f"Over {line}"
                 reasoning = f"{player_name} is HOT: Averaging {avg_stat:.1f} over last {recent_stats['games']} games, well above {line} line. Hit over {int(over_rate*100)}% of time. Ride the hot streak."
-            elif avg_stat > line and over_rate > 0.6:
+            elif avg_stat > line_float and over_rate > 0.6:
                 # Trending over
                 confidence = 0.65
                 prediction = f"Over {line}"
                 reasoning = f"{player_name} trending up: Averaging {avg_stat:.1f} with {int(over_rate*100)}% over rate in last {recent_stats['games']} games. Positive momentum continues."
-            elif avg_stat < line * 0.9 and over_rate < 0.3:
+            elif avg_stat < line_float * 0.9 and over_rate < 0.3:
                 # Cold player, well below line
                 confidence = 0.75
                 prediction = f"Under {line}"
                 reasoning = f"{player_name} is COLD: Averaging {avg_stat:.1f} over last {recent_stats['games']} games, well below {line} line. Hit under {int((1-over_rate)*100)}% of time. Strong fade opportunity."
-            elif avg_stat < line and over_rate < 0.4:
+            elif avg_stat < line_float and over_rate < 0.4:
                 # Trending under
                 confidence = 0.65
                 prediction = f"Under {line}"
