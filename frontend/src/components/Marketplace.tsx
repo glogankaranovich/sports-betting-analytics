@@ -52,14 +52,16 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ subscription, onNaviga
           background: '#1a1a1a',
           borderRadius: '8px',
           border: '1px solid #333',
-          maxWidth: '600px',
-          margin: '40px auto'
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
           <h3 style={{ marginBottom: '16px' }}>🏪 Model Marketplace</h3>
           <p style={{ color: '#ccc', marginBottom: '24px' }}>
             Access community-built models and share your own strategies.
           </p>
-          <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
+          <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0, maxWidth: '400px', margin: '0 auto 24px' }}>
             <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Browse proven models</li>
             <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Subscribe to top performers</li>
             <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Share your models</li>
@@ -68,9 +70,9 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ subscription, onNaviga
           <button 
             className="upgrade-btn" 
             onClick={() => onNavigate('subscription')}
-            style={{ width: '100%' }}
+            style={{ width: '100%', maxWidth: '400px', margin: '0 auto' }}
           >
-            Upgrade to Premium or Pro
+            Upgrade to Access Marketplace
           </button>
         </div>
       </div>
