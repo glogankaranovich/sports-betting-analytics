@@ -527,7 +527,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         logo={logo}
       />
       
-      {(topInsight || modelLeaderboard.length > 0) && (
+      {(topInsight || (modelLeaderboard.length > 0 && subscription?.limits?.show_reasoning !== false)) && (
         <div className="ticker-bar">
           <div className="ticker-content">
             {topInsight && (
