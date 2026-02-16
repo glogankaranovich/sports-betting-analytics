@@ -115,8 +115,8 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings, subs
           borderRadius: '8px', 
           border: '1px solid #333',
           padding: '40px',
-          maxWidth: '600px',
-          margin: '0 auto'
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           <h2 style={{ marginBottom: '16px' }}>📊 Model Performance Comparison</h2>
           <p style={{ color: '#ccc', marginBottom: '24px' }}>
