@@ -121,16 +121,21 @@ def get_user_limits(user_id: str, environment: str = None) -> Dict:
     tier = get_user_tier(user_id)
     limits = TIER_LIMITS.get(tier, TIER_LIMITS[SubscriptionTier.FREE]).copy()
     
+    # Track which features are disabled by environment (not by subscription)
+    limits["_env_disabled"] = []
+    
     # Override limits based on feature rollout (environment restrictions)
     for feature_name, rollout in FEATURE_ROLLOUT.items():
         if feature_name in limits and env not in rollout["enabled_envs"]:
             # Disable feature if not enabled in this environment
+            limits["_env_disabled"].append(feature_name)
             if isinstance(limits[feature_name], bool):
                 limits[feature_name] = False
             elif isinstance(limits[feature_name], int):
                 limits[feature_name] = 0
     
     return limits
+
 
 
 def can_create_user_model(user_id: str, current_count: int) -> bool:

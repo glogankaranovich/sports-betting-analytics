@@ -104,22 +104,9 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
     return <div className="loading">Loading...</div>;
   }
 
-  // Step 1: Check if feature is enabled (from subscription limits which includes feature flags)
-  const featureEnabled = subscription?.limits?.user_models === true;
-  
-  if (!featureEnabled) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <h2>User Models Coming Soon</h2>
-        <p style={{ color: '#a0aec0', marginTop: '16px' }}>
-          This feature is currently in beta testing and not yet available.
-        </p>
-      </div>
-    );
-  }
-
-  // Step 2: Check if user has access via subscription tier
+  // Check if user has access via subscription tier
   const hasAccess = subscription?.limits?.max_user_models > 0;
+  const isEnvDisabled = subscription?.limits?._env_disabled?.includes('user_models');
   
   if (!hasAccess) {
     return (
@@ -132,22 +119,35 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
           border: '1px solid #333'
         }}>
           <h3 style={{ marginBottom: '16px' }}>🎯 Custom Models</h3>
-          <p style={{ color: '#ccc', marginBottom: '24px' }}>
-            Build and train your own prediction models with custom strategies.
-          </p>
-          <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
-            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Create custom models</li>
-            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Upload custom datasets</li>
-            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Backtest strategies</li>
-            <li style={{ padding: '8px 0' }}>✓ Track performance</li>
-          </ul>
-          <button 
-            className="upgrade-btn" 
-            onClick={() => onNavigate?.('subscription')}
-            style={{ width: '100%' }}
-          >
-            Upgrade to Access Custom Models
-          </button>
+          {isEnvDisabled ? (
+            <>
+              <p style={{ color: '#ccc', marginBottom: '24px' }}>
+                Custom Models are coming soon to this environment.
+              </p>
+              <p style={{ color: '#888', fontSize: '14px' }}>
+                This feature is currently in development and will be available in a future release.
+              </p>
+            </>
+          ) : (
+            <>
+              <p style={{ color: '#ccc', marginBottom: '24px' }}>
+                Build and train your own prediction models with custom strategies.
+              </p>
+              <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Create custom models</li>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Upload custom datasets</li>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Backtest strategies</li>
+                <li style={{ padding: '8px 0' }}>✓ Track performance</li>
+              </ul>
+              <button 
+                className="upgrade-btn" 
+                onClick={() => onNavigate?.('subscription')}
+                style={{ width: '100%' }}
+              >
+                Upgrade to Access Custom Models
+              </button>
+            </>
+          )}
         </div>
       </div>
     );

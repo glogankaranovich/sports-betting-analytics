@@ -16,6 +16,7 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [modelStats, setModelStats] = useState<Record<string, any>>({});
   const hasBennyAccess = subscription?.limits?.benny_ai !== false;
+  const isEnvDisabled = subscription?.limits?._env_disabled?.includes('benny_ai');
 
   useEffect(() => {
     if (token) {
@@ -99,22 +100,35 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
             <button onClick={() => setSelectedModel(null)} className="close-button">×</button>
             <div style={{ padding: '40px', textAlign: 'center' }}>
               <h2 style={{ marginBottom: '16px' }}>🤖 Benny AI Model</h2>
-              <p style={{ color: '#ccc', marginBottom: '24px' }}>
-                Advanced AI-powered predictions with detailed reasoning and personalized insights.
-              </p>
-              <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0, maxWidth: '400px', margin: '0 auto 24px' }}>
-                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ AI-powered analysis</li>
-                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Detailed reasoning</li>
-                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Chat interface</li>
-                <li style={{ padding: '8px 0' }}>✓ Performance dashboard</li>
-              </ul>
-              <button 
-                className="upgrade-btn"
-                onClick={() => window.location.hash = '#subscription'}
-                style={{ padding: '12px 24px' }}
-              >
-                Upgrade to PRO for Benny AI
-              </button>
+              {isEnvDisabled ? (
+                <>
+                  <p style={{ color: '#ccc', marginBottom: '24px' }}>
+                    Benny AI Model is coming soon to this environment.
+                  </p>
+                  <p style={{ color: '#888', fontSize: '14px' }}>
+                    This feature is currently in development and will be available in a future release.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p style={{ color: '#ccc', marginBottom: '24px' }}>
+                    Advanced AI-powered predictions with detailed reasoning and personalized insights.
+                  </p>
+                  <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0, maxWidth: '400px', margin: '0 auto 24px' }}>
+                    <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ AI-powered analysis</li>
+                    <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Detailed reasoning</li>
+                    <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Chat interface</li>
+                    <li style={{ padding: '8px 0' }}>✓ Performance dashboard</li>
+                  </ul>
+                  <button 
+                    className="upgrade-btn"
+                    onClick={() => window.location.hash = '#subscription'}
+                    style={{ padding: '12px 24px' }}
+                  >
+                    Upgrade to PRO for Benny AI
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -18,6 +18,7 @@ interface BennyProps {
 
 export const Benny: React.FC<BennyProps> = ({ userId, token, isFullPage = false, subscription, onNavigate }) => {
   const hasAccess = subscription?.limits?.benny_ai !== false;
+  const isEnvDisabled = subscription?.limits?._env_disabled?.includes('benny_ai');
   const canCreateModels = subscription?.limits?.user_models !== false;
   
   const getWelcomeMessage = () => {
@@ -133,22 +134,35 @@ export const Benny: React.FC<BennyProps> = ({ userId, token, isFullPage = false,
             border: '1px solid #333'
           }}>
             <h3 style={{ marginBottom: '16px' }}>🤖 Benny AI</h3>
-            <p style={{ color: '#ccc', marginBottom: '24px' }}>
-              Get AI-powered betting insights and analysis with Benny.
-            </p>
-            <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
-              <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Analyze prediction performance</li>
-              <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Query historical stats</li>
-              <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Explain predictions</li>
-              <li style={{ padding: '8px 0' }}>✓ Get personalized recommendations</li>
-            </ul>
-            <button 
-              className="upgrade-btn" 
-              onClick={() => onNavigate?.('subscription')}
-              style={{ width: '100%' }}
-            >
-              Upgrade to Access Benny
-            </button>
+            {isEnvDisabled ? (
+              <>
+                <p style={{ color: '#ccc', marginBottom: '24px' }}>
+                  Benny AI is coming soon to this environment.
+                </p>
+                <p style={{ color: '#888', fontSize: '14px' }}>
+                  This feature is currently in development and will be available in a future release.
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ color: '#ccc', marginBottom: '24px' }}>
+                  Get AI-powered betting insights and analysis with Benny.
+                </p>
+                <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Analyze prediction performance</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Query historical stats</li>
+                  <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Explain predictions</li>
+                  <li style={{ padding: '8px 0' }}>✓ Get personalized recommendations</li>
+                </ul>
+                <button 
+                  className="upgrade-btn" 
+                  onClick={() => onNavigate?.('subscription')}
+                  style={{ width: '100%' }}
+                >
+                  Upgrade to Access Benny
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -63,6 +63,7 @@ interface BennyDashboardProps {
 
 export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, onNavigate }) => {
   const hasAccess = subscription?.limits?.benny_ai !== false;
+  const isEnvDisabled = subscription?.limits?._env_disabled?.includes('benny_ai');
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,22 +99,35 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
         border: '1px solid #333'
       }}>
         <h3 style={{ marginBottom: '16px' }}>🤖 Benny's Trading Dashboard</h3>
-        <p style={{ color: '#ccc', marginBottom: '24px' }}>
-          Watch Benny, our AI trader, make autonomous bets with a $100/week budget.
-        </p>
-        <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
-          <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Real-time performance tracking</li>
-          <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ AI reasoning for each bet</li>
-          <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Confidence calibration analysis</li>
-          <li style={{ padding: '8px 0' }}>✓ Sport-by-sport breakdowns</li>
-        </ul>
-        <button 
-          className="upgrade-btn" 
-          onClick={() => onNavigate?.('subscription')}
-          style={{ width: '100%' }}
-        >
-          Upgrade to Access Benny
-        </button>
+        {isEnvDisabled ? (
+          <>
+            <p style={{ color: '#ccc', marginBottom: '24px' }}>
+              Benny's Trading Dashboard is coming soon to this environment.
+            </p>
+            <p style={{ color: '#888', fontSize: '14px' }}>
+              This feature is currently in development and will be available in a future release.
+            </p>
+          </>
+        ) : (
+          <>
+            <p style={{ color: '#ccc', marginBottom: '24px' }}>
+              Watch Benny, our AI trader, make autonomous bets with a $100/week budget.
+            </p>
+            <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
+              <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Real-time performance tracking</li>
+              <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ AI reasoning for each bet</li>
+              <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Confidence calibration analysis</li>
+              <li style={{ padding: '8px 0' }}>✓ Sport-by-sport breakdowns</li>
+            </ul>
+            <button 
+              className="upgrade-btn" 
+              onClick={() => onNavigate?.('subscription')}
+              style={{ width: '100%' }}
+            >
+              Upgrade to Access Benny
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
