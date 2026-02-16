@@ -527,10 +527,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         logo={logo}
       />
       
-      {(topInsight || (modelLeaderboard.length > 0 && subscription?.limits?.show_reasoning !== false)) && (
+      {((topInsight && subscription?.limits?.show_reasoning !== false) || (modelLeaderboard.length > 0 && subscription?.limits?.show_reasoning !== false)) && (
         <div className="ticker-bar">
           <div className="ticker-content">
-            {topInsight && (
+            {topInsight && subscription?.limits?.show_reasoning !== false && (
               <>
                 <div className="ticker-item ticker-label">TOP ANALYSIS:</div>
                 <div className="ticker-item">
@@ -560,7 +560,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 ))}
               </>
             )}
-            {topInsight && (
+            {topInsight && subscription?.limits?.show_reasoning !== false && (
               <>
                 <div className="ticker-item ticker-label">TOP ANALYSIS:</div>
                 <div className="ticker-item">
