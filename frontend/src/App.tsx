@@ -1449,14 +1449,14 @@ function App() {
                 filter: 'drop-shadow(0 4px 16px rgba(0, 212, 255, 0.3))',
                 opacity: '0.95',
                 display: 'block',
-                margin: '3rem auto 2rem'
+                margin: '1rem auto 0'
               }} 
             />
           );
         },
         Footer() {
           return (
-            <div style={{ textAlign: 'center', marginTop: '2rem', padding: '1rem' }}>
+            <div style={{ textAlign: 'center', marginTop: '1rem', padding: '1rem' }}>
               <a 
                 href="/about" 
                 style={{ 
