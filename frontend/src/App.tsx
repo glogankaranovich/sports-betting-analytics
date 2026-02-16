@@ -171,6 +171,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     fetchSubscription();
   }, [token, userId]);
 
+  // Reset model to ensemble if current model is not allowed for free tier
+  useEffect(() => {
+    if (subscription?.limits?.system_models && Array.isArray(subscription.limits.system_models)) {
+      const allowedModels = subscription.limits.system_models.map((m: string) => m.toLowerCase());
+      if (!allowedModels.includes(settings.model.toLowerCase())) {
+        setSettings({ ...settings, model: 'ensemble' });
+      }
+    }
+  }, [subscription]);
+
   // Refetch data when settings change
   useEffect(() => {
     if (token) {

@@ -39,8 +39,8 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
       methodology: 'Averages odds across all bookmakers to identify market consensus. Higher confidence when bookmakers agree strongly.'
     },
     ensemble: {
-      name: 'Carpool Model',
-      description: 'Community-powered predictions combining all expert models',
+      name: 'Ensemble Model',
+      description: 'Intelligent combination of all models using dynamic weighting',
       methodology: 'Combines predictions from all models weighted by their recent 30-day performance. Automatically adjusts weights based on accuracy. Uses the highest-weighted model\'s prediction with ensemble confidence.'
     },
     value: {

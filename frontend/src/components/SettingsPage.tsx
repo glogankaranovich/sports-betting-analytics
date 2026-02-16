@@ -13,6 +13,7 @@ interface SettingsPageProps {
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange, subscription }) => {
   const hasBennyAccess = subscription?.limits?.benny_ai !== false;
+  const isFree = subscription?.limits?.show_reasoning === false;
   const [localSettings, setLocalSettings] = useState(settings);
   const [saved, setSaved] = useState(false);
 
@@ -85,16 +86,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange,
                 setLocalSettings({ ...localSettings, model: e.target.value })
               }
             >
-              <option value="consensus">Consensus</option>
-              <option value="ensemble">Carpool</option>
-              <option value="value">Value</option>
-              <option value="momentum">Momentum</option>
-              <option value="contrarian">Contrarian</option>
-              <option value="hot_cold">Hot/Cold</option>
-              <option value="rest_schedule">Rest/Schedule</option>
-              <option value="matchup">Matchup</option>
-              <option value="injury_aware">Injury-Aware</option>
-              <option value="news">News Sentiment</option>
+              {!isFree && <option value="consensus">Consensus</option>}
+              <option value="ensemble">Ensemble</option>
+              {!isFree && <option value="value">Value</option>}
+              {!isFree && <option value="momentum">Momentum</option>}
+              {!isFree && <option value="contrarian">Contrarian</option>}
+              {!isFree && <option value="hot_cold">Hot/Cold</option>}
+              {!isFree && <option value="rest_schedule">Rest/Schedule</option>}
+              {!isFree && <option value="matchup">Matchup</option>}
+              {!isFree && <option value="injury_aware">Injury-Aware</option>}
+              {!isFree && <option value="news">News Sentiment</option>}
               {hasBennyAccess && <option value="benny">Benny AI</option>}
             </select>
             <span className="setting-page-hint">

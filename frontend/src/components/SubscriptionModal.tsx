@@ -14,7 +14,7 @@ const TIERS = [
     price: '$0',
     models: 0,
     datasets: 0,
-    features: ['Carpool Model Only', 'Basic Predictions', 'No Detailed Analysis']
+    features: ['Ensemble Model Only', 'Basic Predictions', 'No Detailed Analysis']
   },
   {
     id: 'basic',

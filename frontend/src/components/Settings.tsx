@@ -23,13 +23,15 @@ const Settings: React.FC<SettingsProps> = ({
   subscription
 }) => {
   const hasBennyAccess = subscription?.limits?.benny_ai !== false;
+  const isFree = subscription?.limits?.show_reasoning === false;
+  
   const handleChange = (key: string, value: string) => {
     onSettingsChange({ ...settings, [key]: value });
   };
 
   const modelDescriptions: Record<string, string> = {
     consensus: 'Average across all bookmakers - balanced approach',
-    ensemble: 'Community-powered predictions combining all expert models',
+    ensemble: 'Intelligent combination of all models using dynamic weighting',
     value: 'Finds odds discrepancies and value opportunities',
     momentum: 'Tracks line movement and sharp action',
     contrarian: 'Fades the public, follows sharp money',
@@ -83,16 +85,16 @@ const Settings: React.FC<SettingsProps> = ({
             onChange={(e) => handleChange('model', e.target.value)}
           >
             <optgroup label="System Models">
-              <option value="consensus">Consensus</option>
-              <option value="ensemble">Carpool</option>
-              <option value="value">Value</option>
-              <option value="momentum">Momentum</option>
-              <option value="contrarian">Contrarian</option>
-              <option value="hot_cold">Hot/Cold</option>
-              <option value="rest_schedule">Rest/Schedule</option>
-              <option value="matchup">Matchup</option>
-              <option value="injury_aware">Injury-Aware</option>
-              <option value="news">News Sentiment</option>
+              {!isFree && <option value="consensus">Consensus</option>}
+              <option value="ensemble">Ensemble</option>
+              {!isFree && <option value="value">Value</option>}
+              {!isFree && <option value="momentum">Momentum</option>}
+              {!isFree && <option value="contrarian">Contrarian</option>}
+              {!isFree && <option value="hot_cold">Hot/Cold</option>}
+              {!isFree && <option value="rest_schedule">Rest/Schedule</option>}
+              {!isFree && <option value="matchup">Matchup</option>}
+              {!isFree && <option value="injury_aware">Injury-Aware</option>}
+              {!isFree && <option value="news">News Sentiment</option>}
               {hasBennyAccess && <option value="benny">Benny AI</option>}
             </optgroup>
             {userModels.length > 0 && (

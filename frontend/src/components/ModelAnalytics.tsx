@@ -214,7 +214,7 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
   return (
     <div className="analytics-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>{selectedModel === 'ensemble' ? 'Carpool' : selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} Model Performance</h2>
+        <h2>{selectedModel === 'ensemble' ? 'Ensemble' : selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} Model Performance</h2>
         <select 
           value={timeRange} 
           onChange={(e) => setTimeRange(Number(e.target.value))}

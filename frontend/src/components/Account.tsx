@@ -295,16 +295,16 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
                 onChange={(e) => setLocalSettings({ ...localSettings, model: e.target.value })}
               >
                 <optgroup label="System Models">
-                  <option value="consensus">Consensus</option>
-                  <option value="ensemble">Carpool</option>
-                  <option value="value">Value</option>
-                  <option value="momentum">Momentum</option>
-                  <option value="contrarian">Contrarian</option>
-                  <option value="hot_cold">Hot/Cold</option>
-                  <option value="rest_schedule">Rest/Schedule</option>
-                  <option value="matchup">Matchup</option>
-                  <option value="injury_aware">Injury-Aware</option>
-                  <option value="news">News Sentiment</option>
+                  {subscription?.limits?.show_reasoning !== false && <option value="consensus">Consensus</option>}
+                  <option value="ensemble">Ensemble</option>
+                  {subscription?.limits?.show_reasoning !== false && <option value="value">Value</option>}
+                  {subscription?.limits?.show_reasoning !== false && <option value="momentum">Momentum</option>}
+                  {subscription?.limits?.show_reasoning !== false && <option value="contrarian">Contrarian</option>}
+                  {subscription?.limits?.show_reasoning !== false && <option value="hot_cold">Hot/Cold</option>}
+                  {subscription?.limits?.show_reasoning !== false && <option value="rest_schedule">Rest/Schedule</option>}
+                  {subscription?.limits?.show_reasoning !== false && <option value="matchup">Matchup</option>}
+                  {subscription?.limits?.show_reasoning !== false && <option value="injury_aware">Injury-Aware</option>}
+                  {subscription?.limits?.show_reasoning !== false && <option value="news">News Sentiment</option>}
                   {subscription?.limits?.benny_ai && <option value="benny">Benny AI</option>}
                 </optgroup>
               </select>

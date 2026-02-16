@@ -154,7 +154,7 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
               {Array.isArray(limits.system_models) || limits.system_models ? '✓' : '✗'}
             </span>
             System Models {Array.isArray(limits.system_models) 
-              ? `(Carpool only)` 
+              ? `(Ensemble only)` 
               : limits.system_models === true 
                 ? '(All 10 models)' 
                 : '(None)'}
