@@ -12,7 +12,6 @@ interface UserModelsProps {
 }
 
 export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onNavigate }) => {
-  const hasAccess = subscription?.limits?.user_models !== false;
   const [selectedModel, setSelectedModel] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
@@ -20,7 +19,6 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
   const [userModels, setUserModels] = useState<any[]>([]);
   const [userId, setUserId] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [featureEnabled, setFeatureEnabled] = useState(false);
 
   useEffect(() => {
     // Extract user ID from JWT token
@@ -38,28 +36,20 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
 
   useEffect(() => {
     // Load models once we have both token and userId
-    if (token && userId) {
+    if (token && userId && subscription?.limits?.user_models) {
       loadUserModels();
+    } else if (subscription) {
+      setLoading(false);
     }
-  }, [token, userId]);
+  }, [token, userId, subscription]);
 
   const loadUserModels = async () => {
-    if (!hasAccess) {
-      setLoading(false);
-      setFeatureEnabled(false);
-      return;
-    }
-    
     try {
       setLoading(true);
       const response = await bettingApi.getUserModels(token, userId);
       setUserModels(response.models || []);
-      setFeatureEnabled(true);
     } catch (error: any) {
       console.error('Error loading user models:', error);
-      if (error.response?.status === 403) {
-        setFeatureEnabled(false);
-      }
     } finally {
       setLoading(false);
     }
@@ -111,12 +101,29 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
   };
 
   if (loading) {
-    return <div className="loading">Loading your models...</div>;
+    return <div className="loading">Loading...</div>;
   }
 
+  // Step 1: Check if feature is enabled (from subscription limits which includes feature flags)
+  const featureEnabled = subscription?.limits?.user_models === true;
+  
+  if (!featureEnabled) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <h2>User Models Coming Soon</h2>
+        <p style={{ color: '#a0aec0', marginTop: '16px' }}>
+          This feature is currently in beta testing and not yet available.
+        </p>
+      </div>
+    );
+  }
+
+  // Step 2: Check if user has access via subscription tier
+  const hasAccess = subscription?.limits?.max_user_models > 0;
+  
   if (!hasAccess) {
     return (
-      <div className="benny-chat full-page">
+      <div className="page-container">
         <div style={{ 
           padding: '40px', 
           textAlign: 'center',
@@ -126,33 +133,22 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
         }}>
           <h3 style={{ marginBottom: '16px' }}>🎯 Custom Models</h3>
           <p style={{ color: '#ccc', marginBottom: '24px' }}>
-            Create your own betting models with custom data sources and weights.
+            Build and train your own prediction models with custom strategies.
           </p>
           <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0 }}>
-            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Build custom prediction models</li>
-            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Upload your own data sources</li>
-            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Configure custom weights</li>
-            <li style={{ padding: '8px 0' }}>✓ Track model performance</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Create custom models</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Upload custom datasets</li>
+            <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Backtest strategies</li>
+            <li style={{ padding: '8px 0' }}>✓ Track performance</li>
           </ul>
           <button 
             className="upgrade-btn" 
             onClick={() => onNavigate?.('subscription')}
             style={{ width: '100%' }}
           >
-            Upgrade to Create Models
+            Upgrade to Access Custom Models
           </button>
         </div>
-      </div>
-    );
-  }
-
-  if (!featureEnabled) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-        <h2>User Models Coming Soon</h2>
-        <p style={{ color: '#a0aec0', marginTop: '16px' }}>
-          This feature is currently in beta testing and not yet available.
-        </p>
       </div>
     );
   }

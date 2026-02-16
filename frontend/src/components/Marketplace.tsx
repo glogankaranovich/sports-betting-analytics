@@ -7,31 +7,22 @@ interface MarketplaceProps {
 }
 
 export const Marketplace: React.FC<MarketplaceProps> = ({ subscription, onNavigate }) => {
-  const [featureEnabled, setFeatureEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkFeatureAccess();
-  }, []);
-
-  const checkFeatureAccess = async () => {
-    try {
-      // Attempt to access marketplace - backend will check feature access
-      setFeatureEnabled(true);
-      setLoading(false);
-    } catch (error: any) {
-      console.error('Error checking marketplace access:', error);
-      if (error.response?.status === 403) {
-        setFeatureEnabled(false);
-      }
+    // Wait for subscription to load
+    if (subscription) {
       setLoading(false);
     }
-  };
+  }, [subscription]);
 
   if (loading) {
     return <div className="loading">Loading...</div>;
   }
 
+  // Step 1: Check if feature is enabled (from subscription limits which includes feature flags)
+  const featureEnabled = subscription?.limits?.model_marketplace === true;
+  
   if (!featureEnabled) {
     return (
       <div className="page-container">
@@ -41,6 +32,7 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ subscription, onNaviga
     );
   }
 
+  // Step 2: Check if user has access via subscription tier
   const hasAccess = subscription?.tier === 'premium' || subscription?.tier === 'pro';
 
   if (!hasAccess) {
