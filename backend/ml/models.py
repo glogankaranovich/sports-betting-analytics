@@ -195,7 +195,7 @@ class ConsensusModel(BaseAnalysisModel):
             commence_time=game_info.get("commence_time"),
             prediction=f"{game_info.get('home_team')} {avg_spread:+.1f}",
             confidence=confidence,
-            reasoning=f"Consensus across {len(spreads)} bookmakers: {avg_spread:+.1f}",
+            reasoning=f"Market consensus from {len(spreads)} bookmakers shows {game_info.get('home_team')} {avg_spread:+.1f}. Average odds: {avg_odds:+d}. Confidence: {confidence*100:.1f}%",
             recommended_odds=avg_odds,
         )
 
@@ -245,7 +245,7 @@ class ConsensusModel(BaseAnalysisModel):
                 market_key=prop_item.get("market_key"),
                 prediction=prediction,
                 confidence=confidence,
-                reasoning=f"Consensus across {len(prop_item.get('bookmakers', []))} bookmakers: {prediction}",
+                reasoning=f"Market consensus from {len(prop_item.get('bookmakers', []))} bookmakers: {prediction}. Fair probability: {confidence*100:.1f}% after removing vig",
                 recommended_odds=-110,
             )
 
@@ -288,7 +288,7 @@ class ValueModel(BaseAnalysisModel):
             commence_time=game_info.get("commence_time"),
             prediction=f"{game_info.get('home_team')} {selected_spread[0]:+.1f} @ {current_bookmaker}",
             confidence=confidence,
-            reasoning=f"Value bet: {selected_spread[0]:+.1f} vs consensus {avg_spread:+.1f}",
+            reasoning=f"Value opportunity detected: {current_bookmaker} offers {selected_spread[0]:+.1f} vs market consensus of {avg_spread:+.1f}. Edge: {abs(selected_spread[0] - avg_spread):.1f} points. Confidence: {confidence*100:.1f}%",
             recommended_odds=-110,
         )
 
@@ -326,24 +326,24 @@ class ValueModel(BaseAnalysisModel):
                 if over_prob_fair > under_prob_fair:
                     prediction = f"Over {prop_item.get('point', 'N/A')}"
                     reasoning = (
-                        f"Low vig value: {vig:.1%} vig, Over {over_prob_fair:.1%}"
+                        f"Strong value opportunity: Low {vig:.1%} vig detected. Over has {over_prob_fair:.1%} fair probability. Market inefficiency provides betting edge."
                     )
                 else:
                     prediction = f"Under {prop_item.get('point', 'N/A')}"
                     reasoning = (
-                        f"Low vig value: {vig:.1%} vig, Under {under_prob_fair:.1%}"
+                        f"Strong value opportunity: Low {vig:.1%} vig detected. Under has {under_prob_fair:.1%} fair probability. Market inefficiency provides betting edge."
                     )
             elif vig < 0.08:  # Moderate vig (6-8%) = decent value
                 confidence = 0.65
                 if over_prob_fair > 0.52:  # Slight edge
                     prediction = f"Over {prop_item.get('point', 'N/A')}"
                     reasoning = (
-                        f"Moderate value: {vig:.1%} vig, Over {over_prob_fair:.1%}"
+                        f"Moderate value: {vig:.1%} vig with Over at {over_prob_fair:.1%} fair probability. Slight edge over market pricing."
                     )
                 elif under_prob_fair > 0.52:
                     prediction = f"Under {prop_item.get('point', 'N/A')}"
                     reasoning = (
-                        f"Moderate value: {vig:.1%} vig, Under {under_prob_fair:.1%}"
+                        f"Moderate value: {vig:.1%} vig with Under at {under_prob_fair:.1%} fair probability. Slight edge over market pricing."
                     )
                 else:
                     return None  # Too close to call
@@ -352,11 +352,11 @@ class ValueModel(BaseAnalysisModel):
                 if over_prob_fair > 0.55:
                     prediction = f"Over {prop_item.get('point', 'N/A')}"
                     confidence = 0.6
-                    reasoning = f"High vig but strong edge: Over {over_prob_fair:.1%}"
+                    reasoning = f"High {vig:.1%} vig but strong edge detected: Over has {over_prob_fair:.1%} fair probability, providing sufficient value despite market friction."
                 elif under_prob_fair > 0.55:
                     prediction = f"Under {prop_item.get('point', 'N/A')}"
                     confidence = 0.6
-                    reasoning = f"High vig but strong edge: Under {under_prob_fair:.1%}"
+                    reasoning = f"High {vig:.1%} vig but strong edge detected: Under has {under_prob_fair:.1%} fair probability, providing sufficient value despite market friction."
                 else:
                     return None  # No value in high vig situation
 
@@ -416,13 +416,13 @@ class MomentumModel(BaseAnalysisModel):
         # Higher confidence if significant movement
         if abs(movement) > 1.0:
             confidence = 0.8
-            reasoning = f"Strong line movement: {old_spread:+.1f} → {new_spread:+.1f} ({movement:+.1f})"
+            reasoning = f"Strong line movement detected: Line moved from {old_spread:+.1f} to {new_spread:+.1f} ({movement:+.1f} points). Sharp money likely driving this {abs(movement):.1f}-point shift. Follow the momentum."
         elif abs(movement) > 0.5:
             confidence = 0.7
-            reasoning = f"Moderate line movement: {old_spread:+.1f} → {new_spread:+.1f} ({movement:+.1f})"
+            reasoning = f"Moderate line movement: Line shifted from {old_spread:+.1f} to {new_spread:+.1f} ({movement:+.1f} points). Market adjusting to betting action. Confidence: {confidence*100:.1f}%"
         else:
             confidence = 0.6
-            reasoning = f"Slight line movement: {old_spread:+.1f} → {new_spread:+.1f} ({movement:+.1f})"
+            reasoning = f"Slight line movement: Line moved from {old_spread:+.1f} to {new_spread:+.1f} ({movement:+.1f} points). Minor market adjustment detected."
 
         return AnalysisResult(
             game_id=game_id,
@@ -556,18 +556,18 @@ class ContrarianModel(BaseAnalysisModel):
             # Bet with the line movement (sharp side)
             if movement > 0:
                 prediction = f"{game_info.get('away_team')} {-new_spread:+.1f}"
-                reasoning = f"Sharp action detected: Line moved {movement:+.1f} points. Fading public, following sharps."
+                reasoning = f"Sharp action detected: Line moved {movement:+.1f} points against public sentiment. Professional bettors driving this move. Fading public, following sharp money. Confidence: {confidence*100:.1f}%"
             else:
                 prediction = f"{game_info.get('home_team')} {new_spread:+.1f}"
-                reasoning = f"Sharp action detected: Line moved {movement:+.1f} points. Fading public, following sharps."
+                reasoning = f"Sharp action detected: Line moved {movement:+.1f} points against public sentiment. Professional bettors driving this move. Fading public, following sharp money. Confidence: {confidence*100:.1f}%"
         elif abs(movement) > 0.5:
             confidence = 0.65
             if movement > 0:
                 prediction = f"{game_info.get('away_team')} {-new_spread:+.1f}"
-                reasoning = f"Moderate sharp action: Line moved {movement:+.1f} points."
+                reasoning = f"Moderate sharp action: Line moved {movement:+.1f} points. Contrarian opportunity as sharps take opposite side of public. Confidence: {confidence*100:.1f}%"
             else:
                 prediction = f"{game_info.get('home_team')} {new_spread:+.1f}"
-                reasoning = f"Moderate sharp action: Line moved {movement:+.1f} points."
+                reasoning = f"Moderate sharp action: Line moved {movement:+.1f} points. Contrarian opportunity as sharps take opposite side of public. Confidence: {confidence*100:.1f}%"
         else:
             # No significant movement, use odds imbalance
             return self._analyze_odds_imbalance(game_id, newest, game_info)
@@ -930,31 +930,31 @@ class HotColdModel(BaseAnalysisModel):
                 # Hot player, well above line
                 confidence = 0.75
                 prediction = f"Over {line}"
-                reasoning = f"{player_name} averaging {avg_stat:.1f} over last {recent_stats['games']} games. Hit over {int(over_rate*100)}% of time."
+                reasoning = f"{player_name} is HOT: Averaging {avg_stat:.1f} over last {recent_stats['games']} games, well above {line} line. Hit over {int(over_rate*100)}% of time. Ride the hot streak."
             elif avg_stat > line and over_rate > 0.6:
                 # Trending over
                 confidence = 0.65
                 prediction = f"Over {line}"
-                reasoning = f"{player_name} trending up: {avg_stat:.1f} avg, {int(over_rate*100)}% over rate last {recent_stats['games']} games."
+                reasoning = f"{player_name} trending up: Averaging {avg_stat:.1f} with {int(over_rate*100)}% over rate in last {recent_stats['games']} games. Positive momentum continues."
             elif avg_stat < line * 0.9 and over_rate < 0.3:
                 # Cold player, well below line
                 confidence = 0.75
                 prediction = f"Under {line}"
-                reasoning = f"{player_name} averaging {avg_stat:.1f} over last {recent_stats['games']} games. Hit under {int((1-over_rate)*100)}% of time."
+                reasoning = f"{player_name} is COLD: Averaging {avg_stat:.1f} over last {recent_stats['games']} games, well below {line} line. Hit under {int((1-over_rate)*100)}% of time. Strong fade opportunity."
             elif avg_stat < line and over_rate < 0.4:
                 # Trending under
                 confidence = 0.65
                 prediction = f"Under {line}"
-                reasoning = f"{player_name} trending down: {avg_stat:.1f} avg, {int((1-over_rate)*100)}% under rate last {recent_stats['games']} games."
+                reasoning = f"{player_name} trending down: Averaging {avg_stat:.1f} with {int((1-over_rate)*100)}% under rate over last {recent_stats['games']} games. Momentum suggests continued underperformance."
             else:
                 # Close to line, slight edge based on recent trend
                 confidence = 0.55
                 if avg_stat > line:
                     prediction = f"Over {line}"
-                    reasoning = f"{player_name} slightly above line: {avg_stat:.1f} avg over last {recent_stats['games']} games."
+                    reasoning = f"{player_name} slightly above line: {avg_stat:.1f} average over last {recent_stats['games']} games. Marginal edge on over."
                 else:
                     prediction = f"Under {line}"
-                    reasoning = f"{player_name} slightly below line: {avg_stat:.1f} avg over last {recent_stats['games']} games."
+                    reasoning = f"{player_name} slightly below line: {avg_stat:.1f} average over last {recent_stats['games']} games. Marginal edge on under."
 
             return AnalysisResult(
                 game_id=prop_item.get("event_id", "unknown"),
@@ -1912,7 +1912,7 @@ class EnsembleModel(BaseAnalysisModel):
                 commence_time=game_info.get("commence_time"),
                 prediction=best_prediction.prediction,
                 confidence=weighted_confidence,
-                reasoning=f"Ensemble of {len(predictions)} models. "
+                reasoning=f"Ensemble consensus from {len(predictions)} models (weighted confidence: {weighted_confidence*100:.1f}%). "
                 + " | ".join(reasoning_parts),
                 recommended_odds=-110,
             )
@@ -1972,7 +1972,7 @@ class EnsembleModel(BaseAnalysisModel):
                 market_key=best_prediction.market_key,
                 prediction=best_prediction.prediction,
                 confidence=weighted_confidence,
-                reasoning=f"Ensemble prediction (weighted confidence from {len(predictions)} models)",
+                reasoning=f"Ensemble consensus from {len(predictions)} models. Weighted confidence: {weighted_confidence*100:.1f}%. Multiple models agree on this prediction.",
                 recommended_odds=-110,
             )
         except Exception as e:
