@@ -153,7 +153,11 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
             <span className={Array.isArray(limits.system_models) || limits.system_models ? 'enabled' : 'disabled'}>
               {Array.isArray(limits.system_models) || limits.system_models ? '✓' : '✗'}
             </span>
-            System Models {Array.isArray(limits.system_models) ? `(${limits.system_models.join(', ')})` : '(All 10 models)'}
+            System Models {Array.isArray(limits.system_models) 
+              ? `(Carpool only)` 
+              : limits.system_models === true 
+                ? '(All 10 models)' 
+                : '(None)'}
           </div>
           <div className="feature-item">
             <span className={limits.show_reasoning ? 'enabled' : 'disabled'}>
