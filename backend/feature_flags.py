@@ -60,8 +60,8 @@ FEATURE_ROLLOUT = {
     },
     "benny_ai": {
         "name": "Benny AI Betting",
-        "enabled_envs": ["dev", "staging", "prod"],
-        "beta_users": [],  # Empty = all users
+        "enabled_envs": ["dev"],
+        "beta_users": [],  # Dev only for now
     },
     "user_models": {
         "name": "User Models & Custom Data",
@@ -115,10 +115,22 @@ def is_feature_enabled(
     return limits.get(feature_name, False)
 
 
-def get_user_limits(user_id: str) -> Dict:
-    """Get all limits for user's subscription tier"""
+def get_user_limits(user_id: str, environment: str = None) -> Dict:
+    """Get all limits for user's subscription tier, respecting environment feature flags"""
+    env = environment or os.environ.get("ENVIRONMENT", "dev")
     tier = get_user_tier(user_id)
-    return TIER_LIMITS.get(tier, TIER_LIMITS[SubscriptionTier.FREE])
+    limits = TIER_LIMITS.get(tier, TIER_LIMITS[SubscriptionTier.FREE]).copy()
+    
+    # Override limits based on feature rollout (environment restrictions)
+    for feature_name, rollout in FEATURE_ROLLOUT.items():
+        if feature_name in limits and env not in rollout["enabled_envs"]:
+            # Disable feature if not enabled in this environment
+            if isinstance(limits[feature_name], bool):
+                limits[feature_name] = False
+            elif isinstance(limits[feature_name], int):
+                limits[feature_name] = 0
+    
+    return limits
 
 
 def can_create_user_model(user_id: str, current_count: int) -> bool:
