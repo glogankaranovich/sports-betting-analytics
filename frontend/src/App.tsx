@@ -10,6 +10,7 @@ import { ModelAnalytics } from './components/ModelAnalytics';
 import { ModelComparison } from './components/ModelComparison';
 import Models from './components/Models';
 import { UserModels } from './components/UserModels';
+import { Marketplace } from './components/Marketplace';
 import { Benny } from './components/Benny';
 import { BennyDashboard } from './components/BennyDashboard';
 import { Subscription } from './components/Subscription';
@@ -74,6 +75,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [gamesSort, setGamesSort] = useState<'time' | 'team'>('time');
   const [gamesSortDir, setGamesSortDir] = useState<'asc' | 'desc'>('asc');
   const [showFilters, setShowFilters] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [predictionTypeFilter, setPredictionTypeFilter] = useState<'all' | 'original' | 'inverse'>('all');
   const [showSort, setShowSort] = useState(false);
   const [token, setToken] = useState<string>('');
@@ -333,6 +335,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           
           const perf = {
             model_name: model.model,
+            sport: model.sport,
             accuracy: bestAcc,
             total: model.sample_size,
             strategy: strategy,
@@ -519,12 +522,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 {modelLeaderboard.map((section: any) => (
                   <React.Fragment key={section.type}>
                     <div className="ticker-item ticker-label">
-                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
+                      🎯 TOP ACCURATE - {section.type.toUpperCase()} - 90 DAYS:
                     </div>
                     {section.models.length > 0 ? (
                       section.models.map((model: any, index: number) => (
                         <div key={model.model_name} className="ticker-item">
-                          🏆 #{index + 1} {model.model_name}: {model.strategy} • {model.total} predictions
+                          🏆 #{index + 1} {model.model_name} ({model.sport?.split('_').pop()?.toUpperCase()}): {model.strategy} • {model.total} predictions
                         </div>
                       ))
                     ) : (
@@ -549,12 +552,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 {modelLeaderboard.map((section: any) => (
                   <React.Fragment key={`dup-${section.type}`}>
                     <div className="ticker-item ticker-label">
-                      🎯 TOP ACCURATE ({settings.sport.split('_').pop()?.toUpperCase()}) - {section.type.toUpperCase()} - 90 DAYS:
+                      🎯 TOP ACCURATE - {section.type.toUpperCase()} - 90 DAYS:
                     </div>
                     {section.models.length > 0 ? (
                       section.models.map((model: any, index: number) => (
                         <div key={`dup-${model.model_name}`} className="ticker-item">
-                          🏆 #{index + 1} {model.model_name}: {model.strategy} • {model.total} predictions
+                          🏆 #{index + 1} {model.model_name} ({model.sport?.split('_').pop()?.toUpperCase()}): {model.strategy} • {model.total} predictions
                         </div>
                       ))
                     ) : (
@@ -585,12 +588,13 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onToggleCollapse={() => setSideNavCollapsed(!sideNavCollapsed)}
           />
           <div className="content-with-sidenav">
-            {['user-home', 'analysis-home', 'benny-home', 'models-home', 'about', 'profile', 'settings', 'subscription', 'games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-chat', 'benny-dashboard', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
+            {['user-home', 'analysis-home', 'benny-home', 'models-home', 'marketplace', 'about', 'profile', 'settings', 'subscription', 'games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-chat', 'benny-dashboard', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
               <SideNav 
                 section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
                         activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
                         activePage.includes('benny') || ['benny-chat', 'benny-dashboard'].includes(activePage) ? 'benny-home' :
                         activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison'].includes(activePage) ? 'models-home' :
+                        activePage === 'marketplace' ? 'marketplace' :
                         activePage === 'about' || ['how-it-works', 'terms', 'privacy'].includes(activePage) ? 'about' : ''}
                 currentPage={activePage}
                 onNavigate={setActivePage}
@@ -621,18 +625,20 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
           {activePage === 'games' && (
           <div role="tabpanel" id="games-panel" aria-labelledby="games-tab">
-            <Settings 
-              settings={settings}
-              onSettingsChange={setSettings}
-              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
-              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
-              userModels={userModels}
-              token={token}
-              subscription={subscription}
-            />
             <div className="games-header">
               <h2>Available Games</h2>
               <div className="filters">
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowSettings(!showSettings)}
+                  aria-label="Toggle settings"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                    <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+                  </svg>
+                  Settings
+                </button>
                 <button 
                   className="filter-icon-btn"
                   onClick={() => setShowFilters(!showFilters)}
@@ -652,6 +658,20 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </button>
               </div>
             </div>
+            
+            {showSettings && (
+              <div className="filter-panel">
+                <Settings 
+                  settings={settings}
+                  onSettingsChange={setSettings}
+                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+                  availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+                  userModels={userModels}
+                  token={token}
+                  subscription={subscription}
+                />
+              </div>
+            )}
             
             {showFilters && (
               <div className="filter-panel">
@@ -771,18 +791,20 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activePage === 'game-analysis' && (
           <div className="predictions-section">
-            <Settings 
-              settings={settings}
-              onSettingsChange={setSettings}
-              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
-              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
-              userModels={userModels}
-              token={token}
-              subscription={subscription}
-            />
             <div className="games-header">
               <h2>Game Analysis</h2>
               <div className="filters">
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowSettings(!showSettings)}
+                  aria-label="Toggle settings"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                    <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+                  </svg>
+                  Settings
+                </button>
                 <button 
                   className="filter-icon-btn"
                   onClick={() => setShowGameAnalysisFilters(!showGameAnalysisFilters)}
@@ -802,6 +824,20 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </button>
               </div>
             </div>
+            
+            {showSettings && (
+              <div className="filter-panel">
+                <Settings 
+                  settings={settings}
+                  onSettingsChange={setSettings}
+                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+                  availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+                  userModels={userModels}
+                  token={token}
+                  subscription={subscription}
+                />
+              </div>
+            )}
             
             {showGameAnalysisFilters && (
               <div className="filter-panel">
@@ -897,16 +933,33 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                           </div>
                           <div className="analysis-info">
                             <div className="analysis-row">
-                              <span className="analysis-label">Analysis Outcome: </span>
+                              <span className="analysis-label">Prediction: </span>
                               <span className="analysis-value">{analysis.prediction}</span>
                             </div>
                             <div className="confidence-row">
                               <span className="confidence-label">Confidence: </span>
                               <span className="confidence-value">{(analysis.confidence * 100).toFixed(0)}%</span>
+                              {analysis.roi !== null && analysis.roi !== undefined && (
+                                <>
+                                  <span className="confidence-label" style={{ marginLeft: '20px' }}>ROI: </span>
+                                  <span className={`confidence-value ${analysis.roi > 0 ? 'positive' : 'negative'}`}>
+                                    {analysis.roi > 0 ? '+' : ''}{analysis.roi}%
+                                  </span>
+                                </>
+                              )}
+                              {analysis.risk_level && (
+                                <span className={`risk-badge ${analysis.risk_level}`} style={{ marginLeft: '12px' }}>
+                                  {analysis.risk_level}
+                                </span>
+                              )}
                             </div>
-                            <div className="reasoning">
-                              <span className="reasoning-label">Reasoning: </span>
-                              <span className="reasoning-value">{analysis.reasoning}</span>
+                            <div className="reasoning-section">
+                              <div className="reasoning-header">
+                                <span className="reasoning-label">Analysis:</span>
+                              </div>
+                              <div className="reasoning-content">
+                                {analysis.reasoning}
+                              </div>
                             </div>
                           </div>
                           <div className="game-meta">
@@ -951,18 +1004,20 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activePage === 'prop-analysis' && (
           <div className="predictions-section">
-            <Settings 
-              settings={settings}
-              onSettingsChange={setSettings}
-              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
-              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
-              userModels={userModels}
-              token={token}
-              subscription={subscription}
-            />
             <div className="games-header">
               <h2>Player Prop Analysis</h2>
               <div className="filters">
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowSettings(!showSettings)}
+                  aria-label="Toggle settings"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
+                    <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                    <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/>
+                  </svg>
+                  Settings
+                </button>
                 <button 
                   className="filter-icon-btn"
                   onClick={() => setShowPropAnalysisFilters(!showPropAnalysisFilters)}
@@ -982,6 +1037,20 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </button>
               </div>
             </div>
+            
+            {showSettings && (
+              <div className="filter-panel">
+                <Settings 
+                  settings={settings}
+                  onSettingsChange={setSettings}
+                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+                  availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+                  userModels={userModels}
+                  token={token}
+                  subscription={subscription}
+                />
+              </div>
+            )}
             
             {showPropAnalysisFilters && (
               <div className="filter-panel">
@@ -1085,17 +1154,34 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                           </div>
                           <div className="prediction-info">
                             <div className="prediction-box">
-                              <span className="prediction-label">Analysis Outcome: </span>
+                              <span className="prediction-label">Prediction: </span>
                               <span className="prediction-value">{analysis.prediction}</span>
                             </div>
                             <div className="confidence">
-                              <span className="confidence-label">Confidence</span>
+                              <span className="confidence-label">Confidence: </span>
                               <span className="confidence-value">{(analysis.confidence * 100).toFixed(0)}%</span>
+                              {analysis.roi !== null && analysis.roi !== undefined && (
+                                <>
+                                  <span className="confidence-label" style={{ marginLeft: '20px' }}>ROI: </span>
+                                  <span className={`confidence-value ${analysis.roi > 0 ? 'positive' : 'negative'}`}>
+                                    {analysis.roi > 0 ? '+' : ''}{analysis.roi}%
+                                  </span>
+                                </>
+                              )}
+                              {analysis.risk_level && (
+                                <span className={`risk-badge ${analysis.risk_level}`} style={{ marginLeft: '12px' }}>
+                                  {analysis.risk_level}
+                                </span>
+                              )}
                             </div>
                           </div>
-                          <div className="reasoning">
-                            <span className="reasoning-label">Reasoning: </span>
-                            <span>{analysis.reasoning}</span>
+                          <div className="reasoning-section">
+                            <div className="reasoning-header">
+                              <span className="reasoning-label">Analysis:</span>
+                            </div>
+                            <div className="reasoning-content">
+                              {analysis.reasoning}
+                            </div>
                           </div>
                           <div className="game-meta">
                             <span className={`prediction-badge ${analysis.reasoning?.toLowerCase().includes('inverse') ? 'against-model' : 'with-model'}`}>
@@ -1139,15 +1225,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activePage === 'player-props' && (
           <>
-            <Settings 
-              settings={settings}
-              onSettingsChange={setSettings}
-              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
-              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
-              userModels={userModels}
-              token={token}
-              subscription={subscription}
-            />
             <PlayerProps 
               token={token} 
               games={games}
@@ -1155,6 +1232,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               itemsPerPage={itemsPerPage}
               onPageChange={setCurrentPage}
               settings={settings}
+              onSettingsChange={setSettings}
+              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+              availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
+              userModels={userModels}
+              subscription={subscription}
             />
           </>
         )}
@@ -1183,6 +1265,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <UserModels token={token} subscription={subscription} onNavigate={setActivePage} />
         )}
 
+        {activePage === 'marketplace' && (
+          <Marketplace subscription={subscription} onNavigate={setActivePage} />
+        )}
+
         {activePage === 'benny-chat' && (
           <div className="benny-chat-page">
             <div className="benny-chat-container">
@@ -1197,13 +1283,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activePage === 'model-comparison' && (
           <ModelComparison settings={settings} />
-        )}
-
-        {activePage === 'marketplace' && (
-          <div className="page-container">
-            <h2>Marketplace</h2>
-            <p>Coming soon! Buy and sell custom betting models, strategies, and expert picks.</p>
-          </div>
         )}
 
         {activePage === 'about' && (

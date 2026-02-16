@@ -72,7 +72,7 @@ def handle_get_profile(query_params: Dict[str, str]):
         if not user_id:
             return create_response(400, {"error": "user_id is required"})
 
-        response = table.get_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
+        response = table.get_item(Key={"pk": f"USER#{user_id}", "sk": "PROFILE"})
 
         if "Item" not in response:
             return create_response(404, {"error": "Profile not found"})
@@ -102,7 +102,7 @@ def handle_update_profile(body: Dict[str, Any]):
         preferences = body.get("preferences", {})
 
         # Get existing profile or create new
-        response = table.get_item(Key={"PK": f"USER#{user_id}", "SK": "PROFILE"})
+        response = table.get_item(Key={"pk": f"USER#{user_id}", "sk": "PROFILE"})
 
         if "Item" in response:
             item = response["Item"]
@@ -110,8 +110,8 @@ def handle_update_profile(body: Dict[str, Any]):
             item["updated_at"] = datetime.now(timezone.utc).isoformat()
         else:
             item = {
-                "PK": f"USER#{user_id}",
-                "SK": "PROFILE",
+                "pk": f"USER#{user_id}",
+                "sk": "PROFILE",
                 "email": body.get("email", ""),
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "preferences": preferences,

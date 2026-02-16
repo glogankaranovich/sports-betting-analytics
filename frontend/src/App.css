@@ -415,6 +415,21 @@ main {
   flex-wrap: wrap;
 }
 
+.filter-panel .predictions-section {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+.filter-panel .settings-grid {
+  width: 100%;
+  margin: 0;
+}
+
+.filter-panel .setting-item select {
+  width: 100%;
+}
+
 @media (max-width: 768px) {
   .filters {
     width: 100%;
@@ -1193,17 +1208,44 @@ main {
 /* Reasoning */
 .reasoning {
   margin-top: 1rem;
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-  font-style: italic;
-  font-size: 0.875rem;
-  color: #6b7280;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+  border-left: 3px solid rgba(59, 130, 246, 0.5);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #e5e7eb;
+  line-height: 1.6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.reasoning-section {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+  border-left: 3px solid rgba(59, 130, 246, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #93c5fd;
+}
+
+.reasoning-content {
+  font-size: 0.9rem;
+  color: #e5e7eb;
+  line-height: 1.6;
 }
 
 .featured-recommendation .reasoning {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+  border-left-color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.95);
 }
 .settings-grid {
   display: flex;

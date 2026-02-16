@@ -828,7 +828,12 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
                         Key={"pk": "CACHE", "sk": cache_key}
                     )
                     if "Item" in cache_response:
-                        all_models.extend(cache_response["Item"]["data"])
+                        cached_items = cache_response["Item"]["data"]
+                        # Add sport field to cached items if missing
+                        for item in cached_items:
+                            if "sport" not in item:
+                                item["sport"] = s
+                        all_models.extend(cached_items)
                         continue
                 except Exception:
                     pass
@@ -900,7 +905,6 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
                 if user_id:
                     access_check = check_feature_access(user_id, "user_models")
                     if access_check["allowed"]:
-                        from datetime import datetime, timedelta
                         from user_models import UserModel
 
                         if days >= 9999:
@@ -1289,6 +1293,7 @@ def _get_model_comparison_data(
                 {
                     "model": model_name or model_id,
                     "model_id": model_id,
+                    "sport": sport,
                     "bet_type": bet_type,
                     "is_user_model": is_user_model,
                     "sample_size": original_total,

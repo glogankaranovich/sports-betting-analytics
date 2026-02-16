@@ -36,6 +36,9 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
       { label: 'My Models', page: 'my-models' },
       { label: 'Model Comparison', page: 'model-comparison' },
     ],
+    'marketplace': [
+      { label: 'Browse Models', page: 'marketplace' },
+    ],
   };
 
   const items = navItems[section] || [];
@@ -45,6 +48,7 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
     if (section === 'analysis-home') return 'Analysis';
     if (section === 'benny-home') return 'Benny AI';
     if (section === 'models-home') return 'Models';
+    if (section === 'marketplace') return 'Marketplace';
     return '';
   };
 
