@@ -580,14 +580,14 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             )}
             {modelLeaderboard.length > 0 && subscription?.limits?.show_reasoning !== false && (
               <>
-                {modelLeaderboard.map((section: any) => (
-                  <React.Fragment key={`dup-${section.type}`}>
+                {modelLeaderboard.map((section: any, sectionIndex: number) => (
+                  <React.Fragment key={`section-${section.type}-${sectionIndex}`}>
                     <div className="ticker-item ticker-label">
                       🎯 TOP ACCURATE - {section.type.toUpperCase()} - 90 DAYS:
                     </div>
                     {section.models.length > 0 ? (
                       section.models.map((model: any, index: number) => (
-                        <div key={`dup-${model.model_name}`} className="ticker-item">
+                        <div key={`model-${section.type}-${index}`} className="ticker-item">
                           🏆 #{index + 1} {model.model_name} ({model.sport?.split('_').pop()?.toUpperCase()}): {model.strategy} • {model.total} predictions
                         </div>
                       ))
@@ -885,8 +885,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   className="filter-select"
                 >
                   <option value="all">All Predictions</option>
-                  <option value="original">Original Only (Bet With Model)</option>
-                  <option value="inverse">Inverse Only (Bet Against Model)</option>
+                  <option value="original">Original Only (Betting With Model)</option>
+                  <option value="inverse">Inverse Only (Betting Against Model)</option>
                 </select>
                 <select
                   value={riskFilter}
@@ -1011,7 +1011,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                           </div>
                           <div className="game-meta">
                             <span className={`prediction-badge ${analysis.reasoning?.toLowerCase().includes('inverse') ? 'against-model' : 'with-model'}`}>
-                              {analysis.reasoning?.toLowerCase().includes('inverse') ? 'BET AGAINST' : 'BET WITH'}
+                              {analysis.reasoning?.toLowerCase().includes('inverse') ? 'BETTING AGAINST MODEL' : 'BETTING WITH MODEL'}
                             </span>
                             <span className="model">Model: {analysis.model}</span>
                             <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
@@ -1248,7 +1248,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                           )}
                           <div className="game-meta">
                             <span className={`prediction-badge ${analysis.reasoning?.toLowerCase().includes('inverse') ? 'against-model' : 'with-model'}`}>
-                              {analysis.reasoning?.toLowerCase().includes('inverse') ? 'BET AGAINST' : 'BET WITH'}
+                              {analysis.reasoning?.toLowerCase().includes('inverse') ? 'BETTING AGAINST MODEL' : 'BETTING WITH MODEL'}
                             </span>
                             <span className="model">Model: {analysis.model}</span>
                             <span className="game-time">{new Date(analysis.commence_time).toLocaleString()}</span>
