@@ -91,6 +91,30 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
   };
 
   if (selectedModel) {
+    // Gate analytics to BASIC tier and above
+    if (subscription?.limits?.show_reasoning === false) {
+      return (
+        <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setSelectedModel(null)} className="close-button">×</button>
+            <div style={{ padding: '40px', textAlign: 'center' }}>
+              <h2 style={{ marginBottom: '16px' }}>📊 Model Analytics</h2>
+              <p style={{ color: '#ccc', marginBottom: '24px' }}>
+                View detailed performance metrics, accuracy trends, and historical data for this model.
+              </p>
+              <button 
+                className="upgrade-btn"
+                onClick={() => window.location.hash = '#subscription'}
+                style={{ padding: '12px 24px' }}
+              >
+                Upgrade to View Analytics
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
