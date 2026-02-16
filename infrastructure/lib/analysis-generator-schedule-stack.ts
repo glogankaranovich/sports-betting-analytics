@@ -30,16 +30,27 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
     const models = PLATFORM_CONSTANTS.SYSTEM_MODELS.split(',').filter(m => m !== 'benny');
     const betTypes = ['games', 'props'];
 
-    // Analysis generation - every 2 hours for each sport
-    sports.forEach(sport => {
-      models.forEach((model, modelIndex) => {
-        betTypes.forEach((betType, betTypeIndex) => {
-          // Stagger executions by 2 minutes each to prevent overlap
-          const minuteOffset = (modelIndex * betTypes.length + betTypeIndex) * 2;
+    // Analysis generation - every 4 hours for each sport, staggered by 2 minutes
+    let globalOffset = 0;
+    sports.forEach((sport) => {
+      models.forEach((model) => {
+        betTypes.forEach((betType) => {
+          // Stagger each rule by 2 minutes
+          const minute = globalOffset % 60;
+          const hourOffset = Math.floor(globalOffset / 60);
+          
+          // Create cron expression for every 4 hours starting at the offset hour
+          const hours = Array.from({length: 6}, (_, i) => (hourOffset + i * 4) % 24).join(',');
           
           new events.Rule(this, `AnalysisRule${sport.name}${model}${betType}`, {
-            schedule: events.Schedule.rate(cdk.Duration.hours(4)),
-            description: `Generate ${sport.name} ${betType} analyses using ${model} model every 2 hours`,
+            schedule: events.Schedule.cron({
+              minute: minute.toString(),
+              hour: hours,
+              day: '*',
+              month: '*',
+              year: '*'
+            }),
+            description: `Generate ${sport.name} ${betType} analyses using ${model} model every 4 hours (offset: ${globalOffset}min)`,
             targets: [new targets.LambdaFunction(sport.lambda, {
               event: events.RuleTargetInput.fromObject({
                 sport: this.getSportKey(sport.name),
@@ -48,6 +59,8 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
               })
             })]
           });
+          
+          globalOffset += 2; // Increment by 2 minutes for next rule
         });
       });
     });

@@ -42,12 +42,33 @@ def lambda_handler(event, context):
     paginator = events_client.get_paginator("list_rules")
     updated_rules = []
 
-    for page in paginator.paginate(NamePrefix=f"{environment.capitalize()}-"):
+    # List all rules (no prefix filter since CDK generates complex names)
+    for page in paginator.paginate():
         for rule in page["Rules"]:
             rule_name = rule["Name"]
 
+            # Check if this is a sport-specific rule
             for sport in SPORT_SEASONS.keys():
-                if sport in rule_name:
+                # Match various rule patterns:
+                # - AnalysisRuleNBA... (analysis generators)
+                # - OddsRuleNBA... (odds collectors)
+                # - PropsRuleNBA... (props collectors)
+                # - DailyNba... (stats/injury collectors)
+                # - DailyNBA... (schedule collectors)
+                # - analysis-generator-nba (Lambda function names)
+                sport_patterns = [
+                    f"AnalysisRule{sport}",
+                    f"OddsRule{sport}",
+                    f"PropsRule{sport}",
+                    f"Daily{sport}",
+                    f"Daily{sport.capitalize()}",
+                    f"analysis-generator-{sport.lower()}",
+                    f"{sport}Stats",
+                    f"{sport}Injury",
+                    f"{sport}Schedule"
+                ]
+                
+                if any(pattern in rule_name for pattern in sport_patterns):
                     in_season = is_in_season(sport, current_month)
                     current_state = rule["State"]
                     desired_state = "ENABLED" if in_season else "DISABLED"
@@ -76,5 +97,6 @@ def lambda_handler(event, context):
         "body": {
             "message": f"Season manager completed for month {current_month}",
             "updated_rules": updated_rules,
+            "total_updated": len(updated_rules)
         },
     }
