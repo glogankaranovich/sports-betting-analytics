@@ -86,7 +86,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange,
               }
             >
               <option value="consensus">Consensus</option>
-              <option value="ensemble">Ensemble</option>
+              <option value="ensemble">Carpool</option>
               <option value="value">Value</option>
               <option value="momentum">Momentum</option>
               <option value="contrarian">Contrarian</option>

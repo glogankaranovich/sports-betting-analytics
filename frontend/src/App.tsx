@@ -230,7 +230,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           setGameAnalysis(filtered);
         } else {
           const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'game', fetchAll: true });
-          setGameAnalysis(data.analyses || []);
+          let analyses = data.analyses || [];
+          
+          // Filter models based on subscription tier
+          if (subscription?.limits?.system_models && Array.isArray(subscription.limits.system_models)) {
+            // Free tier: only show allowed models (e.g., ["Ensemble"])
+            const allowedModels = subscription.limits.system_models.map((m: string) => m.toLowerCase());
+            analyses = analyses.filter((a: any) => allowedModels.includes(a.model?.toLowerCase()));
+          }
+          
+          setGameAnalysis(analyses);
         }
         setGameAnalysisKey(null);
       }
@@ -239,7 +248,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     } finally {
       setLoadingGameAnalysis(false);
     }
-  }, [settings.sport, settings.model, settings.bookmaker, userId]);
+  }, [settings.sport, settings.model, settings.bookmaker, userId, subscription]);
 
   const fetchPropAnalysis = useCallback(async () => {
     try {
@@ -265,7 +274,16 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           setPropAnalysis(filtered);
         } else {
           const data = await bettingApi.getAnalyses(token, { sport, model, bookmaker, type: 'prop', fetchAll: true });
-          setPropAnalysis(data.analyses || []);
+          let analyses = data.analyses || [];
+          
+          // Filter models based on subscription tier
+          if (subscription?.limits?.system_models && Array.isArray(subscription.limits.system_models)) {
+            // Free tier: only show allowed models (e.g., ["Ensemble"])
+            const allowedModels = subscription.limits.system_models.map((m: string) => m.toLowerCase());
+            analyses = analyses.filter((a: any) => allowedModels.includes(a.model?.toLowerCase()));
+          }
+          
+          setPropAnalysis(analyses);
         }
         setPropAnalysisKey(null);
       }
@@ -274,7 +292,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     } finally {
       setLoadingPropAnalysis(false);
     }
-  }, [settings.sport, settings.model, settings.bookmaker, userId]);
+  }, [settings.sport, settings.model, settings.bookmaker, userId, subscription]);
 
   const fetchTopAnalysis = useCallback(async () => {
     try {
@@ -956,14 +974,30 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                                 </span>
                               )}
                             </div>
-                            <div className="reasoning-section">
-                              <div className="reasoning-header">
-                                <span className="reasoning-label">Analysis:</span>
+                            {subscription?.limits?.show_reasoning !== false && (
+                              <div className="reasoning-section">
+                                <div className="reasoning-header">
+                                  <span className="reasoning-label">Analysis:</span>
+                                </div>
+                                <div className="reasoning-content">
+                                  {analysis.reasoning}
+                                </div>
                               </div>
-                              <div className="reasoning-content">
-                                {analysis.reasoning}
+                            )}
+                            {subscription?.limits?.show_reasoning === false && (
+                              <div className="reasoning-section" style={{ background: '#1a1a1a', padding: '16px', borderRadius: '8px', border: '1px solid #333' }}>
+                                <div style={{ textAlign: 'center', color: '#888' }}>
+                                  <p style={{ margin: '0 0 12px 0' }}>🔒 Upgrade to see detailed analysis</p>
+                                  <button 
+                                    className="upgrade-btn"
+                                    onClick={() => setActivePage('subscription')}
+                                    style={{ padding: '8px 16px', fontSize: '14px' }}
+                                  >
+                                    View Plans
+                                  </button>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
                           <div className="game-meta">
                             <span className={`prediction-badge ${analysis.reasoning?.toLowerCase().includes('inverse') ? 'against-model' : 'with-model'}`}>
@@ -1178,14 +1212,30 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                               )}
                             </div>
                           </div>
-                          <div className="reasoning-section">
-                            <div className="reasoning-header">
-                              <span className="reasoning-label">Analysis:</span>
+                          {subscription?.limits?.show_reasoning !== false && (
+                            <div className="reasoning-section">
+                              <div className="reasoning-header">
+                                <span className="reasoning-label">Analysis:</span>
+                              </div>
+                              <div className="reasoning-content">
+                                {analysis.reasoning}
+                              </div>
                             </div>
-                            <div className="reasoning-content">
-                              {analysis.reasoning}
+                          )}
+                          {subscription?.limits?.show_reasoning === false && (
+                            <div className="reasoning-section" style={{ background: '#1a1a1a', padding: '16px', borderRadius: '8px', border: '1px solid #333' }}>
+                              <div style={{ textAlign: 'center', color: '#888' }}>
+                                <p style={{ margin: '0 0 12px 0' }}>🔒 Upgrade to see detailed analysis</p>
+                                <button 
+                                  className="upgrade-btn"
+                                  onClick={() => setActivePage('subscription')}
+                                  style={{ padding: '8px 16px', fontSize: '14px' }}
+                                >
+                                  View Plans
+                                </button>
+                              </div>
                             </div>
-                          </div>
+                          )}
                           <div className="game-meta">
                             <span className={`prediction-badge ${analysis.reasoning?.toLowerCase().includes('inverse') ? 'against-model' : 'with-model'}`}>
                               {analysis.reasoning?.toLowerCase().includes('inverse') ? 'BET AGAINST' : 'BET WITH'}

@@ -19,7 +19,8 @@ class SubscriptionTier(Enum):
 # Subscription tier limits
 TIER_LIMITS = {
     SubscriptionTier.FREE: {
-        "system_models": True,
+        "system_models": ["Ensemble"],  # Only Ensemble (displayed as "Carpool")
+        "show_reasoning": False,  # No detailed reasoning
         "benny_ai": False,
         "user_models": False,
         "custom_data": False,
@@ -28,8 +29,9 @@ TIER_LIMITS = {
         "max_custom_datasets": 0,
     },
     SubscriptionTier.BASIC: {
-        "system_models": True,
-        "benny_ai": True,
+        "system_models": True,  # All 10 models
+        "show_reasoning": True,  # Full detailed reasoning
+        "benny_ai": False,
         "user_models": True,
         "custom_data": True,
         "model_marketplace": False,
@@ -37,7 +39,8 @@ TIER_LIMITS = {
         "max_custom_datasets": 5,
     },
     SubscriptionTier.PRO: {
-        "system_models": True,
+        "system_models": True,  # All 10 models
+        "show_reasoning": True,  # Full detailed reasoning
         "benny_ai": True,
         "user_models": True,
         "custom_data": True,

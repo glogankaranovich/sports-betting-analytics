@@ -296,7 +296,7 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
               >
                 <optgroup label="System Models">
                   <option value="consensus">Consensus</option>
-                  <option value="ensemble">Ensemble</option>
+                  <option value="ensemble">Carpool</option>
                   <option value="value">Value</option>
                   <option value="momentum">Momentum</option>
                   <option value="contrarian">Contrarian</option>
