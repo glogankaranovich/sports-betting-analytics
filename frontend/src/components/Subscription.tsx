@@ -8,7 +8,8 @@ interface SubscriptionProps {
 }
 
 interface TierLimits {
-  system_models: boolean;
+  system_models: boolean | string[];
+  show_reasoning: boolean;
   benny_ai: boolean;
   user_models: boolean;
   custom_data: boolean;
@@ -149,16 +150,22 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
         <div className="features-list">
           <h3>Plan Features</h3>
           <div className="feature-item">
-            <span className={limits.system_models ? 'enabled' : 'disabled'}>
-              {limits.system_models ? '✓' : '✗'}
+            <span className={Array.isArray(limits.system_models) || limits.system_models ? 'enabled' : 'disabled'}>
+              {Array.isArray(limits.system_models) || limits.system_models ? '✓' : '✗'}
             </span>
-            System Models
+            System Models {Array.isArray(limits.system_models) ? `(${limits.system_models.join(', ')})` : '(All 10 models)'}
+          </div>
+          <div className="feature-item">
+            <span className={limits.show_reasoning ? 'enabled' : 'disabled'}>
+              {limits.show_reasoning ? '✓' : '✗'}
+            </span>
+            Detailed Reasoning & Analysis
           </div>
           <div className="feature-item">
             <span className={limits.benny_ai ? 'enabled' : 'disabled'}>
               {limits.benny_ai ? '✓' : '✗'}
             </span>
-            Benny AI
+            Benny AI Assistant
           </div>
           <div className="feature-item">
             <span className={limits.user_models ? 'enabled' : 'disabled'}>

@@ -14,7 +14,7 @@ const TIERS = [
     price: '$0',
     models: 0,
     datasets: 0,
-    features: ['System Models']
+    features: ['Carpool Model Only', 'Basic Predictions', 'No Detailed Analysis']
   },
   {
     id: 'basic',
@@ -22,7 +22,7 @@ const TIERS = [
     price: '$9.99/mo',
     models: 3,
     datasets: 5,
-    features: ['System Models', 'Benny AI', 'Custom Models', 'Custom Data']
+    features: ['All 10 System Models', 'Detailed Reasoning & Analysis', 'Model Comparison', 'Custom Models (3)', 'Custom Data (5)']
   },
   {
     id: 'pro',
@@ -30,7 +30,7 @@ const TIERS = [
     price: '$29.99/mo',
     models: 20,
     datasets: 50,
-    features: ['System Models', 'Benny AI', 'Custom Models', 'Custom Data', 'Model Marketplace']
+    features: ['Everything in Basic', 'Benny AI Assistant', 'Benny Dashboard', 'Model Marketplace', 'Custom Models (20)', 'Custom Data (50)']
   }
 ];
 
