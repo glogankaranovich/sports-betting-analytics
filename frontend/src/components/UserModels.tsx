@@ -168,8 +168,8 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
           </div>
         </div>
         <p style={{ margin: 0, color: '#a0aec0', fontSize: '14px' }}>
-          {userModels.length}/3 models created (FREE tier)
-          {userModels.length >= 3 && (
+          {userModels.length}/{subscription?.limits?.max_user_models || 0} models created ({subscription?.tier?.toUpperCase() || 'FREE'} tier)
+          {userModels.length >= (subscription?.limits?.max_user_models || 0) && (
             <span style={{ color: '#f59e0b', marginLeft: '8px' }}>
               • Limit reached. Upgrade to create more.
             </span>
