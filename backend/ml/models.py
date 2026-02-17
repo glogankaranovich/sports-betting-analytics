@@ -107,12 +107,11 @@ class AnalysisResult:
                 f"ANALYSIS#{self.sport}#{self.bookmaker}#{self.model}#game"
             )
 
-        return {
+        item = {
             "pk": pk,
             "sk": f"{self.model}#{self.analysis_type}#LATEST",
             "analysis_pk": analysis_pk,  # AnalysisGSI partition key
             "analysis_time_pk": analysis_time_pk,  # AnalysisTimeGSI partition key
-            "commence_time": self.commence_time,  # Sort key for AnalysisTimeGSI
             "model_type": f"{self.model}#{self.analysis_type}",  # Sort key for AnalysisGSI
             "analysis_type": self.analysis_type,
             "model": self.model,
@@ -133,6 +132,15 @@ class AnalysisResult:
             "created_at": datetime.utcnow().isoformat(),
             "latest": True,
         }
+        
+        # Only include commence_time if it's not None (required for GSI)
+        if self.commence_time:
+            item["commence_time"] = self.commence_time
+        else:
+            # Use a default far future date if commence_time is missing
+            item["commence_time"] = "9999-12-31T23:59:59Z"
+        
+        return item
 
 
 class BaseAnalysisModel:
@@ -1317,7 +1325,7 @@ class MatchupModel(BaseAnalysisModel):
                 sport=sport,
                 home_team=home_team,
                 away_team=away_team,
-                commence_time=game_item.get("commence_time"),
+                commence_time=prop_item.get("commence_time"),  # Get from prop_item, not game_item
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,

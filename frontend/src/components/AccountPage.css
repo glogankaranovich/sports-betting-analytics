@@ -1,0 +1,210 @@
+.account-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.account-header {
+  margin-bottom: 40px;
+}
+
+.account-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.account-subtitle {
+  margin: 0;
+  color: #888;
+  font-size: 14px;
+}
+
+.account-content {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.account-section {
+  padding-bottom: 40px;
+  border-bottom: 1px solid #222;
+}
+
+.account-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.account-section h2 {
+  margin: 0 0 24px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.account-field {
+  margin-bottom: 24px;
+}
+
+.account-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ccc;
+}
+
+.field-value {
+  padding: 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.account-field select {
+  width: 100%;
+  padding: 12px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.account-field select:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+.subscription-info {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.subscription-tier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tier-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  border-radius: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.subscription-features h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.subscription-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.subscription-features li {
+  padding: 8px 0;
+  color: #ccc;
+  font-size: 14px;
+  border-bottom: 1px solid #222;
+}
+
+.subscription-features li:last-child {
+  border-bottom: none;
+}
+
+.subscription-features li::before {
+  content: '✓ ';
+  color: #4CAF50;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.upgrade-button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+  align-self: flex-start;
+}
+
+.upgrade-button:hover {
+  transform: translateY(-2px);
+}
+
+.account-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.save-button,
+.reset-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-button {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: #fff;
+}
+
+.save-button:hover {
+  transform: translateY(-2px);
+}
+
+.reset-button {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #ccc;
+}
+
+.reset-button:hover {
+  border-color: #555;
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .account-page {
+    padding: 24px 16px;
+  }
+
+  .account-header h1 {
+    font-size: 24px;
+  }
+
+  .account-actions {
+    flex-direction: column;
+  }
+
+  .save-button,
+  .reset-button {
+    width: 100%;
+  }
+}
