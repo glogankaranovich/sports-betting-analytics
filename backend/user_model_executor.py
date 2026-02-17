@@ -622,21 +622,13 @@ def calculate_prediction(model: UserModel, game_data: Dict) -> Dict:
     reasoning_parts = []
     for source, score in sorted(
         source_scores.items(), key=lambda x: x[1], reverse=True
-    ):
+    )[:3]:  # Only top 3
+        source_name = source.replace('_', ' ').title()
         if source.startswith("custom_"):
-            weight_val = next(
-                (
-                    cd["weight"]
-                    for cd in model.custom_datasets
-                    if cd["dataset_id"].startswith(source[7:])
-                ),
-                0,
-            )
-        else:
-            weight_val = float(model.data_sources[source]["weight"])
-        reasoning_parts.append(f"{source}: {score:.2f} (weight: {weight_val:.0%})")
+            source_name = "Custom Data"
+        reasoning_parts.append(f"{source_name} favors this pick")
 
-    reasoning = f"Prediction based on: {', '.join(reasoning_parts[:3])}"
+    reasoning = f"Based on: {', '.join(reasoning_parts)}"
 
     return {"prediction": prediction, "confidence": confidence, "reasoning": reasoning}
 

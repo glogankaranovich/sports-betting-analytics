@@ -203,7 +203,7 @@ class ConsensusModel(BaseAnalysisModel):
             commence_time=game_info.get("commence_time"),
             prediction=f"{game_info.get('home_team')} {avg_spread:+.1f}",
             confidence=confidence,
-            reasoning=f"Market consensus from {len(spreads)} bookmakers shows {game_info.get('home_team')} {avg_spread:+.1f}. Average odds: {avg_odds:+d}. Confidence: {confidence*100:.1f}%",
+            reasoning=f"{len(spreads)} sportsbooks agree: {game_info.get('home_team')} is favored by {abs(avg_spread):.1f} points. Average payout odds: {avg_odds:+d}",
             recommended_odds=avg_odds,
         )
 
@@ -253,7 +253,7 @@ class ConsensusModel(BaseAnalysisModel):
                 market_key=prop_item.get("market_key"),
                 prediction=prediction,
                 confidence=confidence,
-                reasoning=f"Market consensus from {len(prop_item.get('bookmakers', []))} bookmakers: {prediction}. Fair probability: {confidence*100:.1f}% after removing vig",
+                reasoning=f"{len(prop_item.get('bookmakers', []))} sportsbooks predict: {prediction}. They're {confidence*100:.0f}% confident in this outcome",
                 recommended_odds=-110,
             )
 
@@ -296,7 +296,7 @@ class ValueModel(BaseAnalysisModel):
             commence_time=game_info.get("commence_time"),
             prediction=f"{game_info.get('home_team')} {selected_spread[0]:+.1f} @ {current_bookmaker}",
             confidence=confidence,
-            reasoning=f"Value opportunity detected: {current_bookmaker} offers {selected_spread[0]:+.1f} vs market consensus of {avg_spread:+.1f}. Edge: {abs(selected_spread[0] - avg_spread):.1f} points. Confidence: {confidence*100:.1f}%",
+            reasoning=f"Better odds found: {current_bookmaker} offers {abs(selected_spread[0]):.1f} point spread vs average of {abs(avg_spread):.1f}. That's a {abs(selected_spread[0] - avg_spread):.1f} point difference",
             recommended_odds=-110,
         )
 
@@ -334,24 +334,24 @@ class ValueModel(BaseAnalysisModel):
                 if over_prob_fair > under_prob_fair:
                     prediction = f"Over {prop_item.get('point', 'N/A')}"
                     reasoning = (
-                        f"Strong value opportunity: Low {vig:.1%} vig detected. Over has {over_prob_fair:.1%} fair probability. Market inefficiency provides betting edge."
+                        f"Great odds: Sportsbook is offering better than usual pricing. Over is {over_prob_fair:.0%} likely based on the odds"
                     )
                 else:
                     prediction = f"Under {prop_item.get('point', 'N/A')}"
                     reasoning = (
-                        f"Strong value opportunity: Low {vig:.1%} vig detected. Under has {under_prob_fair:.1%} fair probability. Market inefficiency provides betting edge."
+                        f"Great odds: Sportsbook is offering better than usual pricing. Under is {under_prob_fair:.0%} likely based on the odds"
                     )
             elif vig < 0.08:  # Moderate vig (6-8%) = decent value
                 confidence = 0.65
                 if over_prob_fair > 0.52:  # Slight edge
                     prediction = f"Over {prop_item.get('point', 'N/A')}"
                     reasoning = (
-                        f"Moderate value: {vig:.1%} vig with Over at {over_prob_fair:.1%} fair probability. Slight edge over market pricing."
+                        f"Good odds: Over has a slight edge at {over_prob_fair:.0%} probability. Better pricing than typical"
                     )
                 elif under_prob_fair > 0.52:
                     prediction = f"Under {prop_item.get('point', 'N/A')}"
                     reasoning = (
-                        f"Moderate value: {vig:.1%} vig with Under at {under_prob_fair:.1%} fair probability. Slight edge over market pricing."
+                        f"Good odds: Under has a slight edge at {under_prob_fair:.0%} probability. Better pricing than typical"
                     )
                 else:
                     return None  # Too close to call
@@ -360,11 +360,11 @@ class ValueModel(BaseAnalysisModel):
                 if over_prob_fair > 0.55:
                     prediction = f"Over {prop_item.get('point', 'N/A')}"
                     confidence = 0.6
-                    reasoning = f"High {vig:.1%} vig but strong edge detected: Over has {over_prob_fair:.1%} fair probability, providing sufficient value despite market friction."
+                    reasoning = f"Decent odds: Over is {over_prob_fair:.0%} likely. Worth considering despite higher sportsbook fees"
                 elif under_prob_fair > 0.55:
                     prediction = f"Under {prop_item.get('point', 'N/A')}"
                     confidence = 0.6
-                    reasoning = f"High {vig:.1%} vig but strong edge detected: Under has {under_prob_fair:.1%} fair probability, providing sufficient value despite market friction."
+                    reasoning = f"Decent odds: Under is {under_prob_fair:.0%} likely. Worth considering despite higher sportsbook fees"
                 else:
                     return None  # No value in high vig situation
 
@@ -424,13 +424,13 @@ class MomentumModel(BaseAnalysisModel):
         # Higher confidence if significant movement
         if abs(movement) > 1.0:
             confidence = 0.8
-            reasoning = f"Strong line movement detected: Line moved from {old_spread:+.1f} to {new_spread:+.1f} ({movement:+.1f} points). Sharp money likely driving this {abs(movement):.1f}-point shift. Follow the momentum."
+            reasoning = f"Big line shift: Spread moved from {abs(old_spread):.1f} to {abs(new_spread):.1f} points ({abs(movement):.1f} point change). Professional bettors are likely driving this move"
         elif abs(movement) > 0.5:
             confidence = 0.7
-            reasoning = f"Moderate line movement: Line shifted from {old_spread:+.1f} to {new_spread:+.1f} ({movement:+.1f} points). Market adjusting to betting action. Confidence: {confidence*100:.1f}%"
+            reasoning = f"Line is moving: Spread changed from {abs(old_spread):.1f} to {abs(new_spread):.1f} points. Sportsbooks adjusting based on betting patterns"
         else:
             confidence = 0.6
-            reasoning = f"Slight line movement: Line moved from {old_spread:+.1f} to {new_spread:+.1f} ({movement:+.1f} points). Minor market adjustment detected."
+            reasoning = f"Small line adjustment: Spread moved slightly from {abs(old_spread):.1f} to {abs(new_spread):.1f} points. Minor market change"
 
         return AnalysisResult(
             game_id=game_id,

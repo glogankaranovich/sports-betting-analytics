@@ -521,6 +521,8 @@ def handle_get_analyses(query_params: Dict[str, str]):
                 "away_team": item.get("away_team"),
                 "created_at": item.get("created_at"),
                 "commence_time": item.get("commence_time"),
+                "roi": item.get("roi"),
+                "risk_level": item.get("risk_level"),
             }
 
             # Add player_name for prop analyses
