@@ -167,7 +167,15 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                         reasoning=analysis_result.reasoning,
                         recommended_odds=analysis_result.recommended_odds,
                     )
-                    store_analysis(bookmaker_result.to_dynamodb_item())
+                    
+                    # Get odds for this specific bookmaker
+                    bookmaker_item = next((item for item in game_data["items"] if item.get("bookmaker") == bookmaker and item.get("market_key") == "h2h"), None)
+                    
+                    analysis_dict = bookmaker_result.to_dynamodb_item()
+                    if bookmaker_item and "outcomes" in bookmaker_item:
+                        analysis_dict["all_outcomes"] = bookmaker_item["outcomes"]
+                    
+                    store_analysis(analysis_dict)
                     count += 1
 
         return count
@@ -287,7 +295,13 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
                         reasoning=analysis_result.reasoning,
                         recommended_odds=analysis_result.recommended_odds,
                     )
-                    store_analysis(bookmaker_result.to_dynamodb_item())
+                    
+                    analysis_dict = bookmaker_result.to_dynamodb_item()
+                    # Store all outcomes for inverse calculation
+                    if "outcomes" in grouped_prop:
+                        analysis_dict["all_outcomes"] = grouped_prop["outcomes"]
+                    
+                    store_analysis(analysis_dict)
                     count += 1
 
         return count
@@ -322,7 +336,7 @@ def store_analysis(analysis_item: Dict[str, Any]):
 
 
 def create_inverse_prediction(analysis_item: Dict[str, Any]) -> Dict[str, Any]:
-    """Create inverse prediction for a given analysis"""
+    """Create inverse prediction for a given analysis with correct odds"""
     try:
         prediction = analysis_item.get("prediction", "")
         analysis_type = analysis_item.get("analysis_type", "game")
@@ -340,24 +354,42 @@ def create_inverse_prediction(analysis_item: Dict[str, Any]) -> Dict[str, Any]:
             # Check which team was predicted
             if home_team and home_team.lower() in prediction.lower():
                 inverse_prediction = away_team
+                predicted_team = home_team
             elif away_team and away_team.lower() in prediction.lower():
                 inverse_prediction = home_team
+                predicted_team = away_team
             else:
                 # Can't determine inverse for complex predictions
                 return None
 
+            # Get opposite team's odds from all_outcomes
+            inverse_odds = None
+            if "all_outcomes" in analysis_item:
+                for outcome in analysis_item["all_outcomes"]:
+                    if outcome.get("name") == inverse_prediction:
+                        inverse_odds = int(outcome.get("price", 0))
+                        break
+
         elif analysis_type == "prop":
             # For props, flip over/under
             if "over" in prediction.lower():
-                inverse_prediction = prediction.replace("Over", "Under").replace(
-                    "over", "under"
-                )
+                inverse_prediction = prediction.replace("Over", "Under").replace("over", "under")
+                original_outcome = "Over"
+                inverse_outcome = "Under"
             elif "under" in prediction.lower():
-                inverse_prediction = prediction.replace("Under", "Over").replace(
-                    "under", "over"
-                )
+                inverse_prediction = prediction.replace("Under", "Over").replace("under", "over")
+                original_outcome = "Under"
+                inverse_outcome = "Over"
             else:
                 return None
+            
+            # Get opposite outcome's odds from all_outcomes
+            inverse_odds = None
+            if "all_outcomes" in analysis_item:
+                for outcome in analysis_item["all_outcomes"]:
+                    if outcome.get("name") == inverse_outcome:
+                        inverse_odds = int(outcome.get("price", 0))
+                        break
         else:
             return None
 
@@ -369,6 +401,11 @@ def create_inverse_prediction(analysis_item: Dict[str, Any]) -> Dict[str, Any]:
         inverse_item["is_inverse"] = True
         inverse_item["original_prediction"] = prediction
         inverse_item["reasoning"] = f"INVERSE of: {analysis_item.get('reasoning', '')}"
+        
+        # Update recommended_odds for inverse if we found them
+        if inverse_odds is not None:
+            inverse_item["recommended_odds"] = inverse_odds
+        # Otherwise keep original odds (will result in different ROI calculation)
 
         return inverse_item
 
