@@ -762,10 +762,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               </div>
             )}
             
-            {loadingGames ? (
+            {loadingGames && games.length === 0 ? (
               <GamesGridSkeleton count={6} />
             ) : (
-            <div className="games-grid">
+            <div className={`games-grid ${loadingGames ? 'loading' : ''}`}>
               {(() => {
                 const allGameCards = generateGameCards();
                 return allGameCards
@@ -934,11 +934,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </select>
               </div>
             )}
-            {loadingGameAnalysis ? (
+            {loadingGameAnalysis && gameAnalysis.length === 0 ? (
               <AnalysisGridSkeleton count={4} />
             ) : (
               <>
-                <div className="games-grid">
+                <div className={`games-grid ${loadingGameAnalysis ? 'loading' : ''}`}>
                   {gameAnalysis.length > 0 ? (
                     gameAnalysis
                       .filter((analysis: any) => {
@@ -1177,11 +1177,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 </select>
               </div>
             )}
-            {loadingPropAnalysis ? (
+            {loadingPropAnalysis && propAnalysis.length === 0 ? (
               <AnalysisGridSkeleton count={4} />
             ) : (
               <>
-                <div className="games-grid">
+                <div className={`games-grid ${loadingPropAnalysis ? 'loading' : ''}`}>
                   {propAnalysis.length > 0 ? (
                     propAnalysis
                       .filter((analysis: any) => {
