@@ -265,7 +265,6 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
           
           return (
             <div key={key} className="game-card">
-              <div className="sport-tag">{firstProp.sport.replace('basketball_', '').replace('americanfootball_', '').toUpperCase()}</div>
               <div className="game-header">
                 <div className="teams">
                   <h3>{playerName} - {propTypeLabels[marketKey] || marketKey}</h3>
