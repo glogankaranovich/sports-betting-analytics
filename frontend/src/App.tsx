@@ -544,7 +544,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               <>
                 <div className="ticker-item ticker-label">TOP ANALYSIS:</div>
                 <div className="ticker-item">
-                  🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence • {topInsight.model}
+                  {topInsight.analysis_type === 'prop' && topInsight.player_name ? (
+                    <>🎯 {topInsight.player_name} - {propTypeLabels[topInsight.market_key] || topInsight.market_key} - {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence{topInsight.roi !== null && topInsight.roi !== undefined && <> • {topInsight.roi > 0 ? '+' : ''}{topInsight.roi}% ROI</>} • {topInsight.model}</>
+                  ) : (
+                    <>🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence{topInsight.roi !== null && topInsight.roi !== undefined && <> • {topInsight.roi > 0 ? '+' : ''}{topInsight.roi}% ROI</>} • {topInsight.model}</>
+                  )}
                 </div>
               </>
             )}
@@ -574,7 +578,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               <>
                 <div className="ticker-item ticker-label">TOP ANALYSIS:</div>
                 <div className="ticker-item">
-                  🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence • {topInsight.model}
+                  {topInsight.analysis_type === 'prop' && topInsight.player_name ? (
+                    <>🎯 {topInsight.player_name} - {propTypeLabels[topInsight.market_key] || topInsight.market_key} - {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence{topInsight.roi !== null && topInsight.roi !== undefined && <> • {topInsight.roi > 0 ? '+' : ''}{topInsight.roi}% ROI</>} • {topInsight.model}</>
+                  ) : (
+                    <>🎯 {topInsight.prediction} • {(topInsight.confidence * 100).toFixed(0)}% confidence{topInsight.roi !== null && topInsight.roi !== undefined && <> • {topInsight.roi > 0 ? '+' : ''}{topInsight.roi}% ROI</>} • {topInsight.model}</>
+                  )}
                 </div>
               </>
             )}
