@@ -497,6 +497,20 @@ main {
   border-radius: 12px;
   padding: 1.5rem;
   transition: all 0.3s ease;
+  position: relative;
+}
+
+.game-card .sport-tag {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+}
+
+.game-matchup {
+  font-size: 13px;
+  color: #a0aec0;
+  margin: 4px 0;
 }
 
 .game-card:hover {
@@ -567,24 +581,25 @@ main {
 }
 
 .prediction-badge.with-model {
-  background: #4caf50;
-  color: #fff;
+  background: rgba(72, 187, 120, 0.2);
+  color: #48bb78;
+  border: 1px solid rgba(72, 187, 120, 0.3);
 }
 
 .prediction-badge.against-model {
-  background: #ff9800;
-  color: #000;
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.3);
 }
 
 .sport-tag {
-  background: linear-gradient(45deg, #ff6b6b, #ee5a24);
-  color: white;
-  padding: 0.25rem 0.5rem;
+  padding: 4px 10px;
+  background: rgba(0, 212, 255, 0.2);
+  color: #00d4ff;
   border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(0, 212, 255, 0.3);
   width: fit-content;
 }
 

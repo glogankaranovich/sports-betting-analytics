@@ -38,6 +38,8 @@ export const ModelList: React.FC<ModelListProps> = ({ models, onEdit, onDelete, 
         <div className="models-grid">
           {models.map(model => (
             <div key={model.model_id} className="model-card">
+              <span className="sport-tag">{SPORT_LABELS[model.sport] || model.sport}</span>
+              
               <div className="model-header">
                 <h3>{model.name}</h3>
                 <span className={`status-badge ${model.status}`}>
@@ -48,7 +50,6 @@ export const ModelList: React.FC<ModelListProps> = ({ models, onEdit, onDelete, 
               <p className="model-description">{model.description || 'No description'}</p>
               
               <div className="model-meta">
-                <span className="sport-tag">{SPORT_LABELS[model.sport] || model.sport}</span>
                 <span className="created-date">
                   Created {new Date(model.created_at).toLocaleDateString()}
                 </span>

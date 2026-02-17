@@ -778,10 +778,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   
                   return (
                     <div key={key} className="game-card">
+                      <div className="sport-tag">{formatSport(game.sport)}</div>
                       <div className="game-header">
                         <div className="teams">
                           <h3>{game.away_team} @ {game.home_team}</h3>
-                          <div className="sport-tag">{formatSport(game.sport)}</div>
                           <p className="game-time">{new Date(game.commence_time).toLocaleString()}</p>
                         </div>
                       </div>
@@ -956,10 +956,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                       .slice((gameAnalysisPage - 1) * itemsPerPage, gameAnalysisPage * itemsPerPage)
                       .map((analysis: any, index: number) => (
                         <div key={index} className="game-card">
+                          <div className="sport-tag">{formatSport(analysis.sport)}</div>
                           <div className="game-info">
                             <div className="teams">
                               <h3>{analysis.away_team} @ {analysis.home_team}</h3>
-                              <div className="sport-tag">{formatSport(analysis.sport)}</div>
                             </div>
                           </div>
                           <div className="analysis-info">
@@ -1192,10 +1192,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                       .slice((propAnalysisPage - 1) * itemsPerPage, propAnalysisPage * itemsPerPage)
                       .map((analysis: any, index: number) => (
                         <div key={index} className="game-card">
+                          <div className="sport-tag">{formatSport(analysis.sport)}</div>
                           <div className="game-info">
                             <div className="teams">
                               <h3>{analysis.player_name}{analysis.market_key ? ` - ${propTypeLabels[analysis.market_key] || analysis.market_key}` : ''}</h3>
-                              <div className="sport-tag">{formatSport(analysis.sport)}</div>
                               <p className="game-time">{new Date(analysis.commence_time).toLocaleString()}</p>
                             </div>
                           </div>

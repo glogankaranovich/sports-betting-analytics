@@ -50,6 +50,14 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.model-card .sport-tag {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
 }
 
 .model-card:hover {
@@ -101,22 +109,9 @@
 }
 
 .model-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 16px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sport-tag {
-  padding: 4px 10px;
-  background: rgba(0, 212, 255, 0.2);
-  color: #00d4ff;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid rgba(0, 212, 255, 0.3);
 }
 
 .created-date {
