@@ -179,6 +179,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         setSettings({ ...settings, model: 'ensemble' });
       }
     }
+    // Clear leaderboard for free tier
+    if (subscription?.limits?.show_reasoning === false) {
+      setModelLeaderboard([]);
+    }
   }, [subscription]);
 
   // Refetch data when settings change
