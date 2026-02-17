@@ -237,7 +237,7 @@ class BennyTrader:
     def analyze_games(self) -> List[Dict[str, Any]]:
         """Analyze upcoming games independently using raw data and AI"""
         now = datetime.utcnow()
-        tomorrow = now + timedelta(days=1)
+        three_days_out = now + timedelta(days=3)
 
         opportunities = []
 
@@ -249,15 +249,17 @@ class BennyTrader:
             "soccer_epl",
         ]:
             # Get upcoming games with odds
-            response = table.query(
+            response = self.table.query(
                 IndexName="ActiveBetsIndexV2",
                 KeyConditionExpression=Key("active_bet_pk").eq(f"GAME#{sport}")
-                & Key("commence_time").between(now.isoformat(), tomorrow.isoformat()),
+                & Key("commence_time").between(now.isoformat(), three_days_out.isoformat()),
                 FilterExpression="attribute_exists(latest) AND latest = :true AND market_key = :h2h",
                 ExpressionAttributeValues={":true": True, ":h2h": "h2h"},
                 Limit=50,
             )
 
+            print(f"Checking {sport}: found {len(response.get('Items', []))} odds items")
+            
             games = {}
             for item in response.get("Items", []):
                 game_id = item.get("pk", "")[5:]  # Remove GAME# prefix
@@ -271,22 +273,42 @@ class BennyTrader:
                         "odds": [],
                     }
 
-                # Extract odds from outcomes
+                # Extract odds from outcomes (only h2h markets)
+                if item.get("market_key") != "h2h":
+                    continue
+                    
                 outcomes = item.get("outcomes", [])
                 if len(outcomes) >= 2:
-                    games[game_id]["odds"].append(
-                        {
-                            "bookmaker": item.get("bookmaker"),
-                            "home_price": outcomes[0].get("price"),
-                            "away_price": outcomes[1].get("price"),
-                        }
-                    )
+                    odds_entry = {
+                        "bookmaker": item.get("bookmaker"),
+                        "home_price": None,
+                        "away_price": None,
+                    }
+                    
+                    # Handle 3-way markets (soccer) vs 2-way markets
+                    home_team = item.get("home_team")
+                    away_team = item.get("away_team")
+                    
+                    for outcome in outcomes:
+                        if outcome.get("name") == home_team:
+                            odds_entry["home_price"] = outcome.get("price")
+                        elif outcome.get("name") == away_team:
+                            odds_entry["away_price"] = outcome.get("price")
+                    
+                    # Only add if we found both home and away prices
+                    if odds_entry["home_price"] and odds_entry["away_price"]:
+                        games[game_id]["odds"].append(odds_entry)
 
+            print(f"  Parsed {len(games)} unique games for {sport}")
+            
             # Analyze each game with AI
             for game_id, game_data in games.items():
                 if len(game_data["odds"]) < 2:  # Need at least 2 bookmakers
+                    print(f"  Skipping {game_data['home_team']} vs {game_data['away_team']}: only {len(game_data['odds'])} bookmaker(s)")
                     continue
 
+                print(f"  Analyzing {game_data['home_team']} vs {game_data['away_team']}")
+                
                 # Gather essential data
                 home_stats = self._get_team_stats(game_data["home_team"], sport)
                 away_stats = self._get_team_stats(game_data["away_team"], sport)
@@ -747,7 +769,10 @@ Respond with JSON only:
 
     def run_daily_analysis(self) -> Dict[str, Any]:
         """Run daily analysis and place bets"""
+        print(f"Starting Benny Trader analysis. Current bankroll: ${self.bankroll}")
+        
         opportunities = self.analyze_games()
+        print(f"Found {len(opportunities)} betting opportunities")
 
         bets_placed = []
         total_bet = Decimal("0")
@@ -758,13 +783,17 @@ Respond with JSON only:
         for opp in opportunities:
             # Don't bet if bankroll too low
             if self.bankroll < Decimal("10.00"):
+                print(f"Bankroll too low (${self.bankroll}), stopping")
                 break
 
             result = self.place_bet(opp)
             if result["success"]:
                 bets_placed.append(result)
                 total_bet += Decimal(str(result["bet_amount"]))
+                print(f"Placed bet: {result['prediction']} for ${result['bet_amount']}")
 
+        print(f"Analysis complete. Placed {len(bets_placed)} bets totaling ${total_bet}")
+        
         return {
             "opportunities_found": len(opportunities),
             "bets_placed": len(bets_placed),
