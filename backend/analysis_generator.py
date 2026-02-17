@@ -165,6 +165,7 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                         prediction=analysis_result.prediction,
                         confidence=adjusted_confidence,
                         reasoning=analysis_result.reasoning,
+                        recommended_odds=analysis_result.recommended_odds,
                     )
                     store_analysis(bookmaker_result.to_dynamodb_item())
                     count += 1
@@ -284,6 +285,7 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
                         prediction=analysis_result.prediction,
                         confidence=adjusted_confidence,
                         reasoning=analysis_result.reasoning,
+                        recommended_odds=analysis_result.recommended_odds,
                     )
                     store_analysis(bookmaker_result.to_dynamodb_item())
                     count += 1
