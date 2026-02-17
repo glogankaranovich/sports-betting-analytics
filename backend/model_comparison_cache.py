@@ -95,6 +95,8 @@ def _get_model_comparison_data(
 
 def compute_model_comparison(sport: str, days: int) -> List[Dict[str, Any]]:
     """Compute model comparison for a sport and time range"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
     if days >= 9999:
         cutoff_time = "2000-01-01T00:00:00"
     else:
@@ -102,12 +104,20 @@ def compute_model_comparison(sport: str, days: int) -> List[Dict[str, Any]]:
 
     comparison = []
 
-    for model in SYSTEM_MODELS:
-        model_data = _get_model_comparison_data(
-            model, sport, cutoff_time, is_user_model=False
-        )
-        if model_data:
-            comparison.extend(model_data)
+    # Parallelize model queries
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {
+            executor.submit(_get_model_comparison_data, model, sport, cutoff_time, False): model
+            for model in SYSTEM_MODELS
+        }
+        
+        for future in as_completed(futures):
+            try:
+                model_data = future.result()
+                if model_data:
+                    comparison.extend(model_data)
+            except Exception as e:
+                print(f"Error processing model {futures[future]}: {e}")
 
     # Sort by best performing
     comparison.sort(
