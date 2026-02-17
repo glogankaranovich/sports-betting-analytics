@@ -133,6 +133,14 @@ def get_user_limits(user_id: str, environment: str = None) -> Dict:
                 limits[feature_name] = False
             elif isinstance(limits[feature_name], int):
                 limits[feature_name] = 0
+            
+            # Also disable related numeric limits
+            if feature_name == "user_models":
+                limits["_env_disabled"].append("max_user_models")
+                limits["max_user_models"] = 0
+            elif feature_name == "custom_data":
+                limits["_env_disabled"].append("max_custom_datasets")
+                limits["max_custom_datasets"] = 0
     
     return limits
 
