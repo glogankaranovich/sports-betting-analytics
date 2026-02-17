@@ -401,11 +401,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   }, []);
 
   useEffect(() => {
-    if (token) {
+    if (token && subscription) {
       fetchTopAnalysis();
       fetchModelLeaderboard();
     }
-  }, [token, settings.sport, fetchTopAnalysis, fetchModelLeaderboard]);
+  }, [token, subscription, settings.sport, fetchTopAnalysis, fetchModelLeaderboard]);
 
   // Games are already grouped by game_id from the API
   let filteredGames = games.filter(game => {
@@ -1324,19 +1324,19 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <SettingsPage settings={settings} onSettingsChange={setSettings} subscription={subscription} />
         )}
 
-        {activePage === 'system-models' && (
+        {activePage === 'system-models' && subscription && (
           <Models token={token} settings={settings} subscription={subscription} />
         )}
 
-        {activePage === 'model-analytics' && (
+        {activePage === 'model-analytics' && subscription && (
           <ModelAnalytics token={token} selectedModel={settings.model} />
         )}
 
-        {activePage === 'my-models' && (
+        {activePage === 'my-models' && subscription && (
           <UserModels token={token} subscription={subscription} onNavigate={setActivePage} />
         )}
 
-        {activePage === 'marketplace' && (
+        {activePage === 'marketplace' && subscription && (
           <Marketplace subscription={subscription} onNavigate={setActivePage} />
         )}
 
