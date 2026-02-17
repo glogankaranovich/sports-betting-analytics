@@ -71,6 +71,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [showGameAnalysisSort, setShowGameAnalysisSort] = useState(false);
   const [showPropAnalysisFilters, setShowPropAnalysisFilters] = useState(false);
   const [showPropAnalysisSort, setShowPropAnalysisSort] = useState(false);
+  const [showMetricsHelp, setShowMetricsHelp] = useState(false);
   const [teamFilter, setTeamFilter] = useState<string>('');
   const [playerFilter, setPlayerFilter] = useState<string>('');
   const [gamesSort, setGamesSort] = useState<'time' | 'team'>('time');
@@ -873,8 +874,57 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 >
                   ⇅ Sort
                 </button>
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowMetricsHelp(!showMetricsHelp)}
+                  aria-label="Help"
+                  style={{ marginLeft: 'auto' }}
+                >
+                  ℹ️ Help
+                </button>
               </div>
             </div>
+            
+            {showMetricsHelp && (
+              <div className="filter-panel" style={{ background: '#1a1a1a', padding: '20px', marginBottom: '20px' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Understanding Metrics</h3>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <strong style={{ color: '#4CAF50' }}>ROI (Return on Investment)</strong>
+                  <p style={{ margin: '8px 0', color: '#ccc' }}>
+                    Expected profit percentage per $100 bet. Positive ROI means the prediction offers value compared to bookmaker odds.
+                  </p>
+                  <p style={{ margin: '4px 0', fontSize: '14px', color: '#888' }}>
+                    Example: +24.6% ROI = expect $24.60 profit per $100 bet on average
+                  </p>
+                </div>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <strong style={{ color: '#2196F3' }}>Risk Levels</strong>
+                  <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div>
+                      <span className="risk-badge conservative" style={{ marginRight: '8px' }}>conservative</span>
+                      <span style={{ color: '#ccc' }}>≥65% confidence - High probability picks</span>
+                    </div>
+                    <div>
+                      <span className="risk-badge moderate" style={{ marginRight: '8px' }}>moderate</span>
+                      <span style={{ color: '#ccc' }}>55-64% confidence - Balanced risk/reward</span>
+                    </div>
+                    <div>
+                      <span className="risk-badge aggressive" style={{ marginRight: '8px' }}>aggressive</span>
+                      <span style={{ color: '#ccc' }}>&lt;55% confidence - Higher risk, higher potential reward</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <strong style={{ color: '#FF9800' }}>Best Bets</strong>
+                  <p style={{ margin: '8px 0', color: '#ccc' }}>
+                    Look for: High confidence + Positive ROI = Value bets where your model's confidence exceeds bookmaker's implied probability
+                  </p>
+                </div>
+              </div>
+            )}
             
             {showSettings && (
               <div className="filter-panel">
@@ -998,9 +1048,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                                 </>
                               )}
                               {analysis.risk_level && (
-                                <span className={`risk-badge ${analysis.risk_level}`} style={{ marginLeft: '12px' }}>
-                                  {analysis.risk_level}
-                                </span>
+                                <>
+                                  <span className="confidence-label" style={{ marginLeft: '20px' }}>Risk: </span>
+                                  <span className={`risk-badge ${analysis.risk_level}`}>
+                                    {analysis.risk_level}
+                                  </span>
+                                </>
                               )}
                             </div>
                             {subscription?.limits?.show_reasoning !== false && (
@@ -1090,7 +1143,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                   aria-label="Toggle filters"
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '0.5rem' }}>
-                    <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
+                    <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.0 0 0 1 1.5 3.5v-2z"/>
                   </svg>
                   Filter {(playerFilter || marketFilter !== 'all') && <span className="filter-badge">•</span>}
                 </button>
@@ -1101,8 +1154,57 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 >
                   ⇅ Sort
                 </button>
+                <button 
+                  className="filter-icon-btn"
+                  onClick={() => setShowMetricsHelp(!showMetricsHelp)}
+                  aria-label="Help"
+                  style={{ marginLeft: 'auto' }}
+                >
+                  ℹ️ Help
+                </button>
               </div>
             </div>
+            
+            {showMetricsHelp && (
+              <div className="filter-panel" style={{ background: '#1a1a1a', padding: '20px', marginBottom: '20px' }}>
+                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Understanding Metrics</h3>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <strong style={{ color: '#4CAF50' }}>ROI (Return on Investment)</strong>
+                  <p style={{ margin: '8px 0', color: '#ccc' }}>
+                    Expected profit percentage per $100 bet. Positive ROI means the prediction offers value compared to bookmaker odds.
+                  </p>
+                  <p style={{ margin: '4px 0', fontSize: '14px', color: '#888' }}>
+                    Example: +24.6% ROI = expect $24.60 profit per $100 bet on average
+                  </p>
+                </div>
+                
+                <div style={{ marginBottom: '16px' }}>
+                  <strong style={{ color: '#2196F3' }}>Risk Levels</strong>
+                  <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div>
+                      <span className="risk-badge conservative" style={{ marginRight: '8px' }}>conservative</span>
+                      <span style={{ color: '#ccc' }}>≥65% confidence - High probability picks</span>
+                    </div>
+                    <div>
+                      <span className="risk-badge moderate" style={{ marginRight: '8px' }}>moderate</span>
+                      <span style={{ color: '#ccc' }}>55-64% confidence - Balanced risk/reward</span>
+                    </div>
+                    <div>
+                      <span className="risk-badge aggressive" style={{ marginRight: '8px' }}>aggressive</span>
+                      <span style={{ color: '#ccc' }}>&lt;55% confidence - Higher risk, higher potential reward</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <strong style={{ color: '#FF9800' }}>Best Bets</strong>
+                  <p style={{ margin: '8px 0', color: '#ccc' }}>
+                    Look for: High confidence + Positive ROI = Value bets where your model's confidence exceeds bookmaker's implied probability
+                  </p>
+                </div>
+              </div>
+            )}
             
             {showSettings && (
               <div className="filter-panel">
@@ -1234,9 +1336,12 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                                 </>
                               )}
                               {analysis.risk_level && (
-                                <span className={`risk-badge ${analysis.risk_level}`} style={{ marginLeft: '12px' }}>
-                                  {analysis.risk_level}
-                                </span>
+                                <>
+                                  <span className="confidence-label" style={{ marginLeft: '20px' }}>Risk: </span>
+                                  <span className={`risk-badge ${analysis.risk_level}`}>
+                                    {analysis.risk_level}
+                                  </span>
+                                </>
                               )}
                             </div>
                           </div>
