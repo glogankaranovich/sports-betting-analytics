@@ -125,13 +125,15 @@ export const Benny: React.FC<BennyProps> = ({ userId, token, isFullPage = false,
 
       {/* Chat Window */}
       {isOpen && !hasAccess && (
-        <div className={`benny-chat ${isFullPage ? 'full-page' : ''}`}>
+        <div className={isFullPage ? '' : 'benny-chat'}>
           <div className="benny-upgrade-prompt" style={{ 
             padding: '40px', 
             textAlign: 'center',
             background: '#1a1a1a',
             borderRadius: '8px',
-            border: '1px solid #333'
+            border: '1px solid #333',
+            maxWidth: isFullPage ? '600px' : 'auto',
+            margin: isFullPage ? '40px auto' : '0'
           }}>
             <h3 style={{ marginBottom: '16px' }}>🤖 Benny AI</h3>
             {isEnvDisabled ? (
