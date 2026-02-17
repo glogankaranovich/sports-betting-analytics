@@ -2034,7 +2034,7 @@ class NewsModel(BaseAnalysisModel):
                 player_name=None,
                 prediction=prediction,
                 confidence=confidence,
-                reasoning=f"News sentiment: home={home_sentiment['sentiment_score']:.2f} ({home_sentiment['news_count']} items), away={away_sentiment['sentiment_score']:.2f} ({away_sentiment['news_count']} items)",
+                reasoning=f"Recent news favors {prediction}: {home_sentiment['news_count']} home stories, {away_sentiment['news_count']} away stories. Positive buzz around {prediction}",
             )
         except Exception as e:
             logger.error(f"Error in news model: {e}")
