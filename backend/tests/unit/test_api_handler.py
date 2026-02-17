@@ -113,101 +113,97 @@ class TestApiHandler(unittest.TestCase):
         response = lambda_handler(event, {})
         self.assertEqual(response["statusCode"], 404)
 
+    @patch("feature_flags.get_user_limits")
+    @patch("user_models.UserModel")
+    @patch("api_middleware.check_feature_access")
+    @patch("api_handler.table")
+    def test_model_comparison_cache_hit_with_user_models(self, mock_table, mock_check_access, mock_user_model_class, mock_limits):
+        """Test model comparison uses cache and adds user models without datetime error"""
+        from datetime import datetime
+        
+        # Mock cache hit
+        cached_models = [
+            {
+                "model": "consensus",
+                "sport": "basketball_nba",
+                "bet_type": "game",
+                "original_accuracy": 0.65,
+                "inverse_accuracy": 0.55,
+                "sample_size": 100,
+            }
+        ]
+        
+        mock_table.get_item.return_value = {
+            "Item": {
+                "data": cached_models,
+                "computed_at": datetime.utcnow().isoformat(),
+            }
+        }
+        
+        # Mock user limits (no Benny access)
+        mock_limits.return_value = {"benny_ai": False}
+        
+        # Mock user models access
+        mock_check_access.return_value = {"allowed": True}
+        mock_user_model_class.list_by_user.return_value = []
+        
+        event = {
+            "httpMethod": "GET",
+            "path": "/model-comparison",
+            "queryStringParameters": {
+                "sport": "basketball_nba",
+                "days": "90",
+                "user_id": "test-user-123",
+            },
+        }
+        
+        response = lambda_handler(event, {})
+        
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        
+        # Verify cache was used (no datetime error)
+        self.assertTrue(body.get("cached"))
+        self.assertEqual(len(body["models"]), 1)
+        self.assertEqual(body["models"][0]["model"], "consensus")
+
+    @patch("api_handler.table")
+    def test_model_comparison_cache_hit_without_user(self, mock_table):
+        """Test model comparison cache hit filters out Benny for non-authenticated users"""
+        from datetime import datetime
+        
+        cached_models = [
+            {"model": "consensus", "original_accuracy": 0.65, "inverse_accuracy": 0.55},
+            {"model": "benny", "original_accuracy": 0.70, "inverse_accuracy": 0.60},
+        ]
+        
+        mock_table.get_item.return_value = {
+            "Item": {
+                "data": cached_models,
+                "computed_at": datetime.utcnow().isoformat(),
+            }
+        }
+        
+        event = {
+            "httpMethod": "GET",
+            "path": "/model-comparison",
+            "queryStringParameters": {
+                "sport": "basketball_nba",
+                "days": "90",
+            },
+        }
+        
+        response = lambda_handler(event, {})
+        
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        
+        # Verify Benny was filtered out
+        model_names = [m["model"] for m in body["models"]]
+        self.assertIn("consensus", model_names)
+        self.assertNotIn("benny", model_names)
+
 
 if __name__ == "__main__":
     unittest.main()
 
-    @patch("api_handler.table")
-    def test_analysis_history_endpoint(self, mock_table):
-        """Test analysis history endpoint with GSI query"""
-        # Mock DynamoDB query response
-        mock_table.query.return_value = {
-            "Items": [
-                {
-                    "pk": "ANALYSIS#basketball_nba#game123#fanduel",
-                    "sk": "consensus#game#LATEST",
-                    "game_id": "game123",
-                    "model": "consensus",
-                    "analysis_type": "game",
-                    "sport": "basketball_nba",
-                    "bookmaker": "fanduel",
-                    "prediction": "Lakers +2.5",
-                    "confidence": Decimal("0.75"),
-                    "reasoning": "Test reasoning",
-                    "home_team": "Lakers",
-                    "away_team": "Warriors",
-                    "created_at": "2026-01-13T10:00:00Z",
-                    "analysis_correct": True,
-                    "outcome_verified_at": "2026-01-14T10:00:00Z",
-                }
-            ]
-        }
-
-        event = {
-            "httpMethod": "GET",
-            "path": "/analysis-history",
-            "queryStringParameters": {
-                "sport": "basketball_nba",
-                "model": "consensus",
-                "bookmaker": "fanduel",
-                "limit": "50",
-            },
-        }
-
-        response = lambda_handler(event, {})
-
-        self.assertEqual(response["statusCode"], 200)
-        body = json.loads(response["body"])
-        self.assertEqual(body["count"], 1)
-        self.assertEqual(body["analyses"][0]["model"], "consensus")
-        self.assertEqual(body["analyses"][0]["analysis_correct"], True)
-        self.assertEqual(
-            body["analyses"][0]["confidence"], 0.75
-        )  # Converted from Decimal
-
-        # Verify GSI query was used correctly
-        mock_table.query.assert_called_once()
-        call_kwargs = mock_table.query.call_args[1]
-        self.assertEqual(call_kwargs["IndexName"], "AnalysisTimeGSI")
-        self.assertIn("analysis_time_pk", call_kwargs["KeyConditionExpression"])
-
-    def test_cors_preflight_analysis_history(self):
-        """Test CORS preflight for analysis history endpoint"""
-        event = {"httpMethod": "OPTIONS", "path": "/analysis-history"}
-
-        response = lambda_handler(event, {})
-
-        self.assertEqual(response["statusCode"], 200)
-        self.assertEqual(
-            response["headers"]["Access-Control-Allow-Methods"], "GET, POST, OPTIONS"
-        )
-        self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "*")
-
-    def test_analysis_history_missing_params(self):
-        """Test analysis history with default parameters"""
-        with patch("api_handler.table") as mock_table:
-            mock_table.query.return_value = {"Items": []}
-
-            event = {
-                "httpMethod": "GET",
-                "path": "/analysis-history",
-                "queryStringParameters": {},  # No parameters provided
-            }
-
-            response = lambda_handler(event, {})
-
-            self.assertEqual(response["statusCode"], 200)
-            # Should use defaults: basketball_nba, consensus, fanduel
-            call_kwargs = mock_table.query.call_args[1]
-            expected_pk = "ANALYSIS#basketball_nba#fanduel#consensus"
-            self.assertIn(expected_pk, str(call_kwargs["ExpressionAttributeValues"]))
-
-    def test_create_response_with_cors(self):
-        """Test response creation includes proper CORS headers"""
-        body = {"test": "data"}
-        response = create_response(200, body)
-
-        self.assertEqual(response["statusCode"], 200)
-        self.assertEqual(response["headers"]["Access-Control-Allow-Origin"], "*")
-        self.assertEqual(response["headers"]["Content-Type"], "application/json")
-        self.assertEqual(json.loads(response["body"]), body)

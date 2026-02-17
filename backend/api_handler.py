@@ -908,6 +908,7 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
                     access_check = check_feature_access(user_id, "user_models")
                     if access_check["allowed"]:
                         from user_models import UserModel
+                        from datetime import datetime, timedelta
 
                         if days >= 9999:
                             cutoff_time = "2000-01-01T00:00:00"
@@ -929,8 +930,8 @@ def handle_get_model_comparison(query_params: Dict[str, str]):
                                     is_user_model=True,
                                     model_name=user_model.name,
                                 )
-                            if model_data:
-                                cached_data.extend(model_data)
+                                if model_data:
+                                    cached_data.extend(model_data)
 
                     # Re-sort with user models included
                     cached_data.sort(
