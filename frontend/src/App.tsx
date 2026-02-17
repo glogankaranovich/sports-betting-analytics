@@ -561,7 +561,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                     </div>
                     {section.models.length > 0 ? (
                       section.models.map((model: any, index: number) => (
-                        <div key={model.model_name} className="ticker-item">
+                        <div key={`${section.type}-${model.model_name}-${index}`} className="ticker-item">
                           🏆 #{index + 1} {model.model_name} ({model.sport?.split('_').pop()?.toUpperCase()}): {model.strategy} • {model.total} predictions
                         </div>
                       ))
