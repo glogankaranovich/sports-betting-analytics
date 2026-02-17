@@ -1,5 +1,6 @@
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
 from typing import Any, Dict
 
@@ -131,17 +132,18 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
         # Initialize dynamic weighting
         weighting = DynamicModelWeighting()
 
-        for game_id, game_data in games_to_process:
-            game_info = game_data["items"][0]  # Get game info from first item
+        # Process games in parallel
+        def process_game(game_item):
+            game_id, game_data = game_item
+            game_count = 0
+            game_info = game_data["items"][0]
             bookmakers = list(game_data["bookmakers"])
 
-            # Generate analysis once using all bookmakers' odds
             analysis_result = model.analyze_game_odds(
                 game_id, game_data["items"], game_info
             )
 
             if analysis_result:
-                # Adjust confidence based on recent performance
                 adjusted_confidence = weighting.calculate_adjusted_confidence(
                     analysis_result.confidence,
                     analysis_result.model,
@@ -149,9 +151,7 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                     "game",
                 )
 
-                # Store one record per bookmaker with the same analysis
                 for bookmaker in bookmakers:
-                    # Create a new AnalysisResult with the specific bookmaker
                     bookmaker_result = AnalysisResult(
                         game_id=analysis_result.game_id,
                         bookmaker=bookmaker,
@@ -168,7 +168,6 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                         recommended_odds=analysis_result.recommended_odds,
                     )
                     
-                    # Get odds for this specific bookmaker
                     bookmaker_item = next((item for item in game_data["items"] if item.get("bookmaker") == bookmaker and item.get("market_key") == "h2h"), None)
                     
                     analysis_dict = bookmaker_result.to_dynamodb_item()
@@ -176,7 +175,18 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                         analysis_dict["all_outcomes"] = bookmaker_item["outcomes"]
                     
                     store_analysis(analysis_dict)
-                    count += 1
+                    game_count += 1
+            
+            return game_count
+
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(process_game, game) for game in games_to_process]
+            for future in as_completed(futures):
+                try:
+                    count += future.result()
+                except Exception as e:
+                    print(f"Error processing game: {e}")
 
         return count
 
@@ -259,16 +269,15 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
         # Initialize dynamic weighting
         weighting = DynamicModelWeighting()
 
-        for grouped_prop in props_to_process:
-            # Convert bookmakers set to list for JSON serialization
+        # Process props in parallel
+        def process_prop(grouped_prop):
+            prop_count = 0
             bookmakers = list(grouped_prop["bookmakers"])
             grouped_prop["bookmakers"] = bookmakers
 
-            # Generate analysis once using all bookmakers
             analysis_result = model.analyze_prop_odds(grouped_prop)
 
             if analysis_result:
-                # Adjust confidence based on recent performance
                 adjusted_confidence = weighting.calculate_adjusted_confidence(
                     analysis_result.confidence,
                     analysis_result.model,
@@ -276,9 +285,7 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
                     "prop",
                 )
 
-                # Store one record per bookmaker with the same analysis
                 for bookmaker in bookmakers:
-                    # Create a new AnalysisResult with the specific bookmaker
                     bookmaker_result = AnalysisResult(
                         game_id=analysis_result.game_id,
                         bookmaker=bookmaker,
@@ -297,12 +304,22 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
                     )
                     
                     analysis_dict = bookmaker_result.to_dynamodb_item()
-                    # Store all outcomes for inverse calculation
                     if "outcomes" in grouped_prop:
                         analysis_dict["all_outcomes"] = grouped_prop["outcomes"]
                     
                     store_analysis(analysis_dict)
-                    count += 1
+                    prop_count += 1
+            
+            return prop_count
+
+        # Use ThreadPoolExecutor for parallel processing
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(process_prop, prop) for prop in props_to_process]
+            for future in as_completed(futures):
+                try:
+                    count += future.result()
+                except Exception as e:
+                    print(f"Error processing prop: {e}")
 
         return count
 
