@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import './ModelComparison.css';
+import LoadingSpinner from './LoadingSpinner';
 
 const getApiUrl = (): string => {
   const defaultUrl = 'https://lpykx3ka6a.execute-api.us-east-1.amazonaws.com/prod';
@@ -70,13 +71,17 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings, subs
 
   const fetchComparison = async () => {
     setLoading(true);
+    const startTime = Date.now();
+    
     try {
       const { tokens } = await fetchAuthSession();
       const token = tokens?.idToken?.toString();
       
       if (!token) {
         console.error('No auth token available');
-        setLoading(false);
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, 1500 - elapsed);
+        setTimeout(() => setLoading(false), remaining);
         return;
       }
       
@@ -100,7 +105,9 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings, subs
     } catch (error) {
       console.error('Error fetching model comparison:', error);
     } finally {
-      setLoading(false);
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 1500 - elapsed);
+      setTimeout(() => setLoading(false), remaining);
     }
   };
 
@@ -141,7 +148,7 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings, subs
   }
 
   if (loading) {
-    return <div className="loading-state">Loading model comparison...</div>;
+    return <LoadingSpinner />;
   }
 
   if (!data) {

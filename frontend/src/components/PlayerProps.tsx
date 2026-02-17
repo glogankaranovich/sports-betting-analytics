@@ -3,6 +3,7 @@ import { fetchAuthSession } from 'aws-amplify/auth';
 import { PlayerProp } from '../types/betting';
 import { bettingApi } from '../services/api';
 import Settings from './Settings';
+import LoadingSpinner from './LoadingSpinner';
 
 interface PlayerPropsProps {
   token: string;
@@ -156,7 +157,7 @@ const PlayerProps: React.FC<PlayerPropsProps> = ({
   const startIndex = (currentPropPage - 1) * propsPerPage;
   const paginatedProps = groupedPropsArray.slice(startIndex, startIndex + propsPerPage);
 
-  if (loading) return <div className="loading">Loading player props...</div>;
+  if (loading) return <LoadingSpinner />;
   if (error) return <div className="error">{error}</div>;
 
   return (

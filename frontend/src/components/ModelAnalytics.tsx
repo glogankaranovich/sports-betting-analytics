@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import LoadingSpinner from './LoadingSpinner';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://lpykx3ka6a.execute-api.us-east-1.amazonaws.com/prod';
 
@@ -205,7 +206,7 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
     }
   };
 
-  if (loading) return <div className="loading">Loading analytics...</div>;
+  if (loading) return <LoadingSpinner />;
   if (error) return <div className="error">{error}</div>;
 
   const currentModel = summary[selectedModel];

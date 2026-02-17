@@ -8,6 +8,7 @@ import Settings from './components/Settings';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
 import { ModelComparison } from './components/ModelComparison';
+import LoadingSpinner from './components/LoadingSpinner';
 import Models from './components/Models';
 import { UserModels } from './components/UserModels';
 import { Marketplace } from './components/Marketplace';
@@ -199,6 +200,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       setLoadingGames(true);
       setLoading(true);
       setError(null);
+      const startTime = Date.now();
+      
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
       
@@ -209,11 +212,17 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         setGames(data.games || []);
         setGamesKey(data.lastEvaluatedKey || null);
       }
+      
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 1500 - elapsed);
+      setTimeout(() => {
+        setLoadingGames(false);
+        setLoading(false);
+      }, remaining);
     } catch (err: any) {
       const message = err?.message || 'Unable to load games. Please check your connection and try again.';
       setError(message);
       console.error('Error fetching games:', err);
-    } finally {
       setLoadingGames(false);
       setLoading(false);
     }
@@ -497,7 +506,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     return odds > 0 ? `+${odds}` : `${odds}`;
   };
 
-  if (loading) return <div className="loading">Loading games...</div>;
+  if (loading) return <LoadingSpinner />;
   if (error) return (
     <div style={{
       display: 'flex',
