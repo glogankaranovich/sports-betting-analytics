@@ -417,7 +417,7 @@ def create_inverse_prediction(analysis_item: Dict[str, Any]) -> Dict[str, Any]:
         inverse_item["confidence"] = Decimal(str(inverse_confidence))
         inverse_item["is_inverse"] = True
         inverse_item["original_prediction"] = prediction
-        inverse_item["reasoning"] = f"INVERSE of: {analysis_item.get('reasoning', '')}"
+        inverse_item["reasoning"] = "Inverse prediction - betting against the model consensus"
         
         # Update recommended_odds for inverse if we found them
         if inverse_odds is not None:
