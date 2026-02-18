@@ -423,12 +423,20 @@ def create_inverse_prediction(analysis_item: Dict[str, Any]) -> Dict[str, Any]:
         if inverse_odds is not None:
             inverse_item["recommended_odds"] = inverse_odds
         
-        # Recalculate ROI with inverse confidence and odds
+        # Recalculate ROI and risk level with inverse confidence and odds
         if inverse_item.get("recommended_odds"):
             odds = inverse_item["recommended_odds"]
             roi_multiplier = 100 / abs(odds) if odds < 0 else odds / 100
             inverse_roi = (inverse_confidence * roi_multiplier - (1 - inverse_confidence)) * 100
             inverse_item["roi"] = Decimal(str(round(inverse_roi, 1)))
+            
+            # Recalculate risk level based on inverse confidence
+            if inverse_confidence >= 0.65:
+                inverse_item["risk_level"] = "conservative"
+            elif inverse_confidence >= 0.55:
+                inverse_item["risk_level"] = "moderate"
+            else:
+                inverse_item["risk_level"] = "aggressive"
 
         return inverse_item
 
