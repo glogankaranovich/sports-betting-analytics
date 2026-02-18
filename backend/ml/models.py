@@ -1916,11 +1916,7 @@ class EnsembleModel(BaseAnalysisModel):
 
             # Combine reasoning from top 3 models
             top_models = sorted(weights.items(), key=lambda x: x[1], reverse=True)[:3]
-            reasoning_parts = [
-                f"{model} ({weight*100:.1f}%): {predictions[model].reasoning}"
-                for model, weight in top_models
-                if model in predictions
-            ]
+            model_list = ", ".join([f"{model} ({weight*100:.1f}%)" for model, weight in top_models])
 
             return AnalysisResult(
                 game_id=game_id,
@@ -1932,8 +1928,7 @@ class EnsembleModel(BaseAnalysisModel):
                 commence_time=game_info.get("commence_time"),
                 prediction=best_prediction.prediction,
                 confidence=weighted_confidence,
-                reasoning=f"Combined prediction from {len(predictions)} models. {weighted_confidence*100:.0f}% confident. "
-                + " | ".join(reasoning_parts),
+                reasoning=f"Combined prediction from {len(predictions)} models: {model_list}",
                 recommended_odds=-110,
             )
         except Exception as e:
@@ -1979,6 +1974,10 @@ class EnsembleModel(BaseAnalysisModel):
             # Use the prediction from the highest weighted model
             best_model = max(weights.items(), key=lambda x: x[1])[0]
             best_prediction = predictions[best_model]
+            
+            # Show top 3 models with weights
+            top_models = sorted(weights.items(), key=lambda x: x[1], reverse=True)[:3]
+            model_list = ", ".join([f"{model} ({weight*100:.1f}%)" for model, weight in top_models])
 
             return AnalysisResult(
                 game_id=best_prediction.game_id,
@@ -1992,7 +1991,7 @@ class EnsembleModel(BaseAnalysisModel):
                 market_key=best_prediction.market_key,
                 prediction=best_prediction.prediction,
                 confidence=weighted_confidence,
-                reasoning=f"Combined prediction from {len(predictions)} models. {weighted_confidence*100:.0f}% confident. Multiple models agree",
+                reasoning=f"Combined prediction from {len(predictions)} models: {model_list}",
                 recommended_odds=-110,
             )
         except Exception as e:
