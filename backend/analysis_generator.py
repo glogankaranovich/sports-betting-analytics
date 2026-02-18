@@ -422,7 +422,13 @@ def create_inverse_prediction(analysis_item: Dict[str, Any]) -> Dict[str, Any]:
         # Update recommended_odds for inverse if we found them
         if inverse_odds is not None:
             inverse_item["recommended_odds"] = inverse_odds
-        # Otherwise keep original odds (will result in different ROI calculation)
+        
+        # Recalculate ROI with inverse confidence and odds
+        if inverse_item.get("recommended_odds"):
+            odds = inverse_item["recommended_odds"]
+            roi_multiplier = 100 / abs(odds) if odds < 0 else odds / 100
+            inverse_roi = (inverse_confidence * roi_multiplier - (1 - inverse_confidence)) * 100
+            inverse_item["roi"] = Decimal(str(round(inverse_roi, 1)))
 
         return inverse_item
 
