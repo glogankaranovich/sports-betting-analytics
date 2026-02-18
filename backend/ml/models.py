@@ -1251,8 +1251,21 @@ class MatchupModel(BaseAnalysisModel):
 
         # Make prediction
         pick = home_team if total_advantage > 0 else away_team
-
-        reasoning = f"H2H: {h2h_advantage:.1f}, Style: {style_advantage:.1f}"
+        
+        # Create human-readable reasoning
+        favored_team = home_team if total_advantage > 0 else away_team
+        
+        reasons = []
+        if abs(h2h_advantage) > 0.5:
+            reasons.append(f"head-to-head record favors {home_team if h2h_advantage > 0 else away_team}")
+        
+        if abs(style_advantage) > 0.5:
+            reasons.append(f"offensive/defensive matchup favors {home_team if style_advantage > 0 else away_team}")
+        
+        if not reasons:
+            reasoning = f"Slight edge to {favored_team}"
+        else:
+            reasoning = ", ".join(reasons).capitalize()
 
         return AnalysisResult(
             game_id=game_id,
