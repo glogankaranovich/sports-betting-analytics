@@ -58,6 +58,11 @@ frontend/build/
 .aws/
 *.pem
 
+# CDK
+infrastructure/cdk.out/
+infrastructure/cdk.out.deploy/
+infrastructure/.cdk.staging/
+
 # ML models
 *.pkl
 *.joblib

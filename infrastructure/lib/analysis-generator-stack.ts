@@ -25,7 +25,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       handler: 'analysis_generator.lambda_handler',
       code: lambda.Code.fromAsset('../backend'),
       timeout: cdk.Duration.minutes(15),
-      memorySize: 512,
+      memorySize: 2048,
       environment: {
         DYNAMODB_TABLE: props.betsTableName,
         ENVIRONMENT: props.environment
