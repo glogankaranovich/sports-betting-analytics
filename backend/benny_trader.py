@@ -345,11 +345,11 @@ class BennyTrader:
                 )
 
                 # Use learned confidence threshold
-                min_confidence = self.BASE_MIN_CONFIDENCE + self.learning_params.get(
-                    "min_confidence_adjustment", 0
+                min_confidence = self.BASE_MIN_CONFIDENCE + float(
+                    self.learning_params.get("min_confidence_adjustment", 0)
                 )
 
-                if analysis and analysis["confidence"] >= min_confidence:
+                if analysis and float(analysis["confidence"]) >= min_confidence:
                     # Determine which team was predicted and get their odds
                     predicted_team = analysis["prediction"]
                     predicted_odds = None
