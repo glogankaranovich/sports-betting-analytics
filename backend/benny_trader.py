@@ -794,7 +794,7 @@ Respond with JSON only:
             if result["success"]:
                 bets_placed.append(result)
                 total_bet += Decimal(str(result["bet_amount"]))
-                print(f"Placed bet: {result['prediction']} for ${result['bet_amount']}")
+                print(f"Placed bet: {opp['prediction']} for ${result['bet_amount']}")
 
         print(f"Analysis complete. Placed {len(bets_placed)} bets totaling ${total_bet}")
         
