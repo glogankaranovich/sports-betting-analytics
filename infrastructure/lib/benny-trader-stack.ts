@@ -43,6 +43,11 @@ export class BennyTraderStack extends cdk.Stack {
       ],
     }));
 
+    this.bennyTraderFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      resources: ['*'],
+    }));
+
     new cdk.CfnOutput(this, 'BennyTraderFunctionName', {
       value: this.bennyTraderFunction.functionName,
     });
