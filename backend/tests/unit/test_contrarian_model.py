@@ -40,7 +40,7 @@ class TestContrarianModel(unittest.TestCase):
         self.assertEqual(result.model, "contrarian")
         self.assertIn("Warriors", result.prediction)
         self.assertGreaterEqual(result.confidence, 0.65)
-        self.assertIn("Sharp action", result.reasoning)
+        self.assertIn("Big money", result.reasoning)
 
     def test_strong_line_movement_down(self):
         """Test strong downward line movement (sharp action on home)"""
@@ -88,7 +88,7 @@ class TestContrarianModel(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.model, "contrarian")
         self.assertIn("Lakers", result.prediction)
-        self.assertIn("imbalance", result.reasoning.lower())
+        self.assertIn("uneven odds", result.reasoning.lower())
 
     def test_odds_imbalance_away_sharp(self):
         """Test odds imbalance indicating sharp money on away"""
@@ -108,7 +108,7 @@ class TestContrarianModel(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.model, "contrarian")
         self.assertIn("Warriors", result.prediction)
-        self.assertIn("imbalance", result.reasoning.lower())
+        self.assertIn("uneven odds", result.reasoning.lower())
 
     def test_fade_favorite_home(self):
         """Test fading home favorite when no clear signal"""
@@ -128,7 +128,7 @@ class TestContrarianModel(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.model, "contrarian")
         self.assertIn("Warriors", result.prediction)  # Fade home favorite
-        self.assertIn("Fading favorite", result.reasoning)
+        self.assertIn("Betting against the favorite", result.reasoning)
 
     def test_fade_favorite_away(self):
         """Test fading away favorite when no clear signal"""
@@ -171,7 +171,7 @@ class TestContrarianModel(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.model, "contrarian")
         self.assertIn("Over", result.prediction)
-        self.assertIn("Sharp action", result.reasoning)
+        self.assertIn("Big money", result.reasoning)
 
     def test_prop_odds_imbalance_under(self):
         """Test prop with odds imbalance favoring under"""
@@ -218,7 +218,7 @@ class TestContrarianModel(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result.model, "contrarian")
         self.assertIn("Under", result.prediction)  # Fade public (overs)
-        self.assertIn("Fading public", result.reasoning)
+        self.assertIn("Going against the crowd", result.reasoning)
 
     def test_no_spreads_returns_none(self):
         """Test that missing spreads returns None"""

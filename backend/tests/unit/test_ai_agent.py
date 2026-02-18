@@ -16,13 +16,14 @@ class TestAIAgent(unittest.TestCase):
         """Test that tools are properly defined"""
         tools = self.agent._get_tools()
 
-        self.assertEqual(len(tools), 5)
+        self.assertEqual(len(tools), 6)
         tool_names = [t["name"] for t in tools]
         self.assertIn("create_model", tool_names)
         self.assertIn("analyze_predictions", tool_names)
         self.assertIn("query_stats", tool_names)
         self.assertIn("explain_prediction", tool_names)
         self.assertIn("list_user_models", tool_names)
+        self.assertIn("analyze_bet", tool_names)
 
     def test_create_model_tool_schema(self):
         """Test create_model tool has correct schema"""

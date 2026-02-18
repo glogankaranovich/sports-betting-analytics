@@ -55,7 +55,7 @@ class TestMatchupModel:
 
         assert result.prediction == "Lakers"
         assert result.confidence > 0.5
-        assert "H2H" in result.reasoning
+        assert "Head-to-head" in result.reasoning
 
     def test_no_historical_data(self, model, mock_table):
         """Test when no historical matchup data exists"""
@@ -96,7 +96,7 @@ class TestMatchupModel:
         result = model.analyze_game_odds("game123", [], game_info)
 
         assert result.prediction == "Warriors"
-        assert "Style" in result.reasoning
+        assert "edge" in result.reasoning.lower()
 
     def test_away_team_advantage(self, model, mock_table):
         """Test when away team has advantage"""

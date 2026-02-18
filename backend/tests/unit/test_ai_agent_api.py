@@ -53,8 +53,13 @@ class TestAIAgentAPI:
                 }
             )
         }
+        
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        }
 
-        response = handle_chat(event)
+        response = handle_chat(event, cors_headers)
 
         assert response["statusCode"] == 200
         body = json.loads(response["body"])
@@ -64,8 +69,13 @@ class TestAIAgentAPI:
     def test_handle_chat_missing_message(self):
         """Test chat request without message"""
         event = {"body": json.dumps({"user_id": "user123"})}
+        
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        }
 
-        response = handle_chat(event)
+        response = handle_chat(event, cors_headers)
 
         assert response["statusCode"] == 400
         body = json.loads(response["body"])
@@ -74,8 +84,13 @@ class TestAIAgentAPI:
     def test_handle_chat_missing_user_id(self):
         """Test chat request without user_id"""
         event = {"body": json.dumps({"message": "Create a model"})}
+        
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        }
 
-        response = handle_chat(event)
+        response = handle_chat(event, cors_headers)
 
         assert response["statusCode"] == 400
         body = json.loads(response["body"])
@@ -102,10 +117,15 @@ class TestAIAgentAPI:
                 }
             )
         }
+        
+        cors_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        }
 
-        response = handle_chat(event)
+        response = handle_chat(event, cors_headers)
 
         assert response["statusCode"] == 200
         mock_agent.chat.assert_called_once_with(
-            message="What models do I have?", conversation_history=history, stream=False
+            message="What models do I have?", user_id="user123", conversation_history=history, stream=False
         )

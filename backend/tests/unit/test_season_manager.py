@@ -114,7 +114,7 @@ class TestLambdaHandler:
             {
                 "Rules": [
                     {
-                        "Name": "Dev-NBA-OddsCollector",
+                        "Name": "OddsRuleNBA-12345",
                         "State": "DISABLED",
                     }
                 ]
@@ -128,7 +128,7 @@ class TestLambdaHandler:
         assert len(result["body"]["updated_rules"]) == 1
         assert result["body"]["updated_rules"][0]["sport"] == "NBA"
         assert result["body"]["updated_rules"][0]["to"] == "ENABLED"
-        mock_events.enable_rule.assert_called_once_with(Name="Dev-NBA-OddsCollector")
+        mock_events.enable_rule.assert_called_once_with(Name="OddsRuleNBA-12345")
 
     @patch("season_manager.events_client")
     @patch("season_manager.datetime")
@@ -142,7 +142,7 @@ class TestLambdaHandler:
             {
                 "Rules": [
                     {
-                        "Name": "Dev-NBA-OddsCollector",
+                        "Name": "OddsRuleNBA-12345",
                         "State": "ENABLED",
                     }
                 ]
@@ -155,7 +155,7 @@ class TestLambdaHandler:
         assert result["statusCode"] == 200
         assert len(result["body"]["updated_rules"]) == 1
         assert result["body"]["updated_rules"][0]["to"] == "DISABLED"
-        mock_events.disable_rule.assert_called_once_with(Name="Dev-NBA-OddsCollector")
+        mock_events.disable_rule.assert_called_once_with(Name="OddsRuleNBA-12345")
 
     @patch("season_manager.events_client")
     @patch("season_manager.datetime")
@@ -195,7 +195,7 @@ class TestLambdaHandler:
             {
                 "Rules": [
                     {
-                        "Name": "Prod-NBA-OddsCollector",
+                        "Name": "OddsRuleNBA-prod-12345",
                         "State": "DISABLED",
                     }
                 ]
@@ -206,7 +206,7 @@ class TestLambdaHandler:
         result = lambda_handler({}, {})
 
         assert result["statusCode"] == 200
-        mock_events.enable_rule.assert_called_once_with(Name="Prod-NBA-OddsCollector")
+        mock_events.enable_rule.assert_called_once_with(Name="OddsRuleNBA-prod-12345")
 
     @patch("season_manager.events_client")
     @patch("season_manager.datetime")
@@ -219,9 +219,9 @@ class TestLambdaHandler:
         mock_paginator.paginate.return_value = [
             {
                 "Rules": [
-                    {"Name": "Dev-NBA-OddsCollector", "State": "DISABLED"},
-                    {"Name": "Dev-NFL-OddsCollector", "State": "DISABLED"},
-                    {"Name": "Dev-MLB-OddsCollector", "State": "DISABLED"},
+                    {"Name": "OddsRuleNBA-12345", "State": "DISABLED"},
+                    {"Name": "OddsRuleNFL-12346", "State": "DISABLED"},
+                    {"Name": "OddsRuleMLB-12347", "State": "DISABLED"},
                 ]
             }
         ]
@@ -243,8 +243,8 @@ class TestLambdaHandler:
         mock_paginator.paginate.return_value = [
             {
                 "Rules": [
-                    {"Name": "Dev-SomeOtherRule", "State": "ENABLED"},
-                    {"Name": "Dev-NBA-OddsCollector", "State": "DISABLED"},
+                    {"Name": "SomeOtherRule-12345", "State": "ENABLED"},
+                    {"Name": "OddsRuleNBA-12346", "State": "DISABLED"},
                 ]
             }
         ]

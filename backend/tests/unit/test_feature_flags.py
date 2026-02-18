@@ -46,6 +46,7 @@ class TestFeatureFlags(unittest.TestCase):
         self.assertFalse(limits["user_models"])
 
     @patch("feature_flags.get_user_tier")
+    @patch.dict("os.environ", {"ENVIRONMENT": "dev"})
     def test_basic_tier_limits(self, mock_tier):
         """BASIC tier should have 3 user models"""
         mock_tier.return_value = SubscriptionTier.BASIC
@@ -55,6 +56,7 @@ class TestFeatureFlags(unittest.TestCase):
         self.assertTrue(limits["user_models"])
 
     @patch("feature_flags.get_user_tier")
+    @patch.dict("os.environ", {"ENVIRONMENT": "dev"})
     def test_can_create_model_under_limit(self, mock_tier):
         """Should allow creating model under limit"""
         mock_tier.return_value = SubscriptionTier.BASIC
