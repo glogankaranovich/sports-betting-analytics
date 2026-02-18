@@ -594,9 +594,9 @@ Respond with JSON only:
             else:
                 decimal_odds = (100 / abs(odds)) + 1
 
-            # Kelly formula
+            # Kelly formula (convert confidence to float)
             b = decimal_odds - 1
-            p = confidence
+            p = float(confidence)
             q = 1 - p
             kelly_pct = (b * p - q) / b
 
@@ -604,7 +604,7 @@ Respond with JSON only:
             kelly_pct = max(0, kelly_pct * kelly_fraction)
         else:
             # Fallback: simple confidence-based sizing
-            kelly_pct = (confidence - 0.5) * 2 * kelly_fraction
+            kelly_pct = (float(confidence) - 0.5) * 2 * kelly_fraction
 
         max_bet = self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))
         bet_size = self.bankroll * Decimal(str(kelly_pct))
