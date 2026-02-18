@@ -588,15 +588,19 @@ Respond with JSON only:
         kelly_fraction = self.learning_params.get("kelly_fraction", 0.25)
 
         if odds and odds != 0:
+            # Convert to float to avoid Decimal issues
+            odds_float = float(odds)
+            confidence_float = float(confidence)
+            
             # Convert American odds to decimal
-            if odds > 0:
-                decimal_odds = (odds / 100) + 1
+            if odds_float > 0:
+                decimal_odds = (odds_float / 100) + 1
             else:
-                decimal_odds = (100 / abs(odds)) + 1
+                decimal_odds = (100 / abs(odds_float)) + 1
 
-            # Kelly formula (convert confidence to float)
+            # Kelly formula
             b = decimal_odds - 1
-            p = float(confidence)
+            p = confidence_float
             q = 1 - p
             kelly_pct = (b * p - q) / b
 
