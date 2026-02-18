@@ -585,7 +585,7 @@ Respond with JSON only:
         # Kelly Criterion: f = (bp - q) / b
         # where b = decimal odds - 1, p = win probability, q = 1 - p
 
-        kelly_fraction = self.learning_params.get("kelly_fraction", 0.25)
+        kelly_fraction = float(self.learning_params.get("kelly_fraction", 0.25))
 
         if odds and odds != 0:
             # Convert to float to avoid Decimal issues
