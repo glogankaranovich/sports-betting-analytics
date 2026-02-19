@@ -41,7 +41,7 @@ class TestApiHandler(unittest.TestCase):
 
     @patch("api_handler.boto3.resource")
     def test_health_endpoint(self, mock_resource):
-        """Test health check endpoint"""
+        """Test health check endpoint - now migrated to api/misc.py"""
         mock_table = Mock()
         mock_resource.return_value.Table.return_value = mock_table
 
@@ -49,9 +49,8 @@ class TestApiHandler(unittest.TestCase):
 
         response = lambda_handler(event, {})
 
-        self.assertEqual(response["statusCode"], 200)
-        body = json.loads(response["body"])
-        self.assertEqual(body["status"], "healthy")
+        # Health endpoint migrated to separate handler, should return 404 here
+        self.assertEqual(response["statusCode"], 404)
 
     @patch("api_handler.boto3.resource")
     def test_games_endpoint(self, mock_resource):
