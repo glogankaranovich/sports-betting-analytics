@@ -52,7 +52,117 @@ export class BetCollectorApiStack extends cdk.Stack {
       ]
     });
 
-    // Lambda function for bet collector API
+    // Lambda function for games endpoints (new modular handler)
+    const gamesFunction = new lambda.Function(this, 'GamesApiFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'api.games.lambda_handler',
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ]
+        }
+      }),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+        ...getPlatformEnvironment(),
+      }
+    });
+    gamesFunction.role?.addManagedPolicy(dynamoDbPolicy);
+
+    // Lambda function for analyses endpoints (new modular handler)
+    const analysesFunction = new lambda.Function(this, 'AnalysesApiFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'api.analyses.lambda_handler',
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ]
+        }
+      }),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+        ...getPlatformEnvironment(),
+      }
+    });
+    analysesFunction.role?.addManagedPolicy(dynamoDbPolicy);
+
+    // Lambda function for misc endpoints (new modular handler)
+    const miscFunction = new lambda.Function(this, 'MiscApiFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'api.misc.lambda_handler',
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ]
+        }
+      }),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+        ...getPlatformEnvironment(),
+      }
+    });
+    miscFunction.role?.addManagedPolicy(dynamoDbPolicy);
+
+    const analyticsFunction = new lambda.Function(this, 'AnalyticsApiFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'api.analytics.lambda_handler',
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ]
+        }
+      }),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+        ...getPlatformEnvironment(),
+      }
+    });
+    analyticsFunction.role?.addManagedPolicy(dynamoDbPolicy);
+
+    const userDataFunction = new lambda.Function(this, 'UserDataApiFunction', {
+      runtime: lambda.Runtime.PYTHON_3_11,
+      handler: 'api.user_data.lambda_handler',
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ]
+        }
+      }),
+      timeout: cdk.Duration.seconds(30),
+      environment: {
+        DYNAMODB_TABLE: props.betsTableName,
+        ENVIRONMENT: props.environment,
+        CUSTOM_DATA_TABLE: props.customDataTableName || `${props.environment === 'dev' ? 'Dev-' : ''}CustomData-CustomData`,
+        CUSTOM_DATA_BUCKET: props.customDataBucketName || `${props.environment}-custom-data-bucket`,
+        ...getPlatformEnvironment(),
+      }
+    });
+    userDataFunction.role?.addManagedPolicy(dynamoDbPolicy);
+
+    // Lambda function for bet collector API (legacy - will be deprecated)
     const betCollectorApiFunction = new lambda.Function(this, 'BetCollectorApiFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'api_handler.lambda_handler',
@@ -117,7 +227,10 @@ export class BetCollectorApiStack extends cdk.Stack {
       });
     }
 
-    // Lambda integration
+    // Lambda integrations
+    const gamesIntegration = new apigateway.LambdaIntegration(gamesFunction);
+    const analysesIntegration = new apigateway.LambdaIntegration(analysesFunction);
+    const miscIntegration = new apigateway.LambdaIntegration(miscFunction);
     const lambdaIntegration = new apigateway.LambdaIntegration(betCollectorApiFunction, {
       requestTemplates: { 'application/json': '{ "statusCode": "200" }' }
     });
@@ -125,9 +238,9 @@ export class BetCollectorApiStack extends cdk.Stack {
     // API routes
     betCollectorApi.root.addMethod('ANY', lambdaIntegration);
     
-    // Health endpoint (public)
+    // Health endpoint (public) - using new misc handler
     const health = betCollectorApi.root.addResource('health');
-    health.addMethod('GET', lambdaIntegration);
+    health.addMethod('GET', miscIntegration);
 
     // Protected endpoints (require auth if user pool exists)
     const methodOptions = authorizer ? {
@@ -135,20 +248,20 @@ export class BetCollectorApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     } : undefined;
 
-    // Games endpoints (protected)
+    // Games endpoints (protected) - using new games handler
     const games = betCollectorApi.root.addResource('games');
-    games.addMethod('GET', lambdaIntegration, methodOptions);
+    games.addMethod('GET', gamesIntegration, methodOptions);
     
     const gameById = games.addResource('{game_id}');
-    gameById.addMethod('GET', lambdaIntegration, methodOptions);
+    gameById.addMethod('GET', lambdaIntegration, methodOptions); // Keep legacy for now
 
-    // Sports endpoint (protected)
+    // Sports endpoint (protected) - using new games handler
     const sports = betCollectorApi.root.addResource('sports');
-    sports.addMethod('GET', lambdaIntegration, methodOptions);
+    sports.addMethod('GET', gamesIntegration, methodOptions);
 
-    // Bookmakers endpoint (protected)
+    // Bookmakers endpoint (protected) - using new games handler
     const bookmakers = betCollectorApi.root.addResource('bookmakers');
-    bookmakers.addMethod('GET', lambdaIntegration, methodOptions);
+    bookmakers.addMethod('GET', gamesIntegration, methodOptions);
 
     // Predictions endpoint (protected)
     const predictions = betCollectorApi.root.addResource('predictions');
@@ -166,33 +279,32 @@ export class BetCollectorApiStack extends cdk.Stack {
     const propPredictions = betCollectorApi.root.addResource('prop-predictions');
     propPredictions.addMethod('GET', lambdaIntegration, methodOptions);
 
-    // Player props endpoint (protected)
+    // Player props endpoint (protected) - using new games handler
     const playerProps = betCollectorApi.root.addResource('player-props');
-    playerProps.addMethod('GET', lambdaIntegration, methodOptions);
+    playerProps.addMethod('GET', gamesIntegration, methodOptions);
 
-    // Analyses endpoint (protected)
+    // Analyses endpoint (protected) - using new analyses handler
     const analyses = betCollectorApi.root.addResource('analyses');
-    analyses.addMethod('GET', lambdaIntegration, methodOptions);
+    analyses.addMethod('GET', analysesIntegration, methodOptions);
 
-    // Top analysis endpoint (protected)
+    // Top analysis endpoint (protected) - using new analyses handler
     const topAnalysis = betCollectorApi.root.addResource('top-analysis');
-    topAnalysis.addMethod('GET', lambdaIntegration, methodOptions);
+    topAnalysis.addMethod('GET', analysesIntegration, methodOptions);
 
-    // Analytics endpoint (protected)
+    // Analytics endpoints (protected) - using new analytics handler
+    const analyticsIntegration = new apigateway.LambdaIntegration(analyticsFunction);
+    
     const analytics = betCollectorApi.root.addResource('analytics');
-    analytics.addMethod('GET', lambdaIntegration, methodOptions);
+    analytics.addMethod('GET', analyticsIntegration, methodOptions);
 
-    // Model performance endpoint (protected)
     const modelPerformance = betCollectorApi.root.addResource('model-performance');
-    modelPerformance.addMethod('GET', lambdaIntegration, methodOptions);
+    modelPerformance.addMethod('GET', analyticsIntegration, methodOptions);
 
-    // Model comparison endpoint (protected)
     const modelComparison = betCollectorApi.root.addResource('model-comparison');
-    modelComparison.addMethod('GET', lambdaIntegration, methodOptions);
+    modelComparison.addMethod('GET', analyticsIntegration, methodOptions);
 
-    // Model rankings endpoint (protected)
     const modelRankings = betCollectorApi.root.addResource('model-rankings');
-    modelRankings.addMethod('GET', lambdaIntegration, methodOptions);
+    modelRankings.addMethod('GET', analyticsIntegration, methodOptions);
 
     // Separate Lambda for user profile/subscription to avoid policy size limits
     const userProfileFunction = new lambda.Function(this, 'UserProfileApiFunction', {
@@ -229,52 +341,40 @@ export class BetCollectorApiStack extends cdk.Stack {
     const subscriptionUpgrade = subscription.addResource('upgrade');
     subscriptionUpgrade.addMethod('POST', userProfileIntegration, methodOptions);
 
-    // Separate Lambda for user models to avoid policy size limits
-    const userModelsFunction = new lambda.Function(this, 'UserModelsApiFunction', {
-      runtime: lambda.Runtime.PYTHON_3_11,
-      handler: 'api_handler.lambda_handler',
-      code: lambda.Code.fromAsset('../backend', {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-          command: [
-            'bash', '-c',
-            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
-          ]
-        }
-      }),
-      timeout: cdk.Duration.seconds(30),
-      environment: {
-        DYNAMODB_TABLE: props.betsTableName,
-        ENVIRONMENT: props.environment,
-        USER_MODELS_TABLE: props.userModelsTableName || `${props.environment === 'dev' ? 'Dev-' : ''}UserModels-UserModels`,
-        MODEL_PREDICTIONS_TABLE: props.modelPredictionsTableName || `${props.environment === 'dev' ? 'Dev-' : ''}UserModels-ModelPredictions`,
-      }
-    });
+    // User models and custom data endpoints (protected) - using new user data handler
+    const userDataIntegration = new apigateway.LambdaIntegration(userDataFunction);
 
-    // Attach managed policy
-    userModelsFunction.role?.addManagedPolicy(dynamoDbPolicy);
-
-    const userModelsIntegration = new apigateway.LambdaIntegration(userModelsFunction);
-
-    // User models endpoints (protected, using separate Lambda)
     const userModels = betCollectorApi.root.addResource('user-models');
-    userModels.addMethod('GET', userModelsIntegration, methodOptions);  // List models
-    userModels.addMethod('POST', userModelsIntegration, methodOptions); // Create model
+    userModels.addMethod('GET', userDataIntegration, methodOptions);
+    userModels.addMethod('POST', userDataIntegration, methodOptions);
     
     const userModelPredictions = userModels.addResource('predictions');
-    userModelPredictions.addMethod('GET', userModelsIntegration, methodOptions); // Get all predictions
+    userModelPredictions.addMethod('GET', userDataIntegration, methodOptions);
     
     const userModelById = userModels.addResource('{model_id}');
-    userModelById.addMethod('GET', userModelsIntegration, methodOptions);    // Get model
-    userModelById.addMethod('PUT', userModelsIntegration, methodOptions);    // Update model
-    userModelById.addMethod('DELETE', userModelsIntegration, methodOptions); // Delete model
+    userModelById.addMethod('GET', userDataIntegration, methodOptions);
+    userModelById.addMethod('PUT', userDataIntegration, methodOptions);
+    userModelById.addMethod('DELETE', userDataIntegration, methodOptions);
     
     const userModelBacktests = userModelById.addResource('backtests');
-    userModelBacktests.addMethod('GET', userModelsIntegration, methodOptions);  // List backtests
-    userModelBacktests.addMethod('POST', userModelsIntegration, methodOptions); // Create backtest
+    userModelBacktests.addMethod('GET', userDataIntegration, methodOptions);
+    userModelBacktests.addMethod('POST', userDataIntegration, methodOptions);
     
     const userModelPerformance = userModelById.addResource('performance');
-    userModelPerformance.addMethod('GET', userModelsIntegration, methodOptions); // Get model performance
+    userModelPerformance.addMethod('GET', userDataIntegration, methodOptions);
+
+    const backtests = betCollectorApi.root.addResource('backtests');
+    const backtestById = backtests.addResource('{backtest_id}');
+    backtestById.addMethod('GET', userDataIntegration, methodOptions);
+
+    const customData = betCollectorApi.root.addResource('custom-data');
+    customData.addMethod('GET', userDataIntegration, methodOptions);
+    
+    const customDataUpload = customData.addResource('upload');
+    customDataUpload.addMethod('POST', userDataIntegration, methodOptions);
+    
+    const customDataById = customData.addResource('{dataset_id}');
+    customDataById.addMethod('DELETE', userDataIntegration, methodOptions);
 
     // AI Agent Lambda
     const aiAgentFunction = new lambda.Function(this, 'AIAgentFunction', {
@@ -303,14 +403,19 @@ export class BetCollectorApiStack extends cdk.Stack {
     const chat = aiAgent.addResource('chat');
     chat.addMethod('POST', new apigateway.LambdaIntegration(aiAgentFunction), methodOptions);
 
-    // Benny dashboard endpoint (public - no auth required)
+    // Benny dashboard endpoint (public - no auth required) - using new misc handler
     const benny = betCollectorApi.root.addResource('benny');
     const bennyDashboard = benny.addResource('dashboard');
-    bennyDashboard.addMethod('GET', lambdaIntegration);
+    bennyDashboard.addMethod('GET', miscIntegration);
+
+    // Compliance endpoint (public) - using new misc handler
+    const compliance = betCollectorApi.root.addResource('compliance');
+    const complianceLog = compliance.addResource('log');
+    complianceLog.addMethod('POST', miscIntegration);
 
     // Export functions for monitoring
     this.betCollectorApiFunction = betCollectorApiFunction;
-    this.userModelsApiFunction = userModelsFunction;
+    this.userModelsApiFunction = userDataFunction;
     this.aiAgentApiFunction = aiAgentFunction;
 
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {
