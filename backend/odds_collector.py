@@ -291,7 +291,8 @@ class OddsCollector:
 
                 for item in response["Items"]:
                     game_id = item["pk"].split("#")[1]
-                    future_games.append(game_id)
+                    commence_time = item.get("commence_time")
+                    future_games.append((game_id, commence_time))
 
                 last_evaluated_key = response.get("LastEvaluatedKey")
                 if not last_evaluated_key:
