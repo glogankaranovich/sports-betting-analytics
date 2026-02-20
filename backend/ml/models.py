@@ -2306,6 +2306,158 @@ class NewsModel(BaseAnalysisModel):
         return None
 
 
+class FundamentalsModel(BaseAnalysisModel):
+    """Fundamentals-based model using opponent-adjusted metrics, Elo, weather, and fatigue"""
+    
+    def __init__(self, dynamodb_table=None):
+        self.table = dynamodb_table
+        if not self.table:
+            import boto3
+            dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+            table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
+            self.table = dynamodb.Table(table_name)
+        
+        self.elo_calculator = EloCalculator()
+        self.fatigue_calculator = TravelFatigueCalculator()
+    
+    def analyze_game_odds(self, game_id: str, odds_items: List[Dict], game_info: Dict) -> AnalysisResult:
+        """Analyze game using fundamental team strength metrics"""
+        sport = game_info.get("sport")
+        home_team = game_info.get("home_team")
+        away_team = game_info.get("away_team")
+        game_date = game_info.get("commence_time")
+        
+        # Get Elo ratings
+        home_elo = self.elo_calculator.get_team_rating(sport, home_team)
+        away_elo = self.elo_calculator.get_team_rating(sport, away_team)
+        elo_diff = home_elo - away_elo
+        
+        # Get opponent-adjusted metrics
+        home_metrics = self._get_adjusted_metrics(sport, home_team)
+        away_metrics = self._get_adjusted_metrics(sport, away_team)
+        
+        # Get fatigue
+        home_fatigue = self.fatigue_calculator.calculate_fatigue_score(home_team, sport, game_date)
+        away_fatigue = self.fatigue_calculator.calculate_fatigue_score(away_team, sport, game_date)
+        
+        # Get weather impact for outdoor sports
+        weather_impact = 0
+        weather_context = ""
+        if sport in ['americanfootball_nfl', 'baseball_mlb', 'soccer_epl']:
+            try:
+                weather_response = self.table.get_item(Key={"pk": f"WEATHER#{game_id}", "sk": "latest"})
+                weather_data = weather_response.get("Item")
+                if weather_data:
+                    impact = weather_data.get("impact", "low")
+                    if impact == "high":
+                        weather_impact = -5
+                        weather_context = " High weather impact."
+                    elif impact == "moderate":
+                        weather_impact = -2
+                        weather_context = " Moderate weather impact."
+            except:
+                pass
+        
+        # Calculate fundamental score (0-100 scale)
+        home_score = 50  # Start neutral
+        
+        # Elo contribution (±20 points max)
+        home_score += min(max(elo_diff / 10, -20), 20)
+        
+        # Adjusted metrics contribution (±15 points max)
+        if home_metrics and away_metrics:
+            metrics_diff = self._compare_metrics(home_metrics, away_metrics, sport)
+            home_score += min(max(metrics_diff, -15), 15)
+        
+        # Fatigue contribution (±10 points max)
+        fatigue_diff = away_fatigue['fatigue_score'] - home_fatigue['fatigue_score']
+        home_score += min(max(fatigue_diff / 10, -10), 10)
+        
+        # Home court advantage (+5 points)
+        home_score += 5
+        
+        # Weather impact
+        home_score += weather_impact
+        
+        # Convert to confidence and prediction
+        confidence = abs(home_score - 50) / 50 * 0.4 + 0.5  # Scale to 0.5-0.9
+        confidence = min(max(confidence, 0.5), 0.85)
+        
+        pick = home_team if home_score > 50 else away_team
+        
+        # Build reasoning
+        reasons = []
+        if abs(elo_diff) > 50:
+            reasons.append(f"Elo: {home_team} {home_elo:.0f} vs {away_team} {away_elo:.0f}")
+        if home_metrics and away_metrics:
+            reasons.append(f"Efficiency metrics favor {home_team if metrics_diff > 0 else away_team}")
+        if abs(fatigue_diff) > 20:
+            reasons.append(f"Fatigue advantage: {home_team if fatigue_diff > 0 else away_team}")
+        
+        reasoning = "Fundamentals: " + ", ".join(reasons) if reasons else f"Slight edge to {pick}"
+        reasoning += weather_context
+        
+        return AnalysisResult(
+            game_id=game_id,
+            model="fundamentals",
+            analysis_type="game",
+            sport=sport,
+            home_team=home_team,
+            away_team=away_team,
+            commence_time=game_date,
+            prediction=pick,
+            confidence=confidence,
+            reasoning=reasoning,
+            recommended_odds=-110
+        )
+    
+    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
+        """Props not supported for fundamentals model"""
+        return None
+    
+    def _get_adjusted_metrics(self, sport: str, team_name: str) -> Optional[Dict]:
+        """Get opponent-adjusted metrics for a team"""
+        try:
+            normalized_name = team_name.strip().replace(" ", "_").upper()
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk",
+                FilterExpression="latest = :true",
+                ExpressionAttributeValues={
+                    ":pk": f"ADJUSTED_METRICS#{sport}#{normalized_name}",
+                    ":true": True
+                },
+                Limit=1
+            )
+            items = response.get("Items", [])
+            return items[0].get("metrics") if items else None
+        except:
+            return None
+    
+    def _compare_metrics(self, home_metrics: Dict, away_metrics: Dict, sport: str) -> float:
+        """Compare adjusted metrics between teams, return difference (-15 to +15)"""
+        if sport == "basketball_nba":
+            home_ppg = float(home_metrics.get("adjusted_ppg", 0))
+            away_ppg = float(away_metrics.get("adjusted_ppg", 0))
+            home_fg = float(home_metrics.get("fg_pct", 0))
+            away_fg = float(away_metrics.get("fg_pct", 0))
+            
+            ppg_diff = (home_ppg - away_ppg) / 5  # Scale points
+            fg_diff = (home_fg - away_fg) * 20  # Scale FG%
+            return (ppg_diff + fg_diff) / 2
+        
+        elif sport == "americanfootball_nfl":
+            home_yards = float(home_metrics.get("adjusted_total_yards", 0))
+            away_yards = float(away_metrics.get("adjusted_total_yards", 0))
+            return (home_yards - away_yards) / 50
+        
+        elif sport == "soccer_epl":
+            home_shots = float(home_metrics.get("adjusted_shots_per_game", 0))
+            away_shots = float(away_metrics.get("adjusted_shots_per_game", 0))
+            return (home_shots - away_shots) * 2
+        
+        return 0.0
+
+
 class ModelFactory:
     """Factory for creating analysis models"""
 
@@ -2318,8 +2470,9 @@ class ModelFactory:
         "rest_schedule": RestScheduleModel,
         "matchup": MatchupModel,
         "injury_aware": InjuryAwareModel,
-        "news": NewsModel,
         "ensemble": EnsembleModel,
+        "news": NewsModel,
+        "fundamentals": FundamentalsModel,
     }
 
     @classmethod

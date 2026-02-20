@@ -321,6 +321,14 @@ class BennyTrader:
                 away_form = self._get_recent_form(game_data["away_team"], sport)
                 home_news = self._get_team_news_sentiment(game_data["home_team"], sport)
                 away_news = self._get_team_news_sentiment(game_data["away_team"], sport)
+                
+                # NEW: Advanced metrics
+                home_elo = self._get_elo_rating(game_data["home_team"], sport)
+                away_elo = self._get_elo_rating(game_data["away_team"], sport)
+                home_adjusted = self._get_adjusted_metrics(game_data["home_team"], sport)
+                away_adjusted = self._get_adjusted_metrics(game_data["away_team"], sport)
+                weather = self._get_weather_data(game_id)
+                fatigue = self._get_fatigue_data(game_id)
 
                 # Calculate average odds
                 avg_home_price = sum(o["home_price"] for o in game_data["odds"]) / len(
@@ -342,6 +350,12 @@ class BennyTrader:
                     away_form,
                     home_news,
                     away_news,
+                    home_elo,
+                    away_elo,
+                    home_adjusted,
+                    away_adjusted,
+                    weather,
+                    fatigue,
                 )
 
                 # Use learned confidence threshold
@@ -389,6 +403,12 @@ class BennyTrader:
         away_form: Dict,
         home_news: Dict,
         away_news: Dict,
+        home_elo: float,
+        away_elo: float,
+        home_adjusted: Dict,
+        away_adjusted: Dict,
+        weather: Dict,
+        fatigue: Dict,
     ) -> Dict[str, Any]:
         """Have AI analyze game data and make independent prediction"""
         try:
@@ -408,14 +428,28 @@ class BennyTrader:
 
 Game: {game_data['away_team']} @ {game_data['home_team']}
 Sport: {game_data['sport']}
+Time: {game_data['commence_time']}
 
-ODDS:
+MARKET ODDS:
 Home: {avg_home_price} ({home_prob:.1%} implied)
 Away: {avg_away_price} ({away_prob:.1%} implied)
 
-TEAM STATS (Season):
-Home: {json.dumps(home_stats, indent=2) if home_stats else 'No data'}
-Away: {json.dumps(away_stats, indent=2) if away_stats else 'No data'}
+ELO RATINGS (Team Strength):
+Home: {home_elo:.0f} | Away: {away_elo:.0f} | Difference: {home_elo - away_elo:+.0f}
+Note: Higher = stronger. Difference >50 = significant edge. Average team = 1500.
+
+OPPONENT-ADJUSTED EFFICIENCY:
+Home: {json.dumps(home_adjusted, indent=2) if home_adjusted else 'No data'}
+Away: {json.dumps(away_adjusted, indent=2) if away_adjusted else 'No data'}
+Note: Adjusted for opponent strength - more accurate than raw stats.
+
+TRAVEL & FATIGUE:
+{json.dumps(fatigue, indent=2) if fatigue else 'No data'}
+Note: Fatigue score 0-100 where <30=fresh, 30-60=moderate, >60=tired. High fatigue hurts performance.
+
+WEATHER CONDITIONS:
+{json.dumps(weather, indent=2) if weather else 'Indoor venue or no data'}
+Note: Impact levels - high=significant effect, moderate=some effect, low=minimal.
 
 RECENT FORM (Last 5 games):
 Home: {home_form.get('record', 'Unknown')} - {home_form.get('streak', '')}
@@ -424,7 +458,7 @@ Away: {away_form.get('record', 'Unknown')} - {away_form.get('streak', '')}
 HEAD-TO-HEAD (Last 3 meetings):
 {json.dumps(h2h_history, indent=2) if h2h_history else 'No history'}
 
-INJURIES:
+KEY INJURIES:
 Home: {json.dumps(home_injuries, indent=2) if home_injuries else 'None'}
 Away: {json.dumps(away_injuries, indent=2) if away_injuries else 'None'}
 
@@ -432,10 +466,17 @@ NEWS SENTIMENT (Last 48 hours):
 Home: Sentiment={home_news.get('sentiment_score', 0):.2f}, Impact={home_news.get('impact_score', 0):.1f}, Articles={home_news.get('news_count', 0)}
 Away: Sentiment={away_news.get('sentiment_score', 0):.2f}, Impact={away_news.get('impact_score', 0):.1f}, Articles={away_news.get('news_count', 0)}
 
-Analyze and predict:
-1. Which team wins and why?
-2. Is there value vs the odds?
-3. Key factors driving your prediction?
+RAW TEAM STATS (Season Averages):
+Home: {json.dumps(home_stats, indent=2) if home_stats else 'No data'}
+Away: {json.dumps(away_stats, indent=2) if away_stats else 'No data'}
+
+ANALYSIS INSTRUCTIONS:
+1. Prioritize Elo ratings and opponent-adjusted metrics - they're more predictive than raw stats
+2. Factor in fatigue if either team has score >50 or traveled >1000 miles
+3. Consider weather impact if marked as "high" or "moderate"
+4. Assess injury impact on team efficiency
+5. Look for value where your confidence differs significantly from implied odds
+6. Which team wins and why?
 
 Respond with JSON only:
 {{"prediction": "Team Name", "confidence": 0.75, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2", "factor3"]}}"""
@@ -499,6 +540,81 @@ Respond with JSON only:
         except Exception as e:
             print(f"Error fetching news sentiment: {e}")
             return {"sentiment_score": 0.0, "impact_score": 0.0, "news_count": 0}
+
+    def _get_elo_rating(self, team_name: str, sport: str) -> float:
+        """Get current Elo rating for a team"""
+        try:
+            normalized_team = team_name.lower().replace(" ", "_")
+            response = table.query(
+                KeyConditionExpression=Key("pk").eq(f"ELO#{sport}#{normalized_team}"),
+                ScanIndexForward=False,
+                Limit=1,
+            )
+            items = response.get("Items", [])
+            return float(items[0].get("rating", 1500)) if items else 1500.0
+        except Exception as e:
+            print(f"Error fetching Elo: {e}")
+            return 1500.0
+
+    def _get_adjusted_metrics(self, team_name: str, sport: str) -> Dict:
+        """Get opponent-adjusted metrics for a team"""
+        try:
+            normalized_team = team_name.lower().replace(" ", "_")
+            response = table.query(
+                KeyConditionExpression=Key("pk").eq(f"ADJUSTED_METRICS#{sport}#{normalized_team}"),
+                FilterExpression="attribute_exists(latest) AND latest = :true",
+                ExpressionAttributeValues={":true": True},
+                Limit=1,
+            )
+            items = response.get("Items", [])
+            return items[0].get("metrics", {}) if items else {}
+        except Exception as e:
+            print(f"Error fetching adjusted metrics: {e}")
+            return {}
+
+    def _get_weather_data(self, game_id: str) -> Dict:
+        """Get weather data for a game"""
+        try:
+            response = table.query(
+                KeyConditionExpression=Key("pk").eq(f"WEATHER#{game_id}"),
+                ScanIndexForward=False,
+                Limit=1,
+            )
+            items = response.get("Items", [])
+            if items:
+                return {
+                    "temp_f": float(items[0].get("temp_f", 0)),
+                    "wind_mph": float(items[0].get("wind_mph", 0)),
+                    "precip_in": float(items[0].get("precip_in", 0)),
+                    "impact": items[0].get("impact", "low"),
+                }
+            return {}
+        except Exception as e:
+            print(f"Error fetching weather: {e}")
+            return {}
+
+    def _get_fatigue_data(self, game_id: str) -> Dict:
+        """Get travel/fatigue data for a game"""
+        try:
+            response = table.query(
+                KeyConditionExpression=Key("pk").eq(f"FATIGUE#{game_id}"),
+                ScanIndexForward=False,
+                Limit=1,
+            )
+            items = response.get("Items", [])
+            if items:
+                return {
+                    "home_fatigue": float(items[0].get("home_fatigue_score", 0)),
+                    "home_miles": float(items[0].get("home_total_miles", 0)),
+                    "home_rest": int(items[0].get("home_days_rest", 0)),
+                    "away_fatigue": float(items[0].get("away_fatigue_score", 0)),
+                    "away_miles": float(items[0].get("away_total_miles", 0)),
+                    "away_rest": int(items[0].get("away_days_rest", 0)),
+                }
+            return {}
+        except Exception as e:
+            print(f"Error fetching fatigue: {e}")
+            return {}
 
     def _get_head_to_head(
         self, home_team: str, away_team: str, sport: str

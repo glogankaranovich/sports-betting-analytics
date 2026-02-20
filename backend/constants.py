@@ -12,7 +12,7 @@ SUPPORTED_SPORTS = os.environ.get(
 
 SYSTEM_MODELS = os.environ.get(
     "SYSTEM_MODELS",
-    "consensus,value,momentum,contrarian,hot_cold,rest_schedule,matchup,injury_aware,news,ensemble,benny",
+    "consensus,value,momentum,contrarian,hot_cold,rest_schedule,matchup,injury_aware,news,ensemble,fundamentals",
 ).split(",")
 
 SUPPORTED_BOOKMAKERS = os.environ.get(

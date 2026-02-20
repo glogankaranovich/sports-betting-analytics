@@ -63,7 +63,7 @@ class TestBennyTrader:
         assert bet_size >= Decimal("5.00")  # Minimum bet
         assert bet_size < trader.bankroll * Decimal("0.10")
 
-    def test_analyze_games_filters_confidence(self, trader, mock_table):
+    def test_analyze_games_filters_confidence(self, trader, mock_table, mock_bedrock):
         """Test game analysis filters by confidence"""
         # Mock games with odds
         mock_table.query.return_value = {
@@ -79,8 +79,8 @@ class TestBennyTrader:
                     "market_key": "h2h",
                     "bookmaker": "draftkings",
                     "outcomes": [
-                        {"name": "Lakers", "price": 1.8},
-                        {"name": "Warriors", "price": 2.1},
+                        {"name": "Lakers", "price": -110},
+                        {"name": "Warriors", "price": -110},
                     ],
                 },
                 {
@@ -94,8 +94,8 @@ class TestBennyTrader:
                     "market_key": "h2h",
                     "bookmaker": "fanduel",
                     "outcomes": [
-                        {"name": "Lakers", "price": 1.9},
-                        {"name": "Warriors", "price": 2.0},
+                        {"name": "Lakers", "price": -110},
+                        {"name": "Warriors", "price": -110},
                     ],
                 },
             ]
@@ -266,3 +266,58 @@ class TestBennyTrader:
         assert "bankroll_history" in dashboard
         assert len(dashboard["recent_bets"]) > 0
         assert "ai_reasoning" in dashboard["recent_bets"][0]
+
+    def test_get_elo_rating(self, trader, mock_table):
+        """Test fetching Elo ratings"""
+        mock_table.query.return_value = {
+            "Items": [{"rating": Decimal("1650")}]
+        }
+        
+        rating = trader._get_elo_rating("Lakers", "basketball_nba")
+        assert rating == 1650.0
+
+    def test_get_elo_rating_default(self, trader, mock_table):
+        """Test Elo defaults to 1500 when no data"""
+        mock_table.query.return_value = {"Items": []}
+        
+        rating = trader._get_elo_rating("NewTeam", "basketball_nba")
+        assert rating == 1500.0
+
+    def test_get_adjusted_metrics(self, trader, mock_table):
+        """Test fetching opponent-adjusted metrics"""
+        mock_table.query.return_value = {
+            "Items": [{"metrics": {"adjusted_ppg": 110.5, "vs_league_avg": 1.05}}]
+        }
+        
+        metrics = trader._get_adjusted_metrics("Lakers", "basketball_nba")
+        assert metrics["adjusted_ppg"] == 110.5
+        assert metrics["vs_league_avg"] == 1.05
+
+    def test_get_weather_data(self, trader, mock_table):
+        """Test fetching weather data"""
+        mock_table.query.return_value = {
+            "Items": [{"temp_f": Decimal("45"), "wind_mph": Decimal("15"), "precip_in": Decimal("0.1"), "impact": "moderate"}]
+        }
+        
+        weather = trader._get_weather_data("game123")
+        assert weather["temp_f"] == 45.0
+        assert weather["wind_mph"] == 15.0
+        assert weather["impact"] == "moderate"
+
+    def test_get_fatigue_data(self, trader, mock_table):
+        """Test fetching fatigue data"""
+        mock_table.query.return_value = {
+            "Items": [{
+                "home_fatigue_score": Decimal("25"),
+                "home_total_miles": Decimal("500"),
+                "home_days_rest": 2,
+                "away_fatigue_score": Decimal("65"),
+                "away_total_miles": Decimal("2500"),
+                "away_days_rest": 1,
+            }]
+        }
+        
+        fatigue = trader._get_fatigue_data("game123")
+        assert fatigue["home_fatigue"] == 25.0
+        assert fatigue["away_fatigue"] == 65.0
+        assert fatigue["away_miles"] == 2500.0
