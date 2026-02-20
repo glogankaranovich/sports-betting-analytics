@@ -77,3 +77,13 @@ class MiscHandler(BaseAPIHandler):
 # Lambda handler entry point
 handler = MiscHandler()
 lambda_handler = handler.lambda_handler
+
+# Backward compatibility functions for tests
+def handle_health():
+    return handler.get_health()
+
+def handle_get_benny_dashboard():
+    return handler.get_benny_dashboard()
+
+def handle_compliance_log(body: Dict[str, Any]):
+    return handler.log_compliance(body)

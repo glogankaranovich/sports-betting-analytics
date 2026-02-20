@@ -8,6 +8,7 @@ import requests
 from boto3.dynamodb.conditions import Key
 
 from constants import SUPPORTED_SPORTS, SYSTEM_MODELS
+from elo_calculator import EloCalculator
 
 
 class OutcomeCollector:
@@ -16,6 +17,7 @@ class OutcomeCollector:
         self.table = self.dynamodb.Table(table_name)
         self.odds_api_key = odds_api_key
         self.base_url = "https://api.the-odds-api.com/v4"
+        self.elo_calculator = EloCalculator()
 
     def collect_recent_outcomes(self, days_back: int = 3) -> Dict[str, int]:
         """Collect outcomes for games from the last N days (max 3)"""
@@ -23,6 +25,7 @@ class OutcomeCollector:
             "updated_analysis": 0,
             "stored_outcomes": 0,
             "stored_prop_outcomes": 0,
+            "updated_elo": 0,
         }
 
         # Validate days_back (API only accepts 1-3)
@@ -37,6 +40,10 @@ class OutcomeCollector:
                 # Store game outcome for H2H queries
                 self._store_outcome(game)
                 results["stored_outcomes"] += 1
+
+                # Update Elo ratings
+                if self._update_elo_ratings(game):
+                    results["updated_elo"] += 1
 
                 # Store prop outcomes for player tracking
                 prop_count = self._store_prop_outcomes(game)
@@ -87,6 +94,24 @@ class OutcomeCollector:
                 continue
 
         return completed_games
+    
+    def _update_elo_ratings(self, game: Dict[str, Any]) -> bool:
+        """Update Elo ratings for completed game"""
+        try:
+            sport = game.get("sport")
+            home_team = game.get("home_team")
+            away_team = game.get("away_team")
+            home_score = game.get("home_score")
+            away_score = game.get("away_score")
+            
+            if not all([sport, home_team, away_team, home_score is not None, away_score is not None]):
+                return False
+            
+            self.elo_calculator.update_ratings(sport, home_team, away_team, int(home_score), int(away_score))
+            return True
+        except Exception as e:
+            print(f"Error updating Elo ratings: {e}")
+            return False
 
     def _store_outcome(self, game: Dict[str, Any]) -> None:
         """Store game outcome as separate record for H2H queries"""

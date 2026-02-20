@@ -230,3 +230,16 @@ class GamesHandler(BaseAPIHandler):
 # Lambda handler entry point
 handler = GamesHandler()
 lambda_handler = handler.lambda_handler
+
+# Backward compatibility functions for tests
+def handle_get_games(query_params: Dict[str, str]):
+    return handler.get_games(query_params)
+
+def handle_get_sports():
+    return handler.get_sports()
+
+def handle_get_bookmakers():
+    return handler.get_bookmakers()
+
+def handle_get_player_props(query_params: Dict[str, str]):
+    return handler.get_player_props(query_params)

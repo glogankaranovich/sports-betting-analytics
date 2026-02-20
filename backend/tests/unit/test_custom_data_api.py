@@ -10,7 +10,7 @@ os.environ["ENVIRONMENT"] = "dev"
 import unittest  # noqa: E402
 from unittest.mock import patch, MagicMock  # noqa: E402
 
-from api_handler import (  # noqa: E402
+from api.user_data import (
     handle_list_custom_data,
     handle_upload_custom_data,
     handle_delete_custom_data,
@@ -18,8 +18,8 @@ from api_handler import (  # noqa: E402
 
 
 class TestCustomDataAPI(unittest.TestCase):
-    @patch("custom_data.CustomDataset")
-    @patch("api_middleware.check_feature_access")
+    @patch("api.user_data.CustomDataset")
+    @patch("api.user_data.check_feature_access")
     def test_list_custom_data_blocked_for_free_tier(
         self, mock_check_access, mock_dataset
     ):
@@ -34,9 +34,9 @@ class TestCustomDataAPI(unittest.TestCase):
         self.assertEqual(result["statusCode"], 403)
         mock_check_access.assert_called_once_with("user1", "custom_data")
 
-    @patch("custom_data.CustomDataset")
-    @patch("api_middleware.check_resource_limit")
-    @patch("api_middleware.check_feature_access")
+    @patch("api.user_data.CustomDataset")
+    @patch("api.user_data.check_resource_limit")
+    @patch("api.user_data.check_feature_access")
     def test_upload_custom_data_blocked_for_free_tier(
         self, mock_check_access, mock_check_limit, mock_dataset
     ):
@@ -59,9 +59,9 @@ class TestCustomDataAPI(unittest.TestCase):
         self.assertEqual(result["statusCode"], 403)
         mock_check_access.assert_called_once_with("user1", "custom_data")
 
-    @patch("custom_data.CustomDataset")
-    @patch("api_middleware.check_resource_limit")
-    @patch("api_middleware.check_feature_access")
+    @patch("api.user_data.CustomDataset")
+    @patch("api.user_data.check_resource_limit")
+    @patch("api.user_data.check_feature_access")
     def test_upload_custom_data_blocked_at_limit(
         self, mock_check_access, mock_check_limit, mock_dataset
     ):
@@ -86,8 +86,8 @@ class TestCustomDataAPI(unittest.TestCase):
         self.assertEqual(result["statusCode"], 403)
         mock_check_limit.assert_called_once_with("user1", "dataset", 2)
 
-    @patch("custom_data.CustomDataset")
-    @patch("api_middleware.check_feature_access")
+    @patch("api.user_data.CustomDataset")
+    @patch("api.user_data.check_feature_access")
     def test_delete_custom_data_blocked_for_free_tier(
         self, mock_check_access, mock_dataset
     ):

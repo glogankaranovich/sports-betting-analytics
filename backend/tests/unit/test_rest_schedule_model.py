@@ -1,12 +1,19 @@
+import os
 import unittest
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
+
+# Set up environment before importing models
+os.environ["DYNAMODB_TABLE"] = "test-table"
 
 from ml.models import RestScheduleModel
 
 
 class TestRestScheduleModel(unittest.TestCase):
-    def setUp(self):
+    @patch('ml.models.TravelFatigueCalculator')
+    def setUp(self, mock_fatigue_calc):
         self.mock_table = Mock()
+        self.mock_fatigue_calc = mock_fatigue_calc.return_value
+        self.mock_fatigue_calc.get_fatigue_data.return_value = None
         self.model = RestScheduleModel(dynamodb_table=self.mock_table)
         self.game_info = {
             "sport": "basketball_nba",

@@ -11,8 +11,8 @@ import json  # noqa: E402
 import unittest  # noqa: E402
 from unittest.mock import MagicMock, patch  # noqa: E402
 
-from api_handler import handle_create_user_model  # noqa: E402
-from api_handler import (
+from api.user_data import (
+    handle_create_user_model,
     handle_delete_user_model,
     handle_get_user_model,
     handle_get_user_model_performance,
@@ -24,8 +24,8 @@ from api_handler import (
 class TestUserModelsAPI(unittest.TestCase):
     """Test user models API handlers"""
 
-    @patch("api_middleware.check_feature_access")
-    @patch("user_models.UserModel")
+    @patch("api.user_data.check_feature_access")
+    @patch("api.user_data.UserModel")
     def test_list_user_models(self, mock_model, mock_feature_check):
         """Test listing user models"""
         mock_feature_check.return_value = {"allowed": True}
@@ -49,10 +49,10 @@ class TestUserModelsAPI(unittest.TestCase):
         body = json.loads(result["body"])
         self.assertIn("user_id parameter required", body["error"])
 
-    @patch("api_middleware.check_resource_limit")
-    @patch("api_middleware.check_feature_access")
+    @patch("api.user_data.check_resource_limit")
+    @patch("api.user_data.check_feature_access")
     @patch("user_models.validate_model_config")
-    @patch("user_models.UserModel")
+    @patch("api.user_data.UserModel")
     def test_create_user_model(
         self, mock_model, mock_validate, mock_feature_check, mock_limit_check
     ):
@@ -77,9 +77,9 @@ class TestUserModelsAPI(unittest.TestCase):
         self.assertEqual(result["statusCode"], 201)
         mock_instance.save.assert_called_once()
 
-    @patch("user_models.UserModel")
-    @patch("api_middleware.check_resource_limit")
-    @patch("api_middleware.check_feature_access")
+    @patch("api.user_data.UserModel")
+    @patch("api.user_data.check_resource_limit")
+    @patch("api.user_data.check_feature_access")
     def test_create_user_model_missing_fields(
         self, mock_feature_check, mock_limit_check, mock_model
     ):
@@ -93,10 +93,10 @@ class TestUserModelsAPI(unittest.TestCase):
         body = json.loads(result["body"])
         self.assertIn("Missing required field", body["error"])
 
-    @patch("api_middleware.check_resource_limit")
-    @patch("api_middleware.check_feature_access")
+    @patch("api.user_data.check_resource_limit")
+    @patch("api.user_data.check_feature_access")
     @patch("user_models.validate_model_config")
-    @patch("user_models.UserModel")
+    @patch("api.user_data.UserModel")
     def test_create_user_model_invalid_config(
         self, mock_model, mock_validate, mock_feature_check, mock_limit_check
     ):
@@ -120,7 +120,7 @@ class TestUserModelsAPI(unittest.TestCase):
         body = json.loads(result["body"])
         self.assertEqual(body["error"], "Invalid weights")
 
-    @patch("user_models.UserModel")
+    @patch("api.user_data.UserModel")
     def test_get_user_model(self, mock_model):
         """Test getting a specific model"""
         mock_instance = MagicMock()
@@ -132,7 +132,7 @@ class TestUserModelsAPI(unittest.TestCase):
         self.assertEqual(result["statusCode"], 200)
         mock_model.get.assert_called_once_with("user123", "model1")
 
-    @patch("user_models.UserModel")
+    @patch("api.user_data.UserModel")
     def test_get_user_model_not_found(self, mock_model):
         """Test getting non-existent model"""
         mock_model.get.return_value = None
@@ -142,7 +142,7 @@ class TestUserModelsAPI(unittest.TestCase):
         self.assertEqual(result["statusCode"], 404)
 
     @patch("user_models.validate_model_config")
-    @patch("user_models.UserModel")
+    @patch("api.user_data.UserModel")
     def test_update_user_model(self, mock_model, mock_validate):
         """Test updating a model"""
         mock_validate.return_value = (True, None)
@@ -160,7 +160,7 @@ class TestUserModelsAPI(unittest.TestCase):
         self.assertEqual(mock_instance.name, "New Name")
         mock_instance.save.assert_called_once()
 
-    @patch("user_models.UserModel")
+    @patch("api.user_data.UserModel")
     def test_delete_user_model(self, mock_model):
         """Test deleting a model"""
         mock_instance = MagicMock()
@@ -171,7 +171,7 @@ class TestUserModelsAPI(unittest.TestCase):
         self.assertEqual(result["statusCode"], 200)
         mock_instance.delete.assert_called_once()
 
-    @patch("user_models.ModelPrediction")
+    @patch("api.user_data.ModelPrediction")
     def test_get_user_model_performance(self, mock_prediction):
         """Test getting model performance metrics"""
         mock_prediction.get_performance.return_value = {

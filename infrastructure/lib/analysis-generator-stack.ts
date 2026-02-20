@@ -3,6 +3,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export interface AnalysisGeneratorStackProps extends cdk.StackProps {
@@ -20,6 +21,13 @@ export class AnalysisGeneratorStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: AnalysisGeneratorStackProps) {
     super(scope, id, props);
 
+    // Reference weather API secret
+    const weatherApiSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'WeatherApiSecret',
+      `sports-betting/weather-api-key-${props.environment}`
+    );
+
     const functionProps = {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'analysis_generator.lambda_handler',
@@ -28,7 +36,8 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       memorySize: 2048,
       environment: {
         DYNAMODB_TABLE: props.betsTableName,
-        ENVIRONMENT: props.environment
+        ENVIRONMENT: props.environment,
+        WEATHER_API_SECRET_ARN: weatherApiSecret.secretArn
       }
     };
 
@@ -47,30 +56,35 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       functionName: `analysis-generator-nba-${props.environment}`
     });
     this.analysisGeneratorNBA.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorNBA);
     
     this.analysisGeneratorNFL = new lambda.Function(this, 'AnalysisGeneratorNFL', {
       ...functionProps,
       functionName: `analysis-generator-nfl-${props.environment}`
     });
     this.analysisGeneratorNFL.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorNFL);
     
     this.analysisGeneratorMLB = new lambda.Function(this, 'AnalysisGeneratorMLB', {
       ...functionProps,
       functionName: `analysis-generator-mlb-${props.environment}`
     });
     this.analysisGeneratorMLB.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorMLB);
     
     this.analysisGeneratorNHL = new lambda.Function(this, 'AnalysisGeneratorNHL', {
       ...functionProps,
       functionName: `analysis-generator-nhl-${props.environment}`
     });
     this.analysisGeneratorNHL.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorNHL);
     
     this.analysisGeneratorEPL = new lambda.Function(this, 'AnalysisGeneratorEPL', {
       ...functionProps,
       functionName: `analysis-generator-epl-${props.environment}`
     });
     this.analysisGeneratorEPL.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorEPL);
     
     // Create EventBridge rules
     const sports = [

@@ -12,6 +12,8 @@ from typing import Any, Dict
 import boto3
 
 from api.utils import BaseAPIHandler, decimal_to_float
+from api_middleware import check_feature_access, check_resource_limit
+from custom_data import CustomDataset
 from user_models import ModelPrediction, UserModel
 
 
@@ -67,7 +69,6 @@ class UserDataHandler(BaseAPIHandler):
     def list_user_models(self, query_params: Dict[str, str]) -> Dict[str, Any]:
         """List all models for a user"""
         try:
-            from api_middleware import check_feature_access
 
             user_id = query_params.get("user_id")
             if not user_id:
@@ -86,7 +87,6 @@ class UserDataHandler(BaseAPIHandler):
         """Create a new user model"""
         try:
             from user_models import validate_model_config
-            from api_middleware import check_feature_access, check_resource_limit
 
             user_id = body.get("user_id")
             if not user_id:
@@ -289,8 +289,6 @@ class UserDataHandler(BaseAPIHandler):
     def list_custom_data(self, query_params: Dict[str, str]) -> Dict[str, Any]:
         """List user's custom datasets"""
         try:
-            from custom_data import CustomDataset
-            from api_middleware import check_feature_access
 
             user_id = query_params.get("user_id")
             if not user_id:
@@ -320,8 +318,6 @@ class UserDataHandler(BaseAPIHandler):
     def upload_custom_data(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Upload custom dataset"""
         try:
-            from custom_data import CustomDataset, validate_dataset
-            from api_middleware import check_feature_access, check_resource_limit
 
             required = ["user_id", "name", "sport", "data_type", "data"]
             for field in required:
@@ -381,8 +377,6 @@ class UserDataHandler(BaseAPIHandler):
     def delete_custom_data(self, dataset_id: str, query_params: Dict[str, str]) -> Dict[str, Any]:
         """Delete custom dataset"""
         try:
-            from custom_data import CustomDataset
-            from api_middleware import check_feature_access
 
             user_id = query_params.get("user_id")
             if not user_id:
@@ -406,3 +400,34 @@ class UserDataHandler(BaseAPIHandler):
 # Lambda handler entry point
 handler = UserDataHandler()
 lambda_handler = handler.lambda_handler
+
+# Backward compatibility functions for tests
+def handle_list_user_models(query_params: Dict[str, str]):
+    return handler.list_user_models(query_params)
+
+def handle_create_user_model(body: Dict[str, Any]):
+    return handler.create_user_model(body)
+
+def handle_get_user_model(model_id: str, query_params: Dict[str, str]):
+    return handler.get_user_model(model_id, query_params)
+
+def handle_update_user_model(model_id: str, body: Dict[str, Any]):
+    return handler.update_user_model(model_id, body)
+
+def handle_delete_user_model(model_id: str, query_params: Dict[str, str]):
+    return handler.delete_user_model(model_id, query_params)
+
+def handle_get_user_model_performance(model_id: str):
+    return handler.get_user_model_performance(model_id)
+
+def handle_get_user_model_predictions(query_params: Dict[str, str]):
+    return handler.get_user_model_predictions(query_params)
+
+def handle_list_custom_data(query_params: Dict[str, str]):
+    return handler.list_custom_data(query_params)
+
+def handle_upload_custom_data(body: Dict[str, Any]):
+    return handler.upload_custom_data(body)
+
+def handle_delete_custom_data(dataset_id: str, query_params: Dict[str, str]):
+    return handler.delete_custom_data(dataset_id, query_params)

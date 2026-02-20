@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 
 import boto3
 import requests
+from per_calculator import PERCalculator
+from nfl_efficiency_calculator import NFLEfficiencyCalculator
 
 
 class PlayerStatsCollector:
@@ -16,6 +18,7 @@ class PlayerStatsCollector:
         self.dynamodb = boto3.resource("dynamodb")
         self.table = self.dynamodb.Table(os.getenv("DYNAMODB_TABLE"))
         self.espn_base_url = "https://site.web.api.espn.com/apis/site/v2/sports"
+        self.per_calculator = PERCalculator()
 
     def collect_stats_for_sport(self, sport: str) -> int:
         """Collect player stats for completed games"""
@@ -268,8 +271,19 @@ class PlayerStatsCollector:
             for stats in player_stats:
                 player_name = stats.get("player_name")
                 opponent = stats.get("opponent", "")
+                is_home = stats.get("is_home", True)
                 if not player_name:
                     continue
+
+                # Calculate PER for NBA players
+                if sport == "basketball_nba":
+                    per = self.per_calculator.calculate_player_per(stats)
+                    stats["per"] = per
+                
+                # Calculate efficiency for NFL players
+                elif sport == "americanfootball_nfl":
+                    efficiency = NFLEfficiencyCalculator.calculate_player_efficiency(stats)
+                    stats["efficiency"] = efficiency
 
                 # Convert float values to Decimal
                 stats_decimal = self._convert_to_decimal(stats)
@@ -288,9 +302,12 @@ class PlayerStatsCollector:
                         "game_id": game_id,
                         "game_index_pk": game_id,
                         "game_index_sk": pk,
+                        "gsi_pk": f"PLAYER_STATS#{sport}",
+                        "gsi_sk": game_date,
                         "sport": sport,
                         "player_name": player_name,
                         "opponent": opponent,
+                        "is_home": is_home,
                         "stats": stats_decimal,
                         "collected_at": datetime.utcnow().isoformat(),
                     }

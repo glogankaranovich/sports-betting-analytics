@@ -11,9 +11,14 @@ Error Handling Strategy:
 
 import logging
 import math
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from player_analytics import PlayerAnalytics
+from elo_calculator import EloCalculator
+from travel_fatigue_calculator import TravelFatigueCalculator
+from weather_collector import WeatherCollector
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -173,7 +178,10 @@ class BaseAnalysisModel:
 
 
 class ConsensusModel(BaseAnalysisModel):
-    """Consensus model: Average across all bookmakers"""
+    """Consensus model: Average across all bookmakers with Elo adjustments"""
+    
+    def __init__(self):
+        self.elo_calculator = EloCalculator()
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
@@ -192,18 +200,44 @@ class ConsensusModel(BaseAnalysisModel):
         avg_spread = sum(spreads) / len(spreads)
         avg_odds = int(sum(odds_prices) / len(odds_prices)) if odds_prices else -110
         confidence = min(0.95, 0.6 + (len(spreads) * 0.05))
+        
+        # Get Elo ratings for both teams
+        sport = game_info.get("sport")
+        home_team = game_info.get("home_team")
+        away_team = game_info.get("away_team")
+        
+        try:
+            home_elo = self.elo_calculator.get_team_rating(sport, home_team)
+            away_elo = self.elo_calculator.get_team_rating(sport, away_team)
+            elo_diff = home_elo - away_elo
+            
+            # Adjust confidence based on Elo alignment with spread
+            # Positive spread = home favored, positive elo_diff = home stronger
+            elo_context = ""
+            if abs(elo_diff) > 100:
+                if (avg_spread < 0 and elo_diff > 50) or (avg_spread > 0 and elo_diff < -50):
+                    # Elo agrees with spread
+                    confidence = min(confidence + 0.05, 0.95)
+                    elo_context = f" Elo ratings confirm: {home_team} {home_elo:.0f} vs {away_team} {away_elo:.0f}."
+                elif (avg_spread < 0 and elo_diff < -50) or (avg_spread > 0 and elo_diff > 50):
+                    # Elo disagrees with spread
+                    confidence = max(confidence - 0.05, 0.55)
+                    elo_context = f" Elo ratings suggest caution: {home_team} {home_elo:.0f} vs {away_team} {away_elo:.0f}."
+        except Exception as e:
+            logger.error(f"Error getting Elo ratings: {e}")
+            elo_context = ""  # Set default value on error
 
         return AnalysisResult(
             game_id=game_id,
             model="consensus",
             analysis_type="game",
-            sport=game_info.get("sport"),
-            home_team=game_info.get("home_team"),
-            away_team=game_info.get("away_team"),
+            sport=sport,
+            home_team=home_team,
+            away_team=away_team,
             commence_time=game_info.get("commence_time"),
-            prediction=f"{game_info.get('home_team')} {avg_spread:+.1f}",
+            prediction=f"{home_team} {avg_spread:+.1f}",
             confidence=confidence,
-            reasoning=f"{len(spreads)} sportsbooks agree: {game_info.get('home_team')} is favored by {abs(avg_spread):.1f} points. Average payout odds: {avg_odds:+d}",
+            reasoning=f"{len(spreads)} sportsbooks agree: {home_team} is favored by {abs(avg_spread):.1f} points. Average payout odds: {avg_odds:+d}.{elo_context}",
             recommended_odds=avg_odds,
         )
 
@@ -390,7 +424,10 @@ class ValueModel(BaseAnalysisModel):
 
 
 class MomentumModel(BaseAnalysisModel):
-    """Momentum model: Based on recent odds movement"""
+    """Momentum model: Based on recent odds movement with fatigue adjustments"""
+    
+    def __init__(self):
+        self.fatigue_calculator = TravelFatigueCalculator()
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
@@ -420,27 +457,51 @@ class MomentumModel(BaseAnalysisModel):
 
         # Calculate movement
         movement = new_spread - old_spread
+        
+        # Get fatigue data
+        sport = game_info.get("sport")
+        home_team = game_info.get("home_team")
+        away_team = game_info.get("away_team")
+        game_date = game_info.get("commence_time")
+        
+        fatigue_context = ""
+        try:
+            home_fatigue = self.fatigue_calculator.calculate_fatigue_score(home_team, sport, game_date)
+            away_fatigue = self.fatigue_calculator.calculate_fatigue_score(away_team, sport, game_date)
+            
+            # Adjust confidence based on fatigue
+            fatigue_diff = away_fatigue['fatigue_score'] - home_fatigue['fatigue_score']
+            
+            if abs(fatigue_diff) > 30:
+                if fatigue_diff > 0:
+                    # Away team more fatigued, home advantage
+                    fatigue_context = f" {away_team} fatigued (score: {away_fatigue['fatigue_score']}, {away_fatigue['days_rest']}d rest)."
+                else:
+                    # Home team more fatigued
+                    fatigue_context = f" {home_team} fatigued (score: {home_fatigue['fatigue_score']}, {home_fatigue['days_rest']}d rest)."
+        except Exception as e:
+            logger.error(f"Error calculating fatigue: {e}")
 
         # Higher confidence if significant movement
         if abs(movement) > 1.0:
             confidence = 0.8
-            reasoning = f"Big line shift: Spread moved from {abs(old_spread):.1f} to {abs(new_spread):.1f} points ({abs(movement):.1f} point change). Professional bettors are likely driving this move"
+            reasoning = f"Big line shift: Spread moved from {abs(old_spread):.1f} to {abs(new_spread):.1f} points ({abs(movement):.1f} point change). Professional bettors are likely driving this move.{fatigue_context}"
         elif abs(movement) > 0.5:
             confidence = 0.7
-            reasoning = f"Line is moving: Spread changed from {abs(old_spread):.1f} to {abs(new_spread):.1f} points. Sportsbooks adjusting based on betting patterns"
+            reasoning = f"Line is moving: Spread changed from {abs(old_spread):.1f} to {abs(new_spread):.1f} points. Sportsbooks adjusting based on betting patterns.{fatigue_context}"
         else:
             confidence = 0.6
-            reasoning = f"Small line adjustment: Spread moved slightly from {abs(old_spread):.1f} to {abs(new_spread):.1f} points. Minor market change"
+            reasoning = f"Small line adjustment: Spread moved slightly from {abs(old_spread):.1f} to {abs(new_spread):.1f} points. Minor market change.{fatigue_context}"
 
         return AnalysisResult(
             game_id=game_id,
             model="momentum",
             analysis_type="game",
-            sport=game_info.get("sport"),
-            home_team=game_info.get("home_team"),
-            away_team=game_info.get("away_team"),
-            commence_time=game_info.get("commence_time"),
-            prediction=f"{game_info.get('home_team')} {new_spread:+.1f}",
+            sport=sport,
+            home_team=home_team,
+            away_team=away_team,
+            commence_time=game_date,
+            prediction=f"{home_team} {new_spread:+.1f}",
             confidence=confidence,
             reasoning=reasoning,
             recommended_odds=-110,
@@ -518,7 +579,10 @@ class MomentumModel(BaseAnalysisModel):
 
 
 class ContrarianModel(BaseAnalysisModel):
-    """Contrarian model: Fade the public, follow sharp action"""
+    """Contrarian model: Fade the public, follow sharp action with Elo validation"""
+    
+    def __init__(self):
+        self.elo_calculator = EloCalculator()
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
@@ -528,6 +592,7 @@ class ContrarianModel(BaseAnalysisModel):
         1. Look for reverse line movement (line moves against public betting)
         2. Identify odds imbalances that suggest sharp action
         3. Fade heavy public favorites
+        4. Validate with Elo ratings
         """
         spread_items = []
 
@@ -556,26 +621,56 @@ class ContrarianModel(BaseAnalysisModel):
         old_spread = float(oldest["outcomes"][0].get("point", 0))
         new_spread = float(newest["outcomes"][0].get("point", 0))
         movement = new_spread - old_spread
+        
+        # Get Elo ratings to validate contrarian play
+        sport = game_info.get("sport")
+        home_team = game_info.get("home_team")
+        away_team = game_info.get("away_team")
+        
+        elo_context = ""
+        elo_boost = 0.0
+        try:
+            home_elo = self.elo_calculator.get_team_rating(sport, home_team)
+            away_elo = self.elo_calculator.get_team_rating(sport, away_team)
+            elo_diff = home_elo - away_elo
+            
+            # Validate contrarian play with Elo
+            if abs(elo_diff) > 50:
+                # Check if Elo supports the contrarian pick
+                if movement > 0 and elo_diff < 0:
+                    # Line moving toward away team, Elo says away team is stronger
+                    elo_boost = 0.05
+                    elo_context = f" Elo confirms: {away_team} ({away_elo:.0f}) > {home_team} ({home_elo:.0f})."
+                elif movement < 0 and elo_diff > 0:
+                    # Line moving toward home team, Elo says home team is stronger
+                    elo_boost = 0.05
+                    elo_context = f" Elo confirms: {home_team} ({home_elo:.0f}) > {away_team} ({away_elo:.0f})."
+                elif (movement > 0 and elo_diff > 50) or (movement < 0 and elo_diff < -50):
+                    # Elo disagrees with contrarian play
+                    elo_boost = -0.1
+                    elo_context = f" Caution: Elo suggests {home_team if elo_diff > 0 else away_team} is stronger."
+        except Exception as e:
+            logger.error(f"Error getting Elo ratings: {e}")
 
         # Contrarian signal: significant line movement suggests sharp action
         if abs(movement) > 1.0:
             # Strong movement = sharp money
-            confidence = 0.75
+            confidence = min(0.75 + elo_boost, 0.85)
             # Bet with the line movement (sharp side)
             if movement > 0:
-                prediction = f"{game_info.get('away_team')} {-new_spread:+.1f}"
-                reasoning = f"Big money moving the line: Spread changed {abs(movement):.1f} points. Going against the crowd and following the big bettors"
+                prediction = f"{away_team} {-new_spread:+.1f}"
+                reasoning = f"Big money moving the line: Spread changed {abs(movement):.1f} points. Going against the crowd and following the big bettors.{elo_context}"
             else:
-                prediction = f"{game_info.get('home_team')} {new_spread:+.1f}"
-                reasoning = f"Big money moving the line: Spread changed {abs(movement):.1f} points. Going against the crowd and following the big bettors"
+                prediction = f"{home_team} {new_spread:+.1f}"
+                reasoning = f"Big money moving the line: Spread changed {abs(movement):.1f} points. Going against the crowd and following the big bettors.{elo_context}"
         elif abs(movement) > 0.5:
-            confidence = 0.65
+            confidence = min(0.65 + elo_boost, 0.75)
             if movement > 0:
-                prediction = f"{game_info.get('away_team')} {-new_spread:+.1f}"
-                reasoning = f"Line moving: Spread shifted {abs(movement):.1f} points. Smart money taking the opposite side of most bettors"
+                prediction = f"{away_team} {-new_spread:+.1f}"
+                reasoning = f"Line moving: Spread shifted {abs(movement):.1f} points. Smart money taking the opposite side of most bettors.{elo_context}"
             else:
-                prediction = f"{game_info.get('home_team')} {new_spread:+.1f}"
-                reasoning = f"Line moving: Spread shifted {abs(movement):.1f} points. Smart money taking the opposite side of most bettors"
+                prediction = f"{home_team} {new_spread:+.1f}"
+                reasoning = f"Line moving: Spread shifted {abs(movement):.1f} points. Smart money taking the opposite side of most bettors.{elo_context}"
         else:
             # No significant movement, use odds imbalance
             return self._analyze_odds_imbalance(game_id, newest, game_info)
@@ -584,9 +679,9 @@ class ContrarianModel(BaseAnalysisModel):
             game_id=game_id,
             model="contrarian",
             analysis_type="game",
-            sport=game_info.get("sport"),
-            home_team=game_info.get("home_team"),
-            away_team=game_info.get("away_team"),
+            sport=sport,
+            home_team=home_team,
+            away_team=away_team,
             commence_time=game_info.get("commence_time"),
             prediction=prediction,
             confidence=confidence,
@@ -739,6 +834,8 @@ class HotColdModel(BaseAnalysisModel):
             dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
             table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
             self.table = dynamodb.Table(table_name)
+        
+        self.player_analytics = PlayerAnalytics()
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
@@ -928,26 +1025,98 @@ class HotColdModel(BaseAnalysisModel):
             # Calculate if player is hot or cold
             avg_stat = recent_stats["average"]
             over_rate = recent_stats["over_count"] / recent_stats["games"]
+            avg_per = recent_stats.get("avg_per")
+            avg_efficiency = recent_stats.get("avg_efficiency")
 
             # Convert line to float for comparison
             line_float = float(line)
             
+            # Get enhanced analytics
+            home_away_splits = self.player_analytics.get_home_away_splits(player_name, sport)
+            matchup_history = self.player_analytics.get_matchup_history(
+                player_name, 
+                prop_item.get('home_team', ''),  # Opponent team
+                sport
+            )
+            form_trend = self.player_analytics.get_recent_form_trend(player_name, sport)
+            
+            # Adjust confidence based on efficiency metrics
+            efficiency_boost = 0.0
+            efficiency_context = ""
+            
+            if sport == "basketball_nba" and avg_per is not None:
+                # League average PER is 15.0
+                if avg_per > 20:
+                    efficiency_boost = 0.05
+                    efficiency_context = f" High efficiency (PER: {avg_per:.1f})."
+                elif avg_per < 10:
+                    efficiency_boost = -0.05
+                    efficiency_context = f" Low efficiency (PER: {avg_per:.1f})."
+            
+            elif sport == "americanfootball_nfl" and avg_efficiency is not None:
+                # QB rating avg ~90, RB/WR efficiency avg ~8-10
+                if avg_efficiency > 100 or avg_efficiency > 12:
+                    efficiency_boost = 0.05
+                    efficiency_context = f" High efficiency ({avg_efficiency:.1f})."
+                elif avg_efficiency < 70 or avg_efficiency < 6:
+                    efficiency_boost = -0.05
+                    efficiency_context = f" Low efficiency ({avg_efficiency:.1f})."
+            
+            # Adjust for home/away splits
+            split_boost = 0.0
+            split_context = ""
+            if home_away_splits and abs(home_away_splits.get('split_difference', 0)) > 15:
+                is_home_game = prop_item.get('is_home', True)
+                split_diff = home_away_splits['split_difference']
+                if (is_home_game and split_diff > 0) or (not is_home_game and split_diff < 0):
+                    split_boost = 0.03
+                    split_context = f" Favorable home/away split."
+                else:
+                    split_boost = -0.03
+                    split_context = f" Unfavorable home/away split."
+            
+            # Adjust for matchup history
+            matchup_boost = 0.0
+            matchup_context = ""
+            if matchup_history.get('games', 0) >= 3:
+                matchup_avg = matchup_history['avg_stats'].get(self._map_market_to_stat(market_key), 0)
+                if matchup_avg > line_float * 1.15:
+                    matchup_boost = 0.03
+                    matchup_context = f" Strong vs this opponent ({matchup_avg:.1f} avg)."
+                elif matchup_avg < line_float * 0.85:
+                    matchup_boost = -0.03
+                    matchup_context = f" Struggles vs this opponent ({matchup_avg:.1f} avg)."
+            
+            # Adjust for form trend
+            trend_boost = 0.0
+            trend_context = ""
+            if form_trend.get('direction') == 1:
+                trend_boost = 0.02
+                trend_context = f" Trending up ({form_trend.get('pct_change', 0):+.1f}%)."
+            elif form_trend.get('direction') == -1:
+                trend_boost = -0.02
+                trend_context = f" Trending down ({form_trend.get('pct_change', 0):+.1f}%)."
+            
+            # Combine all boosts
+            total_boost = efficiency_boost + split_boost + matchup_boost + trend_boost
+            context = efficiency_context + split_context + matchup_context + trend_context
+            
             # Determine prediction based on recent performance
             if avg_stat > line_float * 1.1 and over_rate > 0.7:
                 # Hot player, well above line
-                confidence = 0.75
+                confidence = min(0.75 + total_boost, 0.85)
                 prediction = f"Over {line}"
-                reasoning = f"{player_name} is HOT: Averaging {avg_stat:.1f} in last {recent_stats['games']} games, well above the {line} line. Hit over {int(over_rate*100)}% of the time"
+                reasoning = f"{player_name} is HOT: Averaging {avg_stat:.1f} in last {recent_stats['games']} games, well above the {line} line. Hit over {int(over_rate*100)}% of the time.{context}"
             elif avg_stat > line_float and over_rate > 0.6:
                 # Trending over
-                confidence = 0.65
+                confidence = min(0.65 + total_boost, 0.75)
                 prediction = f"Over {line}"
-                reasoning = f"{player_name} playing well: Averaging {avg_stat:.1f} with {int(over_rate*100)}% over rate in last {recent_stats['games']} games"
+                reasoning = f"{player_name} playing well: Averaging {avg_stat:.1f} with {int(over_rate*100)}% over rate in last {recent_stats['games']} games.{context}"
             elif avg_stat < line_float * 0.9 and over_rate < 0.3:
                 # Cold player, well below line
-                confidence = 0.75
+                confidence = min(0.75 + abs(total_boost), 0.85)
                 prediction = f"Under {line}"
-                reasoning = f"{player_name} is COLD: Averaging {avg_stat:.1f} in last {recent_stats['games']} games, well below the {line} line. Hit under {int((1-over_rate)*100)}% of the time"
+                reasoning = f"{player_name} is COLD: Averaging {avg_stat:.1f} in last {recent_stats['games']} games, well below the {line} line. Hit under {int((1-over_rate)*100)}% of the time.{context}"
             elif avg_stat < line_float and over_rate < 0.4:
                 # Trending under
                 confidence = 0.65
@@ -989,7 +1158,7 @@ class HotColdModel(BaseAnalysisModel):
     ) -> Dict[str, Any]:
         """
         Query recent player stats
-        Returns average, games played, and over/under count
+        Returns average, games played, over/under count, and PER
         Weights recent games by minutes played for importance
         """
         try:
@@ -1008,13 +1177,14 @@ class HotColdModel(BaseAnalysisModel):
             items = response.get("Items", [])
 
             if not items:
-                return {"games": 0, "average": 0, "over_count": 0}
+                return {"games": 0, "average": 0, "over_count": 0, "avg_per": None}
 
             # Extract stat based on market_key
             stat_field = self._map_market_to_stat(market_key)
             weighted_sum = 0.0
             total_weight = 0.0
             games_count = 0
+            per_values = []
 
             for item in items:
                 stats = item.get("stats", {})
@@ -1030,19 +1200,34 @@ class HotColdModel(BaseAnalysisModel):
                         weighted_sum += value * weight
                         total_weight += weight
                         games_count += 1
+                        
+                        # Collect PER values for NBA
+                        if sport == "basketball_nba" and "per" in stats:
+                            per_values.append(float(stats["per"]))
+                        
+                        # Collect efficiency values for NFL
+                        if sport == "americanfootball_nfl" and "efficiency" in stats:
+                            per_values.append(float(stats["efficiency"]))
                     except (ValueError, TypeError):
                         continue
 
             if games_count == 0 or total_weight == 0:
-                return {"games": 0, "average": 0, "over_count": 0}
+                return {"games": 0, "average": 0, "over_count": 0, "avg_per": None}
 
             weighted_avg = weighted_sum / total_weight
+            avg_per = sum(per_values) / len(per_values) if per_values else None
 
-            return {"games": games_count, "average": weighted_avg, "over_count": 0}
+            return {
+                "games": games_count, 
+                "average": weighted_avg, 
+                "over_count": 0,
+                "avg_per": avg_per if sport == "basketball_nba" else None,
+                "avg_efficiency": avg_per if sport == "americanfootball_nfl" else None
+            }
 
         except Exception as e:
             logger.error(f"Error querying player stats: {e}", exc_info=True)
-            return {"games": 0, "average": 0, "over_count": 0}
+            return {"games": 0, "average": 0, "over_count": 0, "avg_per": None, "avg_efficiency": None}
 
     def _map_market_to_stat(self, market_key: str) -> str:
         """Map prop market key to player stat field"""
@@ -1060,7 +1245,7 @@ class HotColdModel(BaseAnalysisModel):
 
 
 class RestScheduleModel(BaseAnalysisModel):
-    """Model that analyzes rest days, back-to-back games, and home/away splits"""
+    """Model that analyzes rest days, back-to-back games, and travel fatigue"""
 
     def __init__(self, dynamodb_table=None):
         """Initialize with optional DynamoDB table"""
@@ -1073,37 +1258,69 @@ class RestScheduleModel(BaseAnalysisModel):
             dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
             table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
             self.table = dynamodb.Table(table_name)
+        
+        self.fatigue_calculator = TravelFatigueCalculator()
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
     ) -> AnalysisResult:
-        """Analyze game based on rest and schedule factors"""
+        """Analyze game based on rest and schedule factors with comprehensive fatigue"""
         sport = game_info.get("sport")
-        home_team = game_info.get("home_team", "").lower().replace(" ", "_")
-        away_team = game_info.get("away_team", "").lower().replace(" ", "_")
+        home_team = game_info.get("home_team")
+        away_team = game_info.get("away_team")
         game_date = game_info.get("commence_time")
 
-        home_rest = self._get_rest_score(sport, home_team, game_date, is_home=True)
-        away_rest = self._get_rest_score(sport, away_team, game_date, is_home=False)
-
-        rest_advantage = home_rest - away_rest
-        confidence = 0.5 + (rest_advantage * 0.05)
-        confidence = max(0.3, min(0.9, confidence))
-
-        pick = (
-            game_info.get("home_team")
-            if rest_advantage > 0
-            else game_info.get("away_team")
-        )
-        reasoning = f"Rest advantage: {home_team} ({home_rest:.1f}) vs {away_team} ({away_rest:.1f})"
+        # Use comprehensive fatigue calculator
+        try:
+            home_fatigue = self.fatigue_calculator.calculate_fatigue_score(home_team, sport, game_date)
+            away_fatigue = self.fatigue_calculator.calculate_fatigue_score(away_team, sport, game_date)
+            
+            # Lower fatigue score = better (inverted for advantage calculation)
+            home_advantage = (100 - home_fatigue['fatigue_score']) - (100 - away_fatigue['fatigue_score'])
+            home_advantage = home_advantage / 20  # Scale to reasonable range
+            
+            confidence = 0.5 + (abs(home_advantage) * 0.05)
+            confidence = max(0.3, min(0.85, confidence))
+            
+            pick = home_team if home_advantage > 0 else away_team
+            
+            # Build detailed reasoning
+            reasons = []
+            if home_fatigue['back_to_back']:
+                reasons.append(f"{home_team} on back-to-back")
+            if away_fatigue['back_to_back']:
+                reasons.append(f"{away_team} on back-to-back")
+            
+            if home_fatigue['total_miles'] > 1000:
+                reasons.append(f"{home_team} traveled {home_fatigue['total_miles']:.0f} miles")
+            if away_fatigue['total_miles'] > 1000:
+                reasons.append(f"{away_team} traveled {away_fatigue['total_miles']:.0f} miles")
+            
+            if not reasons:
+                reasons.append(f"{home_team} {home_fatigue['days_rest']}d rest vs {away_team} {away_fatigue['days_rest']}d rest")
+            
+            reasoning = "Fatigue advantage: " + ", ".join(reasons) + f". Impact: {home_fatigue['impact']} vs {away_fatigue['impact']}."
+            
+        except Exception as e:
+            logger.error(f"Error calculating fatigue: {e}")
+            # Fallback to simple rest calculation
+            home_rest = self._get_rest_score(sport, home_team.lower().replace(" ", "_"), game_date, is_home=True)
+            away_rest = self._get_rest_score(sport, away_team.lower().replace(" ", "_"), game_date, is_home=False)
+            
+            rest_advantage = home_rest - away_rest
+            confidence = 0.5 + (rest_advantage * 0.05)
+            confidence = max(0.3, min(0.9, confidence))
+            
+            pick = home_team if rest_advantage > 0 else away_team
+            reasoning = f"Rest advantage: {home_team} ({home_rest:.1f}) vs {away_team} ({away_rest:.1f})"
 
         return AnalysisResult(
             game_id=game_id,
             model="rest_schedule",
             analysis_type="game",
             sport=sport,
-            home_team=game_info.get("home_team"),
-            away_team=game_info.get("away_team"),
+            home_team=home_team,
+            away_team=away_team,
             commence_time=game_date,
             prediction=pick,
             confidence=confidence,
@@ -1214,7 +1431,7 @@ class RestScheduleModel(BaseAnalysisModel):
 
 
 class MatchupModel(BaseAnalysisModel):
-    """Model that analyzes head-to-head history and style matchups"""
+    """Model that analyzes head-to-head history and style matchups with weather"""
 
     def __init__(self, dynamodb_table=None):
         """Initialize with optional DynamoDB table"""
@@ -1227,6 +1444,8 @@ class MatchupModel(BaseAnalysisModel):
             dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
             table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
             self.table = dynamodb.Table(table_name)
+        
+        self.weather_collector = WeatherCollector()
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
@@ -1248,6 +1467,37 @@ class MatchupModel(BaseAnalysisModel):
         # Calculate confidence
         confidence = 0.5 + (abs(total_advantage) * 0.1)
         confidence = max(0.3, min(0.85, confidence))
+        
+        # Check weather for outdoor sports
+        weather_context = ""
+        try:
+            if sport in ['americanfootball_nfl', 'baseball_mlb', 'soccer_epl']:
+                # Try to get stored weather data
+                weather_response = self.table.get_item(
+                    Key={"pk": f"WEATHER#{game_id}", "sk": "latest"}
+                )
+                weather_data = weather_response.get("Item")
+                
+                if weather_data and weather_data.get("impact") in ["high", "moderate"]:
+                    impact = weather_data.get("impact")
+                    wind = weather_data.get("wind_mph", 0)
+                    temp = weather_data.get("temp_f", 70)
+                    precip = weather_data.get("precip_in", 0)
+                    
+                    conditions = []
+                    if wind > 15:
+                        conditions.append(f"{wind}mph wind")
+                    if temp < 32:
+                        conditions.append(f"{temp}°F")
+                    if precip > 0.2:
+                        conditions.append(f"{precip}\" rain")
+                    
+                    if conditions:
+                        weather_context = f" Weather impact ({impact}): {', '.join(conditions)}."
+                        # Adjust confidence slightly for weather uncertainty
+                        confidence = max(confidence - 0.05, 0.3)
+        except Exception as e:
+            logger.error(f"Error getting weather data: {e}")
 
         # Make prediction
         pick = home_team if total_advantage > 0 else away_team
@@ -1263,9 +1513,9 @@ class MatchupModel(BaseAnalysisModel):
             reasons.append(f"offensive/defensive matchup favors {home_team if style_advantage > 0 else away_team}")
         
         if not reasons:
-            reasoning = f"Slight edge to {favored_team}"
+            reasoning = f"Slight edge to {favored_team}.{weather_context}"
         else:
-            reasoning = ", ".join(reasons).capitalize()
+            reasoning = ", ".join(reasons).capitalize() + f".{weather_context}"
 
         return AnalysisResult(
             game_id=game_id,

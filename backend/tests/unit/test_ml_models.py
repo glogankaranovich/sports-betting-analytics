@@ -2,7 +2,12 @@
 Test ML models functionality
 """
 
+import os
 import pytest
+from unittest.mock import patch
+
+# Set up environment before importing models
+os.environ["DYNAMODB_TABLE"] = "test-table"
 
 from ml.models import AnalysisResult, ConsensusModel, MomentumModel, ValueModel
 
