@@ -1316,7 +1316,6 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                           <div className="game-info">
                             <div className="teams">
                               <h3>{analysis.player_name}{analysis.market_key ? ` - ${propTypeLabels[analysis.market_key] || analysis.market_key}` : ''}</h3>
-                              <p className="game-time">{new Date(analysis.commence_time).toLocaleString()}</p>
                             </div>
                           </div>
                           <div className="prediction-info">

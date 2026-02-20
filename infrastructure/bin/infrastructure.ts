@@ -205,7 +205,7 @@ if (environment === 'dev') {
     complianceLoggerFunction: complianceStack.complianceLoggerFunction,
     bennyTraderFunction: bennyTraderStack.bennyTraderFunction,
     betCollectorApiFunction: betCollectorApiStack.betCollectorApiFunction,
-    // userModelsApiFunction: betCollectorApiStack.userModelsApiFunction, // TEMP: Commented to break export dependency
+    userModelsApiFunction: betCollectorApiStack.userModelsApiFunction,
     aiAgentApiFunction: betCollectorApiStack.aiAgentApiFunction,
     modelExecutorFunction: userModelsStack.modelExecutorFunction,
     queueLoaderFunction: userModelsStack.queueLoaderFunction,

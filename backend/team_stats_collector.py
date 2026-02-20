@@ -248,6 +248,8 @@ class TeamStatsCollector:
                         "game_id": game_id,
                         "game_index_pk": game_id,
                         "game_index_sk": pk,
+                        "gsi_pk": f"TEAM_STATS#{sport}",  # For querying all teams by sport
+                        "gsi_sk": sk,  # Timestamp for sorting by recency
                         "sport": sport,
                         "team_name": team_name,
                         "stats": stats,
@@ -267,6 +269,361 @@ class TeamStatsCollector:
         elif isinstance(obj, list):
             return [self._convert_to_decimal(v) for v in obj]
         return obj
+
+    def calculate_opponent_adjusted_metrics(self, sport: str, days: int = 30) -> int:
+        """Calculate opponent-adjusted efficiency metrics for all teams in a sport"""
+        try:
+            # Get recent team stats using ActiveBetsIndexV2 GSI
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            
+            team_stats = []
+            last_evaluated_key = None
+            
+            while True:
+                query_kwargs = {
+                    "IndexName": "GenericQueryIndex",
+                    "KeyConditionExpression": "gsi_pk = :pk AND gsi_sk > :cutoff",
+                    "ExpressionAttributeValues": {
+                        ":pk": f"TEAM_STATS#{sport}",
+                        ":cutoff": cutoff_date
+                    }
+                }
+                
+                if last_evaluated_key:
+                    query_kwargs["ExclusiveStartKey"] = last_evaluated_key
+                
+                response = self.table.query(**query_kwargs)
+                team_stats.extend(response.get("Items", []))
+                
+                last_evaluated_key = response.get("LastEvaluatedKey")
+                if not last_evaluated_key:
+                    break
+            
+            print(f"Found {len(team_stats)} team stat records for {sport}")
+            
+            if len(team_stats) < 10:
+                print(f"Not enough data to calculate opponent-adjusted metrics for {sport}")
+                return 0
+            
+            # Calculate metrics based on sport
+            if sport == "basketball_nba":
+                return self._calculate_nba_adjusted_metrics(team_stats)
+            elif sport == "americanfootball_nfl":
+                return self._calculate_nfl_adjusted_metrics(team_stats)
+            elif sport == "soccer_epl":
+                return self._calculate_soccer_adjusted_metrics(team_stats)
+            elif sport == "icehockey_nhl":
+                return self._calculate_nhl_adjusted_metrics(team_stats)
+            elif sport == "baseball_mlb":
+                # ESPN doesn't provide usable boxscore stats for MLB
+                print(f"Opponent-adjusted metrics for {sport}: ESPN API doesn't provide boxscore stats")
+                return 0
+            else:
+                print(f"Opponent-adjusted metrics not implemented for {sport}")
+                return 0
+            
+        except Exception as e:
+            print(f"Error calculating opponent-adjusted metrics: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
+    
+    def _calculate_nba_adjusted_metrics(self, team_stats: List[Dict]) -> int:
+        """Calculate NBA opponent-adjusted metrics"""
+        # Group by team
+        team_games = {}
+        for stat in team_stats:
+            team_name = stat.get("team_name")
+            if team_name not in team_games:
+                team_games[team_name] = []
+            team_games[team_name].append(stat)
+        
+        # Calculate league averages
+        total_points = sum(self._extract_numeric(s.get("stats", {}).get("Points", "0")) for s in team_stats)
+        avg_points = total_points / len(team_stats) if team_stats else 110.0
+        
+        # Calculate adjusted metrics for each team
+        adjusted_count = 0
+        for team_name, games in team_games.items():
+            metrics = self._calculate_team_metrics_nba(team_name, games, avg_points)
+            if metrics:
+                self._store_adjusted_metrics(team_name, metrics, "basketball_nba")
+                adjusted_count += 1
+        
+        return adjusted_count
+    
+    def _calculate_team_metrics_nba(self, team_name: str, games: List[Dict], league_avg: float) -> Optional[Dict]:
+        """Calculate metrics for an NBA team"""
+        if not games:
+            return None
+        
+        total_points = 0
+        total_fg_pct = 0
+        total_3pt_pct = 0
+        
+        for game in games:
+            stats = game.get("stats", {})
+            total_points += self._extract_numeric(stats.get("Points", "0"))
+            total_fg_pct += self._extract_numeric(stats.get("Field Goal %", "0"))
+            total_3pt_pct += self._extract_numeric(stats.get("3 Point %", "0"))
+        
+        count = len(games)
+        return {
+            "raw_ppg": round(total_points / count, 1),
+            "adjusted_ppg": round(total_points / count, 1),  # Simplified - would need opponent data
+            "fg_pct": round(total_fg_pct / count, 1),
+            "three_pt_pct": round(total_3pt_pct / count, 1),
+            "games_analyzed": count,
+            "vs_league_avg": round((total_points / count) - league_avg, 1)
+        }
+    
+    def _calculate_nfl_adjusted_metrics(self, team_stats: List[Dict]) -> int:
+        """Calculate NFL opponent-adjusted metrics"""
+        # Group by team
+        team_games = {}
+        for stat in team_stats:
+            team_name = stat.get("team_name")
+            if team_name not in team_games:
+                team_games[team_name] = []
+            team_games[team_name].append(stat)
+        
+        # Calculate league averages
+        total_yards = sum(self._extract_numeric(s.get("stats", {}).get("Total Yards", "0")) for s in team_stats)
+        total_points = sum(self._extract_numeric(s.get("stats", {}).get("Points", "0")) for s in team_stats)
+        avg_yards = total_yards / len(team_stats) if team_stats else 350.0
+        avg_points = total_points / len(team_stats) if team_stats else 22.0
+        
+        # Calculate adjusted metrics for each team
+        adjusted_count = 0
+        for team_name, games in team_games.items():
+            metrics = self._calculate_team_metrics_nfl(team_name, games, avg_yards, avg_points)
+            if metrics:
+                self._store_adjusted_metrics(team_name, metrics, "americanfootball_nfl")
+                adjusted_count += 1
+        
+        return adjusted_count
+    
+    def _calculate_team_metrics_nfl(self, team_name: str, games: List[Dict], league_avg_yards: float, league_avg_points: float) -> Optional[Dict]:
+        """Calculate metrics for an NFL team"""
+        if not games:
+            return None
+        
+        total_yards = 0
+        total_points = 0
+        total_passing = 0
+        total_rushing = 0
+        
+        for game in games:
+            stats = game.get("stats", {})
+            total_yards += self._extract_numeric(stats.get("Total Yards", "0"))
+            total_points += self._extract_numeric(stats.get("Points", "0"))
+            total_passing += self._extract_numeric(stats.get("Passing", "0"))
+            total_rushing += self._extract_numeric(stats.get("Rushing", "0"))
+        
+        count = len(games)
+        return {
+            "raw_yards_per_game": round(total_yards / count, 1),
+            "adjusted_yards_per_game": round(total_yards / count, 1),  # Simplified
+            "raw_points_per_game": round(total_points / count, 1),
+            "passing_yards_per_game": round(total_passing / count, 1),
+            "rushing_yards_per_game": round(total_rushing / count, 1),
+            "games_analyzed": count,
+            "vs_league_avg_yards": round((total_yards / count) - league_avg_yards, 1),
+            "vs_league_avg_points": round((total_points / count) - league_avg_points, 1)
+        }
+    
+    def _calculate_nhl_adjusted_metrics(self, team_stats: List[Dict]) -> int:
+        """Calculate NHL opponent-adjusted metrics"""
+        # Group by team
+        team_games = {}
+        for stat in team_stats:
+            team_name = stat.get("team_name")
+            if team_name not in team_games:
+                team_games[team_name] = []
+            team_games[team_name].append(stat)
+        
+        # Calculate league averages
+        total_shots = sum(self._extract_numeric(s.get("stats", {}).get("Shots", "0")) for s in team_stats)
+        total_hits = sum(self._extract_numeric(s.get("stats", {}).get("Hits", "0")) for s in team_stats)
+        avg_shots = total_shots / len(team_stats) if team_stats else 30.0
+        avg_hits = total_hits / len(team_stats) if team_stats else 20.0
+        
+        # Calculate adjusted metrics for each team
+        adjusted_count = 0
+        for team_name, games in team_games.items():
+            metrics = self._calculate_team_metrics_nhl(team_name, games, avg_shots, avg_hits)
+            if metrics:
+                self._store_adjusted_metrics(team_name, metrics, "icehockey_nhl")
+                adjusted_count += 1
+        
+        return adjusted_count
+    
+    def _calculate_team_metrics_nhl(self, team_name: str, games: List[Dict], league_avg_shots: float, league_avg_hits: float) -> Optional[Dict]:
+        """Calculate metrics for an NHL team"""
+        if not games:
+            return None
+        
+        total_shots = 0
+        total_hits = 0
+        total_blocked = 0
+        total_takeaways = 0
+        total_pp_goals = 0
+        
+        for game in games:
+            stats = game.get("stats", {})
+            total_shots += self._extract_numeric(stats.get("Shots", "0"))
+            total_hits += self._extract_numeric(stats.get("Hits", "0"))
+            total_blocked += self._extract_numeric(stats.get("Blocked Shots", "0"))
+            total_takeaways += self._extract_numeric(stats.get("Takeaways", "0"))
+            total_pp_goals += self._extract_numeric(stats.get("Power Play Goals", "0"))
+        
+        count = len(games)
+        return {
+            "shots_per_game": round(total_shots / count, 1),
+            "adjusted_shots_per_game": round(total_shots / count, 1),  # Simplified
+            "hits_per_game": round(total_hits / count, 1),
+            "blocked_shots_per_game": round(total_blocked / count, 1),
+            "takeaways_per_game": round(total_takeaways / count, 1),
+            "pp_goals_per_game": round(total_pp_goals / count, 2),
+            "games_analyzed": count,
+            "vs_league_avg_shots": round((total_shots / count) - league_avg_shots, 1),
+            "vs_league_avg_hits": round((total_hits / count) - league_avg_hits, 1)
+        }
+    
+    def _calculate_mlb_adjusted_metrics(self, team_stats: List[Dict]) -> int:
+        """Calculate MLB opponent-adjusted metrics"""
+        # Group by team
+        team_games = {}
+        for stat in team_stats:
+            team_name = stat.get("team_name")
+            if team_name not in team_games:
+                team_games[team_name] = []
+            team_games[team_name].append(stat)
+        
+        # Calculate league averages (runs)
+        total_runs = sum(self._extract_numeric(s.get("stats", {}).get("Runs", "0")) for s in team_stats)
+        avg_runs = total_runs / len(team_stats) if team_stats else 4.5
+        
+        # Calculate adjusted metrics for each team
+        adjusted_count = 0
+        for team_name, games in team_games.items():
+            metrics = self._calculate_team_metrics_mlb(team_name, games, avg_runs)
+            if metrics:
+                self._store_adjusted_metrics(team_name, metrics, "baseball_mlb")
+                adjusted_count += 1
+        
+        return adjusted_count
+    
+    def _calculate_team_metrics_mlb(self, team_name: str, games: List[Dict], league_avg: float) -> Optional[Dict]:
+        """Calculate metrics for an MLB team"""
+        if not games:
+            return None
+        
+        total_runs = 0
+        total_hits = 0
+        total_errors = 0
+        
+        for game in games:
+            stats = game.get("stats", {})
+            total_runs += self._extract_numeric(stats.get("Runs", "0"))
+            total_hits += self._extract_numeric(stats.get("Hits", "0"))
+            total_errors += self._extract_numeric(stats.get("Errors", "0"))
+        
+        count = len(games)
+        return {
+            "raw_runs_per_game": round(total_runs / count, 2),
+            "adjusted_runs_per_game": round(total_runs / count, 2),  # Simplified
+            "hits_per_game": round(total_hits / count, 1),
+            "errors_per_game": round(total_errors / count, 2),
+            "games_analyzed": count,
+            "vs_league_avg": round((total_runs / count) - league_avg, 2)
+        }
+    
+    def _calculate_soccer_adjusted_metrics(self, team_stats: List[Dict]) -> int:
+        """Calculate Soccer opponent-adjusted metrics"""
+        # Group by team
+        team_games = {}
+        for stat in team_stats:
+            team_name = stat.get("team_name")
+            if team_name not in team_games:
+                team_games[team_name] = []
+            team_games[team_name].append(stat)
+        
+        # Calculate league averages
+        total_shots = sum(self._extract_numeric(s.get("stats", {}).get("SHOTS", "0")) for s in team_stats)
+        total_possession = sum(self._extract_numeric(s.get("stats", {}).get("Possession", "0")) for s in team_stats)
+        avg_shots = total_shots / len(team_stats) if team_stats else 12.0
+        avg_possession = total_possession / len(team_stats) if team_stats else 50.0
+        
+        # Calculate adjusted metrics for each team
+        adjusted_count = 0
+        for team_name, games in team_games.items():
+            metrics = self._calculate_team_metrics_soccer(team_name, games, avg_shots, avg_possession)
+            if metrics:
+                self._store_adjusted_metrics(team_name, metrics, "soccer_epl")
+                adjusted_count += 1
+        
+        return adjusted_count
+    
+    def _calculate_team_metrics_soccer(self, team_name: str, games: List[Dict], league_avg_shots: float, league_avg_possession: float) -> Optional[Dict]:
+        """Calculate metrics for a Soccer team"""
+        if not games:
+            return None
+        
+        total_shots = 0
+        total_on_target = 0
+        total_possession = 0
+        total_passes = 0
+        total_accurate_passes = 0
+        
+        for game in games:
+            stats = game.get("stats", {})
+            total_shots += self._extract_numeric(stats.get("SHOTS", "0"))
+            total_on_target += self._extract_numeric(stats.get("ON GOAL", "0"))
+            total_possession += self._extract_numeric(stats.get("Possession", "0"))
+            total_passes += self._extract_numeric(stats.get("Passes", "0"))
+            total_accurate_passes += self._extract_numeric(stats.get("Accurate Passes", "0"))
+        
+        count = len(games)
+        pass_accuracy = (total_accurate_passes / total_passes * 100) if total_passes > 0 else 0
+        shot_accuracy = (total_on_target / total_shots * 100) if total_shots > 0 else 0
+        
+        return {
+            "shots_per_game": round(total_shots / count, 1),
+            "adjusted_shots_per_game": round(total_shots / count, 1),  # Simplified
+            "shots_on_target_per_game": round(total_on_target / count, 1),
+            "shot_accuracy_pct": round(shot_accuracy, 1),
+            "avg_possession_pct": round(total_possession / count, 1),
+            "pass_accuracy_pct": round(pass_accuracy, 1),
+            "games_analyzed": count,
+            "vs_league_avg_shots": round((total_shots / count) - league_avg_shots, 1),
+            "vs_league_avg_possession": round((total_possession / count) - league_avg_possession, 1)
+        }
+    
+    def _store_adjusted_metrics(self, team_name: str, metrics: Dict, sport: str) -> None:
+        """Store opponent-adjusted metrics"""
+        normalized_name = team_name.lower().replace(" ", "_")
+        pk = f"ADJUSTED_METRICS#{sport}#{normalized_name}"
+        sk = datetime.utcnow().isoformat()
+        
+        self.table.put_item(
+            Item={
+                "pk": pk,
+                "sk": sk,
+                "sport": sport,
+                "team_name": team_name,
+                "metrics": self._convert_to_decimal(metrics),
+                "calculated_at": sk,
+                "latest": True
+            }
+        )
+    
+    def _extract_numeric(self, value: str) -> float:
+        """Extract numeric value from string"""
+        try:
+            return float(str(value).replace(",", "").replace("%", ""))
+        except:
+            return 0.0
 
 
 def lambda_handler(event, context):

@@ -120,6 +120,19 @@ export class DynamoDBStack extends cdk.Stack {
       }
     });
 
+    // Add generic GSI for flexible querying (team stats, metrics, etc)
+    this.betsTable.addGlobalSecondaryIndex({
+      indexName: 'GenericQueryIndex',
+      partitionKey: {
+        name: 'gsi_pk',
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: 'gsi_sk',
+        type: dynamodb.AttributeType.STRING
+      }
+    });
+
     // Output the table name
     this.betsTableName = new cdk.CfnOutput(this, 'BetsTableName', {
       value: this.betsTable.tableName,

@@ -12,7 +12,7 @@ export const TopNav: React.FC<TopNavProps> = ({ currentPage, onNavigate, onSignO
   const sections = [
     { label: 'User', page: 'profile' },
     { label: 'Analysis', page: 'games' },
-    { label: 'Benny AI', page: 'benny-chat' },
+    { label: 'Benny AI', page: 'benny-dashboard' },
     { label: 'Models', page: 'system-models' },
     { label: 'Marketplace', page: 'marketplace' },
   ];

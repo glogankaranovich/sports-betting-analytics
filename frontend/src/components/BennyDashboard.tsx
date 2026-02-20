@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import LoadingSpinner from './LoadingSpinner';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://ddzbfblwr0.execute-api.us-east-1.amazonaws.com/prod';
 
@@ -15,6 +16,7 @@ interface Bet {
   status: string;
   payout: number;
   placed_at: string;
+  expected_roi?: number;
 }
 
 interface DashboardData {
@@ -132,9 +134,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
     </div>
   );
 
-  if (loading) return (
-    <div className="loading">Loading Benny's dashboard...</div>
-  );
+  if (loading) return <LoadingSpinner />;
   if (error) return (
     <div className="error">{error}</div>
   );
@@ -145,7 +145,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
   return (
     <div className="benny-dashboard">
       <div className="benny-header">
-        <h2>🤖 Benny's Trading Dashboard</h2>
+        <h2>🤖 Benny Bets</h2>
         <p>Autonomous AI trader making virtual bets with a $100/week budget</p>
       </div>
 
@@ -322,7 +322,12 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
                 <div className={`bet-status ${bet.status}`}>
                   {bet.status === 'won' && `+$${bet.payout.toFixed(2)}`}
                   {bet.status === 'lost' && `-$${bet.bet_amount.toFixed(2)}`}
-                  {bet.status === 'pending' && 'Pending'}
+                  {bet.status === 'pending' && bet.expected_roi !== null && bet.expected_roi !== undefined && (
+                    <span style={{ color: bet.expected_roi > 0 ? '#4ade80' : '#f87171' }}>
+                      {bet.expected_roi > 0 ? '+' : ''}{(bet.expected_roi * 100).toFixed(1)}% ROI
+                    </span>
+                  )}
+                  {bet.status === 'pending' && (bet.expected_roi === null || bet.expected_roi === undefined) && 'Pending'}
                 </div>
                 <div className="expand-icon">{expandedBet === bet.bet_id ? '▼' : '▶'}</div>
               </div>

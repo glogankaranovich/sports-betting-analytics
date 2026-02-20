@@ -325,7 +325,9 @@ class OddsCollector:
                     return len(props.get("bookmakers", []))
                 return 0
             except Exception as e:
-                print(f"Error collecting props for game {game_id}: {str(e)}")
+                # 404 errors are expected when games start/finish
+                if "404" not in str(e):
+                    print(f"Error collecting props for game {game_id}: {str(e)}")
                 return 0
 
         # Use ThreadPoolExecutor for parallel API calls (increased workers for speed)

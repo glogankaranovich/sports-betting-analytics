@@ -28,8 +28,8 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
       { label: 'Prop Analysis', page: 'prop-analysis' },
     ],
     'benny-home': [
-      { label: 'Chat with Benny', page: 'benny-chat' },
-      { label: 'Dashboard', page: 'benny-dashboard' },
+      { label: 'Benny Bets', page: 'benny-dashboard' },
+      { label: 'Benny Chat', page: 'benny-chat' },
     ],
     'models-home': [
       { label: 'System Models', page: 'system-models' },

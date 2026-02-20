@@ -7,7 +7,7 @@ import boto3
 import requests
 from boto3.dynamodb.conditions import Key
 
-from constants import SUPPORTED_SPORTS
+from constants import SUPPORTED_SPORTS, SYSTEM_MODELS
 
 
 class OutcomeCollector:
@@ -234,18 +234,7 @@ class OutcomeCollector:
 
         try:
             # Query AnalysisTimeGSI for each model/bet_type combination
-            models = [
-                "consensus",
-                "value",
-                "momentum",
-                "contrarian",
-                "hot_cold",
-                "rest_schedule",
-                "matchup",
-                "injury_aware",
-                "ensemble",
-                "benny",
-            ]
+            models = SYSTEM_MODELS
             bet_types = ["game", "prop"]
             bookmakers = ["fanduel"]
 

@@ -155,36 +155,14 @@ export class BetCollectorApiStack extends cdk.Stack {
       environment: {
         DYNAMODB_TABLE: props.betsTableName,
         ENVIRONMENT: props.environment,
+        USER_MODELS_TABLE: props.userModelsTableName || `${props.environment === 'dev' ? 'Dev-' : ''}UserModels-UserModels`,
+        MODEL_PREDICTIONS_TABLE: props.modelPredictionsTableName || `${props.environment === 'dev' ? 'Dev-' : ''}UserModels-ModelPredictions`,
         CUSTOM_DATA_TABLE: props.customDataTableName || `${props.environment === 'dev' ? 'Dev-' : ''}CustomData-CustomData`,
         CUSTOM_DATA_BUCKET: props.customDataBucketName || `${props.environment}-custom-data-bucket`,
         ...getPlatformEnvironment(),
       }
     });
     userDataFunction.role?.addManagedPolicy(dynamoDbPolicy);
-
-    // TEMP: Keep old userModelsFunction for gradual migration (will remove after Monitoring updates)
-    const userModelsFunction = new lambda.Function(this, 'UserModelsApiFunction', {
-      runtime: lambda.Runtime.PYTHON_3_11,
-      handler: 'api_handler.lambda_handler',
-      code: lambda.Code.fromAsset('../backend', {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
-          command: [
-            'bash', '-c',
-            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
-          ]
-        }
-      }),
-      timeout: cdk.Duration.seconds(30),
-      environment: {
-        DYNAMODB_TABLE: props.betsTableName,
-        ENVIRONMENT: props.environment,
-        USER_MODELS_TABLE: props.userModelsTableName || `${props.environment === 'dev' ? 'Dev-' : ''}UserModels-UserModels`,
-        MODEL_PREDICTIONS_TABLE: props.modelPredictionsTableName || `${props.environment === 'dev' ? 'Dev-' : ''}UserModels-ModelPredictions`,
-        ...getPlatformEnvironment(),
-      }
-    });
-    userModelsFunction.role?.addManagedPolicy(dynamoDbPolicy);
 
     // Lambda function for bet collector API (legacy - will be deprecated)
     const betCollectorApiFunction = new lambda.Function(this, 'BetCollectorApiFunction', {
@@ -439,7 +417,7 @@ export class BetCollectorApiStack extends cdk.Stack {
 
     // Export functions for monitoring
     this.betCollectorApiFunction = betCollectorApiFunction;
-    this.userModelsApiFunction = userModelsFunction; // TEMP: Still pointing to old function
+    this.userModelsApiFunction = userDataFunction;
     this.aiAgentApiFunction = aiAgentFunction;
 
     this.apiUrl = new cdk.CfnOutput(this, 'BetCollectorApiUrl', {

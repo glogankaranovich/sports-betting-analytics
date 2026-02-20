@@ -976,6 +976,10 @@ Respond with JSON only:
                     "status": b.get("status"),
                     "payout": float(b.get("payout", 0)),
                     "placed_at": b.get("placed_at"),
+                    "expected_roi": round(
+                        (float(b.get("expected_payout", 0)) - float(b.get("bet_amount", 0))) / float(b.get("bet_amount", 1)),
+                        3
+                    ) if b.get("expected_payout") and float(b.get("bet_amount", 0)) > 0 else None,
                 }
                 for b in recent_bets[:10]
             ],

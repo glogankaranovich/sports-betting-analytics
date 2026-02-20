@@ -24,7 +24,7 @@ export interface MonitoringStackProps extends cdk.StackProps {
   complianceLoggerFunction: lambda.IFunction;
   bennyTraderFunction: lambda.IFunction;
   betCollectorApiFunction: lambda.IFunction;
-  // userModelsApiFunction: lambda.IFunction; // TEMP: Commented to break export dependency
+  userModelsApiFunction: lambda.IFunction;
   aiAgentApiFunction: lambda.IFunction;
   modelExecutorFunction: lambda.IFunction;
   queueLoaderFunction: lambda.IFunction;
@@ -131,7 +131,7 @@ export class MonitoringStack extends cdk.Stack {
     
     // API Lambdas (no schedule)
     const betApiMetrics = createLambdaMetrics(props.betCollectorApiFunction, 'BetCollectorAPI');
-    // const userModelsApiMetrics = createLambdaMetrics(props.userModelsApiFunction, 'UserModelsAPI'); // TEMP: Commented
+    const userModelsApiMetrics = createLambdaMetrics(props.userModelsApiFunction, 'UserModelsAPI');
     const aiAgentApiMetrics = createLambdaMetrics(props.aiAgentApiFunction, 'AIAgentAPI');
     const modelExecutorMetrics = createLambdaMetrics(props.modelExecutorFunction, 'ModelExecutor');
     const queueLoaderMetrics = createLambdaMetrics(props.queueLoaderFunction, 'QueueLoader');
@@ -155,7 +155,7 @@ export class MonitoringStack extends cdk.Stack {
       complianceMetrics.invocations,
       bennyTraderMetrics.invocations,
       betApiMetrics.invocations,
-      // userModelsApiMetrics.invocations, // TEMP: Commented
+      userModelsApiMetrics.invocations,
       aiAgentApiMetrics.invocations,
       modelExecutorMetrics.invocations,
       queueLoaderMetrics.invocations,
@@ -174,7 +174,7 @@ export class MonitoringStack extends cdk.Stack {
       complianceMetrics.errors,
       bennyTraderMetrics.errors,
       betApiMetrics.errors,
-      // userModelsApiMetrics.errors, // TEMP: Commented
+      userModelsApiMetrics.errors,
       aiAgentApiMetrics.errors,
       modelExecutorMetrics.errors,
       queueLoaderMetrics.errors,
@@ -193,7 +193,7 @@ export class MonitoringStack extends cdk.Stack {
       complianceMetrics.duration,
       bennyTraderMetrics.duration,
       betApiMetrics.duration,
-      // userModelsApiMetrics.duration, // TEMP: Commented
+      userModelsApiMetrics.duration,
       aiAgentApiMetrics.duration,
       modelExecutorMetrics.duration,
       queueLoaderMetrics.duration,
@@ -212,7 +212,7 @@ export class MonitoringStack extends cdk.Stack {
       complianceMetrics.throttles,
       bennyTraderMetrics.throttles,
       betApiMetrics.throttles,
-      // userModelsApiMetrics.throttles, // TEMP: Commented
+      userModelsApiMetrics.throttles,
       aiAgentApiMetrics.throttles,
       modelExecutorMetrics.throttles,
       queueLoaderMetrics.throttles,

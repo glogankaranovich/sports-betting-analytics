@@ -245,6 +245,7 @@ class ModelAnalytics:
                             if item.get("confidence")
                             else 0,
                             "verified_at": item.get("outcome_verified_at"),
+                            "commence_time": item.get("commence_time"),
                         }
                     )
 
