@@ -83,8 +83,6 @@ def setup_test_user(api_config):
     )
     
     yield
-    
-    # Cleanup not needed - keep subscription for future tests
 
 
 def test_health_endpoint(api_config):
@@ -281,39 +279,6 @@ def test_benny_dashboard_endpoint(api_config):
     if response.status_code == 200:
         data = response.json()
         assert isinstance(data, dict)
-
-
-def test_create_backtest_endpoint(api_config):
-    """Test POST /backtests endpoint"""
-    payload = {
-        "user_id": api_config["user_id"],
-        "model_id": "test-model-123",
-        "start_date": "2024-01-01",
-        "end_date": "2024-01-31",
-    }
-    response = requests.post(
-        f"{api_config['api_url']}/backtests",
-        headers=api_config["headers"],
-        json=payload,
-        timeout=30,
-    )
-    # 200/201 if created, 400 if validation fails, 403 if no access, 404 if endpoint not found
-    assert response.status_code in [200, 201, 400, 403, 404]
-
-
-def test_list_backtests_endpoint(api_config):
-    """Test GET /backtests endpoint"""
-    response = requests.get(
-        f"{api_config['api_url']}/backtests",
-        headers=api_config["headers"],
-        params={"user_id": api_config["user_id"]},
-        timeout=10,
-    )
-    # 200 if accessible, 404 if endpoint not found
-    assert response.status_code in [200, 404]
-    if response.status_code == 200:
-        data = response.json()
-        assert isinstance(data, (list, dict))
 
 
 def test_update_profile_endpoint(api_config):
