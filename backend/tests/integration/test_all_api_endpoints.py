@@ -142,6 +142,44 @@ def test_analytics_endpoint(api_config):
     assert response.status_code in [200, 404]  # 404 if no analytics data yet
 
 
+def test_model_performance_endpoint(api_config):
+    """Test /model-performance endpoint"""
+    response = requests.get(
+        f"{api_config['api_url']}/model-performance",
+        headers=api_config["headers"],
+        timeout=10,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "models" in data
+    assert "sport" in data
+
+
+def test_model_comparison_endpoint(api_config):
+    """Test /model-comparison endpoint"""
+    response = requests.get(
+        f"{api_config['api_url']}/model-comparison",
+        headers=api_config["headers"],
+        timeout=10,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "models" in data
+
+
+def test_model_rankings_endpoint(api_config):
+    """Test /model-rankings endpoint"""
+    response = requests.get(
+        f"{api_config['api_url']}/model-rankings?sport=basketball_nba",
+        headers=api_config["headers"],
+        timeout=10,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "rankings" in data
+    assert "sport" in data
+
+
 def test_compliance_log_endpoint(api_config):
     """Test /compliance/log endpoint (POST)"""
     payload = {
