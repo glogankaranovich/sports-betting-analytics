@@ -321,3 +321,16 @@ class TestBennyTrader:
         assert fatigue["home_fatigue"] == 25.0
         assert fatigue["away_fatigue"] == 65.0
         assert fatigue["away_miles"] == 2500.0
+
+
+    def test_max_bet_size_limit(self, trader):
+        """Test maximum bet size is enforced"""
+        trader.bankroll = Decimal("1000.00")
+        
+        bet_size = trader.calculate_bet_size(0.95)
+        assert bet_size <= Decimal("200.00")  # 20% max
+
+    def test_min_bet_size(self, trader):
+        """Test minimum bet size"""
+        bet_size = trader.calculate_bet_size(0.50)
+        assert bet_size >= Decimal("5.00")  # Minimum bet

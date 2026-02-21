@@ -17,8 +17,9 @@ class TestOutcomeCollector(unittest.TestCase):
         self.table_name = "test-table"
         self.api_key = "test-key"
 
+    @patch("outcome_collector.EloCalculator")
     @patch("outcome_collector.boto3")
-    def test_init(self, mock_boto3):
+    def test_init(self, mock_boto3, mock_elo):
         """Test OutcomeCollector initialization"""
         mock_dynamodb = Mock()
         mock_table = Mock()
@@ -31,8 +32,35 @@ class TestOutcomeCollector(unittest.TestCase):
         mock_dynamodb.Table.assert_called_once_with(self.table_name)
         self.assertEqual(collector.odds_api_key, self.api_key)
 
+    @patch("outcome_collector.EloCalculator")
     @patch("outcome_collector.boto3")
-    def test_store_outcome(self, mock_boto3):
+    @patch("outcome_collector.requests")
+    def test_collect_recent_outcomes(self, mock_requests, mock_boto3, mock_elo):
+        """Test collecting recent outcomes"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        
+        mock_response = Mock()
+        mock_response.json.return_value = [
+            {
+                "id": "game123",
+                "completed": True,
+                "home_team": "Lakers",
+                "away_team": "Warriors",
+                "scores": [{"score": 110}, {"score": 105}]
+            }
+        ]
+        mock_requests.get.return_value = mock_response
+
+        collector = OutcomeCollector(self.table_name, self.api_key)
+        results = collector.collect_recent_outcomes(days_back=1)
+
+        self.assertIn("stored_outcomes", results)
+        self.assertIn("updated_elo", results)
+
+    @patch("outcome_collector.EloCalculator")
+    @patch("outcome_collector.boto3")
+    def test_store_outcome(self, mock_boto3, mock_elo):
         """Test storing game outcome with H2H indexing"""
         mock_dynamodb = Mock()
         mock_table = Mock()

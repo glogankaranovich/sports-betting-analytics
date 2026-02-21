@@ -3,7 +3,7 @@ Unit tests for analytics API handler
 """
 import os
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 import json
 
 os.environ["DYNAMODB_TABLE"] = "test-table"
@@ -16,6 +16,48 @@ class TestAnalyticsHandler(unittest.TestCase):
 
     def setUp(self):
         self.handler = AnalyticsHandler()
+
+    @patch("api.analytics.table")
+    def test_route_get_analytics(self, mock_table):
+        """Test routing to get analytics"""
+        with patch.object(self.handler, "get_analytics") as mock_get:
+            mock_get.return_value = {"statusCode": 200}
+            
+            result = self.handler.route_request("GET", "/analytics", {}, {}, {})
+            mock_get.assert_called_once()
+
+    @patch("api.analytics.table")
+    def test_route_model_performance(self, mock_table):
+        """Test routing to model performance"""
+        with patch.object(self.handler, "get_model_performance") as mock_get:
+            mock_get.return_value = {"statusCode": 200}
+            
+            result = self.handler.route_request("GET", "/model-performance", {"model": "consensus"}, {}, {})
+            mock_get.assert_called_once()
+
+    @patch("api.analytics.table")
+    def test_route_model_comparison(self, mock_table):
+        """Test routing to model comparison"""
+        with patch.object(self.handler, "get_model_comparison") as mock_get:
+            mock_get.return_value = {"statusCode": 200}
+            
+            result = self.handler.route_request("GET", "/model-comparison", {}, {}, {})
+            mock_get.assert_called_once()
+
+    @patch("api.analytics.table")
+    def test_route_model_rankings(self, mock_table):
+        """Test routing to model rankings"""
+        with patch.object(self.handler, "get_model_rankings") as mock_get:
+            mock_get.return_value = {"statusCode": 200}
+            
+            result = self.handler.route_request("GET", "/model-rankings", {}, {}, {})
+            mock_get.assert_called_once()
+
+    @patch("api.analytics.table")
+    def test_route_not_found(self, mock_table):
+        """Test routing to invalid endpoint"""
+        result = self.handler.route_request("GET", "/invalid", {}, {}, {})
+        self.assertEqual(result["statusCode"], 404)
 
     @patch("api.analytics.table")
     def test_get_analytics_summary(self, mock_table):

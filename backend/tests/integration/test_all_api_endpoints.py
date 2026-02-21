@@ -215,11 +215,13 @@ def test_custom_data_list_endpoint(api_config):
     response = requests.get(
         f"{api_config['api_url']}/custom-data",
         headers=api_config["headers"],
+        params={"user_id": api_config["user_id"]},
         timeout=10,
     )
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
+    assert "datasets" in data
+    assert isinstance(data["datasets"], list)
 
 
 def test_compliance_log_endpoint(api_config):
