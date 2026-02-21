@@ -2,6 +2,7 @@
 End-to-end test for user models execution pipeline
 Tests: API -> DynamoDB -> SQS -> Lambda Executor -> Predictions
 """
+import os
 import time
 
 import boto3
@@ -29,9 +30,12 @@ def test_user_models_e2e():
     print("User Models End-to-End Test")
     print("=" * 60 + "\n")
 
+    environment = os.getenv("ENVIRONMENT", "dev")
+    environment_title = environment.title()
+
     # Get API URL
     cf = boto3.client("cloudformation", region_name="us-east-1")
-    response = cf.describe_stacks(StackName="Dev-BetCollectorApi")
+    response = cf.describe_stacks(StackName=f"{environment_title}-BetCollectorApi")
     api_url = next(
         o["OutputValue"]
         for o in response["Stacks"][0]["Outputs"]
@@ -40,7 +44,13 @@ def test_user_models_e2e():
 
     token = get_test_user_token()
     headers = {"Authorization": f"Bearer {token}"}
-    test_user_id = "e2e_test_user"
+    
+    # Get actual user ID from Cognito
+    cognito = boto3.client("cognito-idp", region_name="us-east-1")
+    auth_response = cf.describe_stacks(StackName=f"{environment_title}-Auth")
+    user_pool_id = next(o["OutputValue"] for o in auth_response["Stacks"][0]["Outputs"] if o["OutputKey"] == "UserPoolId")
+    user = cognito.admin_get_user(UserPoolId=user_pool_id, Username="testuser@example.com")
+    test_user_id = next(attr["Value"] for attr in user["UserAttributes"] if attr["Name"] == "sub")
 
     # 1. Create active model
     print("1. Creating active user model...")
@@ -69,7 +79,7 @@ def test_user_models_e2e():
     # 2. Verify in DynamoDB
     print("\n2. Verifying model in DynamoDB...")
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-    table = dynamodb.Table("Dev-UserModels-UserModels")
+    table = dynamodb.Table(f"{environment_title}-UserModels-UserModels")
     item = table.get_item(Key={"PK": f"USER#{test_user_id}", "SK": f"MODEL#{model_id}"})
     assert "Item" in item
     print("✓ Model found in DynamoDB")
@@ -78,7 +88,7 @@ def test_user_models_e2e():
     print("\n3. Triggering queue loader Lambda...")
     lambda_client = boto3.client("lambda", region_name="us-east-1")
     response = lambda_client.invoke(
-        FunctionName="Dev-UserModels-QueueLoader",
+        FunctionName=f"{environment_title}-UserModels-QueueLoader",
         InvocationType="RequestResponse",
     )
     print(f"✓ Queue loader executed: {response['StatusCode']}")
@@ -87,7 +97,7 @@ def test_user_models_e2e():
     print("\n4. Checking SQS queue for messages...")
     sqs = boto3.client("sqs", region_name="us-east-1")
     queue_url_response = sqs.get_queue_url(
-        QueueName="Dev-UserModels-ModelExecutionQueue"
+        QueueName=f"{environment_title}-UserModels-ModelExecutionQueue"
     )
     queue_url = queue_url_response["QueueUrl"]
 

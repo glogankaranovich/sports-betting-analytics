@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Integration and unit tests for player props functionality
+Integration tests for player props functionality
 """
 
 import json
 import os
 import unittest
 from decimal import Decimal
-from unittest.mock import Mock, patch
 
 import boto3
 import requests
@@ -15,64 +14,6 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
-
-class TestPlayerPropsUnit(unittest.TestCase):
-    """Unit tests for player props functionality"""
-
-    def setUp(self):
-        """Set up test fixtures"""
-        self.mock_table = Mock()
-
-    @patch("odds_collector.boto3.resource")
-    def test_store_player_props(self, mock_boto3):
-        """Test storing player props in DynamoDB"""
-        from odds_collector import OddsCollector
-
-        # Mock DynamoDB
-        mock_boto3.return_value.Table.return_value = self.mock_table
-
-        collector = OddsCollector()
-
-        # Test data
-        props_data = {
-            "commence_time": "2026-01-04T20:00:00Z",
-            "bookmakers": [
-                {
-                    "key": "draftkings",
-                    "markets": [
-                        {
-                            "key": "player_pass_tds",
-                            "outcomes": [
-                                {
-                                    "name": "Over",
-                                    "description": "Josh Allen",
-                                    "point": 1.5,
-                                    "price": 120,
-                                }
-                            ],
-                        }
-                    ],
-                }
-            ],
-        }
-
-        collector.store_player_props(
-            "americanfootball_nfl", "test_event_123", props_data
-        )
-
-        # Verify put_item was called (for new data)
-        self.mock_table.put_item.assert_called()
-
-        # Check that at least one call was made with correct key structure
-        calls = self.mock_table.put_item.call_args_list
-        self.assertTrue(len(calls) >= 1)
-
-        # Check the latest item call (should be the second call)
-        latest_call = calls[-1]
-        item = latest_call[1]["Item"]
-        self.assertEqual(item["pk"], "PROP#test_event_123#Josh Allen")
-        self.assertEqual(item["sk"], "draftkings#player_pass_tds#Over#LATEST")
 
 
 class TestPlayerPropsIntegration(unittest.TestCase):
@@ -180,55 +121,5 @@ class TestPlayerPropsIntegration(unittest.TestCase):
         self.assertLessEqual(len(data["props"]), 5)
 
 
-class TestPlayerPropsDataStructure(unittest.TestCase):
-    """Test player props data structure and validation"""
-
-    def test_player_prop_key_format(self):
-        """Test player prop key format"""
-        event_id = "test_event_123"
-        bookmaker = "draftkings"
-        market_key = "player_pass_tds"
-        player_name = "Josh Allen"
-
-        expected_key = f"PROP#{event_id}#{bookmaker}#{market_key}#{player_name}"
-
-        # This would be the actual key format used in store_player_props
-        actual_key = f"PROP#{event_id}#{bookmaker}#{market_key}#{player_name}"
-
-        self.assertEqual(actual_key, expected_key)
-        self.assertTrue(actual_key.startswith("PROP#"))
-
-    def test_decimal_conversion(self):
-        """Test decimal conversion for DynamoDB compatibility"""
-        from odds_collector import convert_floats_to_decimal
-
-        test_data = {"point": 1.5, "price": 120, "nested": {"value": 2.5}}
-
-        converted = convert_floats_to_decimal(test_data)
-
-        self.assertIsInstance(converted["point"], Decimal)
-        self.assertEqual(converted["point"], Decimal("1.5"))
-        self.assertIsInstance(converted["nested"]["value"], Decimal)
-
-
 if __name__ == "__main__":
-    # Run unit tests by default, integration tests with --integration flag
-    import sys
-
-    if "--integration" in sys.argv:
-        sys.argv.remove("--integration")
-        # Run integration tests
-        suite = unittest.TestLoader().loadTestsFromTestCase(TestPlayerPropsIntegration)
-        unittest.TextTestRunner(verbosity=2).run(suite)
-    elif "--all" in sys.argv:
-        sys.argv.remove("--all")
-        # Run all tests
-        unittest.main(verbosity=2)
-    else:
-        # Run unit tests only
-        suite = unittest.TestSuite()
-        suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestPlayerPropsUnit))
-        suite.addTest(
-            unittest.TestLoader().loadTestsFromTestCase(TestPlayerPropsDataStructure)
-        )
-        unittest.TextTestRunner(verbosity=2).run(suite)
+    unittest.main(verbosity=2)

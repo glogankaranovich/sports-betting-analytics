@@ -103,6 +103,58 @@ class TestModelAnalytics(unittest.TestCase):
         self.assertEqual(summary["momentum"]["basketball_nba"]["correct"], 1)
         self.assertEqual(summary["momentum"]["basketball_nba"]["accuracy"], 100.0)
 
+    @patch("model_analytics.boto3")
+    def test_get_model_comparison(self, mock_boto3):
+        """Test getting model comparison"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        # Mock query to return proper structure
+        def mock_query(**kwargs):
+            return {"Items": []}
+
+        mock_table.query.side_effect = mock_query
+
+        analytics = ModelAnalytics(self.table_name)
+        comparison = analytics.get_model_comparison()
+
+        self.assertIsInstance(comparison, list)
+
+    @patch("model_analytics.boto3")
+    def test_get_confidence_distribution(self, mock_boto3):
+        """Test getting confidence distribution"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        # Mock query to return proper structure
+        def mock_query(**kwargs):
+            return {"Items": []}
+
+        mock_table.query.side_effect = mock_query
+
+        analytics = ModelAnalytics(self.table_name)
+        distribution = analytics.get_confidence_distribution("consensus")
+
+        # Check for confidence range keys
+        self.assertIn("0-20", distribution)
+        self.assertIn("80-100", distribution)
+
+    @patch("model_analytics.boto3")
+    def test_get_cached_analytics(self, mock_boto3):
+        """Test getting cached analytics"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        mock_table.query.return_value = {
+            "Items": [{"data": {"accuracy": 0.65}}]
+        }
+
+        analytics = ModelAnalytics(self.table_name)
+        cached = analytics.get_cached_analytics("summary")
+
+        self.assertIsNotNone(cached)
+        self.assertIn("accuracy", cached)
+
 
 if __name__ == "__main__":
     unittest.main()

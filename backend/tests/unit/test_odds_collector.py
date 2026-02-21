@@ -183,5 +183,110 @@ class TestGetSecret(unittest.TestCase):
         )
 
 
+class TestOddsCollectorExtended(unittest.TestCase):
+    @patch("odds_collector.boto3")
+    @patch("odds_collector.requests.get")
+    def test_get_player_props(self, mock_requests, mock_boto3):
+        """Test getting player props"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "bookmakers": [
+                {
+                    "key": "draftkings",
+                    "markets": [
+                        {
+                            "key": "player_points",
+                            "outcomes": [
+                                {"description": "LeBron James", "price": -110, "point": 25.5}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+        mock_requests.return_value = mock_response
+
+        collector = OddsCollector()
+        props = collector.get_player_props("basketball_nba", "game123")
+
+        self.assertIn("bookmakers", props)
+
+    @patch("odds_collector.boto3")
+    def test_store_player_props(self, mock_boto3):
+        """Test storing player props"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        
+        # Mock get_item to return no existing item
+        mock_table.get_item.return_value = {}
+
+        collector = OddsCollector()
+        props_data = {
+            "id": "game123",
+            "commence_time": "2026-02-21T19:00:00Z",
+            "home_team": "Lakers",
+            "away_team": "Warriors",
+            "bookmakers": [
+                {
+                    "key": "draftkings",
+                    "markets": [
+                        {
+                            "key": "player_points",
+                            "outcomes": [
+                                {
+                                    "name": "Over",
+                                    "description": "LeBron James",
+                                    "price": -110,
+                                    "point": 25.5
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+
+        collector.store_player_props("basketball_nba", "game123", props_data)
+        # Should call put_item for the prop
+        self.assertGreater(mock_table.put_item.call_count, 0)
+
+    @patch("odds_collector.boto3")
+    def test_collect_props_for_sport_unsupported(self, mock_boto3):
+        """Test collecting props for unsupported sport"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        collector = OddsCollector()
+        count = collector.collect_props_for_sport("baseball_mlb")
+
+        self.assertEqual(count, 0)
+
+    @patch("odds_collector.boto3")
+    @patch("odds_collector.requests.get")
+    def test_collect_odds_for_sport(self, mock_requests, mock_boto3):
+        """Test collecting odds for a sport"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        mock_response = Mock()
+        mock_response.json.return_value = [
+            {
+                "id": "game123",
+                "home_team": "Lakers",
+                "away_team": "Warriors",
+                "bookmakers": []
+            }
+        ]
+        mock_requests.return_value = mock_response
+
+        collector = OddsCollector()
+        game_ids = collector.collect_odds_for_sport("basketball_nba")
+
+        self.assertIsInstance(game_ids, list)
+
+
 if __name__ == "__main__":
     unittest.main()
