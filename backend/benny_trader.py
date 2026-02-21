@@ -391,6 +391,229 @@ class BennyTrader:
 
         return opportunities
 
+    def analyze_props(self) -> List[Dict[str, Any]]:
+        """Analyze upcoming player props using AI"""
+        now = datetime.utcnow()
+        three_days_out = now + timedelta(days=3)
+        opportunities = []
+
+        for sport in ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl"]:
+            # Get upcoming props
+            response = self.table.query(
+                IndexName="ActiveBetsIndexV2",
+                KeyConditionExpression=Key("active_bet_pk").eq(f"PROP#{sport}")
+                & Key("commence_time").between(now.isoformat(), three_days_out.isoformat()),
+                FilterExpression="attribute_exists(latest) AND latest = :true",
+                ExpressionAttributeValues={":true": True},
+                Limit=100,
+            )
+
+            print(f"Checking {sport} props: found {len(response.get('Items', []))} items")
+            
+            # Group props by player and market
+            props_by_player = {}
+            for item in response.get("Items", []):
+                player = item.get("player_name")
+                market = item.get("market_key")
+                if not player or not market:
+                    continue
+                    
+                key = f"{player}#{market}"
+                if key not in props_by_player:
+                    props_by_player[key] = {
+                        "player": player,
+                        "market": market,
+                        "sport": sport,
+                        "game_id": item.get("game_id"),
+                        "team": item.get("team"),
+                        "opponent": item.get("opponent"),
+                        "commence_time": item.get("commence_time"),
+                        "line": item.get("point"),
+                        "odds": []
+                    }
+                
+                # Extract odds
+                outcomes = item.get("outcomes", [])
+                for outcome in outcomes:
+                    props_by_player[key]["odds"].append({
+                        "bookmaker": item.get("bookmaker"),
+                        "side": outcome.get("name"),  # Over/Under
+                        "price": outcome.get("price"),
+                        "point": outcome.get("point"),
+                    })
+
+            print(f"  Parsed {len(props_by_player)} unique props for {sport}")
+            
+            # Analyze top props (limit to prevent timeout)
+            for prop_key, prop_data in list(props_by_player.items())[:20]:
+                if len(prop_data["odds"]) < 2:
+                    continue
+
+                print(f"  Analyzing {prop_data['player']} {prop_data['market']}")
+                
+                # Get player data
+                player_stats = self._get_player_stats(prop_data["player"], sport)
+                player_trends = self._get_player_trends(prop_data["player"], sport, prop_data["market"])
+                matchup_data = self._get_player_matchup(prop_data["player"], prop_data["opponent"], sport)
+                
+                # AI analysis
+                analysis = self._ai_analyze_prop(prop_data, player_stats, player_trends, matchup_data)
+                
+                min_confidence = self.BASE_MIN_CONFIDENCE + float(
+                    self.learning_params.get("min_confidence_adjustment", 0)
+                )
+
+                if analysis and float(analysis["confidence"]) >= min_confidence:
+                    # Find odds for predicted side
+                    predicted_side = "Over" if "over" in analysis["prediction"].lower() else "Under"
+                    avg_odds = sum(
+                        o["price"] for o in prop_data["odds"] 
+                        if o["side"] == predicted_side
+                    ) / len([o for o in prop_data["odds"] if o["side"] == predicted_side])
+                    
+                    opportunities.append({
+                        "game_id": prop_data["game_id"],
+                        "sport": sport,
+                        "player": prop_data["player"],
+                        "market": prop_data["market"],
+                        "line": prop_data["line"],
+                        "prediction": analysis["prediction"],
+                        "confidence": analysis["confidence"],
+                        "reasoning": analysis["reasoning"],
+                        "key_factors": analysis["key_factors"],
+                        "commence_time": prop_data["commence_time"],
+                        "market_key": prop_data["market"],
+                        "odds": avg_odds,
+                    })
+
+        return opportunities
+
+    def _ai_analyze_prop(
+        self, prop_data: Dict, player_stats: Dict, player_trends: Dict, matchup_data: Dict
+    ) -> Dict[str, Any]:
+        """AI analysis for player props"""
+        try:
+            # Calculate average line and odds
+            over_odds = [o for o in prop_data["odds"] if o["side"] == "Over"]
+            under_odds = [o for o in prop_data["odds"] if o["side"] == "Under"]
+            
+            avg_over = sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
+            avg_under = sum(o["price"] for o in under_odds) / len(under_odds) if under_odds else 0
+            
+            over_prob = self._american_to_probability(avg_over) if avg_over else 0
+            under_prob = self._american_to_probability(avg_under) if avg_under else 0
+
+            prompt = f"""You are Benny, an expert sports betting analyst. Analyze this player prop.
+
+Player: {prop_data['player']} ({prop_data['team']})
+Opponent: {prop_data['opponent']}
+Market: {prop_data['market']}
+Line: {prop_data['line']}
+Sport: {prop_data['sport']}
+
+MARKET ODDS:
+Over {prop_data['line']}: {avg_over} ({over_prob:.1%} implied)
+Under {prop_data['line']}: {avg_under} ({under_prob:.1%} implied)
+
+PLAYER SEASON STATS:
+{json.dumps(player_stats, indent=2) if player_stats else 'No data'}
+
+RECENT TRENDS (Last 10 games):
+{json.dumps(player_trends, indent=2) if player_trends else 'No data'}
+
+MATCHUP HISTORY vs {prop_data['opponent']}:
+{json.dumps(matchup_data, indent=2) if matchup_data else 'No history'}
+
+ANALYSIS INSTRUCTIONS:
+1. Compare player's average to the line
+2. Consider recent trends and hot/cold streaks
+3. Factor in matchup history against this opponent
+4. Look for value where line doesn't match performance
+5. Over or Under and why?
+
+Respond with JSON only:
+{{"prediction": "Over/Under X.X", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}"""
+
+            response = bedrock.invoke_model(
+                modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+                body=json.dumps({
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": 400,
+                    "messages": [{"role": "user", "content": prompt}],
+                }),
+            )
+
+            result = json.loads(response["body"].read())
+            content = result["content"][0]["text"]
+
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+
+            return json.loads(content)
+
+        except Exception as e:
+            print(f"Error in prop AI analysis: {e}")
+            return None
+
+    def _get_player_stats(self, player_name: str, sport: str) -> Dict:
+        """Get player season stats"""
+        try:
+            normalized = player_name.lower().replace(" ", "_")
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq(f"PLAYER_STATS#{sport}#{normalized}"),
+                ScanIndexForward=False,
+                Limit=1,
+            )
+            items = response.get("Items", [])
+            return items[0].get("stats", {}) if items else {}
+        except Exception as e:
+            print(f"Error fetching player stats: {e}")
+            return {}
+
+    def _get_player_trends(self, player_name: str, sport: str, market: str) -> Dict:
+        """Get player recent performance trends"""
+        try:
+            normalized = player_name.lower().replace(" ", "_")
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq(f"PLAYER_TRENDS#{sport}#{normalized}"),
+                FilterExpression="market_key = :market",
+                ExpressionAttributeValues={":market": market},
+                ScanIndexForward=False,
+                Limit=10,
+            )
+            games = response.get("Items", [])
+            if not games:
+                return {}
+            
+            values = [float(g.get("actual_value", 0)) for g in games]
+            return {
+                "last_10_avg": sum(values) / len(values) if values else 0,
+                "last_3_avg": sum(values[:3]) / 3 if len(values) >= 3 else 0,
+                "trend": "hot" if len(values) >= 3 and values[0] > sum(values) / len(values) else "cold",
+            }
+        except Exception as e:
+            print(f"Error fetching player trends: {e}")
+            return {}
+
+    def _get_player_matchup(self, player_name: str, opponent: str, sport: str) -> Dict:
+        """Get player performance vs specific opponent"""
+        try:
+            normalized_player = player_name.lower().replace(" ", "_")
+            normalized_opp = opponent.lower().replace(" ", "_")
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq(
+                    f"PLAYER_MATCHUP#{sport}#{normalized_player}#{normalized_opp}"
+                ),
+                ScanIndexForward=False,
+                Limit=5,
+            )
+            return {"games": response.get("Items", [])}
+        except Exception as e:
+            print(f"Error fetching player matchup: {e}")
+            return {}
+
     def _ai_analyze_game(
         self,
         game_data: Dict[str, Any],
@@ -888,38 +1111,64 @@ Respond with JSON only:
         }
 
     def run_daily_analysis(self) -> Dict[str, Any]:
-        """Run daily analysis and place bets"""
+        """Run daily analysis for games and props"""
         print(f"Starting Benny Trader analysis. Current bankroll: ${self.bankroll}")
         
-        opportunities = self.analyze_games()
-        print(f"Found {len(opportunities)} betting opportunities")
-
-        bets_placed = []
-        total_bet = Decimal("0")
-
         # Update learning parameters before analyzing
         self.update_learning_parameters()
+        
+        # 1. Analyze games first (higher confidence, larger bets)
+        game_opportunities = self.analyze_games()
+        print(f"Found {len(game_opportunities)} game opportunities")
 
-        for opp in opportunities:
-            # Don't bet if bankroll too low
+        game_bets = []
+        game_total = Decimal("0")
+
+        for opp in game_opportunities:
             if self.bankroll < Decimal("10.00"):
-                print(f"Bankroll too low (${self.bankroll}), stopping")
+                print(f"Bankroll too low (${self.bankroll}), stopping game bets")
                 break
 
             result = self.place_bet(opp)
             if result["success"]:
-                bets_placed.append(result)
-                total_bet += Decimal(str(result["bet_amount"]))
-                print(f"Placed bet: {opp['prediction']} for ${result['bet_amount']}")
+                game_bets.append(result)
+                game_total += Decimal(str(result["bet_amount"]))
+                print(f"Placed game bet: {opp['prediction']} for ${result['bet_amount']}")
 
-        print(f"Analysis complete. Placed {len(bets_placed)} bets totaling ${total_bet}")
+        # 2. Analyze props with remaining bankroll (keep $20 reserve)
+        prop_bets = []
+        prop_total = Decimal("0")
+        
+        if self.bankroll > Decimal("20.00"):
+            prop_opportunities = self.analyze_props()
+            print(f"Found {len(prop_opportunities)} prop opportunities")
+            
+            for opp in prop_opportunities:
+                if self.bankroll < Decimal("15.00"):
+                    print(f"Bankroll too low (${self.bankroll}), stopping prop bets")
+                    break
+
+                result = self.place_bet(opp)
+                if result["success"]:
+                    prop_bets.append(result)
+                    prop_total += Decimal(str(result["bet_amount"]))
+                    print(f"Placed prop bet: {opp['prediction']} for ${result['bet_amount']}")
+        else:
+            print(f"Skipping props - bankroll too low (${self.bankroll})")
+
+        print(f"Analysis complete. Placed {len(game_bets)} game bets (${game_total}) and {len(prop_bets)} prop bets (${prop_total})")
         
         return {
-            "opportunities_found": len(opportunities),
-            "bets_placed": len(bets_placed),
-            "total_bet_amount": float(total_bet),
+            "game_opportunities": len(game_opportunities),
+            "game_bets_placed": len(game_bets),
+            "game_total_bet": float(game_total),
+            "prop_opportunities": len(prop_opportunities) if self.bankroll > Decimal("20.00") else 0,
+            "prop_bets_placed": len(prop_bets),
+            "prop_total_bet": float(prop_total),
+            "total_bets": len(game_bets) + len(prop_bets),
+            "total_bet_amount": float(game_total + prop_total),
             "remaining_bankroll": float(self.bankroll),
-            "bets": bets_placed,
+            "bets": game_bets + prop_bets,
         }
 
     @staticmethod

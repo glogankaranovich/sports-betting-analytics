@@ -194,37 +194,87 @@ class TestBennyTrader:
         assert "Insufficient" in result["reason"]
 
     def test_run_daily_analysis(self, trader, mock_table, mock_bedrock):
-        """Test daily analysis run"""
-        # Mock AI reasoning
+        """Test daily analysis run for games and props"""
+        # Mock AI analysis for games
         mock_bedrock.invoke_model.return_value = {
             "body": type(
                 "obj",
                 (object,),
                 {
-                    "read": lambda: '{"reasoning": "Good bet", "confidence_adjustment": 0.0, "key_factors": []}'
+                    "read": lambda: '{"prediction": "Lakers", "confidence": 0.75, "reasoning": "Good bet", "key_factors": ["factor1"]}'
                 },
             )()
         }
 
+        # Mock game query
         mock_table.query.return_value = {
             "Items": [
                 {
-                    "confidence": 0.75,
-                    "game_id": "game1",
-                    "sport": "basketball_nba",
+                    "pk": "GAME#game1",
                     "home_team": "Lakers",
                     "away_team": "Warriors",
-                    "prediction": "Lakers",
                     "commence_time": "2024-01-15T19:00:00Z",
+                    "market_key": "h2h",
+                    "bookmaker": "draftkings",
+                    "outcomes": [
+                        {"name": "Lakers", "price": -110},
+                        {"name": "Warriors", "price": -110},
+                    ],
                 }
             ]
         }
 
         result = trader.run_daily_analysis()
 
-        assert result["opportunities_found"] >= 0
-        assert result["bets_placed"] >= 0
+        assert "game_opportunities" in result
+        assert "game_bets_placed" in result
+        assert "prop_opportunities" in result
+        assert "prop_bets_placed" in result
+        assert "total_bets" in result
         assert "remaining_bankroll" in result
+
+    def test_analyze_props(self, trader, mock_table, mock_bedrock):
+        """Test prop analysis"""
+        # Mock prop query
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "player_name": "LeBron James",
+                    "market_key": "player_points",
+                    "sport": "basketball_nba",
+                    "game_id": "game1",
+                    "team": "Lakers",
+                    "opponent": "Warriors",
+                    "commence_time": "2024-01-15T19:00:00Z",
+                    "point": 25.5,
+                    "bookmaker": "draftkings",
+                    "outcomes": [
+                        {"name": "Over", "price": -110, "point": 25.5},
+                        {"name": "Under", "price": -110, "point": 25.5},
+                    ],
+                    "latest": True,
+                }
+            ]
+        }
+
+        # Mock AI prop analysis
+        mock_bedrock.invoke_model.return_value = {
+            "body": type(
+                "obj",
+                (object,),
+                {
+                    "read": lambda: '{"prediction": "Over 25.5", "confidence": 0.72, "reasoning": "Hot streak", "key_factors": ["averaging 28 ppg"]}'
+                },
+            )()
+        }
+
+        opportunities = trader.analyze_props()
+
+        assert isinstance(opportunities, list)
+        if opportunities:
+            assert "player" in opportunities[0]
+            assert "market" in opportunities[0]
+            assert "confidence" in opportunities[0]
 
     def test_get_dashboard_data(self, mock_table):
         """Test dashboard data retrieval with performance metrics"""

@@ -27,7 +27,7 @@ export class BennyTraderStack extends cdk.Stack {
           ],
         },
       }),
-      timeout: cdk.Duration.seconds(300),
+      timeout: cdk.Duration.minutes(10),
       memorySize: 1024,
       environment: {
         BETS_TABLE: props.betsTable.tableName,
