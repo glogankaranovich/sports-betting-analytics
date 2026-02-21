@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -8,7 +9,8 @@ import boto3
 class ComplianceLogger:
     def __init__(self):
         self.dynamodb = boto3.resource("dynamodb")
-        self.table = self.dynamodb.Table("sports-betting-compliance-staging")
+        table_name = os.getenv("COMPLIANCE_TABLE_NAME", "sports-betting-compliance-staging")
+        self.table = self.dynamodb.Table(table_name)
 
     def log_user_action(
         self, session_id: str, action: str, user_data: Optional[Dict[str, Any]] = None

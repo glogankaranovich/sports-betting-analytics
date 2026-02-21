@@ -2,7 +2,9 @@ import os
 import sys
 import unittest
 from decimal import Decimal
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
+
+os.environ["DYNAMODB_TABLE"] = "test-table"
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -189,6 +191,114 @@ class TestOutcomeCollector(unittest.TestCase):
         self.assertGreater(mock_table.query.call_count, 0)
         self.assertEqual(mock_table.update_item.call_count, 1)
         self.assertEqual(updates, 1)
+
+    @patch("outcome_collector.EloCalculator")
+    @patch("outcome_collector.requests.get")
+    @patch("outcome_collector.boto3")
+    def test_collect_recent_outcomes(self, mock_boto3, mock_requests, mock_elo):
+        """Test collecting recent outcomes"""
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": "game123",
+                "completed": True,
+                "home_team": "Lakers",
+                "away_team": "Warriors",
+                "scores": [{"score": "110"}, {"score": "105"}],
+                "last_update": "2026-02-20T22:00:00Z",
+            }
+        ]
+        mock_requests.return_value = mock_response
+
+        mock_table.query.return_value = {"Items": []}
+
+        collector = OutcomeCollector("test-table", "test-key")
+        results = collector.collect_recent_outcomes(days_back=1)
+
+        self.assertIn("stored_outcomes", results)
+        self.assertIn("updated_analysis", results)
+
+    @patch("outcome_collector.EloCalculator")
+    @patch("outcome_collector.requests.get")
+    @patch("outcome_collector.boto3")
+    def test_get_completed_games(self, mock_boto3, mock_requests, mock_elo):
+        """Test getting completed games from API"""
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json.return_value = [
+            {
+                "id": "game123",
+                "completed": True,
+                "home_team": "Lakers",
+                "away_team": "Warriors",
+                "scores": [{"score": "110"}, {"score": "105"}],
+            }
+        ]
+        mock_requests.return_value = mock_response
+
+        collector = OutcomeCollector("test-table", "test-key")
+        games = collector._get_completed_games(days_back=1)
+
+        self.assertGreater(len(games), 0)
+        self.assertEqual(games[0]["home_team"], "Lakers")
+
+    @patch("outcome_collector.EloCalculator")
+    @patch("outcome_collector.boto3")
+    def test_settle_benny_bets(self, mock_boto3, mock_elo):
+        """Test settling Benny's bets"""
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        mock_table.query.return_value = {
+            "Items": [
+                {
+                    "pk": "BENNY_BET#game123",
+                    "sk": "2026-02-20T19:00:00",
+                    "prediction": "Lakers",
+                    "bet_amount": Decimal("100"),
+                    "odds": -110,
+                }
+            ]
+        }
+        
+        mock_table.get_item.return_value = {
+            "Item": {"amount": Decimal("1000")}
+        }
+
+        collector = OutcomeCollector("test-table", "test-key")
+        game = {
+            "id": "game123",
+            "home_team": "Lakers",
+            "away_team": "Warriors",
+            "home_score": 110,
+            "away_score": 105,
+        }
+
+        collector._settle_benny_bets(game)
+        # Should call update_item for bet and bankroll
+        self.assertGreater(mock_table.update_item.call_count, 0)
+
+    @patch("outcome_collector.EloCalculator")
+    @patch("outcome_collector.boto3")
+    def test_get_stat_value(self, mock_boto3, mock_elo):
+        """Test extracting stat values"""
+        mock_table = MagicMock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+
+        collector = OutcomeCollector("test-table", "test-key")
+        
+        stats = {"PTS": 25, "REB": 10, "AST": 8}
+        
+        self.assertEqual(collector._get_stat_value(stats, "points"), 25)
+        self.assertEqual(collector._get_stat_value(stats, "rebounds"), 10)
+        self.assertEqual(collector._get_stat_value(stats, "assists"), 8)
 
 
 if __name__ == "__main__":

@@ -31,7 +31,15 @@ export class AnalysisGeneratorStack extends cdk.Stack {
     const functionProps = {
       runtime: lambda.Runtime.PYTHON_3_11,
       handler: 'analysis_generator.lambda_handler',
-      code: lambda.Code.fromAsset('../backend'),
+      code: lambda.Code.fromAsset('../backend', {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_11.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install -r requirements.txt -t /asset-output && cp -au . /asset-output'
+          ]
+        }
+      }),
       timeout: cdk.Duration.minutes(15),
       memorySize: 2048,
       environment: {

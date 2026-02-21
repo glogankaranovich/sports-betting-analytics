@@ -90,6 +90,58 @@ class TestAnalysisGenerator(unittest.TestCase):
                 # Should use defaults: basketball_nba, consensus, games
                 mock_factory.create_model.assert_called_once_with("consensus")
 
+    @patch("analysis_generator.table")
+    def test_store_analysis(self, mock_table):
+        """Test storing analysis"""
+        from analysis_generator import store_analysis
+
+        analysis_item = {
+            "pk": "ANALYSIS#game123",
+            "sk": "consensus",
+            "prediction": "home",
+            "confidence": 0.65,
+        }
+
+        store_analysis(analysis_item)
+        mock_table.put_item.assert_called_once()
+
+    def test_create_inverse_prediction_game(self):
+        """Test creating inverse prediction for game"""
+        from analysis_generator import create_inverse_prediction
+
+        analysis = {
+            "pk": "ANALYSIS#game123",
+            "sk": "consensus#LATEST",
+            "prediction": "Lakers",
+            "home_team": "Lakers",
+            "away_team": "Warriors",
+            "confidence": 0.65,
+            "analysis_type": "game",
+        }
+
+        inverse = create_inverse_prediction(analysis)
+
+        self.assertIsNotNone(inverse)
+        self.assertEqual(inverse["sk"], "consensus#INVERSE")
+        self.assertEqual(inverse["prediction"], "Warriors")
+
+    def test_create_inverse_prediction_prop(self):
+        """Test creating inverse prediction for prop"""
+        from analysis_generator import create_inverse_prediction
+
+        analysis = {
+            "pk": "ANALYSIS#prop123",
+            "sk": "value",
+            "prediction": "over 25.5",
+            "confidence": 0.60,
+            "analysis_type": "prop",
+        }
+
+        inverse = create_inverse_prediction(analysis)
+
+        self.assertIsNotNone(inverse)
+        self.assertIn("under", inverse["prediction"].lower())
+
 
 if __name__ == "__main__":
     unittest.main()

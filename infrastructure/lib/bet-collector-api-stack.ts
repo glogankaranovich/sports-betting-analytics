@@ -113,10 +113,17 @@ export class BetCollectorApiStack extends cdk.Stack {
       environment: {
         DYNAMODB_TABLE: props.betsTableName,
         ENVIRONMENT: props.environment,
+        COMPLIANCE_TABLE_NAME: 'sports-betting-compliance-staging',
         ...getPlatformEnvironment(),
       }
     });
     miscFunction.role?.addManagedPolicy(dynamoDbPolicy);
+    
+    // Grant misc function permission to write to compliance table
+    miscFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem', 'dynamodb:Query'],
+      resources: ['arn:aws:dynamodb:*:*:table/sports-betting-compliance-staging']
+    }));
 
     const analyticsFunction = new lambda.Function(this, 'AnalyticsApiFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,
