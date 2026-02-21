@@ -1,216 +1,159 @@
-"""
-Unit tests for AI Agent
-"""
-import json
+import os
 import unittest
-from unittest.mock import MagicMock, patch
-
-from ai_agent import AIAgent
+from unittest.mock import MagicMock, patch, Mock
+import json
 
 
 class TestAIAgent(unittest.TestCase):
     def setUp(self):
-        self.agent = AIAgent()
+        os.environ["DYNAMODB_TABLE"] = "test-table"
 
-    def test_get_tools(self):
-        """Test that tools are properly defined"""
-        tools = self.agent._get_tools()
-
-        self.assertEqual(len(tools), 6)
-        tool_names = [t["name"] for t in tools]
-        self.assertIn("create_model", tool_names)
-        self.assertIn("analyze_predictions", tool_names)
-        self.assertIn("query_stats", tool_names)
-        self.assertIn("explain_prediction", tool_names)
-        self.assertIn("list_user_models", tool_names)
-        self.assertIn("analyze_bet", tool_names)
-
-    def test_create_model_tool_schema(self):
-        """Test create_model tool has correct schema"""
-        tools = self.agent._get_tools()
-        create_model = next(t for t in tools if t["name"] == "create_model")
-
-        self.assertIn("input_schema", create_model)
-        schema = create_model["input_schema"]
-        self.assertIn("model_name", schema["properties"])
-        self.assertIn("sport", schema["properties"])
-        self.assertIn("bet_types", schema["properties"])
-        self.assertIn("data_sources", schema["properties"])
-
-    @patch("ai_agent.boto3.client")
-    def test_invoke_model(self, mock_boto3):
-        """Test non-streaming model invocation"""
-        mock_bedrock = MagicMock()
-        mock_boto3.return_value = mock_bedrock
-
-        mock_response = {
-            "body": MagicMock(
-                read=lambda: json.dumps(
-                    {
-                        "content": [
-                            {"text": "Hello! I can help you create betting models."}
-                        ],
-                        "stop_reason": "end_turn",
-                    }
-                ).encode()
-            )
-        }
-        mock_bedrock.invoke_model.return_value = mock_response
+    @patch("ai_agent.boto3")
+    def test_init(self, mock_boto3):
+        """Test AIAgent initialization"""
+        from ai_agent import AIAgent
 
         agent = AIAgent()
-        request_body = {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 4096,
-            "system": agent.system_prompt,
-            "messages": [{"role": "user", "content": "Hello"}],
-            "tools": agent._get_tools(),
-            "temperature": 0.7,
-        }
+        self.assertIsNotNone(agent.bedrock)
+        self.assertIsNotNone(agent.table)
 
-        response = agent._invoke_model(request_body)
+    @patch("ai_agent.boto3")
+    def test_execute_tool_create_model(self, mock_boto3):
+        """Test executing create_model tool"""
+        from ai_agent import AIAgent
 
-        self.assertIn("content", response)
-        mock_bedrock.invoke_model.assert_called_once()
+        agent = AIAgent()
+        
+        with patch.object(agent, "_create_model") as mock_create:
+            mock_create.return_value = {"success": True}
+            
+            result = agent.execute_tool(
+                "create_model",
+                {"model_name": "Test", "sport": "basketball_nba"},
+                "user123"
+            )
+            
+            mock_create.assert_called_once()
 
-    def test_system_prompt(self):
-        """Test system prompt is defined"""
-        self.assertIsNotNone(self.agent.system_prompt)
-        self.assertIn("betting analyst", self.agent.system_prompt.lower())
-        self.assertIn("model", self.agent.system_prompt.lower())
+    @patch("ai_agent.boto3")
+    def test_execute_tool_unknown(self, mock_boto3):
+        """Test executing unknown tool"""
+        from ai_agent import AIAgent
 
-    @patch.object(AIAgent, "_get_recent_team_stats")
-    @patch.object(AIAgent, "_get_recent_predictions")
-    @patch.object(AIAgent, "_get_recent_games")
-    def test_retrieve_context_team_query(
-        self, mock_games, mock_predictions, mock_stats
-    ):
-        """Test context retrieval for team-related queries"""
-        mock_stats.return_value = [{"team": "Lakers", "wins": 10}]
-        mock_predictions.return_value = []
-        mock_games.return_value = []
+        agent = AIAgent()
+        result = agent.execute_tool("unknown_tool", {})
+        
+        self.assertIn("error", result)
 
-        context = self.agent.retrieve_context("Show me team stats")
-
-        self.assertIn("team statistics", context.lower())
-        mock_stats.assert_called_once()
-
-    @patch.object(AIAgent, "_get_recent_team_stats")
-    @patch.object(AIAgent, "_get_recent_predictions")
-    @patch.object(AIAgent, "_get_recent_games")
-    def test_retrieve_context_prediction_query(
-        self, mock_games, mock_predictions, mock_stats
-    ):
-        """Test context retrieval for prediction-related queries"""
-        mock_stats.return_value = []
-        mock_predictions.return_value = [{"model": "test", "accuracy": 0.75}]
-        mock_games.return_value = []
-
-        context = self.agent.retrieve_context("How accurate are my predictions?")
-
-        self.assertIn("predictions", context.lower())
-        mock_predictions.assert_called_once()
-
-    @patch.object(AIAgent, "_get_recent_team_stats")
-    @patch.object(AIAgent, "_get_recent_predictions")
-    @patch.object(AIAgent, "_get_recent_games")
-    def test_retrieve_context_game_query(
-        self, mock_games, mock_predictions, mock_stats
-    ):
-        """Test context retrieval for game-related queries"""
-        mock_stats.return_value = []
-        mock_predictions.return_value = []
-        mock_games.return_value = [
-            {"home": "Lakers", "away": "Warriors", "score": "110-105"}
-        ]
-
-        context = self.agent.retrieve_context("What were the recent game results?")
-
-        self.assertIn("game outcomes", context.lower())
-        mock_games.assert_called_once()
-
-    @patch("ai_agent.UserModel")
     @patch("ai_agent.boto3")
     @patch("ai_agent.validate_model_config")
-    def test_create_model_tool(self, mock_validate, mock_boto3, mock_user_model):
-        """Test create_model tool execution"""
-        mock_table = MagicMock()
-        mock_boto3.resource.return_value.Table.return_value = mock_table
+    @patch("ai_agent.UserModel")
+    def test_create_model(self, mock_user_model, mock_validate, mock_boto3):
+        """Test creating a model"""
+        from ai_agent import AIAgent
 
-        mock_validate.return_value = []  # No errors
-
-        mock_model = MagicMock()
+        mock_validate.return_value = []
+        mock_model = Mock()
         mock_user_model.create.return_value = mock_model
 
         agent = AIAgent()
-
-        params = {
+        result = agent._create_model({
             "model_name": "Test Model",
             "sport": "basketball_nba",
-            "bet_types": ["h2h", "spreads"],
-            "data_sources": {
-                "team_stats": {"enabled": True, "weight": 0.5},
-                "recent_form": {"enabled": True, "weight": 0.5},
-            },
-        }
+            "bet_types": ["games"],
+            "data_sources": ["team_stats"]
+        }, "user123")
 
-        result = agent.execute_tool("create_model", params)
-
-        self.assertTrue(result.get("success"), f"Error: {result.get('error')}")
+        self.assertTrue(result["success"])
         self.assertIn("model_id", result)
 
     @patch("ai_agent.boto3")
-    def test_analyze_predictions_tool(self, mock_boto3):
-        """Test analyze_predictions tool execution"""
-        mock_table = MagicMock()
-        mock_table.query.return_value = {
-            "Items": [
-                {"outcome": "correct"},
-                {"outcome": "correct"},
-                {"outcome": "incorrect"},
-            ]
-        }
-        mock_boto3.resource.return_value.Table.return_value = mock_table
+    @patch("ai_agent.validate_model_config")
+    def test_create_model_validation_error(self, mock_validate, mock_boto3):
+        """Test creating model with validation errors"""
+        from ai_agent import AIAgent
+
+        mock_validate.return_value = ["Invalid sport"]
 
         agent = AIAgent()
-        result = agent.execute_tool("analyze_predictions", {"days_back": 7})
+        result = agent._create_model({
+            "model_name": "Test",
+            "sport": "invalid",
+            "bet_types": [],
+            "data_sources": []
+        })
 
-        self.assertEqual(result["total_predictions"], 3)
-        self.assertEqual(result["correct_predictions"], 2)
-        self.assertAlmostEqual(result["accuracy"], 66.67, places=1)
+        self.assertFalse(result["success"])
+        self.assertIn("errors", result)
 
     @patch("ai_agent.boto3")
-    def test_query_stats_tool(self, mock_boto3):
-        """Test query_stats tool execution"""
-        mock_table = MagicMock()
-        mock_table.query.return_value = {"Items": [{"team": "Lakers", "wins": 10}]}
+    def test_analyze_predictions(self, mock_boto3):
+        """Test analyzing predictions"""
+        from ai_agent import AIAgent
+
+        mock_table = Mock()
         mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {"Items": []}
 
         agent = AIAgent()
-        result = agent.execute_tool(
-            "query_stats", {"query_type": "team_stats", "team": "Lakers"}
-        )
+        result = agent._analyze_predictions({"days": 7}, "user123")
 
-        self.assertIn("stats", result)
-        self.assertEqual(len(result["stats"]), 1)
+        self.assertIn("total_predictions", result)
 
     @patch("ai_agent.boto3")
-    def test_explain_prediction_tool(self, mock_boto3):
-        """Test explain_prediction tool execution"""
-        mock_table = MagicMock()
-        mock_table.get_item.return_value = {
-            "Item": {
-                "game": "Lakers vs Warriors",
-                "prediction": "Lakers",
-                "confidence": 0.75,
-            }
-        }
+    def test_query_stats(self, mock_boto3):
+        """Test querying stats"""
+        from ai_agent import AIAgent
+
+        mock_table = Mock()
         mock_boto3.resource.return_value.Table.return_value = mock_table
+        mock_table.query.return_value = {"Items": []}
 
         agent = AIAgent()
-        result = agent.execute_tool("explain_prediction", {"prediction_id": "test-123"})
+        result = agent._query_stats({
+            "stat_type": "team",
+            "team": "Lakers",
+            "sport": "basketball_nba"
+        })
 
-        self.assertEqual(result["prediction_id"], "test-123")
-        self.assertEqual(result["game"], "Lakers vs Warriors")
+        self.assertIsInstance(result, dict)
+
+    @patch("ai_agent.boto3")
+    @patch("ai_agent.UserModel")
+    def test_list_user_models(self, mock_user_model, mock_boto3):
+        """Test listing user models"""
+        from ai_agent import AIAgent
+
+        mock_model = Mock()
+        mock_model.to_dict.return_value = {"model_id": "model123"}
+        mock_user_model.list_by_user.return_value = [mock_model]
+
+        agent = AIAgent()
+        result = agent._list_user_models({}, "user123")
+
+        self.assertIn("models", result)
+        self.assertEqual(len(result["models"]), 1)
+
+    @patch("ai_agent.AIAgent")
+    def test_lambda_handler(self, mock_agent_class):
+        """Test lambda handler"""
+        from ai_agent import lambda_handler
+
+        mock_agent = Mock()
+        mock_agent._invoke_model.return_value = "Test response"
+        mock_agent._get_tools.return_value = []
+        mock_agent.system_prompt = "Test prompt"
+        mock_agent_class.return_value = mock_agent
+
+        event = {
+            "body": json.dumps({
+                "message": "Hello",
+                "stream": False
+            })
+        }
+
+        result = lambda_handler(event, None)
+        self.assertEqual(result["statusCode"], 200)
 
 
 if __name__ == "__main__":

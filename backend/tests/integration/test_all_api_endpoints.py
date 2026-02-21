@@ -49,12 +49,42 @@ def api_config():
         },
     )
     token = response["AuthenticationResult"]["IdToken"]
+    
+    # Get user ID from token
+    user_response = cognito.get_user(AccessToken=response["AuthenticationResult"]["AccessToken"])
+    user_id = next(attr["Value"] for attr in user_response["UserAttributes"] if attr["Name"] == "sub")
 
     return {
         "api_url": api_url,
         "headers": {"Authorization": token},
         "environment": environment,
+        "user_id": user_id,
     }
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_test_user(api_config):
+    """Ensure test user has required subscription and feature access"""
+    environment = api_config["environment"]
+    user_id = api_config["user_id"]
+    table_name = f"carpool-bets-v2-{environment}"
+    
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table = dynamodb.Table(table_name)
+    
+    # Ensure user has pro subscription with all features
+    table.put_item(
+        Item={
+            "pk": f"USER#{user_id}",
+            "sk": "SUBSCRIPTION",
+            "tier": "pro",
+            "features": ["user_models", "custom_data", "advanced_analytics"],
+        }
+    )
+    
+    yield
+    
+    # Cleanup not needed - keep subscription for future tests
 
 
 def test_health_endpoint(api_config):
@@ -178,6 +208,18 @@ def test_model_rankings_endpoint(api_config):
     data = response.json()
     assert "rankings" in data
     assert "sport" in data
+
+
+def test_custom_data_list_endpoint(api_config):
+    """Test /custom-data endpoint (list)"""
+    response = requests.get(
+        f"{api_config['api_url']}/custom-data",
+        headers=api_config["headers"],
+        timeout=10,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
 
 
 def test_compliance_log_endpoint(api_config):
