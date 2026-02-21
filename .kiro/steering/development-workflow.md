@@ -69,6 +69,48 @@ make build        # Build all components
   - `make test-coverage-module MODULE=<module_name>` - Specific module coverage
   - Both commands show line and branch coverage metrics
 
+### Writing Unit Tests - Critical Rules
+**ALWAYS read the implementation code FIRST before writing tests:**
+
+1. **Read the actual implementation** to understand:
+   - Method signatures and parameters
+   - Dependencies (e.g., `self.table` from BaseAPIHandler)
+   - Required vs optional parameters
+   - Expected return values and data structures
+   - Error handling behavior
+
+2. **Check existing test patterns** in the codebase:
+   - How dependencies are mocked
+   - Import patterns and environment setup
+   - Assertion styles used
+
+3. **Write tests that match reality**:
+   - Use actual method signatures from the code
+   - Mock all dependencies the code actually uses
+   - Test with realistic data structures
+   - Verify actual return values, not assumptions
+
+4. **Common pitfalls to avoid**:
+   - ❌ Guessing method signatures without reading code
+   - ❌ Mocking wrong import paths
+   - ❌ Testing with incomplete mock data
+   - ❌ Asserting on wrong response keys
+   - ✅ Read implementation → Understand dependencies → Write matching tests
+
+**Example workflow:**
+```bash
+# 1. Read the implementation
+cat backend/api/games.py | grep "def get_games"
+
+# 2. Check what it imports/uses
+cat backend/api/games.py | grep "import\|from"
+
+# 3. Look at similar existing tests
+cat backend/tests/unit/test_api_handler.py
+
+# 4. Write test matching actual implementation
+```
+
 ### Code Quality Standards
 - **Automatic linting** with auto-fix enabled
 - **Python**: black + flake8 + isort
