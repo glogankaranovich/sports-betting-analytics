@@ -144,12 +144,10 @@ def test_analytics_endpoint(api_config):
 
 def test_compliance_log_endpoint(api_config):
     """Test /compliance/log endpoint (POST)"""
-    # Compliance endpoint may not be in the main API Gateway
-    # Skip if not available
     payload = {
-        "user_id": "test-user",
+        "sessionId": "test-session-123",
         "action": "age_verification",
-        "timestamp": "2026-01-24T21:00:00Z",
+        "data": {"verified": True, "age": 21}
     }
     response = requests.post(
         f"{api_config['api_url']}/compliance/log",
@@ -157,8 +155,8 @@ def test_compliance_log_endpoint(api_config):
         json=payload,
         timeout=10,
     )
-    # 400 means validation failed, 403 means not configured, 404 means not found
-    assert response.status_code in [200, 201, 400, 403, 404]
+    # Should succeed or return 404 if compliance stack not deployed
+    assert response.status_code in [200, 404]
 
 
 def test_unauthorized_access():

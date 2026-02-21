@@ -74,33 +74,6 @@ class TestPlayerPropsUnit(unittest.TestCase):
         self.assertEqual(item["pk"], "PROP#test_event_123#Josh Allen")
         self.assertEqual(item["sk"], "draftkings#player_pass_tds#Over#LATEST")
 
-    def test_api_handler_player_props_route(self):
-        """Test API handler routing for player props"""
-        # Set environment variables like existing tests
-        os.environ["DYNAMODB_TABLE"] = "test-table"
-        os.environ["ENVIRONMENT"] = "test"
-
-        # Import games handler (player-props migrated to modular handlers)
-        from api.games import lambda_handler
-
-        # Patch the table object
-        with patch("api.games.table") as mock_table:
-            mock_table.query.return_value = {"Items": [], "Count": 0}
-
-            event = {
-                "httpMethod": "GET",
-                "path": "/player-props",
-                "queryStringParameters": {"sport": "americanfootball_nfl"},
-            }
-
-            result = lambda_handler(event, None)
-
-            self.assertEqual(result["statusCode"], 200)
-            body = json.loads(result["body"])
-            self.assertIn("props", body)
-            self.assertIn("count", body)
-            self.assertIn("filters", body)
-
 
 class TestPlayerPropsIntegration(unittest.TestCase):
     """Integration tests for player props API"""

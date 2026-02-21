@@ -46,7 +46,7 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
     });
     const betaStage = pipeline.addStage(betaStageConstruct);
 
-    // Integration tests (Python) - Re-enabled after fixing schema issues
+    // Integration tests (Python) - Run all integration tests
     betaStage.addPost(new CodeBuildStep('IntegrationTests', {
       commands: [
         'echo "🧪 Running integration tests against Beta..."',
@@ -57,10 +57,8 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
         'export AWS_SESSION_TOKEN=$(cat /tmp/creds.json | jq -r .Credentials.SessionToken)',
         'cd backend',
         'python3 -m pip install -r requirements.txt',
-        'echo "Testing Lambda and DynamoDB integration..."',
-        'python3 tests/integration/test_integration.py',
-        'echo "Testing API endpoints..."',
-        'python3 tests/integration/test_api_integration.py'
+        'echo "Running all integration tests..."',
+        'python3 -m pytest tests/integration/ -v --tb=short'
       ],
       buildEnvironment: {
         buildImage: LinuxBuildImage.STANDARD_7_0,

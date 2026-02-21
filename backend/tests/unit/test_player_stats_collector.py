@@ -2,7 +2,7 @@ import os
 import sys
 import unittest
 from decimal import Decimal
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 os.environ["DYNAMODB_TABLE"] = "test-table"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -141,6 +141,20 @@ class TestPlayerStatsCollector(unittest.TestCase):
         stats = collector._fetch_espn_player_stats("invalid_id", "basketball_nba")
 
         self.assertEqual(stats, [])
+
+    @patch("player_stats_collector.PlayerStatsCollector")
+    @patch("player_stats_collector.boto3")
+    def test_lambda_handler(self, mock_boto3, mock_collector_class):
+        """Test lambda handler"""
+        mock_collector = MagicMock()
+        mock_collector.collect_stats_for_sport.return_value = 50
+        mock_collector_class.return_value = mock_collector
+
+        from player_stats_collector import lambda_handler
+        result = lambda_handler({}, {})
+
+        self.assertEqual(result["statusCode"], 200)
+        self.assertIn("stats_collected", result["body"])
 
 
 if __name__ == "__main__":
