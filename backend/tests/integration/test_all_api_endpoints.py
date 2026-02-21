@@ -243,6 +243,44 @@ def test_compliance_log_endpoint(api_config):
     assert response.status_code in [200, 404, 500]
 
 
+def test_profile_endpoint(api_config):
+    """Test GET /profile endpoint"""
+    response = requests.get(
+        f"{api_config['api_url']}/profile",
+        headers=api_config["headers"],
+        params={"user_id": api_config["user_id"]},
+        timeout=10,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "user_id" in data or "email" in data
+
+
+def test_subscription_endpoint(api_config):
+    """Test GET /subscription endpoint"""
+    response = requests.get(
+        f"{api_config['api_url']}/subscription",
+        headers=api_config["headers"],
+        params={"user_id": api_config["user_id"]},
+        timeout=10,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "tier" in data
+
+
+def test_benny_dashboard_endpoint(api_config):
+    """Test GET /benny-dashboard endpoint"""
+    response = requests.get(
+        f"{api_config['api_url']}/benny-dashboard",
+        headers=api_config["headers"],
+        timeout=10,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, dict)
+
+
 def test_unauthorized_access():
     """Test that protected endpoints require authentication"""
     environment = os.getenv("ENVIRONMENT", "dev")
