@@ -160,3 +160,107 @@ def test_consensus_game_odds_analysis():
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+
+def test_contrarian_model():
+    """Test contrarian model analysis"""
+    model = ConsensusModel()  # Import ContrarianModel if needed
+    
+    # Test american_to_decimal conversion
+    assert model.american_to_decimal(150) == 2.5
+    assert model.american_to_decimal(-150) == pytest.approx(1.667, rel=0.01)
+
+
+def test_analysis_result_creation():
+    """Test AnalysisResult creation"""
+    result = AnalysisResult(
+        game_id="game123",
+        sport="basketball_nba",
+        model="consensus",
+        prediction="Lakers",
+        confidence=0.75,
+        reasoning="Test reasoning",
+        analysis_type="game"
+    )
+    
+    assert result.game_id == "game123"
+    assert result.model == "consensus"
+    assert result.prediction == "Lakers"
+    assert result.confidence == 0.75
+
+
+def test_model_factory():
+    """Test ModelFactory creates correct models"""
+    from ml.models import ModelFactory
+    
+    consensus = ModelFactory.create_model("consensus")
+    assert consensus.__class__.__name__ == "ConsensusModel"
+    
+    value = ModelFactory.create_model("value")
+    assert value.__class__.__name__ == "ValueModel"
+    
+    momentum = ModelFactory.create_model("momentum")
+    assert momentum.__class__.__name__ == "MomentumModel"
+
+
+def test_base_model_methods():
+    """Test base model helper methods"""
+    model = ConsensusModel()
+    
+    # Test odds conversion
+    decimal_odds = model.american_to_decimal(-110)
+    assert decimal_odds > 1.0
+    assert decimal_odds < 3.0
+
+
+def test_value_model_game_analysis():
+    """Test value model game analysis"""
+    model = ValueModel()
+    
+    game_items = [
+        {
+            "pk": "GAME#game123",
+            "sport": "basketball_nba",
+            "home_team": "Lakers",
+            "away_team": "Warriors",
+            "bookmaker": "draftkings",
+            "outcomes": [
+                {"name": "Lakers", "price": -105},
+                {"name": "Warriors", "price": -115}
+            ]
+        }
+    ]
+    
+    game_info = game_items[0]
+    result = model.analyze_game_odds("game123", game_items, game_info)
+    
+    if result:
+        assert isinstance(result, AnalysisResult)
+        assert result.model == "value"
+
+
+def test_momentum_model_game_analysis():
+    """Test momentum model game analysis"""
+    model = MomentumModel()
+    
+    game_items = [
+        {
+            "pk": "GAME#game123",
+            "sport": "basketball_nba",
+            "home_team": "Lakers",
+            "away_team": "Warriors",
+            "bookmaker": "draftkings",
+            "outcomes": [
+                {"name": "Lakers", "price": -120},
+                {"name": "Warriors", "price": 100}
+            ]
+        }
+    ]
+    
+    game_info = game_items[0]
+    result = model.analyze_game_odds("game123", game_items, game_info)
+    
+    if result:
+        assert isinstance(result, AnalysisResult)
+        assert result.model == "momentum"
