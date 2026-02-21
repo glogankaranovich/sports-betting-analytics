@@ -171,6 +171,14 @@ export class BetCollectorApiStack extends cdk.Stack {
     });
     userDataFunction.role?.addManagedPolicy(dynamoDbPolicy);
 
+    // Grant custom data permissions to userDataFunction
+    if (props.customDataTable) {
+      props.customDataTable.grantReadWriteData(userDataFunction);
+    }
+    if (props.customDataBucket) {
+      props.customDataBucket.grantReadWrite(userDataFunction);
+    }
+
     // Lambda function for bet collector API (legacy - will be deprecated)
     const betCollectorApiFunction = new lambda.Function(this, 'BetCollectorApiFunction', {
       runtime: lambda.Runtime.PYTHON_3_11,

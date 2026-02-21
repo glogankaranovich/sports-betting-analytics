@@ -132,6 +132,104 @@ class TestUserDataHandler(unittest.TestCase):
         
         self.assertEqual(result["statusCode"], 404)
 
+    @patch("api.utils.table")
+    def test_route_update_user_model(self, mock_table):
+        """Test routing to update user model"""
+        handler = UserDataHandler()
+        
+        with patch.object(handler, "update_user_model") as mock_update:
+            mock_update.return_value = {"statusCode": 200}
+            
+            result = handler.route_request(
+                "PUT", "/user-models/model123", {}, {"model_id": "model123"}, {"name": "Updated"}
+            )
+            
+            mock_update.assert_called_once_with("model123", {"name": "Updated"})
+
+    @patch("api.utils.table")
+    def test_route_delete_user_model(self, mock_table):
+        """Test routing to delete user model"""
+        handler = UserDataHandler()
+        
+        with patch.object(handler, "delete_user_model") as mock_delete:
+            mock_delete.return_value = {"statusCode": 200}
+            
+            result = handler.route_request(
+                "DELETE", "/user-models/model123", {}, {"model_id": "model123"}, {}
+            )
+            
+            mock_delete.assert_called_once_with("model123", {})
+
+    @patch("api.utils.table")
+    def test_route_create_backtest(self, mock_table):
+        """Test routing to create backtest"""
+        handler = UserDataHandler()
+        
+        with patch.object(handler, "create_backtest") as mock_create:
+            mock_create.return_value = {"statusCode": 200}
+            
+            result = handler.route_request(
+                "POST", "/user-models/model123/backtests", {}, {"model_id": "model123"}, {"days": 30}
+            )
+            
+            mock_create.assert_called_once_with("model123", {"days": 30})
+
+    @patch("api.utils.table")
+    def test_route_list_backtests(self, mock_table):
+        """Test routing to list backtests"""
+        handler = UserDataHandler()
+        
+        with patch.object(handler, "list_backtests") as mock_list:
+            mock_list.return_value = {"statusCode": 200}
+            
+            result = handler.route_request(
+                "GET", "/user-models/model123/backtests", {}, {"model_id": "model123"}, {}
+            )
+            
+            mock_list.assert_called_once()
+
+    @patch("api.utils.table")
+    def test_route_get_backtest(self, mock_table):
+        """Test routing to get backtest by ID"""
+        handler = UserDataHandler()
+        
+        with patch.object(handler, "get_backtest") as mock_get:
+            mock_get.return_value = {"statusCode": 200}
+            
+            result = handler.route_request(
+                "GET", "/backtests/bt123", {}, {}, {}
+            )
+            
+            mock_get.assert_called_once()
+
+    @patch("api.utils.table")
+    def test_route_upload_custom_data(self, mock_table):
+        """Test routing to upload custom data"""
+        handler = UserDataHandler()
+        
+        with patch.object(handler, "upload_custom_data") as mock_upload:
+            mock_upload.return_value = {"statusCode": 200}
+            
+            result = handler.route_request(
+                "POST", "/custom-data/upload", {}, {}, {"data": "test"}
+            )
+            
+            mock_upload.assert_called_once()
+
+    @patch("api.utils.table")
+    def test_route_delete_custom_data(self, mock_table):
+        """Test routing to delete custom data"""
+        handler = UserDataHandler()
+        
+        with patch.object(handler, "delete_custom_data") as mock_delete:
+            mock_delete.return_value = {"statusCode": 200}
+            
+            result = handler.route_request(
+                "DELETE", "/custom-data/ds123", {}, {}, {}
+            )
+            
+            mock_delete.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

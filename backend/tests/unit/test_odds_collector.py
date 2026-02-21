@@ -290,3 +290,44 @@ class TestOddsCollectorExtended(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class TestOddsCollectorExtended(unittest.TestCase):
+    """Extended tests for OddsCollector"""
+
+    @patch("odds_collector.boto3")
+    @patch("odds_collector.requests")
+    def test_collect_odds_for_sport(self, mock_requests, mock_boto3):
+        """Test collecting odds for a sport"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        
+        mock_response = Mock()
+        mock_response.json.return_value = []
+        mock_requests.get.return_value = mock_response
+
+        collector = OddsCollector()
+        result = collector.collect_odds_for_sport("basketball_nba")
+
+        self.assertIsInstance(result, list)
+
+    @patch("odds_collector.boto3")
+    @patch("odds_collector.requests")
+    def test_collect_props_for_sport(self, mock_requests, mock_boto3):
+        """Test collecting props for a sport"""
+        mock_table = Mock()
+        mock_boto3.resource.return_value.Table.return_value = mock_table
+        
+        mock_response = Mock()
+        mock_response.json.return_value = []
+        mock_requests.get.return_value = mock_response
+
+        collector = OddsCollector()
+        count = collector.collect_props_for_sport("basketball_nba")
+
+        self.assertIsInstance(count, int)
+
+
+if __name__ == "__main__":
+    unittest.main()

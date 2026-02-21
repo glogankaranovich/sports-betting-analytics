@@ -78,6 +78,48 @@ class TestAnalyticsHandler(unittest.TestCase):
         body = json.loads(result["body"])
         self.assertIn("total_predictions", body)
 
+    @patch("model_analytics.ModelAnalytics")
+    @patch("api.analytics.table")
+    def test_get_analytics_cache_miss(self, mock_table, mock_analytics_class):
+        """Test analytics with cache miss"""
+        mock_table.query.return_value = {"Items": []}
+        
+        mock_analytics = Mock()
+        mock_analytics.get_model_performance_summary.return_value = {"accuracy": 0.65}
+        mock_analytics_class.return_value = mock_analytics
+
+        result = self.handler.get_analytics({"type": "summary"})
+        
+        self.assertEqual(result["statusCode"], 200)
+
+    @patch("model_performance.ModelPerformanceTracker")
+    @patch("api.analytics.table")
+    def test_get_model_performance_single(self, mock_table, mock_tracker_class):
+        """Test getting single model performance"""
+        mock_tracker = Mock()
+        mock_tracker.get_model_performance.return_value = {"accuracy": 0.70}
+        mock_tracker_class.return_value = mock_tracker
+
+        result = self.handler.get_model_performance({"model": "consensus", "sport": "basketball_nba"})
+        
+        self.assertEqual(result["statusCode"], 200)
+        body = json.loads(result["body"])
+        self.assertIn("performance", body)
+
+    @patch("model_performance.ModelPerformanceTracker")
+    @patch("api.analytics.table")
+    def test_get_model_performance_all(self, mock_table, mock_tracker_class):
+        """Test getting all models performance"""
+        mock_tracker = Mock()
+        mock_tracker.get_all_models_performance.return_value = {"consensus": {"accuracy": 0.70}}
+        mock_tracker_class.return_value = mock_tracker
+
+        result = self.handler.get_model_performance({"sport": "basketball_nba"})
+        
+        self.assertEqual(result["statusCode"], 200)
+        body = json.loads(result["body"])
+        self.assertIn("models", body)
+
     @patch("ml.dynamic_weighting.DynamicModelWeighting")
     @patch("api.analytics.table")
     def test_get_analytics_weights(self, mock_table, mock_weighting_class):
