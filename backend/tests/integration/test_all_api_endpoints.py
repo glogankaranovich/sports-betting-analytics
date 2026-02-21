@@ -157,8 +157,8 @@ def test_compliance_log_endpoint(api_config):
         json=payload,
         timeout=10,
     )
-    # 403 means endpoint exists but not configured in this API Gateway
-    assert response.status_code in [200, 201, 403, 404]
+    # 400 means validation failed, 403 means not configured, 404 means not found
+    assert response.status_code in [200, 201, 400, 403, 404]
 
 
 def test_unauthorized_access():

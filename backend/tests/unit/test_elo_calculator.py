@@ -67,6 +67,28 @@ class TestEloCalculator(unittest.TestCase):
         self.calculator._store_rating("basketball_nba", "Lakers", 1650, "2026-02-20T00:00:00")
         self.mock_table.put_item.assert_called_once()
 
+    def test_process_game_result(self):
+        """Test processing game result"""
+        self.mock_table.query.return_value = {"Items": []}
+        
+        game_data = {
+            "sport": "basketball_nba",
+            "status": {"type": {"completed": True}},
+            "competitions": [{
+                "competitors": [
+                    {"team": {"displayName": "Lakers"}, "score": "110"},
+                    {"team": {"displayName": "Warriors"}, "score": "105"}
+                ]
+            }]
+        }
+        
+        result = self.calculator.process_game_result(game_data)
+        
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 2)
+        self.assertIsInstance(result[0], float)
+        self.assertIsInstance(result[1], float)
+
 
 if __name__ == "__main__":
     unittest.main()

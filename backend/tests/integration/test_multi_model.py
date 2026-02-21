@@ -78,6 +78,12 @@ def test_multi_model_analysis():
         )
 
         result = json.loads(response["Payload"].read())
+        
+        # Check if Lambda errored
+        if "errorMessage" in result:
+            pytest.fail(f"{model} Lambda error: {result.get('errorMessage')}")
+        
+        assert "body" in result, f"{model} Lambda response missing 'body': {result}"
         body = json.loads(result["body"])
 
         print(

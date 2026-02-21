@@ -58,6 +58,43 @@ class TestPlayerAnalytics(unittest.TestCase):
         self.assertEqual(splits["home_games"], 2)
         self.assertEqual(splits["away_games"], 1)
 
+    def test_get_matchup_history(self):
+        """Test getting player matchup history"""
+        self.mock_table.query.return_value = {
+            "Items": [
+                {"sk": "2026-02-19#warriors", "stats": {"points": Decimal("28"), "rebounds": Decimal("7")}},
+                {"sk": "2026-02-15#warriors", "stats": {"points": Decimal("32"), "rebounds": Decimal("9")}},
+            ]
+        }
+        
+        history = self.analytics.get_matchup_history(
+            "LeBron James", "Warriors", "basketball_nba"
+        )
+        
+        self.assertIn("games", history)
+        self.assertIn("avg_stats", history)
+        self.assertEqual(history["games"], 2)
+
+    def test_get_recent_form_trend(self):
+        """Test getting recent form trend"""
+        self.mock_table.query.return_value = {
+            "Items": [
+                {"game_date": "2026-02-19", "stats": {"points": Decimal("25")}},
+                {"game_date": "2026-02-17", "stats": {"points": Decimal("30")}},
+                {"game_date": "2026-02-15", "stats": {"points": Decimal("22")}},
+                {"game_date": "2026-02-13", "stats": {"points": Decimal("18")}},
+                {"game_date": "2026-02-11", "stats": {"points": Decimal("20")}},
+            ]
+        }
+        
+        trend = self.analytics.get_recent_form_trend(
+            "LeBron James", "basketball_nba", games=5
+        )
+        
+        self.assertIn("trend", trend)
+        self.assertIn("direction", trend)
+        self.assertIn(trend["trend"], ["improving", "declining", "stable", "insufficient_data"])
+
 
 if __name__ == "__main__":
     unittest.main()

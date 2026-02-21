@@ -80,11 +80,11 @@ class TestPlayerPropsUnit(unittest.TestCase):
         os.environ["DYNAMODB_TABLE"] = "test-table"
         os.environ["ENVIRONMENT"] = "test"
 
-        # Import after setting environment
-        from api_handler import lambda_handler
+        # Import games handler (player-props migrated to modular handlers)
+        from api.games import lambda_handler
 
-        # Patch the table object like existing tests
-        with patch("api_handler.table") as mock_table:
+        # Patch the table object
+        with patch("api.games.table") as mock_table:
             mock_table.query.return_value = {"Items": [], "Count": 0}
 
             event = {

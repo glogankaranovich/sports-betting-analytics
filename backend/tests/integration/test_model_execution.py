@@ -7,10 +7,15 @@ Run full tests with writes: pytest test_model_execution.py -m writes
 Run all tests: pytest test_model_execution.py
 """
 
+import os
 from datetime import datetime
 
 import boto3
 import pytest
+
+# Set env var for model dependencies
+environment = os.getenv("ENVIRONMENT", "dev")
+os.environ["DYNAMODB_TABLE"] = f"carpool-bets-v2-{environment}"
 
 from ml.models import HotColdModel, InjuryAwareModel, MatchupModel
 
@@ -19,7 +24,7 @@ from ml.models import HotColdModel, InjuryAwareModel, MatchupModel
 def dynamodb_table():
     """Get real DynamoDB table for integration testing"""
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-    return dynamodb.Table("carpool-bets-v2-dev")
+    return dynamodb.Table(os.environ["DYNAMODB_TABLE"])
 
 
 @pytest.fixture

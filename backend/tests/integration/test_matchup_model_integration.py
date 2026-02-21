@@ -3,17 +3,22 @@ Integration test for Matchup Model
 Tests that the matchup model generates analyses in dev environment
 """
 
+import os
 from decimal import Decimal
 
 import boto3
 import pytest
+
+# Set env var for model dependencies
+environment = os.getenv("ENVIRONMENT", "dev")
+os.environ["DYNAMODB_TABLE"] = f"carpool-bets-v2-{environment}"
 
 
 @pytest.mark.readonly
 def test_matchup_model_integration():
     """Test that matchup model generates analyses"""
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-    table = dynamodb.Table("carpool-bets-v2-dev")
+    table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
 
     # Query for matchup model analyses using AnalysisTimeGSI
     response = table.query(
@@ -54,7 +59,7 @@ def test_matchup_prop_with_opponent_data():
     from ml.models import MatchupModel
 
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-    table = dynamodb.Table("carpool-bets-v2-dev")
+    table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
 
     # Create test data
     test_game_id = "test_matchup_prop_game"
