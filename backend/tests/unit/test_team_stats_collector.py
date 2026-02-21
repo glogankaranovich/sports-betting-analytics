@@ -112,6 +112,28 @@ class TestTeamStatsCollector(unittest.TestCase):
         self.assertEqual(collector.collect_stats_for_sport("unsupported_sport"), 0)
 
     @patch("team_stats_collector.boto3")
+    def test_get_completed_games(self, mock_boto3):
+        """Test getting completed games"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        self.mock_table.query.return_value = {
+            "Items": [
+                {
+                    "pk": "GAME#game123",
+                    "home_team": "Lakers",
+                    "away_team": "Warriors",
+                    "commence_time": "2026-01-01T19:00:00Z"
+                }
+            ]
+        }
+
+        collector = TeamStatsCollector()
+        games = collector._get_completed_games("basketball_nba")
+
+        self.assertEqual(len(games), 1)
+        self.assertEqual(games[0]["id"], "game123")
+
+    @patch("team_stats_collector.boto3")
     @patch("team_stats_collector.requests")
     def test_fetch_espn_team_stats_api_error(self, mock_requests, mock_boto3):
         mock_boto3.resource.return_value.Table.return_value = self.mock_table
