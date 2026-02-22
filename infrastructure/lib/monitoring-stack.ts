@@ -307,7 +307,7 @@ export class MonitoringStack extends cdk.Stack {
         }),
         threshold: 5,
         evaluationPeriods: 1,
-        alarmName: `${props.environment}-${name}-Errors`,
+        alarmName: `${props.environment}-${name}-CustomErrors`,
         alarmDescription: `Alert when ${name} has errors`,
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
       });
