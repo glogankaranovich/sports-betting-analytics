@@ -33,7 +33,10 @@ export class IntegrationTestRoleStack extends cdk.Stack {
               actions: [
                 'dynamodb:Scan',
                 'dynamodb:Query',
-                'dynamodb:GetItem'
+                'dynamodb:GetItem',
+                'dynamodb:PutItem',
+                'dynamodb:UpdateItem',
+                'dynamodb:DeleteItem'
               ],
               resources: ['*']
             }),
