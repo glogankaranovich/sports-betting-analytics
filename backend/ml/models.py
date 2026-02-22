@@ -2611,26 +2611,30 @@ class FundamentalsModel(BaseAnalysisModel):
             return None
     
     def _calculate_pace_advantage(self, home_metrics: Dict, away_metrics: Dict, sport: str) -> float:
-        """Calculate pace advantage for basketball (possessions per game)"""
-        if sport != "basketball_nba":
-            return 0
-        
+        """Calculate pace/tempo advantage by sport"""
         try:
-            home_pace = float(home_metrics.get("pace", 100))
-            away_pace = float(away_metrics.get("pace", 100))
-            home_off_eff = float(home_metrics.get("offensive_efficiency", 110))
-            away_def_eff = float(away_metrics.get("defensive_efficiency", 110))
+            if sport == "basketball_nba":
+                home_pace = float(home_metrics.get("pace", 100))
+                away_pace = float(away_metrics.get("pace", 100))
+                home_off_eff = float(home_metrics.get("offensive_efficiency", 110))
+                away_def_eff = float(away_metrics.get("defensive_efficiency", 110))
+                
+                pace_diff = home_pace - away_pace
+                eff_diff = home_off_eff - away_def_eff
+                
+                if pace_diff > 0 and eff_diff > 0:
+                    return min(pace_diff / 2, 5)
+                elif pace_diff < 0 and eff_diff < 0:
+                    return max(pace_diff / 2, -5)
+                return 0
             
-            # Faster pace benefits teams with better offensive efficiency
-            pace_diff = home_pace - away_pace
-            eff_diff = home_off_eff - away_def_eff
+            elif sport == "icehockey_nhl":
+                # Shot volume advantage
+                home_shots = float(home_metrics.get("shots_per_game", 30))
+                away_shots = float(away_metrics.get("shots_per_game", 30))
+                return (home_shots - away_shots) / 5
             
-            # If home team is more efficient and pace is faster, that's an advantage
-            if pace_diff > 0 and eff_diff > 0:
-                return min(pace_diff / 2, 5)
-            elif pace_diff < 0 and eff_diff < 0:
-                return max(pace_diff / 2, -5)
-            
+            # NFL, MLB, Soccer don't have meaningful pace metrics from ESPN
             return 0
         except:
             return 0
@@ -2643,27 +2647,54 @@ class FundamentalsModel(BaseAnalysisModel):
             home_fg = float(home_metrics.get("fg_pct", 0))
             away_fg = float(away_metrics.get("fg_pct", 0))
             
-            # Add offensive/defensive efficiency
-            home_off_eff = float(home_metrics.get("offensive_efficiency", 110))
-            away_def_eff = float(away_metrics.get("defensive_efficiency", 110))
+    def _compare_metrics(self, home_metrics: Dict, away_metrics: Dict, sport: str) -> float:
+        """Compare adjusted metrics between teams, return difference (-15 to +15)"""
+        try:
+            if sport == "basketball_nba":
+                home_ppg = float(home_metrics.get("adjusted_ppg", 0))
+                away_ppg = float(away_metrics.get("adjusted_ppg", 0))
+                home_fg = float(home_metrics.get("fg_pct", 0))
+                away_fg = float(away_metrics.get("fg_pct", 0))
+                home_off_eff = float(home_metrics.get("offensive_efficiency", 110))
+                away_def_eff = float(away_metrics.get("defensive_efficiency", 110))
+                
+                ppg_diff = (home_ppg - away_ppg) / 5
+                fg_diff = (home_fg - away_fg) * 20
+                eff_diff = (home_off_eff - away_def_eff) / 5
+                
+                return (ppg_diff + fg_diff + eff_diff) / 3
             
-            ppg_diff = (home_ppg - away_ppg) / 5  # Scale points
-            fg_diff = (home_fg - away_fg) * 20  # Scale FG%
-            eff_diff = (home_off_eff - away_def_eff) / 5  # Efficiency matchup
+            elif sport == "americanfootball_nfl":
+                home_yards = float(home_metrics.get("adjusted_total_yards", 0))
+                away_yards = float(away_metrics.get("adjusted_total_yards", 0))
+                home_pass_eff = float(home_metrics.get("pass_efficiency", 100))
+                away_pass_eff = float(away_metrics.get("pass_efficiency", 100))
+                home_turnover = float(home_metrics.get("turnover_differential", 0))
+                away_turnover = float(away_metrics.get("turnover_differential", 0))
+                
+                yards_diff = (home_yards - away_yards) / 50
+                pass_diff = (home_pass_eff - away_pass_eff) / 20
+                turnover_diff = (home_turnover - away_turnover) / 2
+                
+                return (yards_diff + pass_diff + turnover_diff) / 3
             
-            return (ppg_diff + fg_diff + eff_diff) / 3
-        
-        elif sport == "americanfootball_nfl":
-            home_yards = float(home_metrics.get("adjusted_total_yards", 0))
-            away_yards = float(away_metrics.get("adjusted_total_yards", 0))
-            return (home_yards - away_yards) / 50
-        
-        elif sport == "soccer_epl":
-            home_shots = float(home_metrics.get("adjusted_shots_per_game", 0))
-            away_shots = float(away_metrics.get("adjusted_shots_per_game", 0))
-            return (home_shots - away_shots) * 2
-        
-        return 0.0
+            elif sport == "icehockey_nhl":
+                home_shots = float(home_metrics.get("shots_per_game", 30))
+                away_shots = float(away_metrics.get("shots_per_game", 30))
+                home_pp = float(home_metrics.get("power_play_pct", 20))
+                away_pp = float(away_metrics.get("power_play_pct", 20))
+                
+                shots_diff = (home_shots - away_shots) / 5
+                pp_diff = (home_pp - away_pp) / 5
+                
+                return (shots_diff + pp_diff) / 2
+            
+            # Soccer and MLB not supported - ESPN doesn't provide team stats
+            return 0.0
+            
+        except Exception as e:
+            logger.error(f"Error comparing metrics: {e}")
+            return 0.0
 
 
 class ModelFactory:

@@ -233,10 +233,11 @@ class TestFundamentalsModel:
         assert score > 0  # Home team advantage
 
     def test_compare_metrics_soccer(self, model):
-        """Test soccer metric comparison"""
+        """Test soccer metric comparison - not supported by ESPN"""
         home_metrics = {"adjusted_shots_per_game": 15.0}
         away_metrics = {"adjusted_shots_per_game": 12.0}
         
         score = model._compare_metrics(home_metrics, away_metrics, "soccer_epl")
         
-        assert score > 0  # Home team advantage
+        # ESPN doesn't provide soccer team stats, should return 0
+        assert score == 0.0
