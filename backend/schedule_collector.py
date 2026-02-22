@@ -162,10 +162,35 @@ class ScheduleCollector:
 
 def lambda_handler(event, context):
     """Lambda handler for schedule collection"""
-    sport = event.get("sport", "basketball_nba")
-    print(f"Collecting schedules for {sport}")
+    try:
+        sport = event.get("sport", "basketball_nba")
+        print(f"Collecting schedules for {sport}")
 
-    collector = ScheduleCollector()
-    count = collector.collect_schedules_for_sport(sport)
+        collector = ScheduleCollector()
+        count = collector.collect_schedules_for_sport(sport)
 
-    return {"statusCode": 200, "body": {"schedules_collected": count, "sport": sport}}
+        return {"statusCode": 200, "body": {"schedules_collected": count, "sport": sport}}
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Emit CloudWatch metric
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/ScheduleCollector',
+                MetricData=[{
+                    'MetricName': 'CollectionError',
+                    'Value': 1,
+                    'Unit': 'Count',
+                    'Dimensions': [
+                        {'Name': 'Sport', 'Value': event.get('sport', 'unknown') if event else 'unknown'}
+                    ]
+                }]
+            )
+        except:
+            pass
+        
+        return {"statusCode": 500, "body": {"error": str(e)}}

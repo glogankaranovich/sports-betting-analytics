@@ -285,8 +285,16 @@ export class MonitoringStack extends cdk.Stack {
       { name: 'OutcomeCollector', namespace: 'SportsAnalytics/OutcomeCollector', metric: 'CollectionError' },
       { name: 'TeamStatsCollector', namespace: 'SportsAnalytics/TeamStatsCollector', metric: 'CollectionError' },
       { name: 'PlayerStatsCollector', namespace: 'SportsAnalytics/PlayerStatsCollector', metric: 'CollectionError' },
+      { name: 'InjuryCollector', namespace: 'SportsAnalytics/InjuryCollector', metric: 'CollectionError' },
+      { name: 'ScheduleCollector', namespace: 'SportsAnalytics/ScheduleCollector', metric: 'CollectionError' },
+      { name: 'SeasonStatsCollector', namespace: 'SportsAnalytics/SeasonStatsCollector', metric: 'CollectionError' },
+      { name: 'WeatherCollector', namespace: 'SportsAnalytics/WeatherCollector', metric: 'CollectionError' },
+      { name: 'NewsCollector', namespace: 'SportsAnalytics/NewsCollector', metric: 'CollectionError' },
       { name: 'BennyTrader', namespace: 'SportsAnalytics/BennyTrader', metric: 'TradingError' },
       { name: 'ModelAnalytics', namespace: 'SportsAnalytics/ModelAnalytics', metric: 'AnalyticsError' },
+      { name: 'SeasonManager', namespace: 'SportsAnalytics/SeasonManager', metric: 'ManagementError' },
+      { name: 'ComplianceLogger', namespace: 'SportsAnalytics/ComplianceLogger', metric: 'LoggingError' },
+      { name: 'ModelComparisonCache', namespace: 'SportsAnalytics/ModelComparisonCache', metric: 'CacheError' },
     ];
 
     collectorErrors.forEach(({ name, namespace, metric }) => {

@@ -34,69 +34,91 @@ def is_in_season(sport: str, current_month: int) -> bool:
 
 def lambda_handler(event, context):
     """Enable/disable EventBridge rules based on current season"""
-    current_month = datetime.now().month
-    environment = os.environ.get("ENVIRONMENT", "dev")
+    try:
+        current_month = datetime.now().month
+        environment = os.environ.get("ENVIRONMENT", "dev")
 
-    print(f"Running season manager for {environment} (month: {current_month})")
+        print(f"Running season manager for {environment} (month: {current_month})")
 
-    paginator = events_client.get_paginator("list_rules")
-    updated_rules = []
+        paginator = events_client.get_paginator("list_rules")
+        updated_rules = []
 
-    # List all rules (no prefix filter since CDK generates complex names)
-    for page in paginator.paginate():
-        for rule in page["Rules"]:
-            rule_name = rule["Name"]
+        # List all rules (no prefix filter since CDK generates complex names)
+        for page in paginator.paginate():
+            for rule in page["Rules"]:
+                rule_name = rule["Name"]
 
-            # Check if this is a sport-specific rule
-            for sport in SPORT_SEASONS.keys():
-                # Match various rule patterns:
-                # - AnalysisRuleNBA... (analysis generators)
-                # - OddsRuleNBA... (odds collectors)
-                # - PropsRuleNBA... (props collectors)
-                # - DailyNba... (stats/injury collectors)
-                # - DailyNBA... (schedule collectors)
-                # - analysis-generator-nba (Lambda function names)
-                sport_patterns = [
-                    f"AnalysisRule{sport}",
-                    f"OddsRule{sport}",
-                    f"PropsRule{sport}",
-                    f"Daily{sport}",
-                    f"Daily{sport.capitalize()}",
-                    f"analysis-generator-{sport.lower()}",
-                    f"{sport}Stats",
-                    f"{sport}Injury",
-                    f"{sport}Schedule"
-                ]
-                
-                if any(pattern in rule_name for pattern in sport_patterns):
-                    in_season = is_in_season(sport, current_month)
-                    current_state = rule["State"]
-                    desired_state = "ENABLED" if in_season else "DISABLED"
+                # Check if this is a sport-specific rule
+                for sport in SPORT_SEASONS.keys():
+                    # Match various rule patterns:
+                    # - AnalysisRuleNBA... (analysis generators)
+                    # - OddsRuleNBA... (odds collectors)
+                    # - PropsRuleNBA... (props collectors)
+                    # - DailyNba... (stats/injury collectors)
+                    # - DailyNBA... (schedule collectors)
+                    # - analysis-generator-nba (Lambda function names)
+                    sport_patterns = [
+                        f"AnalysisRule{sport}",
+                        f"OddsRule{sport}",
+                        f"PropsRule{sport}",
+                        f"Daily{sport}",
+                        f"Daily{sport.capitalize()}",
+                        f"analysis-generator-{sport.lower()}",
+                        f"{sport}Stats",
+                        f"{sport}Injury",
+                        f"{sport}Schedule"
+                    ]
+                    
+                    if any(pattern in rule_name for pattern in sport_patterns):
+                        in_season = is_in_season(sport, current_month)
+                        current_state = rule["State"]
+                        desired_state = "ENABLED" if in_season else "DISABLED"
 
-                    if current_state != desired_state:
-                        if desired_state == "DISABLED":
-                            events_client.disable_rule(Name=rule_name)
-                        else:
-                            events_client.enable_rule(Name=rule_name)
+                        if current_state != desired_state:
+                            if desired_state == "DISABLED":
+                                events_client.disable_rule(Name=rule_name)
+                            else:
+                                events_client.enable_rule(Name=rule_name)
 
-                        updated_rules.append(
-                            {
-                                "rule": rule_name,
-                                "sport": sport,
-                                "from": current_state,
-                                "to": desired_state,
-                            }
-                        )
-                        print(
-                            f"Updated {rule_name}: {current_state} -> {desired_state}"
-                        )
-                    break
+                            updated_rules.append(
+                                {
+                                    "rule": rule_name,
+                                    "sport": sport,
+                                    "from": current_state,
+                                    "to": desired_state,
+                                }
+                            )
+                            print(
+                                f"Updated {rule_name}: {current_state} -> {desired_state}"
+                            )
+                        break
 
-    return {
-        "statusCode": 200,
-        "body": {
-            "message": f"Season manager completed for month {current_month}",
-            "updated_rules": updated_rules,
-            "total_updated": len(updated_rules)
-        },
-    }
+        return {
+            "statusCode": 200,
+            "body": {
+                "message": f"Season manager completed for month {current_month}",
+                "updated_rules": updated_rules,
+                "total_updated": len(updated_rules)
+            },
+        }
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Emit CloudWatch metric
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/SeasonManager',
+                MetricData=[{
+                    'MetricName': 'ManagementError',
+                    'Value': 1,
+                    'Unit': 'Count'
+                }]
+            )
+        except:
+            pass
+        
+        return {"statusCode": 500, "body": {"error": str(e)}}

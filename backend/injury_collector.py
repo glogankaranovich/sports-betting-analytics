@@ -191,16 +191,41 @@ class InjuryCollector:
 
 def lambda_handler(event, context):
     """Lambda handler for injury collection"""
-    collector = InjuryCollector()
-    sport = event.get("sport", "basketball_nba")
+    try:
+        collector = InjuryCollector()
+        sport = event.get("sport", "basketball_nba")
 
-    injuries_collected = collector.collect_injuries_for_sport(sport)
+        injuries_collected = collector.collect_injuries_for_sport(sport)
 
-    return {
-        "statusCode": 200,
-        "body": {
-            "message": f"Collected {injuries_collected} injuries for {sport}",
-            "sport": sport,
-            "injuries_collected": injuries_collected,
-        },
-    }
+        return {
+            "statusCode": 200,
+            "body": {
+                "message": f"Collected {injuries_collected} injuries for {sport}",
+                "sport": sport,
+                "injuries_collected": injuries_collected,
+            },
+        }
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Emit CloudWatch metric
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/InjuryCollector',
+                MetricData=[{
+                    'MetricName': 'CollectionError',
+                    'Value': 1,
+                    'Unit': 'Count',
+                    'Dimensions': [
+                        {'Name': 'Sport', 'Value': event.get('sport', 'unknown') if event else 'unknown'}
+                    ]
+                }]
+            )
+        except:
+            pass
+        
+        return {"statusCode": 500, "body": {"error": str(e)}}
