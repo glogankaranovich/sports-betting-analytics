@@ -158,9 +158,9 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                   <option value="matchup">Matchup</option>
                   <option value="injury_aware">Injury-Aware</option>
                   <option value="news">News Sentiment</option>
+                  <option value="fundamentals">Fundamentals</option>
                 </>
               )}
-              {subscription?.limits?.benny_ai && <option value="benny">Benny AI</option>}
             </select>
           </div>
 

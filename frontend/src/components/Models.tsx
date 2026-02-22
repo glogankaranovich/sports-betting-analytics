@@ -15,8 +15,6 @@ interface ModelsProps {
 const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [modelStats, setModelStats] = useState<Record<string, any>>({});
-  const hasBennyAccess = subscription?.limits?.benny_ai !== false;
-  const isEnvDisabled = subscription?.limits?._env_disabled?.includes('benny_ai');
 
   useEffect(() => {
     if (token) {
@@ -84,10 +82,10 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
       description: 'Predicts based on news sentiment analysis',
       methodology: 'Analyzes ESPN news headlines and descriptions using AWS Comprehend. Calculates sentiment scores (positive, negative, neutral) for each team. Predicts based on sentiment differential between teams. Higher confidence when sentiment strongly favors one side.'
     },
-    benny: {
-      name: 'Benny AI Model',
-      description: 'AI-powered predictions using advanced machine learning',
-      methodology: 'Uses Claude AI to analyze multiple data sources including team stats, player performance, injuries, news sentiment, and betting trends. Provides detailed reasoning for each prediction with confidence scores.'
+    fundamentals: {
+      name: 'Fundamentals Model',
+      description: 'Deep statistical analysis of team fundamentals',
+      methodology: 'Analyzes core team statistics including offensive/defensive efficiency, pace, turnover rates, and rebounding. Compares team strengths and weaknesses to identify statistical edges. Focuses on sustainable performance metrics rather than recent results.'
     }
   };
 
@@ -144,10 +142,10 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
             <div style={{ padding: '40px', textAlign: 'center' }}>
               <h2 style={{ marginBottom: '16px' }}>🔒 Premium Model</h2>
               <p style={{ color: '#ccc', marginBottom: '24px' }}>
-                Access all 10 system models with detailed analytics and reasoning.
+                Access all 11 system models with detailed analytics and reasoning.
               </p>
               <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0, maxWidth: '400px', margin: '0 auto 24px' }}>
-                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ All 10 system models</li>
+                <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ All 11 system models</li>
                 <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Detailed reasoning</li>
                 <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Model comparison</li>
                 <li style={{ padding: '8px 0' }}>✓ Performance analytics</li>
@@ -188,16 +186,10 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
           .map(([modelKey, info]) => {
           const stats = modelStats[modelKey];
           const accuracy = stats?.accuracy ? stats.accuracy.toFixed(1) : null;
-          const isBennyLocked = modelKey === 'benny' && !hasBennyAccess;
           const isModelLocked = modelKey !== 'ensemble' && subscription?.limits?.show_reasoning === false;
           
           return (
-            <div key={modelKey} className="model-card" style={(isBennyLocked || isModelLocked) ? { opacity: 0.7, position: 'relative' } : {}}>
-              {isBennyLocked && (
-                <div style={{ 
-                  position: 'absolute', 
-                  top: '10px', 
-                  right: '10px', 
+            <div key={modelKey} className="model-card" style={isModelLocked ? { opacity: 0.7, position: 'relative' } : {}}> 
                   background: '#ffc107', 
                   color: '#000', 
                   padding: '4px 8px', 

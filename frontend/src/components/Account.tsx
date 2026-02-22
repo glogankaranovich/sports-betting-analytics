@@ -305,7 +305,7 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
                   {subscription?.limits?.show_reasoning !== false && <option value="matchup">Matchup</option>}
                   {subscription?.limits?.show_reasoning !== false && <option value="injury_aware">Injury-Aware</option>}
                   {subscription?.limits?.show_reasoning !== false && <option value="news">News Sentiment</option>}
-                  {subscription?.limits?.benny_ai && <option value="benny">Benny AI</option>}
+                  {subscription?.limits?.show_reasoning !== false && <option value="fundamentals">Fundamentals</option>}
                 </optgroup>
               </select>
             </div>

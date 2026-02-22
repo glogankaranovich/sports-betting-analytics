@@ -32,8 +32,8 @@ const LandingPage: React.FC = () => {
             <h2>Key Features</h2>
             <div className="features">
               <div className="feature">
-                <h3>🎯 10 Expert Models</h3>
-                <p>Access specialized prediction models including Consensus, Value, Momentum, Contrarian, and more. Each model uses unique strategies to analyze games and props.</p>
+                <h3>🎯 11 Expert Models</h3>
+                <p>Access specialized prediction models including Consensus, Value, Momentum, Contrarian, Fundamentals, and more. Each model uses unique strategies to analyze games and props.</p>
               </div>
               <div className="feature">
                 <h3>🤖 Benny AI Assistant</h3>

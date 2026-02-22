@@ -96,7 +96,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ settings, onSettingsChange,
               {!isFree && <option value="matchup">Matchup</option>}
               {!isFree && <option value="injury_aware">Injury-Aware</option>}
               {!isFree && <option value="news">News Sentiment</option>}
-              {hasBennyAccess && <option value="benny">Benny AI</option>}
+              {!isFree && <option value="fundamentals">Fundamentals</option>}
             </select>
             <span className="setting-page-hint">
               The prediction model to use by default
