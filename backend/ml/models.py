@@ -462,6 +462,7 @@ class MomentumModel(BaseAnalysisModel):
     """Momentum model: Based on recent odds movement with fatigue adjustments"""
     
     def __init__(self):
+        super().__init__()
         self.fatigue_calculator = TravelFatigueCalculator()
 
     def analyze_game_odds(
@@ -619,6 +620,7 @@ class ContrarianModel(BaseAnalysisModel):
     """Contrarian model: Fade the public, follow sharp action with Elo validation"""
     
     def __init__(self):
+        super().__init__()
         self.elo_calculator = EloCalculator()
 
     def analyze_game_odds(
