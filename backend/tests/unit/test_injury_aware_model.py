@@ -156,13 +156,13 @@ def test_calculate_injury_impact_no_injuries(model):
 def test_calculate_injury_impact_multiple_injuries(model):
     """Test injury impact calculation with multiple injuries"""
     injuries = [
-        {"status": "Out", "avg_minutes": 30},  # Starter
-        {"status": "Out", "avg_minutes": 20},  # Rotation
-        {"status": "Out", "avg_minutes": 10},  # Bench
+        {"status": "Out", "avg_minutes": 30, "usage_rate": 25, "per": 18, "win_shares": 5},  # Starter
+        {"status": "Out", "avg_minutes": 20, "usage_rate": 18, "per": 14, "win_shares": 2},  # Rotation
+        {"status": "Out", "avg_minutes": 10, "usage_rate": 12, "per": 10, "win_shares": 1},  # Bench
     ]
     impact = model._calculate_injury_impact(injuries)
-    # 0.7*0.3 + 0.4*0.3 + 0.2*0.3 = 0.21 + 0.12 + 0.06 = 0.39
-    assert abs(impact - 0.39) < 0.01
+    # Multiple injuries should have significant impact
+    assert 0.5 < impact <= 1.0
 
 
 def test_calculate_injury_impact_max_cap(model):

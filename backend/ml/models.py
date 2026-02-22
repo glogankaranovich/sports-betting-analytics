@@ -2100,33 +2100,49 @@ class InjuryAwareModel(BaseAnalysisModel):
             return None
 
     def _calculate_injury_impact(self, injuries: List[Dict]) -> float:
-        """Calculate overall injury impact (0-1 scale) weighted by player importance"""
+        """Calculate overall injury impact (0-1 scale) weighted by player value"""
         if not injuries:
             return 0.0
 
-        # Weight injuries by average minutes played
-        # Starters typically play 30+ minutes, bench players 10-20
         total_impact = 0.0
         for injury in injuries:
+            # Get player value metrics
+            usage_rate = injury.get("usage_rate", 20)  # % of team possessions
+            per = injury.get("per", 15)  # Player Efficiency Rating
+            win_shares = injury.get("win_shares", 0)  # Contribution to wins
             avg_minutes = injury.get("avg_minutes", 0)
-
-            # Convert minutes to importance weight (0-1 scale)
-            # 35+ minutes = 1.0 (star player)
-            # 25-35 minutes = 0.7 (starter)
-            # 15-25 minutes = 0.4 (rotation player)
-            # <15 minutes = 0.2 (bench player)
-            if avg_minutes >= 35:
-                weight = 1.0
-            elif avg_minutes >= 25:
-                weight = 0.7
-            elif avg_minutes >= 15:
-                weight = 0.4
+            
+            # Calculate player value score (0-1 scale)
+            # Usage rate: 20% = average, 30%+ = star
+            usage_score = min(usage_rate / 35, 1.0)
+            
+            # PER: 15 = average, 25+ = elite
+            per_score = min(max(per - 10, 0) / 20, 1.0)
+            
+            # Win shares: 0.1 per game = star level
+            ws_score = min(win_shares / 10, 1.0)
+            
+            # Minutes: 35+ = starter
+            minutes_score = min(avg_minutes / 35, 1.0)
+            
+            # Weighted average of all metrics
+            player_value = (usage_score * 0.3 + per_score * 0.3 + 
+                          ws_score * 0.2 + minutes_score * 0.2)
+            
+            # Adjust by injury severity
+            status = injury.get("status", "Out")
+            if status == "Out":
+                severity = 1.0
+            elif status == "Doubtful":
+                severity = 0.8
+            elif status == "Questionable":
+                severity = 0.4
             else:
-                weight = 0.2
+                severity = 0.2
+            
+            total_impact += player_value * severity
 
-            total_impact += weight * 0.3  # Each weighted injury adds up to 0.3
-
-        # Cap at 1.0
+        # Cap at 1.0 (losing multiple stars)
         return min(total_impact, 1.0)
 
     def _get_current_spread(self, odds_items: List[Dict]) -> float:
@@ -2521,6 +2537,10 @@ class FundamentalsModel(BaseAnalysisModel):
         if home_metrics and away_metrics:
             metrics_diff = self._compare_metrics(home_metrics, away_metrics, sport)
             home_score += min(max(metrics_diff, -15), 15)
+            
+            # Add pace and efficiency factors
+            pace_diff = self._calculate_pace_advantage(home_metrics, away_metrics, sport)
+            home_score += min(max(pace_diff, -5), 5)
         
         # Fatigue contribution (±10 points max)
         fatigue_diff = away_fatigue['fatigue_score'] - home_fatigue['fatigue_score']
@@ -2544,6 +2564,8 @@ class FundamentalsModel(BaseAnalysisModel):
             reasons.append(f"Elo: {home_team} {home_elo:.0f} vs {away_team} {away_elo:.0f}")
         if home_metrics and away_metrics:
             reasons.append(f"Efficiency metrics favor {home_team if metrics_diff > 0 else away_team}")
+            if abs(pace_diff) > 2:
+                reasons.append(f"Pace advantage: {home_team if pace_diff > 0 else away_team}")
         if abs(fatigue_diff) > 20:
             reasons.append(f"Fatigue advantage: {home_team if fatigue_diff > 0 else away_team}")
         
@@ -2588,6 +2610,31 @@ class FundamentalsModel(BaseAnalysisModel):
         except:
             return None
     
+    def _calculate_pace_advantage(self, home_metrics: Dict, away_metrics: Dict, sport: str) -> float:
+        """Calculate pace advantage for basketball (possessions per game)"""
+        if sport != "basketball_nba":
+            return 0
+        
+        try:
+            home_pace = float(home_metrics.get("pace", 100))
+            away_pace = float(away_metrics.get("pace", 100))
+            home_off_eff = float(home_metrics.get("offensive_efficiency", 110))
+            away_def_eff = float(away_metrics.get("defensive_efficiency", 110))
+            
+            # Faster pace benefits teams with better offensive efficiency
+            pace_diff = home_pace - away_pace
+            eff_diff = home_off_eff - away_def_eff
+            
+            # If home team is more efficient and pace is faster, that's an advantage
+            if pace_diff > 0 and eff_diff > 0:
+                return min(pace_diff / 2, 5)
+            elif pace_diff < 0 and eff_diff < 0:
+                return max(pace_diff / 2, -5)
+            
+            return 0
+        except:
+            return 0
+    
     def _compare_metrics(self, home_metrics: Dict, away_metrics: Dict, sport: str) -> float:
         """Compare adjusted metrics between teams, return difference (-15 to +15)"""
         if sport == "basketball_nba":
@@ -2596,9 +2643,15 @@ class FundamentalsModel(BaseAnalysisModel):
             home_fg = float(home_metrics.get("fg_pct", 0))
             away_fg = float(away_metrics.get("fg_pct", 0))
             
+            # Add offensive/defensive efficiency
+            home_off_eff = float(home_metrics.get("offensive_efficiency", 110))
+            away_def_eff = float(away_metrics.get("defensive_efficiency", 110))
+            
             ppg_diff = (home_ppg - away_ppg) / 5  # Scale points
             fg_diff = (home_fg - away_fg) * 20  # Scale FG%
-            return (ppg_diff + fg_diff) / 2
+            eff_diff = (home_off_eff - away_def_eff) / 5  # Efficiency matchup
+            
+            return (ppg_diff + fg_diff + eff_diff) / 3
         
         elif sport == "americanfootball_nfl":
             home_yards = float(home_metrics.get("adjusted_total_yards", 0))
