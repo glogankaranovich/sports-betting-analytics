@@ -328,6 +328,9 @@ class OddsCollector:
                 # 404 errors are expected when games start/finish
                 if "404" not in str(e):
                     print(f"Error collecting props for game {game_id}: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    return -1  # Signal error
                 return 0
 
         # Use ThreadPoolExecutor for parallel API calls (increased workers for speed)
@@ -341,12 +344,39 @@ class OddsCollector:
                 game_id = future_to_game[future]
                 try:
                     props_count = future.result()
-                    total_props += props_count
+                    if props_count == -1:
+                        # Error occurred (not 404)
+                        error_count = getattr(self, '_prop_error_count', 0) + 1
+                        setattr(self, '_prop_error_count', error_count)
+                    elif props_count > 0:
+                        total_props += props_count
                     print(
                         f"Completed props collection for game {game_id}: {props_count} bookmakers"
                     )
                 except Exception as e:
                     print(f"Game {game_id} generated an exception: {str(e)}")
+                    error_count = getattr(self, '_prop_error_count', 0) + 1
+                    setattr(self, '_prop_error_count', error_count)
+
+        # Emit metric if errors occurred
+        error_count = getattr(self, '_prop_error_count', 0)
+        if error_count > 0:
+            try:
+                import boto3
+                cloudwatch = boto3.client('cloudwatch')
+                cloudwatch.put_metric_data(
+                    Namespace='SportsAnalytics/OddsCollector',
+                    MetricData=[{
+                        'MetricName': 'PropCollectionError',
+                        'Value': error_count,
+                        'Unit': 'Count',
+                        'Dimensions': [
+                            {'Name': 'Sport', 'Value': sport}
+                        ]
+                    }]
+                )
+            except:
+                pass
 
         print(f"Collected {total_props} player prop bookmakers for {sport}")
         return total_props

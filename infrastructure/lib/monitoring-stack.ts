@@ -282,6 +282,7 @@ export class MonitoringStack extends cdk.Stack {
     // Collector error alarms
     const collectorErrors = [
       { name: 'OddsCollector', namespace: 'SportsAnalytics/OddsCollector', metric: 'CollectionError' },
+      { name: 'PropCollector', namespace: 'SportsAnalytics/OddsCollector', metric: 'PropCollectionError' },
       { name: 'OutcomeCollector', namespace: 'SportsAnalytics/OutcomeCollector', metric: 'CollectionError' },
       { name: 'TeamStatsCollector', namespace: 'SportsAnalytics/TeamStatsCollector', metric: 'CollectionError' },
       { name: 'PlayerStatsCollector', namespace: 'SportsAnalytics/PlayerStatsCollector', metric: 'CollectionError' },
