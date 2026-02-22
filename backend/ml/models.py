@@ -156,10 +156,13 @@ class BaseAnalysisModel:
 
     def __init__(self):
         self.performance_tracker = None
+        self.inefficiency_tracker = None
         table_name = os.getenv("DYNAMODB_TABLE")
         if table_name:
             from model_performance import ModelPerformanceTracker
+            from market_inefficiency_tracker import MarketInefficiencyTracker
             self.performance_tracker = ModelPerformanceTracker(table_name)
+            self.inefficiency_tracker = MarketInefficiencyTracker(table_name)
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
@@ -185,6 +188,26 @@ class BaseAnalysisModel:
         mean = sum(values) / len(values)
         variance = sum((x - mean) ** 2 for x in values) / len(values)
         return math.sqrt(variance)
+
+    def _detect_market_inefficiency(self, model_spread: float, market_spread: float, confidence: float) -> Dict[str, Any]:
+        """Detect when model strongly disagrees with market"""
+        disagreement = abs(model_spread - market_spread)
+        
+        # Strong disagreement = model differs by >2 points AND high confidence
+        if disagreement > 2.0 and confidence > 0.7:
+            return {
+                "is_inefficient": True,
+                "disagreement": disagreement,
+                "edge": "STRONG"
+            }
+        elif disagreement > 1.0 and confidence > 0.65:
+            return {
+                "is_inefficient": True,
+                "disagreement": disagreement,
+                "edge": "MODERATE"
+            }
+        
+        return {"is_inefficient": False, "disagreement": disagreement, "edge": None}
 
     def _adjust_confidence(self, base_confidence: float, model_name: str, sport: str) -> float:
         """Adjust confidence based on recent model performance"""
@@ -319,6 +342,20 @@ class ConsensusModel(BaseAnalysisModel):
 
         # Adjust confidence based on historical performance
         confidence = self._adjust_confidence(confidence, "consensus", sport)
+
+        # Log market inefficiency if significant disagreement
+        if self.inefficiency_tracker and line_movement:
+            market_spread = line_movement.get("current_spread", avg_spread)
+            if abs(avg_spread - market_spread) > 1.0:
+                self.inefficiency_tracker.log_disagreement(
+                    game_id=game_id,
+                    model="consensus",
+                    sport=sport,
+                    model_prediction=f"{home_team} {avg_spread:+.1f}",
+                    model_spread=avg_spread,
+                    market_spread=market_spread,
+                    confidence=confidence,
+                )
 
         return AnalysisResult(
             game_id=game_id,

@@ -9,7 +9,7 @@ from ml.dynamic_weighting import DynamicModelWeighting
 
 def test_get_model_weights_with_data():
     """Test model weight calculation with performance data."""
-    with patch("ml.dynamic_weighting.ModelPerformanceTracker") as mock_tracker_class:
+    with patch("model_performance.ModelPerformanceTracker") as mock_tracker_class:
         mock_tracker = Mock()
         mock_tracker_class.return_value = mock_tracker
         
@@ -36,7 +36,7 @@ def test_get_model_weights_with_data():
 
 def test_get_model_weights_no_data():
     """Test model weights with no performance data."""
-    with patch("ml.dynamic_weighting.ModelPerformanceTracker") as mock_tracker_class:
+    with patch("model_performance.ModelPerformanceTracker") as mock_tracker_class:
         mock_tracker = Mock()
         mock_tracker_class.return_value = mock_tracker
         

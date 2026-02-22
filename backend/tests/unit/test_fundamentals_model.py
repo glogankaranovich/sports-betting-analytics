@@ -33,6 +33,7 @@ def model(mock_table):
         mock_fatigue.return_value = mock_fatigue_instance
         
         model = FundamentalsModel(dynamodb_table=mock_table)
+        model.performance_tracker = None  # Disable performance tracking in tests
         yield model
 
 
