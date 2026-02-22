@@ -392,6 +392,10 @@ class ConsensusModel(BaseAnalysisModel):
 class ValueModel(BaseAnalysisModel):
     """Value model: Find best odds discrepancies"""
 
+    def __init__(self):
+        super().__init__()
+        self.elo_calculator = EloCalculator()
+
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
     ) -> AnalysisResult:
