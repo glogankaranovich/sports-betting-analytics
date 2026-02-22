@@ -191,6 +191,7 @@ export class CarpoolBetsStage extends cdk.Stage {
       ],
       playerStatsCollectorFunction: playerStatsCollectorStack.playerStatsCollectorFunction,
       teamStatsCollectorFunction: teamStatsCollectorStack.teamStatsCollectorFunction,
+      seasonStatsCollectorFunction: seasonStatsCollectorStack.seasonStatsCollectorFunction,
       injuryCollectorFunction: injuryCollectorStack.injuryCollectorFunction,
       outcomeCollectorFunction: outcomeCollectorStack.outcomeCollectorFunction,
       modelAnalyticsFunction: modelAnalyticsStack.modelAnalyticsFunction,

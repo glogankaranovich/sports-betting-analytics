@@ -17,6 +17,7 @@ export interface MonitoringStackProps extends cdk.StackProps {
   analysisGeneratorFunctions: lambda.IFunction[];
   playerStatsCollectorFunction: lambda.IFunction;
   teamStatsCollectorFunction: lambda.IFunction;
+  seasonStatsCollectorFunction: lambda.IFunction;
   injuryCollectorFunction: lambda.IFunction;
   outcomeCollectorFunction: lambda.IFunction;
   modelAnalyticsFunction: lambda.IFunction;
@@ -123,6 +124,7 @@ export class MonitoringStack extends cdk.Stack {
     const scheduleMetrics = createLambdaMetrics(props.scheduleCollectorFunction, 'ScheduleCollector', 1440);
     const playerStatsMetrics = createLambdaMetrics(props.playerStatsCollectorFunction, 'PlayerStatsCollector', 1440);
     const teamStatsMetrics = createLambdaMetrics(props.teamStatsCollectorFunction, 'TeamStatsCollector', 1440);
+    const seasonStatsMetrics = createLambdaMetrics(props.seasonStatsCollectorFunction, 'SeasonStatsCollector', 10080); // Weekly
     const outcomeMetrics = createLambdaMetrics(props.outcomeCollectorFunction, 'OutcomeCollector', 60);
     const modelAnalyticsMetrics = createLambdaMetrics(props.modelAnalyticsFunction, 'ModelAnalytics', 60);
     const seasonManagerMetrics = createLambdaMetrics(props.seasonManagerFunction, 'SeasonManager', 1440);
@@ -168,6 +170,7 @@ export class MonitoringStack extends cdk.Stack {
       ...analysisMetrics.map(m => m.errors),
       playerStatsMetrics.errors,
       teamStatsMetrics.errors,
+      seasonStatsMetrics.errors,
       outcomeMetrics.errors,
       modelAnalyticsMetrics.errors,
       seasonManagerMetrics.errors,
