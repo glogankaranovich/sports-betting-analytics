@@ -15,6 +15,9 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+
+import boto3
+
 from player_analytics import PlayerAnalytics
 from elo_calculator import EloCalculator
 from travel_fatigue_calculator import TravelFatigueCalculator
@@ -210,6 +213,55 @@ class ConsensusModel(BaseAnalysisModel):
     def __init__(self):
         super().__init__()
         self.elo_calculator = EloCalculator()
+        self.dynamodb = boto3.resource("dynamodb")
+        table_name = os.getenv("DYNAMODB_TABLE")
+        self.table = self.dynamodb.Table(table_name) if table_name else None
+
+    def _get_line_movement(self, game_id: str, bookmaker: str = "fanduel") -> Dict[str, Any]:
+        """Get line movement for a game"""
+        if not self.table:
+            return None
+        
+        pk = f"GAME#{game_id}"
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk_prefix)",
+                ExpressionAttributeValues={
+                    ":pk": pk,
+                    ":sk_prefix": f"{bookmaker}#spreads#"
+                },
+                ScanIndexForward=True
+            )
+            
+            items = response.get("Items", [])
+            if len(items) < 2:
+                return None
+            
+            opening = next((item for item in items if "#LATEST" not in item["sk"]), None)
+            current = next((item for item in items if "#LATEST" in item["sk"]), None)
+            
+            if not opening or not current or len(opening.get("outcomes", [])) < 2:
+                return None
+            
+            opening_spread = float(opening["outcomes"][0].get("point", 0))
+            current_spread = float(current["outcomes"][0].get("point", 0))
+            movement = current_spread - opening_spread
+            
+            opening_price = int(opening["outcomes"][0].get("price", -110))
+            current_price = int(current["outcomes"][0].get("price", -110))
+            
+            is_rlm = (movement > 0 and current_price < opening_price) or \
+                     (movement < 0 and current_price > opening_price)
+            
+            return {
+                "movement": movement,
+                "is_rlm": is_rlm,
+                "opening_spread": opening_spread,
+                "current_spread": current_spread
+            }
+        except Exception as e:
+            logger.error(f"Error getting line movement: {e}")
+            return None
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
@@ -255,6 +307,16 @@ class ConsensusModel(BaseAnalysisModel):
             logger.error(f"Error getting Elo ratings: {e}")
             elo_context = ""  # Set default value on error
 
+        # Check line movement
+        line_context = ""
+        line_movement = self._get_line_movement(game_id)
+        if line_movement:
+            if line_movement["is_rlm"]:
+                confidence = min(confidence + 0.05, 0.95)
+                line_context = f" Sharp money detected (RLM)."
+            elif abs(line_movement["movement"]) > 1.5:
+                line_context = f" Line moved {abs(line_movement['movement']):.1f} points."
+
         # Adjust confidence based on historical performance
         confidence = self._adjust_confidence(confidence, "consensus", sport)
 
@@ -268,7 +330,7 @@ class ConsensusModel(BaseAnalysisModel):
             commence_time=game_info.get("commence_time"),
             prediction=f"{home_team} {avg_spread:+.1f}",
             confidence=confidence,
-            reasoning=f"{len(spreads)} sportsbooks agree: {home_team} is favored by {abs(avg_spread):.1f} points. Average payout odds: {avg_odds:+d}.{elo_context}",
+            reasoning=f"{len(spreads)} sportsbooks agree: {home_team} is favored by {abs(avg_spread):.1f} points. Average payout odds: {avg_odds:+d}.{elo_context}{line_context}",
             recommended_odds=avg_odds,
         )
 

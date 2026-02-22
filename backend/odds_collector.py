@@ -351,6 +351,67 @@ class OddsCollector:
         print(f"Collected {total_props} player prop bookmakers for {sport}")
         return total_props
 
+    def get_line_movement(self, game_id: str, bookmaker: str, market_key: str) -> Dict[str, Any]:
+        """Get opening and current lines to detect movement"""
+        pk = f"GAME#{game_id}"
+        
+        try:
+            # Get all historical records for this game/bookmaker/market
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk_prefix)",
+                ExpressionAttributeValues={
+                    ":pk": pk,
+                    ":sk_prefix": f"{bookmaker}#{market_key}#"
+                },
+                ScanIndexForward=True  # Oldest first
+            )
+            
+            items = response.get("Items", [])
+            if len(items) < 2:
+                return None  # Need at least opening and current
+            
+            # First non-LATEST record is opening line
+            opening = next((item for item in items if "#LATEST" not in item["sk"]), None)
+            # LATEST record is current line
+            current = next((item for item in items if "#LATEST" in item["sk"]), None)
+            
+            if not opening or not current:
+                return None
+            
+            # Calculate movement for spreads
+            if market_key == "spreads" and len(opening.get("outcomes", [])) >= 2:
+                opening_spread = float(opening["outcomes"][0].get("point", 0))
+                current_spread = float(current["outcomes"][0].get("point", 0))
+                movement = current_spread - opening_spread
+                
+                # Detect reverse line movement (RLM) - sharp money indicator
+                opening_price = int(opening["outcomes"][0].get("price", -110))
+                current_price = int(current["outcomes"][0].get("price", -110))
+                
+                # RLM = line moves against the money (price gets worse but spread moves)
+                is_rlm = (movement > 0 and current_price < opening_price) or \
+                         (movement < 0 and current_price > opening_price)
+                
+                return {
+                    "game_id": game_id,
+                    "bookmaker": bookmaker,
+                    "market_key": market_key,
+                    "opening_spread": opening_spread,
+                    "current_spread": current_spread,
+                    "movement": movement,
+                    "opening_price": opening_price,
+                    "current_price": current_price,
+                    "is_reverse_line_movement": is_rlm,
+                    "opening_time": opening.get("updated_at"),
+                    "current_time": current.get("updated_at")
+                }
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error getting line movement for {game_id}: {e}")
+            return None
+
     def collect_odds_for_sport(self, sport: str, limit: int = None) -> List[str]:
         """Collect odds for a specific sport (odds only, no props)"""
         try:

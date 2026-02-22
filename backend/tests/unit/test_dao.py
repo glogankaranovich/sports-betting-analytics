@@ -14,6 +14,11 @@ def dao():
         return BettingDAO()
 
 
+def test_init(dao):
+    """Test init"""
+    assert dao.table is not None
+
+
 def test_get_game_ids_from_db(dao):
     """Test getting game IDs"""
     dao.table = Mock()
@@ -64,7 +69,6 @@ def test_get_prop_ids_from_db(dao):
     }
     
     prop_ids = dao.get_prop_ids_from_db("basketball_nba")
-    # May return empty if method extracts differently
     assert isinstance(prop_ids, list)
 
 

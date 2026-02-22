@@ -20,6 +20,13 @@ def test_route_request_get_analyses(handler):
         assert result["statusCode"] == 200
 
 
+def test_route_request_get_top_analysis(handler):
+    """Test routing to get_top_analysis"""
+    with patch.object(handler, "get_top_analysis", return_value={"statusCode": 200}):
+        result = handler.route_request("GET", "/top-analysis", {"sport": "basketball_nba"}, {}, {})
+        assert result["statusCode"] == 200
+
+
 def test_route_request_not_found(handler):
     """Test 404 routing"""
     result = handler.route_request("POST", "/invalid", {}, {}, {})
@@ -29,6 +36,12 @@ def test_route_request_not_found(handler):
 def test_get_analyses_missing_params(handler):
     """Test missing required params"""
     result = handler.get_analyses({"sport": "basketball_nba"})
+    assert result["statusCode"] == 400
+
+
+def test_get_analyses_missing_model(handler):
+    """Test missing model param"""
+    result = handler.get_analyses({"sport": "basketball_nba", "bookmaker": "draftkings"})
     assert result["statusCode"] == 400
 
 
