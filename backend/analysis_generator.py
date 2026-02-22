@@ -144,13 +144,7 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
             )
 
             if analysis_result:
-                adjusted_confidence = weighting.calculate_adjusted_confidence(
-                    analysis_result.confidence,
-                    analysis_result.model,
-                    analysis_result.sport,
-                    "game",
-                )
-
+                # Models now handle confidence adjustment internally via _adjust_confidence()
                 for bookmaker in bookmakers:
                     bookmaker_result = AnalysisResult(
                         game_id=analysis_result.game_id,
@@ -278,13 +272,7 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
             analysis_result = model.analyze_prop_odds(grouped_prop)
 
             if analysis_result:
-                adjusted_confidence = weighting.calculate_adjusted_confidence(
-                    analysis_result.confidence,
-                    analysis_result.model,
-                    analysis_result.sport,
-                    "prop",
-                )
-
+                # Models now handle confidence adjustment internally via _adjust_confidence()
                 for bookmaker in bookmakers:
                     bookmaker_result = AnalysisResult(
                         game_id=analysis_result.game_id,
@@ -298,7 +286,7 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
                         player_name=analysis_result.player_name,
                         market_key=analysis_result.market_key,
                         prediction=analysis_result.prediction,
-                        confidence=adjusted_confidence,
+                        confidence=analysis_result.confidence,
                         reasoning=analysis_result.reasoning,
                         recommended_odds=analysis_result.recommended_odds,
                     )
