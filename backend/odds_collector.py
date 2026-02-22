@@ -334,7 +334,7 @@ class OddsCollector:
         with ThreadPoolExecutor(max_workers=20) as executor:
             future_to_game = {
                 executor.submit(collect_props_for_game, game_id): game_id
-                for game_id in future_games
+                for game_id, _ in future_games
             }
 
             for future in as_completed(future_to_game):
