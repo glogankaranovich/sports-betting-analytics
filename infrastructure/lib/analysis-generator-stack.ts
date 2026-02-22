@@ -103,7 +103,7 @@ export class AnalysisGeneratorStack extends cdk.Stack {
       { key: 'soccer_epl', name: 'EPL', lambda: this.analysisGeneratorEPL, months: '8-5' }
     ];
     
-    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware', 'ensemble'];
+    const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware', 'fundamentals', 'ensemble'];
     
     // Note: EventBridge schedules are created in sport-specific schedule stacks
     // to avoid hitting CloudFormation's 500 resource limit per stack

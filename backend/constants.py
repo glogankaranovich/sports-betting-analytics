@@ -42,6 +42,7 @@ MODEL_NAMES = {
     "matchup": "Matchup Model",
     "injury_aware": "Injury-Aware Model",
     "ensemble": "Ensemble Model",
+    "fundamentals": "Fundamentals Model",
     "benny": "Benny Model",
 }
 

@@ -90,49 +90,6 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
   };
 
   if (selectedModel) {
-    // Check if Benny is locked
-    if (selectedModel === 'benny' && !hasBennyAccess) {
-      return (
-        <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setSelectedModel(null)} className="close-button">×</button>
-            <div style={{ padding: '40px', textAlign: 'center' }}>
-              <h2 style={{ marginBottom: '16px' }}>🤖 Benny AI Model</h2>
-              {isEnvDisabled ? (
-                <>
-                  <p style={{ color: '#ccc', marginBottom: '24px' }}>
-                    Benny AI Model is coming soon to this environment.
-                  </p>
-                  <p style={{ color: '#888', fontSize: '14px' }}>
-                    This feature is currently in development and will be available in a future release.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p style={{ color: '#ccc', marginBottom: '24px' }}>
-                    Advanced AI-powered predictions with detailed reasoning and personalized insights.
-                  </p>
-                  <ul style={{ textAlign: 'left', color: '#ccc', marginBottom: '24px', listStyle: 'none', padding: 0, maxWidth: '400px', margin: '0 auto 24px' }}>
-                    <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ AI-powered analysis</li>
-                    <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Detailed reasoning</li>
-                    <li style={{ padding: '8px 0', borderBottom: '1px solid #333' }}>✓ Chat interface</li>
-                    <li style={{ padding: '8px 0' }}>✓ Performance dashboard</li>
-                  </ul>
-                  <button 
-                    className="upgrade-btn"
-                    onClick={() => window.location.hash = '#subscription'}
-                    style={{ padding: '12px 24px' }}
-                  >
-                    Upgrade to PRO for Benny AI
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-    
     // Check if model is locked for free tier (not Carpool/Ensemble)
     if (selectedModel !== 'ensemble' && subscription?.limits?.show_reasoning === false) {
       return (
@@ -163,7 +120,7 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
       );
     }
     
-    // Show analytics for Carpool (free tier) or any model for BASIC+ tier
+    // Show analytics for any model
     return (
       <div className="modal-overlay" onClick={() => setSelectedModel(null)}>
         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -189,18 +146,8 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
           const isModelLocked = modelKey !== 'ensemble' && subscription?.limits?.show_reasoning === false;
           
           return (
-            <div key={modelKey} className="model-card" style={isModelLocked ? { opacity: 0.7, position: 'relative' } : {}}> 
-                  background: '#ffc107', 
-                  color: '#000', 
-                  padding: '4px 8px', 
-                  borderRadius: '4px', 
-                  fontSize: '12px',
-                  fontWeight: 'bold'
-                }}>
-                  🔒 PRO
-                </div>
-              )}
-              {isModelLocked && !isBennyLocked && (
+            <div key={modelKey} className="model-card" style={isModelLocked ? { opacity: 0.7, position: 'relative' } : {}}>
+              {isModelLocked && (
                 <div style={{ 
                   position: 'absolute', 
                   top: '10px', 
