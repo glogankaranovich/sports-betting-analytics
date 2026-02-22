@@ -244,8 +244,93 @@ make monitor-deployment
 - **Error handling** for API failures
 - **Data quality checks** for incoming data
 
+## 🚨 Error Handling & Monitoring
+
+### Lambda Error Handling Pattern
+All Lambda functions must implement comprehensive error tracking:
+
+```python
+def lambda_handler(event, context):
+    """Lambda handler with proper error tracking"""
+    try:
+        # Main logic here
+        result = process_data(event)
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'result': result})
+        }
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Emit CloudWatch metric for monitoring
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/ServiceName',
+                MetricData=[{
+                    'MetricName': 'ErrorType',
+                    'Value': 1,
+                    'Unit': 'Count',
+                    'Dimensions': [
+                        {'Name': 'Context', 'Value': event.get('key', 'unknown')}
+                    ]
+                }]
+            )
+        except:
+            pass  # Don't fail on metric emission
+        
+        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+```
+
+### Batch Processing Error Pattern
+For functions processing multiple items, track errors without blocking:
+
+```python
+def process_batch(items):
+    """Process batch with error tracking"""
+    error_count = 0
+    success_count = 0
+    
+    for item in items:
+        try:
+            process_item(item)
+            success_count += 1
+        except Exception as e:
+            error_count += 1
+            print(f"Error processing {item}: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Emit metrics for partial failures
+    if error_count > 0:
+        emit_metric('ProcessingErrors', error_count)
+    
+    return success_count
+```
+
+### CloudWatch Alarms
+All critical Lambda functions have alarms configured:
+- **Threshold**: 5 errors per hour
+- **Action**: Email notification via SNS
+- **Namespace**: `SportsAnalytics/{ServiceName}`
+- **Metrics**: Custom error metrics (not just Lambda errors)
+
+### Monitoring Best Practices
+1. **Always log full stack traces** for debugging
+2. **Emit custom metrics** for business logic errors
+3. **Don't block on metric emission** (use try/except)
+4. **Track error counts** in batch processing
+5. **Distinguish partial vs total failures**
+6. **Set appropriate alarm thresholds** per service
+
 ---
 
 *Created: 2025-12-28*  
+*Updated: 2026-02-22 - Added error handling patterns*  
 *Status: Development Workflow Defined*  
 *Next: Apply this workflow to current development phase*
