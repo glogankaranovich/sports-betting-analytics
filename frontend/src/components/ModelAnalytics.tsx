@@ -243,19 +243,19 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
           <h3>{timeRange >= 9999 ? 'All-Time' : `Last ${timeRange} Days`} Performance</h3>
           <div className="stats-grid">
             <div className="stat">
-              <div className="stat-value">{currentModel.accuracy.toFixed(1)}%</div>
+              <div className="stat-value">{(currentModel.accuracy ?? 0).toFixed(1)}%</div>
               <div className="stat-label">Accuracy</div>
             </div>
             <div className="stat">
-              <div className="stat-value">{currentModel.total_analyses}</div>
+              <div className="stat-value">{currentModel.total_analyses ?? 0}</div>
               <div className="stat-label">Total Analyses</div>
             </div>
             <div className="stat">
-              <div className="stat-value">{currentModel.correct_analyses}</div>
+              <div className="stat-value">{currentModel.correct_analyses ?? 0}</div>
               <div className="stat-label">Correct</div>
             </div>
             <div className="stat">
-              <div className="stat-value">{currentModel.incorrect_analyses}</div>
+              <div className="stat-value">{currentModel.incorrect_analyses ?? 0}</div>
               <div className="stat-label">Incorrect</div>
             </div>
           </div>
@@ -270,12 +270,12 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
             <div key={betType} className="bet-type-card">
               <h4>{betType === 'game' ? 'Game Bets' : 'Prop Bets'}</h4>
               <div className="accuracy-circle" style={{ 
-                background: `conic-gradient(#4caf50 ${stats.accuracy * 3.6}deg, #e0e0e0 0deg)` 
+                background: `conic-gradient(#4caf50 ${(stats.accuracy ?? 0) * 3.6}deg, #e0e0e0 0deg)` 
               }}>
-                <div className="accuracy-text">{stats.accuracy.toFixed(1)}%</div>
+                <div className="accuracy-text">{(stats.accuracy ?? 0).toFixed(1)}%</div>
               </div>
               <div className="bet-type-stats">
-                <div>{stats.correct} / {stats.total} correct</div>
+                <div>{stats.correct ?? 0} / {stats.total ?? 0} correct</div>
               </div>
             </div>
           ))}
@@ -291,12 +291,12 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
               <div key={sport} className="bet-type-card">
                 <h4>{sport.split('_').pop()?.toUpperCase()}</h4>
                 <div className="accuracy-circle" style={{ 
-                  background: `conic-gradient(#4caf50 ${stats.accuracy * 3.6}deg, #e0e0e0 0deg)` 
+                  background: `conic-gradient(#4caf50 ${(stats.accuracy ?? 0) * 3.6}deg, #e0e0e0 0deg)` 
                 }}>
-                  <div className="accuracy-text">{stats.accuracy.toFixed(1)}%</div>
+                  <div className="accuracy-text">{(stats.accuracy ?? 0).toFixed(1)}%</div>
                 </div>
                 <div className="bet-type-stats">
-                  <div>{stats.correct} / {stats.total} correct</div>
+                  <div>{stats.correct ?? 0} / {stats.total ?? 0} correct</div>
                 </div>
               </div>
             ))}
@@ -316,11 +316,11 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
               <div className="confidence-bar-container">
                 <div 
                   className="confidence-bar" 
-                  style={{ width: `${stats.accuracy}%`, backgroundColor: getConfidenceColor(stats.accuracy) }}
+                  style={{ width: `${stats.accuracy ?? 0}%`, backgroundColor: getConfidenceColor(stats.accuracy ?? 0) }}
                 />
-                {stats.total > 0 && <span className="confidence-percentage">{stats.accuracy.toFixed(1)}%</span>}
+                {(stats.total ?? 0) > 0 && <span className="confidence-percentage">{(stats.accuracy ?? 0).toFixed(1)}%</span>}
               </div>
-              <div className="confidence-count">{stats.correct}/{stats.total}</div>
+              <div className="confidence-count">{stats.correct ?? 0}/{stats.total ?? 0}</div>
             </div>
           ))}
         </div>
@@ -342,8 +342,8 @@ export const ModelAnalytics: React.FC<ModelAnalyticsProps> = ({ token, selectedM
             {Object.entries(bySport[selectedModel] || {}).map(([sport, stats]) => (
               <div key={sport} className="sport-card">
                 <h4>{sport.replace('_', ' ').toUpperCase()}</h4>
-                <div className="sport-accuracy">{stats.accuracy.toFixed(1)}%</div>
-                <div className="sport-record">{stats.correct}/{stats.total}</div>
+                <div className="sport-accuracy">{(stats.accuracy ?? 0).toFixed(1)}%</div>
+                <div className="sport-record">{stats.correct ?? 0}/{stats.total ?? 0}</div>
               </div>
             ))}
           </div>

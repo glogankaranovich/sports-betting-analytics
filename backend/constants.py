@@ -43,6 +43,7 @@ MODEL_NAMES = {
     "injury_aware": "Injury-Aware Model",
     "ensemble": "Ensemble Model",
     "fundamentals": "Fundamentals Model",
+    "news": "News Sentiment Model",
     "benny": "Benny Model",
 }
 
