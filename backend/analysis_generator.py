@@ -76,6 +76,29 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Emit CloudWatch metric for monitoring
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/AnalysisGenerator',
+                MetricData=[{
+                    'MetricName': 'AnalysisGenerationError',
+                    'Value': 1,
+                    'Unit': 'Count',
+                    'Dimensions': [
+                        {'Name': 'Sport', 'Value': event.get('sport', 'unknown')},
+                        {'Name': 'Model', 'Value': event.get('model', 'unknown')},
+                        {'Name': 'BetType', 'Value': event.get('bet_type', 'unknown')}
+                    ]
+                }]
+            )
+        except:
+            pass  # Don't fail on metric emission
+        
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
 
 
@@ -174,19 +197,46 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
             return game_count
 
         # Use ThreadPoolExecutor for parallel processing
+        error_count = 0
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(process_game, game) for game in games_to_process]
             for future in as_completed(futures):
                 try:
                     count += future.result()
                 except Exception as e:
+                    error_count += 1
                     print(f"Error processing game: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+        # Emit metric if we had errors
+        if error_count > 0:
+            try:
+                import boto3
+                cloudwatch = boto3.client('cloudwatch')
+                cloudwatch.put_metric_data(
+                    Namespace='SportsAnalytics/AnalysisGenerator',
+                    MetricData=[{
+                        'MetricName': 'GameProcessingErrors',
+                        'Value': error_count,
+                        'Unit': 'Count',
+                        'Dimensions': [
+                            {'Name': 'Sport', 'Value': sport},
+                            {'Name': 'Model', 'Value': model.__class__.__name__}
+                        ]
+                    }]
+                )
+            except:
+                pass
 
         return count
 
     except Exception as e:
-        print(f"Error generating game analysis: {e}")
-        return 0
+        # Critical error in setup/query - this should fail the Lambda
+        print(f"Critical error generating game analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
@@ -301,19 +351,46 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
             return prop_count
 
         # Use ThreadPoolExecutor for parallel processing
+        error_count = 0
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(process_prop, prop) for prop in props_to_process]
             for future in as_completed(futures):
                 try:
                     count += future.result()
                 except Exception as e:
+                    error_count += 1
                     print(f"Error processing prop: {e}")
+                    import traceback
+                    traceback.print_exc()
+
+        # Emit metric if we had errors
+        if error_count > 0:
+            try:
+                import boto3
+                cloudwatch = boto3.client('cloudwatch')
+                cloudwatch.put_metric_data(
+                    Namespace='SportsAnalytics/AnalysisGenerator',
+                    MetricData=[{
+                        'MetricName': 'PropProcessingErrors',
+                        'Value': error_count,
+                        'Unit': 'Count',
+                        'Dimensions': [
+                            {'Name': 'Sport', 'Value': sport},
+                            {'Name': 'Model', 'Value': model.__class__.__name__}
+                        ]
+                    }]
+                )
+            except:
+                pass
 
         return count
 
     except Exception as e:
-        print(f"Error generating prop analysis: {e}")
-        return 0
+        # Critical error in setup/query - this should fail the Lambda
+        print(f"Critical error generating prop analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def store_analysis(analysis_item: Dict[str, Any]):

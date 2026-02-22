@@ -248,6 +248,37 @@ export class MonitoringStack extends cdk.Stack {
       })
     );
 
+    // Custom metric alarms for analysis generation errors
+    const gameProcessingErrors = new cloudwatch.Alarm(this, 'GameProcessingErrors', {
+      metric: new cloudwatch.Metric({
+        namespace: 'SportsAnalytics/AnalysisGenerator',
+        metricName: 'GameProcessingErrors',
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(60),
+      }),
+      threshold: 10,
+      evaluationPeriods: 1,
+      alarmName: `${props.environment}-GameProcessingErrors`,
+      alarmDescription: 'Alert when game analysis processing has errors',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    gameProcessingErrors.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+
+    const propProcessingErrors = new cloudwatch.Alarm(this, 'PropProcessingErrors', {
+      metric: new cloudwatch.Metric({
+        namespace: 'SportsAnalytics/AnalysisGenerator',
+        metricName: 'PropProcessingErrors',
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(60),
+      }),
+      threshold: 10,
+      evaluationPeriods: 1,
+      alarmName: `${props.environment}-PropProcessingErrors`,
+      alarmDescription: 'Alert when prop analysis processing has errors',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    propProcessingErrors.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+
     // Outputs
     new cdk.CfnOutput(this, 'DashboardUrl', {
       value: `https://console.aws.amazon.com/cloudwatch/home?region=${this.region}#dashboards:name=${dashboard.dashboardName}`,
