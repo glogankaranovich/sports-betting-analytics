@@ -24,5 +24,12 @@ def test_collect_news_unsupported_sport(collector):
     assert result["news_collected"] == 0
 
 
+def test_sport_mappings(collector):
+    """Test sport mappings exist"""
+    assert "americanfootball_nfl" in collector.sport_mappings
+    assert "baseball_mlb" in collector.sport_mappings
+    assert "icehockey_nhl" in collector.sport_mappings
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

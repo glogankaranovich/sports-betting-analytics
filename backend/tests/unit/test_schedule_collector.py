@@ -27,6 +27,17 @@ def test_get_teams_empty(collector):
         assert teams == []
 
 
+def test_get_teams_with_data(collector):
+    """Test getting teams with data"""
+    with patch("schedule_collector.requests.get") as mock_get:
+        mock_get.return_value.json.return_value = {
+            "sports": [{"leagues": [{"teams": [{"team": {"id": "1", "displayName": "Lakers"}}]}]}]
+        }
+        
+        teams = collector._get_teams("basketball_nba")
+        assert len(teams) > 0
+
+
 def test_collect_schedules_no_teams(collector):
     """Test collecting schedules with no teams"""
     with patch.object(collector, "_get_teams", return_value=[]):

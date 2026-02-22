@@ -2241,19 +2241,9 @@ class EnsembleModel(BaseAnalysisModel):
                 return None
 
             # Get dynamic weights for each model
-            weights, inversions = self.weighting.get_model_weights(
+            weights = self.weighting.get_model_weights(
                 sport, "game", list(predictions.keys())
             )
-
-            # Invert predictions where recommended
-            for model in inversions:
-                if inversions[model] and model in predictions:
-                    pred = predictions[model]
-                    # Flip the prediction
-                    if pred.prediction == pred.home_team:
-                        pred.prediction = pred.away_team
-                    else:
-                        pred.prediction = pred.home_team
 
             # Calculate weighted average confidence
             weighted_confidence = sum(
@@ -2302,19 +2292,9 @@ class EnsembleModel(BaseAnalysisModel):
                 return None
 
             # Get dynamic weights for each model
-            weights, inversions = self.weighting.get_model_weights(
+            weights = self.weighting.get_model_weights(
                 sport, "prop", list(predictions.keys())
             )
-
-            # Invert predictions where recommended
-            for model in inversions:
-                if inversions[model] and model in predictions:
-                    pred = predictions[model]
-                    # Flip the prediction (over <-> under)
-                    if pred.prediction.lower() == "over":
-                        pred.prediction = "under"
-                    elif pred.prediction.lower() == "under":
-                        pred.prediction = "over"
 
             # Calculate weighted average confidence
             weighted_confidence = sum(
