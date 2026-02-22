@@ -151,6 +151,13 @@ class AnalysisResult:
 class BaseAnalysisModel:
     """Base class for all analysis models"""
 
+    def __init__(self):
+        self.performance_tracker = None
+        table_name = os.getenv("DYNAMODB_TABLE")
+        if table_name:
+            from model_performance import ModelPerformanceTracker
+            self.performance_tracker = ModelPerformanceTracker(table_name)
+
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
     ) -> AnalysisResult:
@@ -175,6 +182,26 @@ class BaseAnalysisModel:
         mean = sum(values) / len(values)
         variance = sum((x - mean) ** 2 for x in values) / len(values)
         return math.sqrt(variance)
+
+    def _adjust_confidence(self, base_confidence: float, model_name: str, sport: str) -> float:
+        """Adjust confidence based on recent model performance"""
+        if not self.performance_tracker:
+            return base_confidence
+
+        try:
+            perf = self.performance_tracker.get_model_performance(model_name, sport, days=30)
+            if perf["total_predictions"] < 10:
+                return base_confidence
+            
+            accuracy = perf["accuracy"]
+            if accuracy >= 0.60:
+                return min(base_confidence + min(0.05, (accuracy - 0.60) * 0.25), 0.95)
+            elif accuracy < 0.50:
+                return max(base_confidence - (0.50 - accuracy) * 0.5, 0.45)
+            return base_confidence
+        except Exception as e:
+            logger.error(f"Error adjusting confidence: {e}")
+            return base_confidence
 
 
 class ConsensusModel(BaseAnalysisModel):
@@ -226,6 +253,9 @@ class ConsensusModel(BaseAnalysisModel):
         except Exception as e:
             logger.error(f"Error getting Elo ratings: {e}")
             elo_context = ""  # Set default value on error
+
+        # Adjust confidence based on historical performance
+        confidence = self._adjust_confidence(confidence, "consensus", sport)
 
         return AnalysisResult(
             game_id=game_id,
