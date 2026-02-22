@@ -416,7 +416,25 @@ class ValueModel(BaseAnalysisModel):
         selected_spread = spreads[0]
         avg_spread = sum(s[0] for s in spreads) / len(spreads)
         confidence = 0.7 if abs(selected_spread[0] - avg_spread) > 1.0 else 0.5
-        confidence = self._adjust_confidence(confidence, "value", game_info.get("sport"))
+        
+        # Validate with Elo ratings
+        sport = game_info.get("sport")
+        home_team = game_info.get("home_team")
+        away_team = game_info.get("away_team")
+        
+        try:
+            home_elo = self.elo_calculator.get_team_rating(sport, home_team)
+            away_elo = self.elo_calculator.get_team_rating(sport, away_team)
+            elo_diff = home_elo - away_elo
+            
+            # Check if value bet aligns with Elo
+            if (selected_spread[0] < avg_spread and elo_diff > 50) or \
+               (selected_spread[0] > avg_spread and elo_diff < -50):
+                confidence = min(confidence + 0.05, 0.95)
+        except Exception as e:
+            logger.error(f"Error getting Elo ratings: {e}")
+        
+        confidence = self._adjust_confidence(confidence, "value", sport)
 
         return AnalysisResult(
             game_id=game_id,
@@ -530,6 +548,7 @@ class MomentumModel(BaseAnalysisModel):
     def __init__(self):
         super().__init__()
         self.fatigue_calculator = TravelFatigueCalculator()
+        self.elo_calculator = EloCalculator()
 
     def analyze_game_odds(
         self, game_id: str, odds_items: List[Dict], game_info: Dict
@@ -594,6 +613,18 @@ class MomentumModel(BaseAnalysisModel):
         else:
             confidence = 0.6
             reasoning = f"Small line adjustment: Spread moved slightly from {abs(old_spread):.1f} to {abs(new_spread):.1f} points. Minor market change.{fatigue_context}"
+
+        # Validate with Elo ratings
+        try:
+            home_elo = self.elo_calculator.get_team_rating(sport, home_team)
+            away_elo = self.elo_calculator.get_team_rating(sport, away_team)
+            elo_diff = home_elo - away_elo
+            
+            # Check if line movement aligns with Elo
+            if (movement < 0 and elo_diff > 50) or (movement > 0 and elo_diff < -50):
+                confidence = min(confidence + 0.05, 0.95)
+        except Exception as e:
+            logger.error(f"Error getting Elo ratings: {e}")
 
         confidence = self._adjust_confidence(confidence, "momentum", sport)
 
