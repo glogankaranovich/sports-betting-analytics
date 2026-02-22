@@ -645,6 +645,27 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Emit CloudWatch metric
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/TeamStatsCollector',
+                MetricData=[{
+                    'MetricName': 'CollectionError',
+                    'Value': 1,
+                    'Unit': 'Count',
+                    'Dimensions': [
+                        {'Name': 'Sport', 'Value': event.get('sport', 'unknown') if event else 'unknown'}
+                    ]
+                }]
+            )
+        except:
+            pass
+        
         return {"statusCode": 500, "body": {"error": str(e)}}
 
 
