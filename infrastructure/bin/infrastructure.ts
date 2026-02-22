@@ -6,6 +6,7 @@ import { BetCollectorApiStack } from '../lib/bet-collector-api-stack';
 import { OutcomeCollectorStack } from '../lib/outcome-collector-stack';
 import { PlayerStatsCollectorStack } from '../lib/player-stats-collector-stack';
 import { TeamStatsCollectorStack } from '../lib/team-stats-collector-stack';
+import { SeasonStatsCollectorStack } from '../lib/season-stats-collector-stack';
 import { ModelAnalyticsStack } from '../lib/model-analytics-stack';
 import { AnalysisGeneratorStack } from '../lib/analysis-generator-stack';
 import { EmailStack } from '../lib/email-stack';
@@ -98,6 +99,12 @@ if (environment === 'dev') {
   });
 
   const teamStatsCollectorStack = new TeamStatsCollectorStack(app, StackNames.forEnvironment('dev', 'TeamStatsCollector'), {
+    environment: 'dev',
+    table: dynamoStack.betsTable,
+    env: ENVIRONMENTS.dev,
+  });
+
+  const seasonStatsCollectorStack = new SeasonStatsCollectorStack(app, StackNames.forEnvironment('dev', 'SeasonStatsCollector'), {
     environment: 'dev',
     table: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,

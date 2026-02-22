@@ -6,6 +6,7 @@ import { BetCollectorApiStack } from './bet-collector-api-stack';
 import { OutcomeCollectorStack } from './outcome-collector-stack';
 import { PlayerStatsCollectorStack } from './player-stats-collector-stack';
 import { TeamStatsCollectorStack } from './team-stats-collector-stack';
+import { SeasonStatsCollectorStack } from './season-stats-collector-stack';
 import { ModelAnalyticsStack } from './model-analytics-stack';
 import { AuthStack } from './auth-stack';
 import { ComplianceStack } from './compliance-stack';
@@ -101,6 +102,12 @@ export class CarpoolBetsStage extends cdk.Stage {
 
     // Team stats collector stack
     const teamStatsCollectorStack = new TeamStatsCollectorStack(this, 'TeamStatsCollector', {
+      environment: props.stage,
+      table: dynamoStack.betsTable,
+    });
+
+    // Season stats collector stack (ESPN statistics API)
+    const seasonStatsCollectorStack = new SeasonStatsCollectorStack(this, 'SeasonStatsCollector', {
       environment: props.stage,
       table: dynamoStack.betsTable,
     });
