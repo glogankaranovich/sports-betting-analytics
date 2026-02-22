@@ -29,7 +29,7 @@ import { ModelComparisonCacheStack } from '../lib/model-comparison-cache-stack';
 import { NewsCollectorsStack } from '../lib/news-collectors-stack';
 import { CustomDataStack } from '../lib/custom-data-stack';
 import { WeatherCollectorStack } from '../lib/weather-collector-stack';
-import { MetricsCalculatorStack } from '../lib/metrics-calculator-stack';
+import { MetricsCalculatorStack } from '../lib/metrics-calculator-stack'; // DEPRECATED
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -116,11 +116,12 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
-  const metricsCalculatorStack = new MetricsCalculatorStack(app, StackNames.forEnvironment('dev', 'MetricsCalculator'), {
-    environment: 'dev',
-    betsTableName: 'carpool-bets-v2-dev',
-    env: ENVIRONMENTS.dev,
-  });
+  // DEPRECATED: MetricsCalculator replaced by SeasonStatsCollector (simpler, more accurate)
+  // const metricsCalculatorStack = new MetricsCalculatorStack(app, StackNames.forEnvironment('dev', 'MetricsCalculator'), {
+  //   environment: 'dev',
+  //   betsTableName: 'carpool-bets-v2-dev',
+  //   env: ENVIRONMENTS.dev,
+  // });
 
   const analysisGeneratorStack = new AnalysisGeneratorStack(app, StackNames.forEnvironment('dev', 'AnalysisGenerator'), {
     environment: 'dev',
