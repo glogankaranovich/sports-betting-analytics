@@ -279,6 +279,33 @@ export class MonitoringStack extends cdk.Stack {
     });
     propProcessingErrors.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
 
+    // Collector error alarms
+    const collectorErrors = [
+      { name: 'OddsCollector', namespace: 'SportsAnalytics/OddsCollector', metric: 'CollectionError' },
+      { name: 'OutcomeCollector', namespace: 'SportsAnalytics/OutcomeCollector', metric: 'CollectionError' },
+      { name: 'TeamStatsCollector', namespace: 'SportsAnalytics/TeamStatsCollector', metric: 'CollectionError' },
+      { name: 'PlayerStatsCollector', namespace: 'SportsAnalytics/PlayerStatsCollector', metric: 'CollectionError' },
+      { name: 'BennyTrader', namespace: 'SportsAnalytics/BennyTrader', metric: 'TradingError' },
+      { name: 'ModelAnalytics', namespace: 'SportsAnalytics/ModelAnalytics', metric: 'AnalyticsError' },
+    ];
+
+    collectorErrors.forEach(({ name, namespace, metric }) => {
+      const alarm = new cloudwatch.Alarm(this, `${name}Errors`, {
+        metric: new cloudwatch.Metric({
+          namespace,
+          metricName: metric,
+          statistic: 'Sum',
+          period: cdk.Duration.minutes(60),
+        }),
+        threshold: 5,
+        evaluationPeriods: 1,
+        alarmName: `${props.environment}-${name}-Errors`,
+        alarmDescription: `Alert when ${name} has errors`,
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+      alarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'DashboardUrl', {
       value: `https://console.aws.amazon.com/cloudwatch/home?region=${this.region}#dashboards:name=${dashboard.dashboardName}`,
