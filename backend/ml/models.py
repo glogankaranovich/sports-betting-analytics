@@ -208,6 +208,7 @@ class ConsensusModel(BaseAnalysisModel):
     """Consensus model: Average across all bookmakers with Elo adjustments"""
     
     def __init__(self):
+        super().__init__()
         self.elo_calculator = EloCalculator()
 
     def analyze_game_odds(
@@ -349,6 +350,7 @@ class ValueModel(BaseAnalysisModel):
         selected_spread = spreads[0]
         avg_spread = sum(s[0] for s in spreads) / len(spreads)
         confidence = 0.7 if abs(selected_spread[0] - avg_spread) > 1.0 else 0.5
+        confidence = self._adjust_confidence(confidence, "value", game_info.get("sport"))
 
         return AnalysisResult(
             game_id=game_id,
@@ -431,6 +433,9 @@ class ValueModel(BaseAnalysisModel):
                     reasoning = f"Decent odds: Under is {under_prob_fair:.0%} likely. Worth considering despite higher sportsbook fees"
                 else:
                     return None  # No value in high vig situation
+
+            # Adjust confidence based on historical performance
+            confidence = self._adjust_confidence(confidence, "value", prop_item.get("sport"))
 
             return AnalysisResult(
                 game_id=prop_item.get("event_id", "unknown"),
@@ -522,6 +527,8 @@ class MomentumModel(BaseAnalysisModel):
         else:
             confidence = 0.6
             reasoning = f"Small line adjustment: Spread moved slightly from {abs(old_spread):.1f} to {abs(new_spread):.1f} points. Minor market change.{fatigue_context}"
+
+        confidence = self._adjust_confidence(confidence, "momentum", sport)
 
         return AnalysisResult(
             game_id=game_id,
@@ -2426,6 +2433,8 @@ class FundamentalsModel(BaseAnalysisModel):
         
         reasoning = "Fundamentals: " + ", ".join(reasons) if reasons else f"Slight edge to {pick}"
         reasoning += weather_context
+        
+        confidence = self._adjust_confidence(confidence, "fundamentals", sport)
         
         return AnalysisResult(
             game_id=game_id,
