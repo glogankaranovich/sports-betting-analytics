@@ -31,6 +31,25 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
 
     except Exception as e:
+        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Emit CloudWatch metric
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/AIAgentAPI',
+                MetricData=[{
+                    'MetricName': 'APIError',
+                    'Value': 1,
+                    'Unit': 'Count'
+                }]
+            )
+        except:
+            pass
+        
         return {
             "statusCode": 500,
             "body": json.dumps({"error": str(e)}),

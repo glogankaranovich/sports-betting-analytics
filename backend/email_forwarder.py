@@ -39,4 +39,21 @@ def lambda_handler(event, context):
 
     except ClientError as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Emit CloudWatch metric
+        try:
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/EmailForwarder',
+                MetricData=[{
+                    'MetricName': 'ForwardError',
+                    'Value': 1,
+                    'Unit': 'Count'
+                }]
+            )
+        except:
+            pass
+        
         return {"statusCode": 500, "body": str(e)}

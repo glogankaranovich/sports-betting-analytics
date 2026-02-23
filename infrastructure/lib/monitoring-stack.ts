@@ -292,6 +292,8 @@ export class MonitoringStack extends cdk.Stack {
       { name: 'WeatherCollector', namespace: 'SportsAnalytics/WeatherCollector', metric: 'CollectionError' },
       { name: 'NewsCollector', namespace: 'SportsAnalytics/NewsCollector', metric: 'CollectionError' },
       { name: 'AIAgent', namespace: 'SportsAnalytics/AIAgent', metric: 'ChatError' },
+      { name: 'AIAgentAPI', namespace: 'SportsAnalytics/AIAgentAPI', metric: 'APIError' },
+      { name: 'EmailForwarder', namespace: 'SportsAnalytics/EmailForwarder', metric: 'ForwardError' },
       { name: 'BennyTrader', namespace: 'SportsAnalytics/BennyTrader', metric: 'TradingError' },
       { name: 'ModelAnalytics', namespace: 'SportsAnalytics/ModelAnalytics', metric: 'AnalyticsError' },
       { name: 'SeasonManager', namespace: 'SportsAnalytics/SeasonManager', metric: 'ManagementError' },
