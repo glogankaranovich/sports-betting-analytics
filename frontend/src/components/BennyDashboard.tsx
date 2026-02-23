@@ -214,6 +214,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={data.bankroll_history.map((point, i) => {
+                    const startingBankroll = data.bankroll_history[0].amount;
                     const settledBets = data.total_bets - data.pending_bets;
                     const estimatedWins = Math.round(settledBets * data.win_rate);
                     const progressRatio = i / Math.max(data.bankroll_history.length - 1, 1);
@@ -224,7 +225,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
                     return {
                       timestamp: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                       bankroll: point.amount,
-                      profit: point.amount - data.weekly_budget,
+                      profit: point.amount - startingBankroll,
                       winrate: winRateAtPoint
                     };
                   })}
