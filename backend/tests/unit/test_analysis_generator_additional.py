@@ -125,9 +125,9 @@ def test_generate_game_analysis_error_handling():
         
         mock_model = Mock()
         
-        # Should handle error gracefully
-        count = generate_game_analysis("basketball_nba", mock_model)
-        assert count == 0
+        # Should raise exception for critical setup errors
+        with pytest.raises(Exception, match="DynamoDB error"):
+            generate_game_analysis("basketball_nba", mock_model)
 
 
 def test_generate_prop_analysis_error_handling():
@@ -138,8 +138,9 @@ def test_generate_prop_analysis_error_handling():
         
         mock_model = Mock()
         
-        count = generate_prop_analysis("basketball_nba", mock_model)
-        assert count == 0
+        # Should raise exception for critical setup errors
+        with pytest.raises(Exception, match="DynamoDB error"):
+            generate_prop_analysis("basketball_nba", mock_model)
 
 
 if __name__ == "__main__":
