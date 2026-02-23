@@ -15,6 +15,49 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Get environment
+ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
+
+
+def get_api_url():
+    """Get API URL for the current environment"""
+    cf_client = boto3.client("cloudformation", region_name="us-east-1")
+    
+    stack_prefix = {"dev": "Dev", "beta": "Beta", "prod": "Prod"}.get(ENVIRONMENT, "Dev")
+    stack_name = f"{stack_prefix}-BetCollectorApi"
+    
+    try:
+        response = cf_client.describe_stacks(StackName=stack_name)
+        outputs = response["Stacks"][0]["Outputs"]
+        for output in outputs:
+            if output["OutputKey"] in ["BetCollectorApiUrl", "ApiUrl"]:
+                return output["OutputValue"].rstrip("/")
+    except Exception as e:
+        print(f"Warning: Could not get API URL from CloudFormation: {e}")
+        return None
+
+
+def get_cognito_config():
+    """Get Cognito configuration for the current environment"""
+    cf_client = boto3.client("cloudformation", region_name="us-east-1")
+    
+    stack_prefix = {"dev": "Dev", "beta": "Beta", "prod": "Prod"}.get(ENVIRONMENT, "Dev")
+    stack_name = f"{stack_prefix}-Auth"
+    
+    try:
+        response = cf_client.describe_stacks(StackName=stack_name)
+        outputs = response["Stacks"][0]["Outputs"]
+        config = {}
+        for output in outputs:
+            if output["OutputKey"] == "UserPoolId":
+                config["user_pool_id"] = output["OutputValue"]
+            elif output["OutputKey"] == "UserPoolClientId":
+                config["client_id"] = output["OutputValue"]
+        return config if config else None
+    except Exception as e:
+        print(f"Warning: Could not get Cognito config: {e}")
+        return None
+
 
 class TestPlayerPropsIntegration(unittest.TestCase):
     """Integration tests for player props API"""
@@ -22,17 +65,21 @@ class TestPlayerPropsIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up integration test environment"""
-        cls.api_url = "https://lpykx3ka6a.execute-api.us-east-1.amazonaws.com/prod"
+        cls.api_url = get_api_url()
+        cls.cognito_config = get_cognito_config()
         cls.token = cls._get_auth_token()
 
     @classmethod
     def _get_auth_token(cls):
         """Get Cognito authentication token"""
+        if not cls.cognito_config:
+            return None
+            
         try:
             client = boto3.client("cognito-idp", region_name="us-east-1")
             response = client.admin_initiate_auth(
-                UserPoolId="us-east-1_UT5jyAP5L",
-                ClientId="4qs12vau007oineekjldjkn6v0",
+                UserPoolId=cls.cognito_config["user_pool_id"],
+                ClientId=cls.cognito_config["client_id"],
                 AuthFlow="ADMIN_NO_SRP_AUTH",
                 AuthParameters={
                     "USERNAME": "testuser@example.com",
@@ -46,10 +93,9 @@ class TestPlayerPropsIntegration(unittest.TestCase):
 
     def setUp(self):
         """Set up test case"""
-        # Use mock token if real authentication fails
-        if not self.token:
-            self.token = "mock-token-for-testing"
-
+        if not self.api_url or not self.token:
+            self.skipTest(f"API not configured for {ENVIRONMENT} environment")
+            
         self.headers = {"Authorization": self.token}
 
     def test_player_props_endpoint_exists(self):

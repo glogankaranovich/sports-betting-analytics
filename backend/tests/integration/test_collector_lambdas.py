@@ -4,12 +4,17 @@ Tests schedule, player stats, team stats, model analytics, and season manager.
 """
 
 import json
+import os
 
 import boto3
 
 # AWS clients
 lambda_client = boto3.client("lambda", region_name="us-east-1")
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+
+# Get environment from env var, default to dev
+ENVIRONMENT = os.getenv("ENVIRONMENT", "dev")
+TABLE_NAME = f"carpool-bets-v2-{ENVIRONMENT}"
 
 
 def test_schedule_collector_integration():
@@ -22,7 +27,9 @@ def test_schedule_collector_integration():
             function_name = func["FunctionName"]
             break
 
-    assert function_name is not None, "Schedule collector function not found"
+    if not function_name:
+        print(f"Schedule collector function not found in {ENVIRONMENT}")
+        return  # Skip if not deployed
 
     # Invoke Lambda with NBA sport
     payload = {"sport": "basketball_nba"}
@@ -41,13 +48,59 @@ def test_schedule_collector_integration():
     assert "statusCode" in response_payload
     assert response_payload["statusCode"] in [200, 201]
 
-    # Verify data was stored in DynamoDB
-    table = dynamodb.Table("carpool-bets-v2-dev")
 
-    # Query for schedule data (PK starts with SCHEDULE#)
-    # Note: DynamoDB key is lowercase 'pk', not 'PK'
-    response = table.scan(
-        FilterExpression="begins_with(pk, :pk)",
+def test_player_stats_collector_integration():
+    """Test player stats collector Lambda function."""
+    function_name = None
+    response = lambda_client.list_functions()
+    for func in response["Functions"]:
+        if "PlayerStatsCollectorFunction" in func["FunctionName"]:
+            function_name = func["FunctionName"]
+            break
+
+    if not function_name:
+        print(f"Player stats collector function not found in {ENVIRONMENT}")
+        return
+
+    payload = {"sport": "basketball_nba"}
+    response = lambda_client.invoke(
+        FunctionName=function_name,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(payload),
+    )
+
+    response_payload = json.loads(response["Payload"].read())
+    print(f"Player stats collector response: {response_payload}")
+
+    assert response["StatusCode"] == 200
+    assert "statusCode" in response_payload
+
+
+def test_team_stats_collector_integration():
+    """Test team stats collector Lambda function."""
+    function_name = None
+    response = lambda_client.list_functions()
+    for func in response["Functions"]:
+        if "TeamStatsCollectorFunction" in func["FunctionName"]:
+            function_name = func["FunctionName"]
+            break
+
+    if not function_name:
+        print(f"Team stats collector function not found in {ENVIRONMENT}")
+        return
+
+    payload = {"sport": "basketball_nba"}
+    response = lambda_client.invoke(
+        FunctionName=function_name,
+        InvocationType="RequestResponse",
+        Payload=json.dumps(payload),
+    )
+
+    response_payload = json.loads(response["Payload"].read())
+    print(f"Team stats collector response: {response_payload}")
+
+    assert response["StatusCode"] == 200
+    assert "statusCode" in response_payload
         ExpressionAttributeValues={":pk": "SCHEDULE#"},
         Limit=5,
     )

@@ -1,6 +1,7 @@
 """
 Real integration tests for user models system against deployed AWS resources
 """
+import os
 import unittest
 from decimal import Decimal
 
@@ -8,18 +9,36 @@ import boto3
 
 
 class TestUserModelsRealIntegration(unittest.TestCase):
-    """Test user models against real DynamoDB tables in dev"""
+    """Test user models against real DynamoDB tables"""
 
     @classmethod
     def setUpClass(cls):
         """Setup connections to real AWS resources"""
+        environment = os.getenv("ENVIRONMENT", "dev")
+        environment_title = environment.title()
+        
         cls.dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-        cls.user_models_table = cls.dynamodb.Table("Dev-UserModels-UserModels")
-        cls.predictions_table = cls.dynamodb.Table("Dev-UserModels-ModelPredictions")
-        cls.test_user_id = "test_integration_user"
+        
+        try:
+            cls.user_models_table = cls.dynamodb.Table(f"{environment_title}-UserModels-UserModels")
+            cls.predictions_table = cls.dynamodb.Table(f"{environment_title}-UserModels-ModelPredictions")
+            cls.test_user_id = "test_integration_user"
+            cls.environment = environment
+        except Exception as e:
+            print(f"⚠️  Could not access user models tables in {environment_title}: {e}")
+            cls.user_models_table = None
+            cls.predictions_table = None
+
+    def setUp(self):
+        """Check if tables are available"""
+        if not self.user_models_table:
+            self.skipTest(f"User models tables not available in {self.environment}")
 
     def tearDown(self):
         """Clean up test data after each test"""
+        if not self.user_models_table:
+            return
+            
         # Delete test user's models
         try:
             response = self.user_models_table.query(
