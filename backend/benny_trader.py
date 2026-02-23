@@ -164,6 +164,114 @@ class BennyTrader:
             }
         )
 
+    def _get_total_deposits(self) -> Decimal:
+        """Get total deposits made (excluding initial bankroll)"""
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ":pk": "BENNY",
+                    ":sk": "DEPOSIT#"
+                }
+            )
+            deposits = response.get("Items", [])
+            return sum(Decimal(str(d.get("amount", 0))) for d in deposits)
+        except:
+            return Decimal("0")
+
+    def _add_deposit(self, amount: Decimal, reason: str = "manual"):
+        """Add deposit to bankroll and track separately"""
+        timestamp = datetime.utcnow().isoformat()
+        
+        # Record deposit
+        self.table.put_item(
+            Item={
+                "pk": "BENNY",
+                "sk": f"DEPOSIT#{timestamp}",
+                "amount": amount,
+                "reason": reason,
+                "created_at": timestamp
+            }
+        )
+        
+        # Update bankroll
+        new_bankroll = self.bankroll + amount
+        self._update_bankroll(new_bankroll)
+        print(f"Added ${amount} deposit ({reason}). New bankroll: ${new_bankroll}")
+
+    def _check_auto_deposit_conditions(self) -> bool:
+        """Check if auto-deposit should trigger"""
+        MIN_BANKROLL_THRESHOLD = Decimal("50.00")
+        MIN_WIN_RATE = 0.50
+        DEPOSIT_COOLDOWN_DAYS = 7
+        
+        # Check bankroll threshold
+        if self.bankroll >= MIN_BANKROLL_THRESHOLD:
+            return False
+        
+        # Check recent win rate
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ":pk": "BENNY",
+                    ":sk": "BET#"
+                },
+                ScanIndexForward=False,
+                Limit=50
+            )
+            
+            bets = response.get("Items", [])
+            settled_bets = [b for b in bets if b.get("status") in ["won", "lost"]]
+            
+            if len(settled_bets) < 10:  # Need at least 10 bets
+                return False
+            
+            won_bets = [b for b in settled_bets if b.get("status") == "won"]
+            win_rate = len(won_bets) / len(settled_bets)
+            
+            if win_rate < MIN_WIN_RATE:
+                print(f"Win rate too low ({win_rate:.1%}) for auto-deposit")
+                return False
+        except:
+            return False
+        
+        # Check cooldown period
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
+                ExpressionAttributeValues={
+                    ":pk": "BENNY",
+                    ":sk": "DEPOSIT#"
+                },
+                ScanIndexForward=False,
+                Limit=1
+            )
+            
+            deposits = response.get("Items", [])
+            if deposits:
+                last_deposit = deposits[0]
+                last_deposit_time = datetime.fromisoformat(last_deposit["created_at"])
+                days_since = (datetime.utcnow() - last_deposit_time).days
+                
+                if days_since < DEPOSIT_COOLDOWN_DAYS:
+                    print(f"Cooldown active: {days_since} days since last deposit")
+                    return False
+        except:
+            pass
+        
+        return True
+
+    def _auto_deposit_if_needed(self):
+        """Automatically deposit funds if conditions are met"""
+        AUTO_DEPOSIT_AMOUNT = Decimal("100.00")
+        
+        if self._check_auto_deposit_conditions():
+            print(f"Auto-deposit triggered: bankroll=${self.bankroll}, adding ${AUTO_DEPOSIT_AMOUNT}")
+            self._add_deposit(AUTO_DEPOSIT_AMOUNT, reason="auto-refill")
+            return True
+        return False
+
     def _get_top_models(self, sport: str, limit: int = 3) -> List[str]:
         """Get top performing models for a sport based on recent accuracy"""
         try:
@@ -982,6 +1090,18 @@ Respond with JSON only:
             # Calculate overall win rate
             wins = sum(1 for b in bets if b.get("status") == "won")
             win_rate = wins / len(bets)
+            
+            # Calculate true profit (excluding deposits)
+            total_deposits = self._get_total_deposits()
+            true_profit = self.bankroll - self.WEEKLY_BUDGET - total_deposits
+            
+            # Calculate ROI based on actual betting, not deposits
+            settled_bets = [b for b in bets if b.get("status") in ["won", "lost"]]
+            won_bets = [b for b in settled_bets if b.get("status") == "won"]
+            
+            total_wagered = sum(Decimal(str(b.get("bet_amount", 0))) for b in settled_bets)
+            total_profit = sum(Decimal(str(b.get("profit", 0))) for b in settled_bets)
+            roi = (total_profit / total_wagered * 100) if total_wagered > 0 else Decimal("0")
 
             # Adjust MIN_CONFIDENCE based on performance
             if win_rate > 0.60:
@@ -1024,6 +1144,9 @@ Respond with JSON only:
                     "performance_by_bet_type": perf_by_bet_type,
                     "overall_win_rate": Decimal(str(win_rate)),
                     "total_bets_analyzed": len(bets),
+                    "total_deposits": total_deposits,
+                    "true_profit": true_profit,
+                    "roi_percentage": roi,
                     "last_updated": datetime.utcnow().isoformat(),
                 }
             )
@@ -1113,6 +1236,9 @@ Respond with JSON only:
     def run_daily_analysis(self) -> Dict[str, Any]:
         """Run daily analysis for games and props"""
         print(f"Starting Benny Trader analysis. Current bankroll: ${self.bankroll}")
+        
+        # Check if auto-deposit is needed
+        auto_deposited = self._auto_deposit_if_needed()
         
         # Update learning parameters before analyzing
         self.update_learning_parameters()
