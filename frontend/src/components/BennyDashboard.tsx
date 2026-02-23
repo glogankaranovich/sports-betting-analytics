@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import LoadingSpinner from './LoadingSpinner';
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://ddzbfblwr0.execute-api.us-east-1.amazonaws.com/prod';
@@ -70,6 +71,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedBet, setExpandedBet] = useState<string | null>(null);
+  const [chartView, setChartView] = useState<'bankroll' | 'profit' | 'winrate'>('bankroll');
 
   useEffect(() => {
     if (hasAccess) {
@@ -185,37 +187,99 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
         {/* Bankroll Chart */}
         {data.bankroll_history.length > 1 && (
           <div className="bankroll-chart">
-            <h4>Bankroll Over Time</h4>
-            <div className="chart-container">
-              <svg viewBox="0 0 800 200" className="chart-svg">
-                {/* Grid lines */}
-                <line x1="50" y1="20" x2="50" y2="180" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
-                <line x1="50" y1="180" x2="780" y2="180" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
-                
-                {/* Bankroll line */}
-                <polyline
-                  points={data.bankroll_history.map((point, i) => {
-                    const x = 50 + (i / (data.bankroll_history.length - 1)) * 730;
-                    const y = 180 - ((point.amount / data.weekly_budget) * 160);
-                    return `${x},${y}`;
-                  }).join(' ')}
-                  fill="none"
-                  stroke="#667eea"
-                  strokeWidth="2"
-                />
-                
-                {/* Data points */}
-                {data.bankroll_history.map((point, i) => {
-                  const x = 50 + (i / (data.bankroll_history.length - 1)) * 730;
-                  const y = 180 - ((point.amount / data.weekly_budget) * 160);
-                  return <circle key={i} cx={x} cy={y} r="3" fill="#667eea" />;
-                })}
-                
-                {/* Labels */}
-                <text x="25" y="25" fill="#a0aec0" fontSize="12">${data.weekly_budget}</text>
-                <text x="25" y="185" fill="#a0aec0" fontSize="12">$0</text>
-                <text x="750" y="195" fill="#a0aec0" fontSize="12">Now</text>
-              </svg>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h4>Performance Over Time</h4>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className={`chart-toggle ${chartView === 'bankroll' ? 'active' : ''}`}
+                  onClick={() => setChartView('bankroll')}
+                >
+                  Bankroll
+                </button>
+                <button 
+                  className={`chart-toggle ${chartView === 'profit' ? 'active' : ''}`}
+                  onClick={() => setChartView('profit')}
+                >
+                  Profit
+                </button>
+                <button 
+                  className={`chart-toggle ${chartView === 'winrate' ? 'active' : ''}`}
+                  onClick={() => setChartView('winrate')}
+                >
+                  Win Rate
+                </button>
+              </div>
+            </div>
+            <div className="chart-container" style={{ height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={data.bankroll_history.map((point, i) => ({
+                    timestamp: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    bankroll: point.amount,
+                    profit: point.amount - data.weekly_budget,
+                    winrate: i > 0 ? ((point.amount / data.weekly_budget - 1) * 100) : 0
+                  }))}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis 
+                    dataKey="timestamp" 
+                    stroke="#a0aec0"
+                    style={{ fontSize: '12px' }}
+                  />
+                  <YAxis 
+                    stroke="#a0aec0"
+                    style={{ fontSize: '12px' }}
+                    tickFormatter={(value: number) => chartView === 'winrate' ? `${value}%` : `$${value}`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#2d3748', 
+                      border: '1px solid #4a5568',
+                      borderRadius: '4px',
+                      color: '#fff'
+                    }}
+                    formatter={(value: any) => {
+                      if (chartView === 'winrate') return [`${value.toFixed(1)}%`, 'Win Rate'];
+                      return [`$${value.toFixed(2)}`, chartView === 'profit' ? 'Profit' : 'Bankroll'];
+                    }}
+                  />
+                  <Legend />
+                  {chartView === 'bankroll' && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="bankroll" 
+                      stroke="#667eea" 
+                      strokeWidth={2}
+                      dot={{ fill: '#667eea', r: 4 }}
+                      activeDot={{ r: 6 }}
+                      name="Bankroll"
+                    />
+                  )}
+                  {chartView === 'profit' && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="profit" 
+                      stroke={data.current_bankroll >= data.weekly_budget ? '#48bb78' : '#f56565'} 
+                      strokeWidth={2}
+                      dot={{ fill: data.current_bankroll >= data.weekly_budget ? '#48bb78' : '#f56565', r: 4 }}
+                      activeDot={{ r: 6 }}
+                      name="Profit/Loss"
+                    />
+                  )}
+                  {chartView === 'winrate' && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="winrate" 
+                      stroke="#ed8936" 
+                      strokeWidth={2}
+                      dot={{ fill: '#ed8936', r: 4 }}
+                      activeDot={{ r: 6 }}
+                      name="Win Rate %"
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}
@@ -749,6 +813,28 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
 
         .bet-status.pending {
           color: #ed8936;
+        }
+
+        .chart-toggle {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #a0aec0;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 13px;
+          transition: all 0.2s;
+        }
+
+        .chart-toggle:hover {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(102, 126, 234, 0.3);
+        }
+
+        .chart-toggle.active {
+          background: #667eea;
+          border-color: #667eea;
+          color: #fff;
         }
 
         @media (max-width: 768px) {
