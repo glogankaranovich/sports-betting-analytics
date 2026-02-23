@@ -697,16 +697,27 @@ class OutcomeCollector:
                 )
 
             # Save updated bankroll
+            timestamp = datetime.utcnow().isoformat()
             bankroll_item = bankroll_response.get("Item", {})
+            
+            # Update current bankroll
             self.table.put_item(
                 Item={
                     "pk": "BENNY",
                     "sk": "BANKROLL",
                     "amount": current_bankroll,
-                    "last_reset": bankroll_item.get(
-                        "last_reset", datetime.utcnow().isoformat()
-                    ),
-                    "updated_at": datetime.utcnow().isoformat(),
+                    "last_reset": bankroll_item.get("last_reset", timestamp),
+                    "updated_at": timestamp,
+                }
+            )
+            
+            # Store history snapshot
+            self.table.put_item(
+                Item={
+                    "pk": "BENNY",
+                    "sk": f"BANKROLL#{timestamp}",
+                    "amount": current_bankroll,
+                    "updated_at": timestamp,
                 }
             )
 

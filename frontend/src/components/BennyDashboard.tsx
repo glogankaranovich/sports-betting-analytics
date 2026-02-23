@@ -213,12 +213,21 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
             <div className="chart-container" style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={data.bankroll_history.map((point, i) => ({
-                    timestamp: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                    bankroll: point.amount,
-                    profit: point.amount - data.weekly_budget,
-                    winrate: i > 0 ? ((point.amount / data.weekly_budget - 1) * 100) : 0
-                  }))}
+                  data={data.bankroll_history.map((point, i) => {
+                    const settledBets = data.total_bets - data.pending_bets;
+                    const estimatedWins = Math.round(settledBets * data.win_rate);
+                    const progressRatio = i / Math.max(data.bankroll_history.length - 1, 1);
+                    const estimatedWinsAtPoint = Math.round(estimatedWins * progressRatio);
+                    const estimatedBetsAtPoint = Math.round(settledBets * progressRatio);
+                    const winRateAtPoint = estimatedBetsAtPoint > 0 ? (estimatedWinsAtPoint / estimatedBetsAtPoint) * 100 : 0;
+                    
+                    return {
+                      timestamp: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                      bankroll: point.amount,
+                      profit: point.amount - data.weekly_budget,
+                      winrate: winRateAtPoint
+                    };
+                  })}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
