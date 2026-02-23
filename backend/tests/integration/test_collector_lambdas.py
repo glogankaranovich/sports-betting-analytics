@@ -133,7 +133,7 @@ def test_player_stats_collector_integration():
     assert response_payload["statusCode"] in [200, 201]
 
     # Verify data was stored in DynamoDB
-    table = dynamodb.Table("carpool-bets-v2-dev")
+    table = dynamodb.Table("carpool-bets-v2-{ENVIRONMENT}")
 
     # Query for player stats (PK starts with PLAYER_STATS#)
     response = table.scan(
@@ -176,7 +176,7 @@ def test_team_stats_collector_integration():
     assert response_payload["statusCode"] in [200, 201]
 
     # Verify data was stored in DynamoDB
-    table = dynamodb.Table("carpool-bets-v2-dev")
+    table = dynamodb.Table("carpool-bets-v2-{ENVIRONMENT}")
 
     # Query for team stats (PK starts with TEAM_STATS#)
     response = table.scan(
