@@ -391,6 +391,7 @@ class BennyTrader:
                         "bookmaker": item.get("bookmaker"),
                         "home_price": None,
                         "away_price": None,
+                        "draw_price": None,
                     }
                     
                     # Handle 3-way markets (soccer) vs 2-way markets
@@ -398,10 +399,13 @@ class BennyTrader:
                     away_team = item.get("away_team")
                     
                     for outcome in outcomes:
+                        outcome_name = outcome.get("name", "").lower()
                         if outcome.get("name") == home_team:
                             odds_entry["home_price"] = outcome.get("price")
                         elif outcome.get("name") == away_team:
                             odds_entry["away_price"] = outcome.get("price")
+                        elif "draw" in outcome_name or "tie" in outcome_name:
+                            odds_entry["draw_price"] = outcome.get("price")
                     
                     # Only add if we found both home and away prices
                     if odds_entry["home_price"] and odds_entry["away_price"]:
@@ -438,13 +442,15 @@ class BennyTrader:
                 weather = self._get_weather_data(game_id)
                 fatigue = self._get_fatigue_data(game_id)
 
-                # Calculate average odds
+                # Calculate average odds (including draw if available)
                 avg_home_price = sum(o["home_price"] for o in game_data["odds"]) / len(
                     game_data["odds"]
                 )
                 avg_away_price = sum(o["away_price"] for o in game_data["odds"]) / len(
                     game_data["odds"]
                 )
+                draw_prices = [o["draw_price"] for o in game_data["odds"] if o.get("draw_price")]
+                avg_draw_price = sum(draw_prices) / len(draw_prices) if draw_prices else None
 
                 # Let AI analyze the data
                 analysis = self._ai_analyze_game(
@@ -472,14 +478,16 @@ class BennyTrader:
                 )
 
                 if analysis and float(analysis["confidence"]) >= min_confidence:
-                    # Determine which team was predicted and get their odds
-                    predicted_team = analysis["prediction"]
+                    # Determine which outcome was predicted and get odds
+                    predicted_team = analysis["prediction"].lower()
                     predicted_odds = None
 
-                    if game_data["home_team"].lower() in predicted_team.lower():
+                    if game_data["home_team"].lower() in predicted_team:
                         predicted_odds = avg_home_price
-                    elif game_data["away_team"].lower() in predicted_team.lower():
+                    elif game_data["away_team"].lower() in predicted_team:
                         predicted_odds = avg_away_price
+                    elif "draw" in predicted_team or "tie" in predicted_team:
+                        predicted_odds = avg_draw_price
 
                     opportunities.append(
                         {
@@ -750,10 +758,19 @@ Respond with JSON only:
             avg_away_price = sum(o["away_price"] for o in game_data["odds"]) / len(
                 game_data["odds"]
             )
+            draw_prices = [o["draw_price"] for o in game_data["odds"] if o.get("draw_price")]
+            avg_draw_price = sum(draw_prices) / len(draw_prices) if draw_prices else None
 
             # Convert to implied probabilities
             home_prob = self._american_to_probability(avg_home_price)
             away_prob = self._american_to_probability(avg_away_price)
+            draw_prob = self._american_to_probability(avg_draw_price) if avg_draw_price else None
+
+            # Build market odds section
+            market_odds = f"""Home: {avg_home_price} ({home_prob:.1%} implied)
+Away: {avg_away_price} ({away_prob:.1%} implied)"""
+            if draw_prob:
+                market_odds += f"\nDraw: {avg_draw_price} ({draw_prob:.1%} implied)"
 
             prompt = f"""You are Benny, an expert sports betting analyst. Analyze this game and make YOUR prediction.
 
@@ -762,8 +779,7 @@ Sport: {game_data['sport']}
 Time: {game_data['commence_time']}
 
 MARKET ODDS:
-Home: {avg_home_price} ({home_prob:.1%} implied)
-Away: {avg_away_price} ({away_prob:.1%} implied)
+{market_odds}
 
 ELO RATINGS (Team Strength):
 Home: {home_elo:.0f} | Away: {away_elo:.0f} | Difference: {home_elo - away_elo:+.0f}
@@ -807,10 +823,10 @@ ANALYSIS INSTRUCTIONS:
 3. Consider weather impact if marked as "high" or "moderate"
 4. Assess injury impact on team efficiency
 5. Look for value where your confidence differs significantly from implied odds
-6. Which team wins and why?
+6. {"For soccer/3-way markets: Consider draw as a valid outcome, especially if teams are evenly matched" if draw_prob else "Pick the winning team"}
 
 Respond with JSON only:
-{{"prediction": "Team Name", "confidence": 0.75, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2", "factor3"]}}"""
+{{"prediction": "Team Name{' or Draw' if draw_prob else ''}", "confidence": 0.75, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2", "factor3"]}}"""
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-3-5-sonnet-20241022-v2:0",

@@ -118,7 +118,14 @@ class OutcomeCollector:
         try:
             home_score = int(game.get("home_score", 0))
             away_score = int(game.get("away_score", 0))
-            winner = game["home_team"] if home_score > away_score else game["away_team"]
+            
+            # Determine winner (handle draws)
+            if home_score > away_score:
+                winner = game["home_team"]
+            elif away_score > home_score:
+                winner = game["away_team"]
+            else:
+                winner = "draw"
 
             # Normalize team names for consistent H2H queries
             home_normalized = game["home_team"].lower().replace(" ", "_")
@@ -593,15 +600,23 @@ class OutcomeCollector:
 
         return None
 
-    def _determine_winner(self, game: Dict[str, Any]) -> bool:
-        """Determine if home team won"""
+    def _determine_winner(self, game: Dict[str, Any]) -> str:
+        """Determine game outcome: 'home', 'away', or 'draw'"""
         home_score = game.get("home_score")
         away_score = game.get("away_score")
 
         if home_score is None or away_score is None:
-            return False  # Default if scores unavailable
+            return None  # No result available
 
-        return int(home_score) > int(away_score)
+        home_score = int(home_score)
+        away_score = int(away_score)
+        
+        if home_score > away_score:
+            return "home"
+        elif away_score > home_score:
+            return "away"
+        else:
+            return "draw"
 
     def _map_sport_name(self, api_sport: str) -> str:
         """Keep sport names consistent with storage format"""
@@ -734,11 +749,18 @@ class OutcomeCollector:
         prediction: str,
         home_team: str,
         away_team: str,
-        home_won: bool,
+        game_result: str,
         game: Dict[str, Any],
     ) -> bool:
-        """Check if a bet won with improved team name matching"""
+        """Check if a bet won with improved team name matching
+        
+        Args:
+            game_result: 'home', 'away', 'draw', or None
+        """
         try:
+            if game_result is None:
+                return False
+                
             prediction_lower = prediction.lower().strip()
             home_lower = home_team.lower().strip()
             away_lower = away_team.lower().strip()
@@ -758,30 +780,34 @@ class OutcomeCollector:
 
             # Check for spread bets
             if "+" in prediction or "-" in prediction:
-                return self._check_game_analysis_accuracy(prediction, home_won, game)
+                return self._check_game_analysis_accuracy(prediction, game_result == "home", game)
 
             # Check for totals
             if "over" in prediction_lower or "under" in prediction_lower:
-                return self._check_game_analysis_accuracy(prediction, home_won, game)
+                return self._check_game_analysis_accuracy(prediction, game_result == "home", game)
+
+            # Check for draw prediction
+            if "draw" in prediction_lower or "tie" in prediction_lower:
+                return game_result == "draw"
 
             # Moneyline - check multiple matching strategies
             # Strategy 1: Full name match
             if home_lower in prediction_lower:
-                return home_won
+                return game_result == "home"
             if away_lower in prediction_lower:
-                return not home_won
+                return game_result == "away"
 
             # Strategy 2: Normalized name match (last word)
             if home_normalized in prediction_normalized:
-                return home_won
+                return game_result == "home"
             if away_normalized in prediction_normalized:
-                return not home_won
+                return game_result == "away"
 
             # Strategy 3: Prediction contains team name
             if prediction_normalized in home_normalized:
-                return home_won
+                return game_result == "home"
             if prediction_normalized in away_normalized:
-                return not home_won
+                return game_result == "away"
 
             # Could not determine - log warning
             print(

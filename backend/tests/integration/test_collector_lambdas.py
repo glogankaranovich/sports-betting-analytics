@@ -101,12 +101,6 @@ def test_team_stats_collector_integration():
 
     assert response["StatusCode"] == 200
     assert "statusCode" in response_payload
-        ExpressionAttributeValues={":pk": "SCHEDULE#"},
-        Limit=5,
-    )
-
-    print(f"Found {len(response.get('Items', []))} schedule items")
-    # Note: May be 0 if no upcoming games, which is OK
 
 
 def test_player_stats_collector_integration():
