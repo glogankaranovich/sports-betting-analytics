@@ -15,7 +15,8 @@ from boto3.dynamodb.conditions import Key
 
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
-table = dynamodb.Table(os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev"))
+# Default table for module-level usage (supports both env var names)
+table = dynamodb.Table(os.environ.get("BETS_TABLE", os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev")))
 
 
 class BennyTrader:
