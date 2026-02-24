@@ -44,7 +44,19 @@ export class BennyTraderStack extends cdk.Stack {
     }));
 
     this.bennyTraderFunction.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['bedrock:InvokeModel'],
+      actions: [
+        'bedrock:InvokeModel',
+        'bedrock:InvokeModelWithResponseStream'
+      ],
+      resources: ['*'],
+    }));
+
+    // AWS Marketplace permissions for Bedrock model access
+    this.bennyTraderFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'aws-marketplace:ViewSubscriptions',
+        'aws-marketplace:Subscribe'
+      ],
       resources: ['*'],
     }));
 
