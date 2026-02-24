@@ -75,16 +75,24 @@ class OutcomeCollector:
                 games = response.json()
                 for game in games:
                     if game.get("completed", False):
+                        # Match scores to teams by name
+                        scores = game.get("scores", [])
+                        home_score = None
+                        away_score = None
+                        for score_entry in scores:
+                            if score_entry.get("name") == game["home_team"]:
+                                home_score = score_entry.get("score")
+                            elif score_entry.get("name") == game["away_team"]:
+                                away_score = score_entry.get("score")
+                        
                         completed_games.append(
                             {
                                 "id": game["id"],
                                 "sport": self._map_sport_name(sport),
                                 "home_team": game["home_team"],
                                 "away_team": game["away_team"],
-                                "home_score": game.get("scores", [{}])[0].get("score"),
-                                "away_score": game.get("scores", [{}])[1].get("score")
-                                if len(game.get("scores", [])) > 1
-                                else None,
+                                "home_score": home_score,
+                                "away_score": away_score,
                                 "completed_at": game.get("last_update"),
                             }
                         )
