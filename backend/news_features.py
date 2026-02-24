@@ -12,7 +12,8 @@ from typing import Dict, List
 import boto3
 
 dynamodb = boto3.resource("dynamodb")
-TABLE_NAME = os.environ.get("TABLE_NAME", "carpool-bets-v2-dev")
+# Support both BETS_TABLE and TABLE_NAME env vars
+TABLE_NAME = os.environ.get("BETS_TABLE", os.environ.get("TABLE_NAME", "carpool-bets-v2-dev"))
 table = dynamodb.Table(TABLE_NAME)
 
 
