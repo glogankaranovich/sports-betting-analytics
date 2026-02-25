@@ -1322,19 +1322,28 @@ Respond with JSON only:
         bankroll_item = response.get("Item", {})
         current_bankroll = float(bankroll_item.get("amount", 100.0))
 
-        # Get recent bets
-        response = table.query(
-            KeyConditionExpression=Key("pk").eq("BENNY")
-            & Key("sk").begins_with("BET#"),
-            ScanIndexForward=False,
-            Limit=20,
-        )
-        recent_bets = response.get("Items", [])
+        # Get ALL bets for stats calculation
+        all_bets = []
+        last_key = None
+        while True:
+            query_kwargs = {
+                "KeyConditionExpression": Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                "ScanIndexForward": False
+            }
+            if last_key:
+                query_kwargs["ExclusiveStartKey"] = last_key
+            
+            response = table.query(**query_kwargs)
+            all_bets.extend(response.get("Items", []))
+            
+            last_key = response.get("LastEvaluatedKey")
+            if not last_key:
+                break
 
-        # Calculate stats
-        total_bets = len(recent_bets)
-        pending_bets = [b for b in recent_bets if b.get("status") == "pending"]
-        settled_bets = [b for b in recent_bets if b.get("status") in ["won", "lost"]]
+        # Calculate stats from ALL bets
+        total_bets = len(all_bets)
+        pending_bets = [b for b in all_bets if b.get("status") == "pending"]
+        settled_bets = [b for b in all_bets if b.get("status") in ["won", "lost"]]
         won_bets = [b for b in settled_bets if b.get("status") == "won"]
 
         win_rate = len(won_bets) / len(settled_bets) if settled_bets else 0
@@ -1489,7 +1498,7 @@ Respond with JSON only:
                         3
                     ) if b.get("expected_payout") and float(b.get("bet_amount", 0)) > 0 else None,
                 }
-                for b in recent_bets[:10]
+                for b in all_bets[:20]  # Show 20 most recent for display
             ],
         }
 
