@@ -1399,15 +1399,17 @@ Respond with JSON only:
 
         # Best and worst bets
         best_bet = max(
-            settled_bets,
+            won_bets,
             key=lambda b: float(b.get("payout", 0)) - float(b.get("bet_amount", 0)),
             default=None,
-        )
-        worst_bet = min(
-            settled_bets,
-            key=lambda b: float(b.get("payout", 0)) - float(b.get("bet_amount", 0)),
+        ) if won_bets else None
+        
+        lost_bets = [b for b in settled_bets if b.get("status") == "lost"]
+        worst_bet = max(
+            lost_bets,
+            key=lambda b: float(b.get("bet_amount", 0)),
             default=None,
-        )
+        ) if lost_bets else None
 
         # AI adjustment impact
         ai_adjusted_bets = [
