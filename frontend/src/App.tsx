@@ -101,6 +101,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [gamesKey, setGamesKey] = useState<string | null>(null);
   const [loadingMoreGames, setLoadingMoreGames] = useState(false);
   const [modelLeaderboard, setModelLeaderboard] = useState<any[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [userModels, setUserModels] = useState<any[]>([]);
   const [sideNavCollapsed, setSideNavCollapsed] = useState(() => {
     const saved = localStorage.getItem('sideNavCollapsed');
@@ -337,6 +338,19 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
   const fetchModelLeaderboard = useCallback(async () => {
     try {
+      // Check browser cache first (5 minute TTL)
+      const cacheKey = 'modelLeaderboard';
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const age = Date.now() - timestamp;
+        if (age < 5 * 60 * 1000) { // 5 minutes
+          setModelLeaderboard(data);
+          setLeaderboardLoading(false);
+          return;
+        }
+      }
+      
       const session = await fetchAuthSession();
       const token = session.tokens?.idToken?.toString();
       
@@ -353,6 +367,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         
         if (!response.ok) {
           console.error('Model comparison API error:', response.status, await response.text());
+          setLeaderboardLoading(false);
           return;
         }
         
@@ -404,13 +419,23 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
         console.log('Top games:', topGames);
         console.log('Top props:', topProps);
         
-        setModelLeaderboard([
+        const leaderboard = [
           { type: 'games', models: topGames },
           { type: 'props', models: topProps },
-        ]);
+        ];
+        
+        setModelLeaderboard(leaderboard);
+        setLeaderboardLoading(false);
+        
+        // Cache in browser
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: leaderboard,
+          timestamp: Date.now()
+        }));
       }
     } catch (err) {
       console.error('Error fetching model leaderboard:', err);
+      setLeaderboardLoading(false);
     }
   }, []);
 
@@ -507,7 +532,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
     return odds > 0 ? `+${odds}` : `${odds}`;
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading || leaderboardLoading) return <LoadingSpinner />;
   if (error) return (
     <div style={{
       display: 'flex',
