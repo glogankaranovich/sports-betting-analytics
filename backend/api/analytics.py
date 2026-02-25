@@ -144,6 +144,25 @@ class AnalyticsHandler(BaseAPIHandler):
 
             # Handle "all sports" request
             if sport == "all":
+                # Try combined cache first
+                cache_key = f"MODEL_COMPARISON#all#{days}"
+                try:
+                    cache_response = table.get_item(Key={"pk": "CACHE", "sk": cache_key})
+                    if "Item" in cache_response:
+                        all_models = cache_response["Item"]["data"]
+                        
+                        if user_id:
+                            limits = get_user_limits(user_id)
+                            if not limits.get("benny_ai", False):
+                                all_models = [m for m in all_models if m.get("model") != "benny"]
+                        else:
+                            all_models = [m for m in all_models if m.get("model") != "benny"]
+                        
+                        return self.success_response({"sport": "all", "days": days, "models": all_models, "cached": True})
+                except Exception as e:
+                    print(f"Error fetching combined cache: {e}")
+                
+                # Fallback: fetch individual sport caches
                 all_sports = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
                 all_models = []
 

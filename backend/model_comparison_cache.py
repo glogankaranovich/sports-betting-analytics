@@ -169,6 +169,46 @@ def lambda_handler(event, context):
                 print(
                     f"Cached {len(comparison_data)} model comparisons for {sport}, {days} days"
                 )
+        
+        # Create combined "all sports" caches
+        for days in TIME_RANGES:
+            print(f"Computing combined model comparison for all sports, {days} days")
+            all_models = []
+            
+            for sport in SUPPORTED_SPORTS:
+                cache_key = f"MODEL_COMPARISON#{sport}#{days}"
+                response = table.get_item(Key={"pk": "CACHE", "sk": cache_key})
+                if "Item" in response:
+                    sport_models = response["Item"]["data"]
+                    for model in sport_models:
+                        if "sport" not in model:
+                            model["sport"] = sport
+                    all_models.extend(sport_models)
+            
+            # Store combined cache
+            combined_key = f"MODEL_COMPARISON#all#{days}"
+            timestamp = datetime.utcnow().isoformat()
+            
+            table.put_item(
+                Item={
+                    "pk": "CACHE",
+                    "sk": combined_key,
+                    "data": all_models,
+                    "sport": "all",
+                    "days": days,
+                    "computed_at": timestamp,
+                    "ttl": int((datetime.utcnow() + timedelta(hours=1)).timestamp()),
+                }
+            )
+            
+            results.append({
+                "sport": "all",
+                "days": days,
+                "models_count": len(all_models),
+                "computed_at": timestamp,
+            })
+            
+            print(f"Cached {len(all_models)} combined model comparisons for all sports, {days} days")
 
         return {
             "statusCode": 200,
