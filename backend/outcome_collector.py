@@ -75,6 +75,12 @@ class OutcomeCollector:
                 games = response.json()
                 for game in games:
                     if game.get("completed", False):
+                        # Validate API response format
+                        validation_errors = self._validate_game_response(game)
+                        if validation_errors:
+                            print(f"⚠️  API format validation failed for game {game.get('id', 'unknown')}: {validation_errors}")
+                            self._emit_validation_error_metric(sport, validation_errors)
+                        
                         # Match scores to teams by name
                         scores = game.get("scores", [])
                         home_score = None
@@ -84,6 +90,12 @@ class OutcomeCollector:
                                 home_score = score_entry.get("score")
                             elif score_entry.get("name") == game["away_team"]:
                                 away_score = score_entry.get("score")
+                        
+                        if home_score is None or away_score is None:
+                            print(f"❌ Failed to match scores for {game.get('home_team')} vs {game.get('away_team')}")
+                            print(f"   Scores array: {scores}")
+                            self._emit_validation_error_metric(sport, "score_matching_failed")
+                            continue
                         
                         completed_games.append(
                             {
@@ -625,6 +637,55 @@ class OutcomeCollector:
             return "away"
         else:
             return "draw"
+
+    def _validate_game_response(self, game: Dict[str, Any]) -> List[str]:
+        """Validate Odds API game response format"""
+        errors = []
+        
+        if not game.get("id"):
+            errors.append("missing_game_id")
+        
+        if not game.get("home_team"):
+            errors.append("missing_home_team")
+        
+        if not game.get("away_team"):
+            errors.append("missing_away_team")
+        
+        scores = game.get("scores", [])
+        if not isinstance(scores, list):
+            errors.append("scores_not_array")
+        elif len(scores) != 2:
+            errors.append(f"scores_array_length_{len(scores)}")
+        else:
+            for score in scores:
+                if not isinstance(score, dict):
+                    errors.append("score_entry_not_dict")
+                elif "name" not in score:
+                    errors.append("score_missing_name")
+                elif "score" not in score:
+                    errors.append("score_missing_value")
+        
+        return errors
+    
+    def _emit_validation_error_metric(self, sport: str, error: str) -> None:
+        """Emit CloudWatch metric for validation errors"""
+        try:
+            import boto3
+            cloudwatch = boto3.client('cloudwatch')
+            cloudwatch.put_metric_data(
+                Namespace='SportsAnalytics/OutcomeCollector',
+                MetricData=[{
+                    'MetricName': 'ValidationError',
+                    'Value': 1,
+                    'Unit': 'Count',
+                    'Dimensions': [
+                        {'Name': 'Sport', 'Value': sport},
+                        {'Name': 'ErrorType', 'Value': str(error)}
+                    ]
+                }]
+            )
+        except Exception as e:
+            print(f"Failed to emit metric: {e}")
 
     def _map_sport_name(self, api_sport: str) -> str:
         """Keep sport names consistent with storage format"""
