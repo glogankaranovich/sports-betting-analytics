@@ -490,6 +490,21 @@ class BennyTrader:
                     elif "draw" in predicted_team or "tie" in predicted_team:
                         predicted_odds = avg_draw_price
 
+                    # Calculate expected value (EV)
+                    # EV = (probability * payout) - (1 - probability) * stake
+                    # For American odds: if odds > 0, payout = odds/100; if odds < 0, payout = 100/abs(odds)
+                    if predicted_odds:
+                        if predicted_odds > 0:
+                            payout_multiplier = 1 + (predicted_odds / 100)
+                        else:
+                            payout_multiplier = 1 + (100 / abs(predicted_odds))
+                        
+                        expected_value = (analysis["confidence"] * payout_multiplier) - 1
+                        
+                        # Only bet if EV is positive (profitable in long run)
+                        if expected_value <= 0:
+                            continue
+
                     opportunities.append(
                         {
                             "game_id": game_id,
@@ -1511,6 +1526,7 @@ Respond with JSON only:
                     "bet_id": b.get("bet_id"),
                     "game": f"{b.get('away_team')} @ {b.get('home_team')}",
                     "prediction": b.get("prediction"),
+                    "market": b.get("market_key", "h2h"),
                     "ensemble_confidence": float(
                         b.get("ensemble_confidence", b.get("confidence", 0))
                     ),
