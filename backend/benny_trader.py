@@ -1178,6 +1178,18 @@ Respond with JSON only:
 
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Place a virtual bet"""
+        # Check if we already have a pending bet for this game
+        game_id = opportunity["game_id"]
+        existing_bets = self.table.query(
+            KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+            FilterExpression="game_id = :gid AND #status = :pending",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={":gid": game_id, ":pending": "pending"}
+        )
+        
+        if existing_bets.get("Items"):
+            return {"success": False, "reason": "Already have pending bet for this game"}
+        
         # Benny already analyzed the game, just use that confidence
         confidence = opportunity["confidence"]
         odds = opportunity.get("odds")
