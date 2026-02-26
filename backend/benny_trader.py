@@ -690,28 +690,50 @@ Respond with JSON only:
             return None
 
     def _get_player_stats(self, player_name: str, sport: str) -> Dict:
-        """Get player season stats"""
+        """Get player season stats by aggregating recent games"""
         try:
             normalized = player_name.lower().replace(" ", "_")
             response = self.table.query(
                 KeyConditionExpression=Key("pk").eq(f"PLAYER_STATS#{sport}#{normalized}"),
                 ScanIndexForward=False,
-                Limit=1,
+                Limit=20,  # Last 20 games for season average
             )
-            items = response.get("Items", [])
-            return items[0].get("stats", {}) if items else {}
+            games = response.get("Items", [])
+            if not games:
+                return {}
+            
+            # Sport-specific stat keys
+            stat_keys_by_sport = {
+                "basketball_nba": ["PTS", "REB", "AST", "STL", "BLK", "3PM", "TO"],
+                "americanfootball_nfl": ["passing_yards", "rushing_yards", "receiving_yards", "touchdowns", "receptions"],
+                "baseball_mlb": ["hits", "runs", "RBI", "home_runs", "strikeouts"],
+                "icehockey_nhl": ["goals", "assists", "shots", "plus_minus"]
+            }
+            
+            stat_keys = stat_keys_by_sport.get(sport, [])
+            if not stat_keys:
+                return {}
+            
+            # Aggregate stats across games
+            aggregated = {}
+            for key in stat_keys:
+                values = [float(g.get("stats", {}).get(key, 0)) for g in games if g.get("stats", {}).get(key)]
+                if values:
+                    aggregated[f"{key}_avg"] = round(sum(values) / len(values), 2)
+                    aggregated[f"{key}_last5"] = round(sum(values[:5]) / min(5, len(values)), 2)
+            
+            aggregated["games_played"] = len(games)
+            return aggregated
         except Exception as e:
             print(f"Error fetching player stats: {e}")
             return {}
 
     def _get_player_trends(self, player_name: str, sport: str, market: str) -> Dict:
-        """Get player recent performance trends"""
+        """Get player recent performance trends for specific market"""
         try:
             normalized = player_name.lower().replace(" ", "_")
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(f"PLAYER_TRENDS#{sport}#{normalized}"),
-                FilterExpression="market_key = :market",
-                ExpressionAttributeValues={":market": market},
+                KeyConditionExpression=Key("pk").eq(f"PLAYER_STATS#{sport}#{normalized}"),
                 ScanIndexForward=False,
                 Limit=10,
             )
@@ -719,11 +741,32 @@ Respond with JSON only:
             if not games:
                 return {}
             
-            values = [float(g.get("actual_value", 0)) for g in games]
+            # Map market to stat key
+            market_to_stat = {
+                "player_points": "PTS",
+                "player_rebounds": "REB",
+                "player_assists": "AST",
+                "player_threes": "3PM",
+                "player_steals": "STL",
+                "player_blocks": "BLK",
+            }
+            
+            stat_key = market_to_stat.get(market)
+            if not stat_key:
+                return {}
+            
+            values = [float(g.get("stats", {}).get(stat_key, 0)) for g in games if g.get("stats", {}).get(stat_key)]
+            if not values:
+                return {}
+            
+            avg = sum(values) / len(values)
+            last3_avg = sum(values[:3]) / min(3, len(values))
+            
             return {
-                "last_10_avg": sum(values) / len(values) if values else 0,
-                "last_3_avg": sum(values[:3]) / 3 if len(values) >= 3 else 0,
-                "trend": "hot" if len(values) >= 3 and values[0] > sum(values) / len(values) else "cold",
+                "last_10_avg": round(avg, 2),
+                "last_3_avg": round(last3_avg, 2),
+                "trend": "hot" if last3_avg > avg else "cold",
+                "games": values
             }
         except Exception as e:
             print(f"Error fetching player trends: {e}")
@@ -734,14 +777,23 @@ Respond with JSON only:
         try:
             normalized_player = player_name.lower().replace(" ", "_")
             normalized_opp = opponent.lower().replace(" ", "_")
+            
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(
-                    f"PLAYER_MATCHUP#{sport}#{normalized_player}#{normalized_opp}"
-                ),
+                KeyConditionExpression=Key("pk").eq(f"PLAYER_STATS#{sport}#{normalized_player}"),
                 ScanIndexForward=False,
-                Limit=5,
+                Limit=20
             )
-            return {"games": response.get("Items", [])}
+            
+            # Filter for games against this opponent
+            matchup_games = [g for g in response.get("Items", []) if normalized_opp in g.get("sk", "").lower()]
+            
+            if not matchup_games:
+                return {"games_vs_opponent": 0}
+            
+            return {
+                "games_vs_opponent": len(matchup_games),
+                "recent_games": matchup_games[:5]
+            }
         except Exception as e:
             print(f"Error fetching player matchup: {e}")
             return {}
