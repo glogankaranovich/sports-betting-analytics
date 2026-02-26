@@ -21,7 +21,7 @@ class AIAgent:
             os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev")
         )
         # Use foundation model ID directly
-        self.model_id = "anthropic.claude-sonnet-4-5-20250514-v1:0"
+        self.model_id = "anthropic.claude-sonnet-4-5-20250929-v1:0"
 
         self.system_prompt = """You are an expert sports betting analyst assistant. You help users:
 1. Build custom betting models by analyzing their preferences

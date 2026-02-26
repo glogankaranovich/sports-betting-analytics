@@ -652,7 +652,7 @@ Respond with JSON only:
 {{"prediction": "Over/Under X.X", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}"""
 
             response = bedrock.invoke_model(
-                modelId="us.anthropic.claude-sonnet-4-5-20250514-v1:0",
+                modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 body=json.dumps({
                     "anthropic_version": "bedrock-2023-05-31",
                     "max_tokens": 400,
@@ -830,7 +830,7 @@ Respond with JSON only:
 {{"prediction": "Team Name{' or Draw' if draw_prob else ''}", "confidence": 0.75, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2", "factor3"]}}"""
 
             response = bedrock.invoke_model(
-                modelId="us.anthropic.claude-sonnet-4-5-20250514-v1:0",
+                modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 body=json.dumps(
                     {
                         "anthropic_version": "bedrock-2023-05-31",
