@@ -494,12 +494,13 @@ class BennyTrader:
                     # EV = (probability * payout) - (1 - probability) * stake
                     # For American odds: if odds > 0, payout = odds/100; if odds < 0, payout = 100/abs(odds)
                     if predicted_odds:
+                        predicted_odds = float(predicted_odds)  # Convert Decimal to float
                         if predicted_odds > 0:
                             payout_multiplier = 1 + (predicted_odds / 100)
                         else:
                             payout_multiplier = 1 + (100 / abs(predicted_odds))
                         
-                        expected_value = (analysis["confidence"] * payout_multiplier) - 1
+                        expected_value = (float(analysis["confidence"]) * payout_multiplier) - 1
                         
                         # Only bet if EV is positive (profitable in long run)
                         if expected_value <= 0:
