@@ -1435,6 +1435,22 @@ Respond with JSON only:
             }
             for item in bankroll_response.get("Items", [])
         ]
+        
+        # Ensure current bankroll is the last point
+        if bankroll_history:
+            last_amount = bankroll_history[-1]["amount"]
+            if abs(last_amount - current_bankroll) > 0.01:
+                # Add current bankroll as final point if different
+                bankroll_history.append({
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "amount": current_bankroll
+                })
+        else:
+            # No history, add current as only point
+            bankroll_history.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "amount": current_bankroll
+            })
 
         return {
             "current_bankroll": current_bankroll,
