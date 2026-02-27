@@ -48,6 +48,9 @@ class PlayerStatsModel(BaseAnalysisModel):
             if not stats or stats['games'] < 5:
                 return None
             
+            # Get news sentiment for player
+            news_boost = self._get_news_boost(player_name, sport)
+            
             avg = stats['avg']
             last5 = stats['last5']
             vs_opp = stats.get('vs_opponent_avg')
@@ -79,15 +82,17 @@ class PlayerStatsModel(BaseAnalysisModel):
             
             diff_pct = abs(line - weighted_avg) / weighted_avg
             
+            # Base confidence
+            base_conf = 0.74 if has_opponent_data else 0.71
+            base_conf += news_boost  # Add news sentiment boost
+            
             # 13.5% threshold
             if line < weighted_avg * 0.865:
                 prediction = f"Over {line}"
-                base_conf = 0.74 if has_opponent_data else 0.71
                 confidence = min(0.83, base_conf + diff_pct * 0.08)
                 reasoning = f"{player_name} streak: L5 {last5:.1f} vs {avg:.1f}"
             elif line > weighted_avg * 1.135:
                 prediction = f"Under {line}"
-                base_conf = 0.74 if has_opponent_data else 0.71
                 confidence = min(0.83, base_conf + diff_pct * 0.08)
                 reasoning = f"{player_name} streak: L5 {last5:.1f} vs {avg:.1f}"
             else:
@@ -186,3 +191,27 @@ class PlayerStatsModel(BaseAnalysisModel):
         except Exception as e:
             logger.error(f"Error getting player stats: {e}")
             return None
+    
+    def _get_news_boost(self, player_name: str, sport: str) -> float:
+        """Get confidence boost from recent news sentiment"""
+        try:
+            from news_features import get_player_sentiment
+            
+            sentiment = get_player_sentiment(sport, player_name, hours=48)
+            
+            # Boost confidence if positive news with high impact
+            if sentiment['news_count'] > 0:
+                score = sentiment['sentiment_score']
+                impact = sentiment['impact_score']
+                
+                # Positive news with high impact = boost confidence
+                if score > 0.3 and impact > 1.5:
+                    return 0.02
+                elif score < -0.3 and impact > 1.5:
+                    # Negative news = reduce confidence
+                    return -0.02
+            
+            return 0.0
+        except Exception as e:
+            logger.error(f"Error getting news sentiment: {e}")
+            return 0.0
