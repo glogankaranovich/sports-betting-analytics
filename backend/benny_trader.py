@@ -698,22 +698,6 @@ ANALYSIS INSTRUCTIONS:
 Respond with JSON only:
 {{"prediction": "Over/Under X.X", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}"""
 
-RECENT TRENDS (Last 10 games):
-{json.dumps(player_trends, indent=2) if player_trends else 'No data'}
-
-MATCHUP HISTORY vs {prop_data['opponent']}:
-{json.dumps(matchup_data, indent=2) if matchup_data else 'No history'}
-
-ANALYSIS INSTRUCTIONS:
-1. Compare player's average to the line
-2. Consider recent trends and hot/cold streaks
-3. Factor in matchup history against this opponent
-4. Look for value where line doesn't match performance
-5. Over or Under and why?
-
-Respond with JSON only:
-{{"prediction": "Over/Under X.X", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}"""
-
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 body=json.dumps({
