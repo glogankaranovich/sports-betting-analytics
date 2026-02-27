@@ -598,7 +598,8 @@ class BennyTrader:
                 # AI analysis
                 analysis = self._ai_analyze_prop(prop_data, player_stats, player_trends, matchup_data)
                 
-                min_confidence = self.BASE_MIN_CONFIDENCE + float(
+                # Use lower confidence threshold for props (harder to predict)
+                min_confidence = (self.BASE_MIN_CONFIDENCE - 0.05) + float(
                     self.learning_params.get("min_confidence_adjustment", 0)
                 )
 
@@ -610,6 +611,21 @@ class BennyTrader:
                         o["price"] for o in prop_data["odds"] 
                         if o["side"] == predicted_side
                     ) / len([o for o in prop_data["odds"] if o["side"] == predicted_side])
+                    
+                    # Calculate EV for props
+                    avg_odds_float = float(avg_odds)
+                    if avg_odds_float > 0:
+                        payout_multiplier = 1 + (avg_odds_float / 100)
+                    else:
+                        payout_multiplier = 1 + (100 / abs(avg_odds_float))
+                    
+                    expected_value = (float(analysis["confidence"]) * payout_multiplier) - 1
+                    
+                    if expected_value <= 0:
+                        print(f"    ✗ Negative EV ({expected_value:.3f})")
+                        continue
+                    
+                    print(f"    ✓ Positive EV ({expected_value:.3f})")
                     
                     opportunities.append({
                         "game_id": prop_data["game_id"],
