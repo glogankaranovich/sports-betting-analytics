@@ -44,6 +44,10 @@ class PlayerStatsModel(BaseAnalysisModel):
             if not all([player_name, sport, market, line]):
                 return None
             
+            # Skip if player is injured
+            if self._is_player_injured(player_name, sport):
+                return None
+            
             stats = self._get_player_stats(player_name, sport, market, opponent)
             if not stats or stats['games'] < 5:
                 return None
@@ -215,3 +219,22 @@ class PlayerStatsModel(BaseAnalysisModel):
         except Exception as e:
             logger.error(f"Error getting news sentiment: {e}")
             return 0.0
+    
+    def _is_player_injured(self, player_name: str, sport: str) -> bool:
+        """Check if player is injured (Out or Doubtful)"""
+        try:
+            normalized = player_name.lower().replace(' ', '_')
+            response = self.table.query(
+                KeyConditionExpression=Key('pk').eq(f'PLAYER_INJURY#{sport}#{normalized}'),
+                Limit=1
+            )
+            
+            if response.get('Items'):
+                status = response['Items'][0].get('status', '')
+                # Skip if player is Out or Doubtful
+                return status in ['Out', 'Doubtful']
+            
+            return False
+        except Exception as e:
+            logger.error(f"Error checking injury status: {e}")
+            return False  # Don't skip on error
