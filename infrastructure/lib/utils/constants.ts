@@ -4,7 +4,7 @@
  */
 
 export const PLATFORM_CONSTANTS = {
-  SUPPORTED_SPORTS: 'basketball_nba,americanfootball_nfl,baseball_mlb,icehockey_nhl,soccer_epl',
+  SUPPORTED_SPORTS: 'basketball_nba,americanfootball_nfl,baseball_mlb,icehockey_nhl,soccer_epl,basketball_mens-college-basketball,basketball_womens-college-basketball,football_college-football',
   SYSTEM_MODELS: 'consensus,value,momentum,contrarian,hot_cold,rest_schedule,matchup,injury_aware,news,player_stats,ensemble,fundamentals',
   SUPPORTED_BOOKMAKERS: 'draftkings,fanduel,betmgm,caesars',
   TIME_RANGES: '30,90,180,365',

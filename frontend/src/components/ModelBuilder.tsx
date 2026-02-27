@@ -46,6 +46,9 @@ const SPORTS = [
   { value: 'baseball_mlb', label: 'Baseball (MLB)' },
   { value: 'icehockey_nhl', label: 'Hockey (NHL)' },
   { value: 'soccer_epl', label: 'Soccer (EPL)' },
+  { value: 'basketball_mens-college-basketball', label: 'NCAA Men\'s Basketball' },
+  { value: 'basketball_womens-college-basketball', label: 'NCAA Women\'s Basketball' },
+  { value: 'football_college-football', label: 'NCAA Football' },
 ];
 
 const BET_TYPES = [
