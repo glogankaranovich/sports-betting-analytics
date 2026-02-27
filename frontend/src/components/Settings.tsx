@@ -38,7 +38,9 @@ const Settings: React.FC<SettingsProps> = ({
     hot_cold: 'Recent form and performance trends',
     rest_schedule: 'Rest days, back-to-backs, and home/away splits',
     matchup: 'Head-to-head history and style matchups',
-    injury_aware: 'Adjusts predictions based on player injuries'
+    injury_aware: 'Adjusts predictions based on player injuries',
+    news: 'Analyzes recent news sentiment and impact',
+    player_stats: 'Player performance history and matchups (props only)'
   };
 
   const sportDisplayNames: Record<string, string> = {

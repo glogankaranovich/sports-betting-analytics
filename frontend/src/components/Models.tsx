@@ -82,6 +82,11 @@ const Models: React.FC<ModelsProps> = ({ token, settings, subscription }) => {
       description: 'Predicts based on news sentiment analysis',
       methodology: 'Analyzes ESPN news headlines and descriptions using AWS Comprehend. Calculates sentiment scores (positive, negative, neutral) for each team. Predicts based on sentiment differential between teams. Higher confidence when sentiment strongly favors one side.'
     },
+    player_stats: {
+      name: 'Player Stats Model',
+      description: 'Player performance history and matchups (props only)',
+      methodology: 'Analyzes last 20 games of player stats with weighted averages (75% recent, 25% season). Factors in opponent-specific performance, news sentiment, and injury status. Only bets on significant form changes (15-25% deviation) with 13.5% line threshold. Filters out injured players (Out/Doubtful).'
+    },
     fundamentals: {
       name: 'Fundamentals Model',
       description: 'Deep statistical analysis of team fundamentals',
