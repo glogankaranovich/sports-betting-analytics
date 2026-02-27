@@ -504,6 +504,7 @@ class BennyTrader:
                         
                         # Only bet if EV is positive (profitable in long run)
                         if expected_value <= 0:
+                            print(f"  Skipping {game_data['away_team']} @ {game_data['home_team']}: negative EV ({expected_value:.3f})")
                             continue
 
                     opportunities.append(
@@ -589,6 +590,11 @@ class BennyTrader:
                 player_trends = self._get_player_trends(prop_data["player"], sport, prop_data["market"])
                 matchup_data = self._get_player_matchup(prop_data["player"], prop_data["opponent"], sport)
                 
+                if player_stats:
+                    print(f"    Player stats: {list(player_stats.keys())[:5]}")
+                else:
+                    print(f"    No player stats found")
+                
                 # AI analysis
                 analysis = self._ai_analyze_prop(prop_data, player_stats, player_trends, matchup_data)
                 
@@ -597,6 +603,7 @@ class BennyTrader:
                 )
 
                 if analysis and float(analysis["confidence"]) >= min_confidence:
+                    print(f"    ✓ Confidence {analysis['confidence']:.2f} >= {min_confidence:.2f}")
                     # Find odds for predicted side
                     predicted_side = "Over" if "over" in analysis["prediction"].lower() else "Under"
                     avg_odds = sum(
@@ -618,6 +625,10 @@ class BennyTrader:
                         "market_key": prop_data["market"],
                         "odds": avg_odds,
                     })
+                elif analysis:
+                    print(f"    ✗ Confidence {analysis['confidence']:.2f} < {min_confidence:.2f}")
+                else:
+                    print(f"    ✗ AI analysis failed")
 
         return opportunities
 
@@ -1256,6 +1267,7 @@ Respond with JSON only:
         )
         
         if existing_bets.get("Items"):
+            print(f"  Skipping {opportunity['away_team']} @ {opportunity['home_team']}: already have pending bet")
             return {"success": False, "reason": "Already have pending bet for this game"}
         
         # Benny already analyzed the game, just use that confidence
