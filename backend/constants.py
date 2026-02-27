@@ -12,7 +12,7 @@ SUPPORTED_SPORTS = os.environ.get(
 
 SYSTEM_MODELS = os.environ.get(
     "SYSTEM_MODELS",
-    "consensus,value,momentum,contrarian,hot_cold,rest_schedule,matchup,injury_aware,news,ensemble,fundamentals",
+    "consensus,value,momentum,contrarian,hot_cold,rest_schedule,matchup,injury_aware,news,ensemble,fundamentals,player_stats",
 ).split(",")
 
 SUPPORTED_BOOKMAKERS = os.environ.get(
@@ -45,6 +45,7 @@ MODEL_NAMES = {
     "fundamentals": "Fundamentals Model",
     "news": "News Sentiment Model",
     "benny": "Benny Model",
+    "player_stats": "Player Stats Model",
 }
 
 BET_TYPES = ["game", "prop"]

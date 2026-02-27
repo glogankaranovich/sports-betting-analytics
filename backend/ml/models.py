@@ -2719,9 +2719,14 @@ class ModelFactory:
     @classmethod
     def create_model(cls, model_name: str) -> BaseAnalysisModel:
         """Create and return a model instance"""
+        # Special case for player_stats - lazy import to avoid circular dependency
+        if model_name == "player_stats":
+            from ml.player_stats_model import PlayerStatsModel
+            return PlayerStatsModel()
+        
         if model_name not in cls._models:
             raise ValueError(
-                f"Unknown model: {model_name}. Available: {list(cls._models.keys())}"
+                f"Unknown model: {model_name}. Available: {list(cls._models.keys()) + ['player_stats']}"
             )
 
         return cls._models[model_name]()
@@ -2729,7 +2734,7 @@ class ModelFactory:
     @classmethod
     def get_available_models(cls) -> List[str]:
         """Get list of available model names"""
-        return list(cls._models.keys())
+        return list(cls._models.keys()) + ["player_stats"]
 
     def _calculate_std(self, values: List[float]) -> float:
         """Calculate standard deviation"""
