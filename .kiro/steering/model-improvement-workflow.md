@@ -13,6 +13,20 @@ All model improvements must show measurable improvement in:
 - ROI (return on investment)
 - Sharpe Ratio (risk-adjusted returns)
 
+## 🚀 Recent Success: Player Stats Model
+
+**Deployed:** February 26, 2026  
+**Performance:** 53.7% accuracy, -2% ROI (nearly profitable)  
+**Improvement:** +12.5% accuracy, +19.32% ROI vs baseline  
+**Documentation:** [Player Stats Model Deployment](../../docs/player-stats-model-deployment.md)
+
+This model demonstrates the workflow in action:
+1. Identified prop betting as losing money (-21% to -100% ROI)
+2. Created new model using player historical stats
+3. Backtested and validated improvement
+4. Integrated data sources (stats, news, injuries)
+5. Deployed to production with EventBridge schedules
+
 ## 🔄 Step-by-Step Workflow
 
 ### 1. Identify Improvement Opportunity
