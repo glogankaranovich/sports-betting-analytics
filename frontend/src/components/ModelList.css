@@ -54,10 +54,10 @@
 }
 
 .model-card .sport-tag {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 1;
+  display: inline-block;
+  font-size: 12px;
+  color: #00d4ff;
+  margin-top: 4px;
 }
 
 .model-card:hover {
@@ -101,11 +101,95 @@
 }
 
 .model-description {
-  margin: 0 0 16px 0;
+  margin: 12px 0 16px 0;
   color: #cbd5e0;
   font-size: 14px;
   line-height: 1.5;
-  min-height: 42px;
+}
+
+.model-info {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.info-label {
+  font-size: 11px;
+  color: #a0aec0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 13px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.model-composition {
+  margin-bottom: 16px;
+}
+
+.composition-label {
+  display: block;
+  font-size: 11px;
+  color: #a0aec0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.composition-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.composition-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.composition-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.composition-name {
+  font-size: 12px;
+  color: #cbd5e0;
+}
+
+.composition-weight {
+  font-size: 11px;
+  color: #00d4ff;
+  font-weight: 600;
+}
+
+.composition-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.composition-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00d4ff 0%, #0099cc 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
 }
 
 .model-meta {
