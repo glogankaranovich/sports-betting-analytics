@@ -19,8 +19,11 @@ def evaluate_team_stats(game_data: Dict) -> float:
     Evaluate team stats data source
     Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
     """
+    import logging
     from boto3.dynamodb.conditions import Key
 
+    logger = logging.getLogger()
+    
     sport = game_data.get("sport", "basketball_nba")
     home_team = game_data.get("home_team", "").lower().replace(" ", "_")
     away_team = game_data.get("away_team", "").lower().replace(" ", "_")
@@ -42,6 +45,7 @@ def evaluate_team_stats(game_data: Dict) -> float:
         away_stats = away_response.get("Items", [{}])[0].get("stats", {})
 
         if not home_stats or not away_stats:
+            logger.warning(f"evaluate_team_stats: Missing stats for {home_team} or {away_team}")
             return 0.5  # No data, neutral
 
         # Calculate composite score from key metrics
@@ -74,7 +78,7 @@ def evaluate_team_stats(game_data: Dict) -> float:
         return home_score / total if total > 0 else 0.5
 
     except Exception as e:
-        print(f"Error evaluating team stats: {e}")
+        logger.error(f"evaluate_team_stats error for {home_team} vs {away_team}: {e}")
         return 0.5  # Fallback to neutral
 
 
@@ -84,14 +88,18 @@ def evaluate_odds_movement(game_data: Dict) -> float:
     Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
     Detects sharp action by comparing opening vs current lines
     """
+    import logging
     from boto3.dynamodb.conditions import Key
 
+    logger = logging.getLogger()
+    
     game_id = game_data.get("game_id", "")
     if not game_id:
+        logger.warning("evaluate_odds_movement: No game_id provided")
         return 0.5
 
     try:
-        # Query all historical odds for this game
+        # Query all odds records for this game (historical + LATEST)
         response = bets_table.query(
             KeyConditionExpression=Key("pk").eq(f"GAME#{game_id}"),
             ScanIndexForward=True,  # Oldest first
@@ -99,6 +107,7 @@ def evaluate_odds_movement(game_data: Dict) -> float:
 
         items = response.get("Items", [])
         if len(items) < 2:
+            logger.info(f"evaluate_odds_movement: Not enough data for {game_id}")
             return 0.5  # Need at least 2 data points
 
         # Find opening and latest odds for h2h market
@@ -107,7 +116,9 @@ def evaluate_odds_movement(game_data: Dict) -> float:
 
         for item in items:
             sk = item.get("sk", "")
-            if "#h2h#" not in sk:
+            market_key = item.get("market_key", "")
+            
+            if market_key != "h2h":
                 continue
 
             if sk.endswith("#LATEST"):
@@ -116,6 +127,7 @@ def evaluate_odds_movement(game_data: Dict) -> float:
                 opening_odds = item
 
         if not opening_odds or not latest_odds:
+            logger.info(f"evaluate_odds_movement: Missing opening or latest odds for {game_id}")
             return 0.5
 
         # Extract home/away odds
@@ -137,6 +149,7 @@ def evaluate_odds_movement(game_data: Dict) -> float:
                 latest_away = float(outcome["price"])
 
         if not all([opening_home, opening_away, latest_home, latest_away]):
+            logger.warning(f"evaluate_odds_movement: Incomplete odds data for {game_id}")
             return 0.5
 
         # Calculate movement (positive = line moved toward home)
@@ -155,7 +168,7 @@ def evaluate_odds_movement(game_data: Dict) -> float:
         return max(0.0, min(1.0, 0.5 + movement_score))
 
     except Exception as e:
-        print(f"Error evaluating odds movement: {e}")
+        logger.error(f"evaluate_odds_movement error for {game_id}: {e}")
         return 0.5
 
 
@@ -165,28 +178,30 @@ def evaluate_recent_form(game_data: Dict) -> float:
     Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
     Based on last 5 games win rate and point differential
     """
+    import logging
     from boto3.dynamodb.conditions import Key
 
+    logger = logging.getLogger()
+    
     sport = game_data.get("sport", "basketball_nba")
-    home_team = game_data.get("home_team", "")
-    away_team = game_data.get("away_team", "")
+    home_team = game_data.get("home_team", "").lower().replace(" ", "_")
+    away_team = game_data.get("away_team", "").lower().replace(" ", "_")
 
     if not home_team or not away_team:
+        logger.warning("evaluate_recent_form: Missing team names")
         return 0.5
 
     try:
-        # Query recent outcomes for both teams
+        # Query recent outcomes for both teams using TEAM_OUTCOME records
         home_outcomes = bets_table.query(
-            IndexName="GSI1",
-            KeyConditionExpression=Key("GSI1PK").eq(f"TEAM#{sport}#{home_team}"),
-            ScanIndexForward=False,
+            KeyConditionExpression=Key("pk").eq(f"TEAM_OUTCOME#{sport}#{home_team}"),
+            ScanIndexForward=False,  # Most recent first
             Limit=5,
         )
 
         away_outcomes = bets_table.query(
-            IndexName="GSI1",
-            KeyConditionExpression=Key("GSI1PK").eq(f"TEAM#{sport}#{away_team}"),
-            ScanIndexForward=False,
+            KeyConditionExpression=Key("pk").eq(f"TEAM_OUTCOME#{sport}#{away_team}"),
+            ScanIndexForward=False,  # Most recent first
             Limit=5,
         )
 
@@ -194,27 +209,24 @@ def evaluate_recent_form(game_data: Dict) -> float:
         away_games = away_outcomes.get("Items", [])
 
         if not home_games or not away_games:
+            logger.info(f"evaluate_recent_form: No recent games for {home_team} or {away_team}")
             return 0.5  # No data
 
         # Calculate win rate and point differential
-        home_wins = sum(1 for g in home_games if g.get("winner") == home_team)
-        away_wins = sum(1 for g in away_games if g.get("winner") == away_team)
+        home_wins = sum(1 for g in home_games if g.get("winner") == game_data.get("home_team"))
+        away_wins = sum(1 for g in away_games if g.get("winner") == game_data.get("away_team"))
 
         home_win_rate = home_wins / len(home_games)
         away_win_rate = away_wins / len(away_games)
 
         # Calculate average point differential
         home_diff = sum(
-            float(g.get("home_score", 0)) - float(g.get("away_score", 0))
-            if g.get("home_team") == home_team
-            else float(g.get("away_score", 0)) - float(g.get("home_score", 0))
+            float(g.get("team_score", 0)) - float(g.get("opponent_score", 0))
             for g in home_games
         ) / len(home_games)
 
         away_diff = sum(
-            float(g.get("home_score", 0)) - float(g.get("away_score", 0))
-            if g.get("home_team") == away_team
-            else float(g.get("away_score", 0)) - float(g.get("home_score", 0))
+            float(g.get("team_score", 0)) - float(g.get("opponent_score", 0))
             for g in away_games
         ) / len(away_games)
 
@@ -227,7 +239,7 @@ def evaluate_recent_form(game_data: Dict) -> float:
         return home_score / total if total > 0 else 0.5
 
     except Exception as e:
-        print(f"Error evaluating recent form: {e}")
+        logger.error(f"evaluate_recent_form error for {home_team} vs {away_team}: {e}")
         return 0.5
 
 
@@ -237,16 +249,20 @@ def evaluate_rest_schedule(game_data: Dict) -> float:
     Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
     Based on days of rest and back-to-back detection
     """
+    import logging
     from datetime import datetime
 
     from boto3.dynamodb.conditions import Key
 
+    logger = logging.getLogger()
+    
     sport = game_data.get("sport", "basketball_nba")
-    home_team = game_data.get("home_team", "")
-    away_team = game_data.get("away_team", "")
+    home_team = game_data.get("home_team", "").lower().replace(" ", "_")
+    away_team = game_data.get("away_team", "").lower().replace(" ", "_")
     game_time = game_data.get("commence_time", "")
 
     if not all([home_team, away_team, game_time]):
+        logger.warning("evaluate_rest_schedule: Missing required data")
         return 0.5
 
     try:
@@ -254,16 +270,14 @@ def evaluate_rest_schedule(game_data: Dict) -> float:
 
         # Query last game for both teams
         home_outcomes = bets_table.query(
-            IndexName="GSI1",
-            KeyConditionExpression=Key("GSI1PK").eq(f"TEAM#{sport}#{home_team}"),
-            ScanIndexForward=False,
+            KeyConditionExpression=Key("pk").eq(f"TEAM_OUTCOME#{sport}#{home_team}"),
+            ScanIndexForward=False,  # Most recent first
             Limit=1,
         )
 
         away_outcomes = bets_table.query(
-            IndexName="GSI1",
-            KeyConditionExpression=Key("GSI1PK").eq(f"TEAM#{sport}#{away_team}"),
-            ScanIndexForward=False,
+            KeyConditionExpression=Key("pk").eq(f"TEAM_OUTCOME#{sport}#{away_team}"),
+            ScanIndexForward=False,  # Most recent first
             Limit=1,
         )
 
@@ -271,6 +285,7 @@ def evaluate_rest_schedule(game_data: Dict) -> float:
         away_last = away_outcomes.get("Items", [])
 
         if not home_last or not away_last:
+            logger.info(f"evaluate_rest_schedule: No recent games for {home_team} or {away_team}")
             return 0.5  # No data
 
         # Calculate days of rest
@@ -293,7 +308,7 @@ def evaluate_rest_schedule(game_data: Dict) -> float:
         return home_rest_score / total if total > 0 else 0.5
 
     except Exception as e:
-        print(f"Error evaluating rest schedule: {e}")
+        logger.error(f"evaluate_rest_schedule error for {home_team} vs {away_team}: {e}")
         return 0.5
 
 
@@ -303,13 +318,17 @@ def evaluate_head_to_head(game_data: Dict) -> float:
     Returns normalized score 0-1 (>0.5 favors home, <0.5 favors away)
     Based on historical matchup record between teams
     """
+    import logging
     from boto3.dynamodb.conditions import Key
 
+    logger = logging.getLogger()
+    
     sport = game_data.get("sport", "basketball_nba")
     home_team = game_data.get("home_team", "")
     away_team = game_data.get("away_team", "")
 
     if not home_team or not away_team:
+        logger.warning("evaluate_head_to_head: Missing team names")
         return 0.5
 
     try:
@@ -321,15 +340,17 @@ def evaluate_head_to_head(game_data: Dict) -> float:
         teams_sorted = sorted([home_normalized, away_normalized])
         h2h_pk = f"H2H#{sport}#{teams_sorted[0]}#{teams_sorted[1]}"
 
-        # Query historical matchups
+        # Query historical matchups using H2HIndex
         response = bets_table.query(
+            IndexName="H2HIndex",
             KeyConditionExpression=Key("h2h_pk").eq(h2h_pk),
-            ScanIndexForward=False,
+            ScanIndexForward=False,  # Most recent first
             Limit=10,
         )
 
         matchups = response.get("Items", [])
         if not matchups:
+            logger.info(f"evaluate_head_to_head: No history for {home_team} vs {away_team}")
             return 0.5  # No history
 
         # Count wins for each team
@@ -345,7 +366,7 @@ def evaluate_head_to_head(game_data: Dict) -> float:
         return home_win_rate / total if total > 0 else 0.5
 
     except Exception as e:
-        print(f"Error evaluating head-to-head: {e}")
+        logger.error(f"evaluate_head_to_head error for {home_team} vs {away_team}: {e}")
         return 0.5
 
 

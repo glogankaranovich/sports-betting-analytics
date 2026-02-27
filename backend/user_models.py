@@ -290,14 +290,9 @@ def validate_model_config(config: Dict) -> tuple[bool, Optional[str]]:
         return False, "Description must be 10-200 characters"
 
     # Validate sport
-    valid_sports = [
-        "basketball_nba",
-        "americanfootball_nfl",
-        "baseball_mlb",
-        "icehockey_nhl",
-    ]
-    if config["sport"] not in valid_sports:
-        return False, f"Invalid sport. Must be one of: {valid_sports}"
+    from constants import SUPPORTED_SPORTS
+    if config["sport"] not in SUPPORTED_SPORTS:
+        return False, f"Invalid sport. Must be one of: {SUPPORTED_SPORTS}"
 
     # Validate bet types
     valid_bet_types = ["h2h", "spreads", "totals"]
@@ -326,4 +321,28 @@ def validate_model_config(config: Dict) -> tuple[bool, Optional[str]]:
     if not (0.5 <= config["min_confidence"] <= 0.95):
         return False, "Min confidence must be between 50% and 95%"
 
+    return True, None
+
+
+def validate_dataset(data: list, data_type: str) -> tuple[bool, Optional[str]]:
+    """Validate custom dataset structure"""
+    if not data or len(data) == 0:
+        return False, "Dataset cannot be empty"
+    
+    if data_type not in ["team", "player"]:
+        return False, "data_type must be 'team' or 'player'"
+    
+    # Check required columns
+    first_row = data[0]
+    if data_type == "team" and "team" not in first_row:
+        return False, "Team datasets must have a 'team' column"
+    if data_type == "player" and "player" not in first_row:
+        return False, "Player datasets must have a 'player' column"
+    
+    # Validate all rows have same columns
+    columns = set(first_row.keys())
+    for i, row in enumerate(data[1:], start=2):
+        if set(row.keys()) != columns:
+            return False, f"Row {i} has different columns than row 1"
+    
     return True, None
