@@ -675,8 +675,28 @@ MARKET ODDS:
 Over {prop_data['line']}: {avg_over} ({over_prob:.1%} implied)
 Under {prop_data['line']}: {avg_under} ({under_prob:.1%} implied)
 
-PLAYER SEASON STATS:
-{json.dumps(player_stats, indent=2) if player_stats else 'No data'}
+PLAYER SEASON STATS (Last 20 games):
+{json.dumps(player_stats, indent=2) if player_stats else 'No season data available'}
+
+RECENT TRENDS (Last 10 games for this market):
+{json.dumps(player_trends, indent=2) if player_trends else 'No trend data available'}
+
+MATCHUP HISTORY vs {prop_data['opponent']}:
+{json.dumps(matchup_data, indent=2) if matchup_data else 'No matchup history available'}
+
+BENNY'S PROP PERFORMANCE:
+{self._get_prop_market_performance(prop_data['market'])}
+
+ANALYSIS INSTRUCTIONS:
+1. Compare player's season average and last 5 games to the line
+2. Consider recent trends - is player hot or cold?
+3. Factor in matchup history against this opponent
+4. Look for value where the line doesn't match recent performance
+5. Consider Benny's historical accuracy on this prop type
+6. Be conservative - only bet when you see clear value
+
+Respond with JSON only:
+{{"prediction": "Over/Under X.X", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}"""
 
 RECENT TRENDS (Last 10 games):
 {json.dumps(player_trends, indent=2) if player_trends else 'No data'}
@@ -825,6 +845,15 @@ Respond with JSON only:
         except Exception as e:
             print(f"Error fetching player matchup: {e}")
             return {}
+    
+    def _get_prop_market_performance(self, market_key: str) -> str:
+        """Get Benny's historical performance on this prop market"""
+        perf = self.learning_params.get("performance_by_prop_market", {})
+        if market_key in perf:
+            stats = perf[market_key]
+            wr = stats["wins"] / stats["total"] if stats["total"] > 0 else 0
+            return f"Benny's {market_key} record: {stats['wins']}/{stats['total']} ({wr:.1%})"
+        return f"No historical data for {market_key}"
 
     def _ai_analyze_game(
         self,
@@ -1230,10 +1259,12 @@ Respond with JSON only:
             # Calculate performance by sport and bet type
             perf_by_sport = {}
             perf_by_bet_type = {}
+            perf_by_prop_market = {}
 
             for bet in bets:
                 sport = bet.get("sport", "unknown")
                 bet_type = bet.get("bet_type", "unknown")
+                market_key = bet.get("market_key", "unknown")
                 won = bet.get("status") == "won"
 
                 if sport not in perf_by_sport:
@@ -1247,6 +1278,14 @@ Respond with JSON only:
                 perf_by_bet_type[bet_type]["total"] += 1
                 if won:
                     perf_by_bet_type[bet_type]["wins"] += 1
+                
+                # Track prop market performance (player_points, player_rebounds, etc.)
+                if bet_type == "prop" and market_key.startswith("player_"):
+                    if market_key not in perf_by_prop_market:
+                        perf_by_prop_market[market_key] = {"wins": 0, "total": 0}
+                    perf_by_prop_market[market_key]["total"] += 1
+                    if won:
+                        perf_by_prop_market[market_key]["wins"] += 1
 
             # Update learning parameters
             self.learning_params.update(
@@ -1254,6 +1293,7 @@ Respond with JSON only:
                     "min_confidence_adjustment": Decimal(str(adjustment)),
                     "performance_by_sport": perf_by_sport,
                     "performance_by_bet_type": perf_by_bet_type,
+                    "performance_by_prop_market": perf_by_prop_market,
                     "overall_win_rate": Decimal(str(win_rate)),
                     "total_bets_analyzed": len(bets),
                     "total_deposits": total_deposits,
@@ -1267,6 +1307,13 @@ Respond with JSON only:
             print(
                 f"Updated Benny learning: win_rate={win_rate:.2%}, adjustment={adjustment:+.3f}"
             )
+            
+            # Log prop market performance
+            if perf_by_prop_market:
+                print("Prop market performance:")
+                for market, stats in sorted(perf_by_prop_market.items(), key=lambda x: x[1]["wins"]/max(x[1]["total"], 1), reverse=True):
+                    wr = stats["wins"] / stats["total"] if stats["total"] > 0 else 0
+                    print(f"  {market}: {stats['wins']}/{stats['total']} ({wr:.1%})")
 
         except Exception as e:
             print(f"Error updating learning parameters: {e}")
