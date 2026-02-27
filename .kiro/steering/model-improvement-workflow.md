@@ -458,6 +458,7 @@ AWS_PROFILE=sports-betting-dev python3 scripts/backtest_models.py dev \
 ### Documentation
 - `docs/backtest-*.md` - Historical backtest results
 - `.kiro/steering/development-workflow.md` - General dev workflow
+- `.kiro/steering/model-improvement-workflow.md` - This document
 
 ---
 
