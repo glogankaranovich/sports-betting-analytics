@@ -2106,11 +2106,11 @@ class InjuryAwareModel(BaseAnalysisModel):
 
         total_impact = 0.0
         for injury in injuries:
-            # Get player value metrics
-            usage_rate = injury.get("usage_rate", 20)  # % of team possessions
-            per = injury.get("per", 15)  # Player Efficiency Rating
-            win_shares = injury.get("win_shares", 0)  # Contribution to wins
-            avg_minutes = injury.get("avg_minutes", 0)
+            # Get player value metrics (convert Decimal to float)
+            usage_rate = float(injury.get("usage_rate", 20))  # % of team possessions
+            per = float(injury.get("per", 15))  # Player Efficiency Rating
+            win_shares = float(injury.get("win_shares", 0))  # Contribution to wins
+            avg_minutes = float(injury.get("avg_minutes", 0))
             
             # Calculate player value score (0-1 scale)
             # Usage rate: 20% = average, 30%+ = star

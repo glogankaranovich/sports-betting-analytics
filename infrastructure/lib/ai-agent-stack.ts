@@ -53,6 +53,7 @@ export class AIAgentStack extends cdk.Stack {
         actions: ["bedrock:InvokeModel"],
         resources: [
           `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0`,
+          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0`,
         ],
       })
     );

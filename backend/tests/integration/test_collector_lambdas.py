@@ -7,9 +7,11 @@ import json
 import os
 
 import boto3
+from botocore.config import Config
 
-# AWS clients
-lambda_client = boto3.client("lambda", region_name="us-east-1")
+# AWS clients with extended timeout for long-running Lambdas
+config = Config(read_timeout=900)
+lambda_client = boto3.client("lambda", region_name="us-east-1", config=config)
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 
 # Get environment from env var, default to dev
