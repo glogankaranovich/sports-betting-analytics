@@ -142,8 +142,23 @@ class InjuryCollector:
         self, sport: str, team_id: str, team_name: str, injuries: List[Dict[str, Any]]
     ):
         """Store injury data in DynamoDB"""
+        from decimal import Decimal
+        
+        def convert_floats(obj):
+            """Convert floats to Decimal for DynamoDB"""
+            if isinstance(obj, float):
+                return Decimal(str(obj))
+            elif isinstance(obj, dict):
+                return {k: convert_floats(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_floats(i) for i in obj]
+            return obj
+        
         timestamp = datetime.now(timezone.utc).isoformat()
         ttl = int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp())
+
+        # Convert injuries to Decimal
+        injuries = convert_floats(injuries)
 
         # Store team-level injury report
         team_item = {

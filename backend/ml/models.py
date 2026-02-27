@@ -2298,6 +2298,7 @@ class EnsembleModel(BaseAnalysisModel):
     def __init__(self):
         super().__init__()
         from ml.dynamic_weighting import DynamicModelWeighting
+        from ml.player_stats_model import PlayerStatsModel
 
         self.weighting = DynamicModelWeighting()
         self.models = {
@@ -2309,6 +2310,7 @@ class EnsembleModel(BaseAnalysisModel):
             "matchup": MatchupModel(),
             "injury_aware": InjuryAwareModel(),
             "news": NewsModel(),
+            "player_stats": PlayerStatsModel(),
         }
 
     def analyze_game_odds(
