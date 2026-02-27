@@ -3,9 +3,9 @@ import os
 
 
 class DynamicModelWeighting:
-    """Weight models based on recent accuracy."""
+    """Weight models based on recent ROI and accuracy."""
 
-    def __init__(self, lookback_days=30):
+    def __init__(self, lookback_days=90):  # Increased from 30 to 90 days
         self.lookback_days = lookback_days
         from model_performance import ModelPerformanceTracker
         table_name = os.environ.get("DYNAMODB_TABLE", "sports-betting-bets-dev")
@@ -22,12 +22,17 @@ class DynamicModelWeighting:
         for model in models:
             perf = self.tracker.get_model_performance(model, sport, days=self.lookback_days)
             
-            # If no data or insufficient samples, use neutral weight
-            if perf["total_predictions"] < 10:
-                performances[model] = 0.5
+            # If no data or insufficient samples, use low weight
+            if perf["total_predictions"] < 20:
+                performances[model] = 0.1
             else:
-                # Weight by accuracy
-                performances[model] = perf["accuracy"]
+                # Weight by accuracy, but exclude models below 50%
+                accuracy = perf["accuracy"]
+                if accuracy < 0.50:
+                    performances[model] = 0.0  # Exclude underperforming models
+                else:
+                    # Boost models with high accuracy
+                    performances[model] = accuracy ** 2  # Square to amplify differences
 
         # Normalize to weights
         total = sum(performances.values())
