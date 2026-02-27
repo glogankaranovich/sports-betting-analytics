@@ -58,8 +58,29 @@ const BET_TYPES = [
   { value: 'props', label: 'Player Props' },
 ];
 
-export const ModelBuilder: React.FC<{ onSave: (config: any) => void; onCancel: () => void }> = ({ onSave, onCancel }) => {
-  const [config, setConfig] = useState<ModelConfig>({
+export const ModelBuilder: React.FC<{ 
+  onSave: (config: any) => void; 
+  onCancel: () => void;
+  initialConfig?: any;
+}> = ({ onSave, onCancel, initialConfig }) => {
+  const [config, setConfig] = useState<ModelConfig>(initialConfig ? {
+    name: initialConfig.name || '',
+    description: initialConfig.description || '',
+    sport: initialConfig.sport || 'basketball_nba',
+    betTypes: initialConfig.bet_types || ['h2h'],
+    dataSources: initialConfig.data_sources || {
+      team_stats: { enabled: true, weight: 25 },
+      odds_movement: { enabled: true, weight: 20 },
+      recent_form: { enabled: true, weight: 20 },
+      rest_schedule: { enabled: true, weight: 15 },
+      head_to_head: { enabled: false, weight: 5 },
+      player_stats: { enabled: false, weight: 10 },
+      player_injury: { enabled: false, weight: 5 },
+    },
+    customDatasets: initialConfig.custom_datasets || [],
+    minConfidence: Math.round((initialConfig.min_confidence || 0.6) * 100),
+    autoAdjustWeights: initialConfig.auto_adjust_weights || false,
+  } : {
     name: '',
     description: '',
     sport: 'basketball_nba',

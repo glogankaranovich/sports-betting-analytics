@@ -13,6 +13,7 @@ interface UserModelsProps {
 
 export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onNavigate }) => {
   const [selectedModel, setSelectedModel] = useState<any>(null);
+  const [editingModel, setEditingModel] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showBuilderModal, setShowBuilderModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -57,12 +58,19 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
 
   const handleCreateModel = async (config: any) => {
     try {
-      await bettingApi.createUserModel(token, { ...config, user_id: userId });
+      if (editingModel) {
+        // Update existing model
+        await bettingApi.updateUserModel(token, editingModel.model_id, { ...config, user_id: userId });
+      } else {
+        // Create new model
+        await bettingApi.createUserModel(token, { ...config, user_id: userId });
+      }
       setShowBuilderModal(false);
+      setEditingModel(null);
       loadUserModels();
     } catch (error: any) {
-      console.error('Error creating model:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Failed to create model';
+      console.error('Error saving model:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to save model';
       
       // Show upgrade message for limit errors
       if (error.response?.status === 403) {
@@ -97,7 +105,11 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
   };
 
   const handleEditModel = (modelId: string) => {
-    alert('Edit functionality coming soon!');
+    const model = models.find(m => m.model_id === modelId);
+    if (model) {
+      setEditingModel(model);
+      setShowBuilder(true);
+    }
   };
 
   if (loading) {
@@ -162,7 +174,10 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
             <button onClick={() => setShowUploadModal(true)} className="btn-secondary">
               Upload Custom Data
             </button>
-            <button onClick={() => setShowBuilderModal(true)} className="btn-primary">
+            <button onClick={() => {
+              setEditingModel(null);
+              setShowBuilderModal(true);
+            }} className="btn-primary">
               Create New Model
             </button>
           </div>
@@ -198,8 +213,12 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
       )}
       {showBuilderModal && (
         <ModelBuilder
+          initialConfig={editingModel}
           onSave={handleCreateModel}
-          onCancel={() => setShowBuilderModal(false)}
+          onCancel={() => {
+            setShowBuilderModal(false);
+            setEditingModel(null);
+          }}
         />
       )}
       {showUploadModal && (
