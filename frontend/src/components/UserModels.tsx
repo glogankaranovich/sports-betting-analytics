@@ -4,6 +4,7 @@ import { ModelBuilder } from './ModelBuilder';
 import { ModelDetail } from './ModelDetail';
 import { CustomDataUpload } from './CustomDataUpload';
 import { bettingApi } from '../services/api';
+import LoadingSpinner from './LoadingSpinner';
 
 interface UserModelsProps {
   token: string;
@@ -113,7 +114,7 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
   };
 
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return <LoadingSpinner />;
   }
 
   // Check if user has access via subscription tier
