@@ -5,6 +5,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
+import { getSupportedSportsArray } from './utils/constants';
 
 export interface WeatherCollectorStackProps extends cdk.StackProps {
   environment: string;
@@ -58,7 +59,7 @@ export class WeatherCollectorStack extends cdk.Stack {
     });
 
     // Add Lambda targets for each sport
-    const sports = ['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl'];
+    const sports = getSupportedSportsArray();
     
     sports.forEach(sport => {
       rule.addTarget(new targets.LambdaFunction(this.weatherCollectorFunction, {

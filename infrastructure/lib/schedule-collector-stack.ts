@@ -4,6 +4,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
+import { getSupportedSportsArray } from './utils/constants';
 
 export interface ScheduleCollectorStackProps extends cdk.StackProps {
   environment: string;
@@ -48,7 +49,7 @@ export class ScheduleCollectorStack extends cdk.Stack {
     }));
 
     // Run daily at 6 AM ET (11 AM UTC) to collect schedules
-    const sports = ['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl'];
+    const sports = getSupportedSportsArray();
     
     sports.forEach((sport, index) => {
       new events.Rule(this, `Daily${sport.split('_')[1].toUpperCase()}ScheduleCollection`, {

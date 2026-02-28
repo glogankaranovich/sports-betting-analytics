@@ -11,6 +11,13 @@ export const PLATFORM_CONSTANTS = {
 };
 
 /**
+ * Get supported sports as an array
+ */
+export function getSupportedSportsArray(): string[] {
+  return PLATFORM_CONSTANTS.SUPPORTED_SPORTS.split(',');
+}
+
+/**
  * Get environment variables object for Lambda functions
  */
 export function getPlatformEnvironment(): Record<string, string> {

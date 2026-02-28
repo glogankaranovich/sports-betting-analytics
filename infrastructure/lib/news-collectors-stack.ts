@@ -5,6 +5,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import { PLATFORM_CONSTANTS } from './utils/constants';
 
 interface NewsCollectorsStackProps extends cdk.StackProps {
   environment: string;
@@ -38,7 +39,7 @@ export class NewsCollectorsStack extends cdk.Stack {
       environment: {
         TABLE_NAME: betsTable.tableName,
         ENVIRONMENT: environment,
-        SUPPORTED_SPORTS: 'basketball_nba,americanfootball_nfl,baseball_mlb,icehockey_nhl,soccer_epl',
+        SUPPORTED_SPORTS: PLATFORM_CONSTANTS.SUPPORTED_SPORTS,
       },
     });
 

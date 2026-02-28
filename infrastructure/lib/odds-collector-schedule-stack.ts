@@ -4,6 +4,7 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
+import { getSupportedSportsArray } from './utils/constants';
 
 export interface OddsCollectorScheduleStackProps extends cdk.StackProps {
   environment: string;

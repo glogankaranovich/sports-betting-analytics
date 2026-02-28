@@ -5,6 +5,7 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import { Construct } from "constructs";
 import * as path from "path";
+import { getSupportedSportsArray } from './utils/constants';
 
 export interface SeasonStatsCollectorStackProps extends cdk.StackProps {
   environment: string;
@@ -55,7 +56,7 @@ export class SeasonStatsCollectorStack extends cdk.Stack {
     weeklyRule.addTarget(
       new targets.LambdaFunction(this.seasonStatsCollectorFunction, {
         event: events.RuleTargetInput.fromObject({
-          sports: ["basketball_nba", "americanfootball_nfl", "icehockey_nhl", "baseball_mlb"]
+          sports: getSupportedSportsArray()
         }),
       })
     );
