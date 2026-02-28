@@ -49,10 +49,9 @@ class AnalyticsHandler(BaseAPIHandler):
                 sport = query_params.get("sport", "basketball_nba")
                 bet_type = query_params.get("bet_type", "game")
 
-                all_models = ["consensus", "value", "momentum", "contrarian", "hot_cold", "rest_schedule", "matchup", "injury_aware", "ensemble", "benny"]
-                weights = weighting.get_model_weights(sport, bet_type, models=all_models)
+                weights = weighting.get_model_weights(sport, bet_type, models=SYSTEM_MODELS)
                 model_metrics = {}
-                for model_name in all_models:
+                for model_name in SYSTEM_MODELS:
                     accuracy = weighting.get_recent_accuracy(model_name, sport, bet_type)
                     brier = weighting.get_recent_brier_score(model_name, sport, bet_type)
                     model_metrics[model_name] = {"weight": weights[model_name], "recent_accuracy": accuracy, "recent_brier_score": brier}
