@@ -742,7 +742,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 <Settings 
                   settings={settings}
                   onSettingsChange={setSettings}
-                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl', 'basketball_mens-college-basketball', 'basketball_womens-college-basketball', 'football_college-football']}
                   availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
                   userModels={userModels}
                   token={token}
@@ -956,7 +956,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 <Settings 
                   settings={settings}
                   onSettingsChange={setSettings}
-                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl', 'basketball_mens-college-basketball', 'basketball_womens-college-basketball', 'football_college-football']}
                   availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
                   userModels={userModels}
                   token={token}
@@ -1236,7 +1236,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                 <Settings 
                   settings={settings}
                   onSettingsChange={setSettings}
-                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+                  availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl', 'basketball_mens-college-basketball', 'basketball_womens-college-basketball', 'football_college-football']}
                   availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
                   userModels={userModels}
                   token={token}
@@ -1443,7 +1443,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
               onPageChange={setCurrentPage}
               settings={settings}
               onSettingsChange={setSettings}
-              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl']}
+              availableSports={['basketball_nba', 'americanfootball_nfl', 'baseball_mlb', 'icehockey_nhl', 'soccer_epl', 'basketball_mens-college-basketball', 'basketball_womens-college-basketball', 'football_college-football']}
               availableBookmakers={['draftkings', 'fanduel', 'betmgm', 'caesars']}
               userModels={userModels}
               subscription={subscription}
