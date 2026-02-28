@@ -2481,6 +2481,7 @@ class FundamentalsModel(BaseAnalysisModel):
     """Fundamentals-based model using opponent-adjusted metrics, Elo, weather, and fatigue"""
     
     def __init__(self, dynamodb_table=None):
+        super().__init__()
         self.table = dynamodb_table
         if not self.table:
             import boto3

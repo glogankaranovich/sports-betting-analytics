@@ -105,10 +105,10 @@ export const UserModels: React.FC<UserModelsProps> = ({ token, subscription, onN
   };
 
   const handleEditModel = (modelId: string) => {
-    const model = models.find(m => m.model_id === modelId);
+    const model = userModels.find(m => m.model_id === modelId);
     if (model) {
       setEditingModel(model);
-      setShowBuilder(true);
+      setShowBuilderModal(true);
     }
   };
 

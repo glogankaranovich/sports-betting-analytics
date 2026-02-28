@@ -180,7 +180,7 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                         commence_time=analysis_result.commence_time,
                         player_name=analysis_result.player_name,
                         prediction=analysis_result.prediction,
-                        confidence=adjusted_confidence,
+                        confidence=analysis_result.confidence,
                         reasoning=analysis_result.reasoning,
                         recommended_odds=analysis_result.recommended_odds,
                     )
