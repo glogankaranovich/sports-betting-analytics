@@ -52,12 +52,15 @@ export class ScheduleCollectorStack extends cdk.Stack {
     const sports = getSupportedSportsArray();
     
     sports.forEach((sport, index) => {
+      const hour = 11 + Math.floor(index / 6); // Increment hour every 6 sports
+      const minute = (index % 6) * 10; // 0, 10, 20, 30, 40, 50
+      
       new events.Rule(this, `Daily${sport.split('_')[1].toUpperCase()}ScheduleCollection`, {
         schedule: events.Schedule.cron({
-          minute: `${index * 10}`,
-          hour: '11'
+          minute: `${minute}`,
+          hour: `${hour}`
         }),
-        description: `Collect ${sport} schedules daily at 6:${index * 10 < 10 ? '0' : ''}${index * 10} AM ET`,
+        description: `Collect ${sport} schedules daily at ${hour}:${minute < 10 ? '0' : ''}${minute} UTC`,
         targets: [new targets.LambdaFunction(this.scheduleCollectorFunction, {
           event: events.RuleTargetInput.fromObject({ sport })
         })]

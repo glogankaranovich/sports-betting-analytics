@@ -51,20 +51,25 @@ export class WeatherCollectorStack extends cdk.Stack {
 
     weatherApiSecret.grantRead(this.weatherCollectorFunction);
 
-    // EventBridge rule - run every 6 hours
-    const rule = new events.Rule(this, 'WeatherCollectorSchedule', {
-      ruleName: `weather-collector-schedule-${props.environment}`,
-      schedule: events.Schedule.rate(cdk.Duration.hours(6)),
-      description: 'Collect weather data for upcoming games every 6 hours'
-    });
-
-    // Add Lambda targets for each sport
+    // EventBridge rules - run every 6 hours (split into groups of 5 due to target limit)
     const sports = getSupportedSportsArray();
+    const batchSize = 5;
     
-    sports.forEach(sport => {
-      rule.addTarget(new targets.LambdaFunction(this.weatherCollectorFunction, {
-        event: events.RuleTargetInput.fromObject({ sport })
-      }));
-    });
+    for (let i = 0; i < sports.length; i += batchSize) {
+      const batch = sports.slice(i, i + batchSize);
+      const batchNum = Math.floor(i / batchSize) + 1;
+      
+      const rule = new events.Rule(this, `WeatherCollectorSchedule${batchNum}`, {
+        ruleName: `weather-collector-schedule-${props.environment}-${batchNum}`,
+        schedule: events.Schedule.rate(cdk.Duration.hours(6)),
+        description: `Collect weather data for upcoming games every 6 hours (batch ${batchNum})`
+      });
+      
+      batch.forEach(sport => {
+        rule.addTarget(new targets.LambdaFunction(this.weatherCollectorFunction, {
+          event: events.RuleTargetInput.fromObject({ sport })
+        }));
+      });
+    }
   }
 }

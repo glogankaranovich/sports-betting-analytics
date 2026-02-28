@@ -12,7 +12,7 @@ This guide covers adding **System Models**.
 
 ## Required Changes
 
-When adding a new system model, you must update **3 locations**:
+When adding a new system model, you must update **4 locations**:
 
 ### 1. Backend Constants (`backend/constants.py`)
 
@@ -59,6 +59,16 @@ class ModelFactory:
 ```
 
 **Purpose:** Allows the analysis generator to instantiate your model.
+
+### 4. Analytics API (`backend/api/analytics.py`)
+
+The analytics API automatically uses `SYSTEM_MODELS` constant, so no changes needed here. Just verify it imports the constant:
+
+```python
+from constants import SYSTEM_MODELS
+```
+
+**Purpose:** Ensures your model appears in detailed analytics and model weights.
 
 ## Model Implementation Requirements
 
@@ -111,9 +121,10 @@ After making the changes:
 2. **Deploy infrastructure:**
    ```bash
    cd infrastructure
-   npm run cdk deploy Dev-AnalysisSchedule
+   make deploy-stack STACK=Dev-AnalysisSchedule
+   make deploy-stack STACK=Dev-BetCollectorApi  # For analytics API
    ```
-   This updates the EventBridge schedules to include your model.
+   This updates the EventBridge schedules and analytics API to include your model.
 
 3. **Verify in CloudWatch:**
    - Check EventBridge rules include your model
@@ -121,6 +132,7 @@ After making the changes:
 
 4. **Check frontend:**
    - Your model should appear in model comparison dropdowns
+   - Your model should appear in detailed analytics
    - Analyses should appear in the bets table after first scheduled run
 
 ## Example: Adding the Fundamentals Model
@@ -149,7 +161,12 @@ class ModelFactory:
 
 ## Common Issues
 
-### Model not appearing in frontend
+### Model not appearing in frontend analytics
+- Check that model name is in `SYSTEM_MODELS` constant (backend and infrastructure)
+- Verify `BetCollectorApi` stack was deployed
+- Check that `backend/api/analytics.py` imports `SYSTEM_MODELS`
+
+### Model not appearing in bets table
 - Check that model name is in all 3 constants
 - Verify infrastructure was deployed
 - Check CloudWatch logs for analysis generator errors
