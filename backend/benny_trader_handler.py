@@ -20,8 +20,12 @@ def handler(event, context):
         "body": json.dumps(
             {
                 "message": "Benny trader executed successfully",
-                "bets_placed": results.get("bets_placed", 0),
-                "games_analyzed": results.get("opportunities_found", 0),
+                "game_bets_placed": results.get("game_bets_placed", 0),
+                "prop_bets_placed": results.get("prop_bets_placed", 0),
+                "total_bets": results.get("total_bets", 0),
+                "game_opportunities": results.get("game_opportunities", 0),
+                "prop_opportunities": results.get("prop_opportunities", 0),
+                "total_bet_amount": results.get("total_bet_amount", 0),
                 "current_bankroll": float(results.get("remaining_bankroll", 0)),
                 "timestamp": datetime.utcnow().isoformat(),
             }

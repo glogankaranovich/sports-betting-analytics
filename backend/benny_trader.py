@@ -493,6 +493,7 @@ class BennyTrader:
                     # Calculate expected value (EV)
                     # EV = (probability * payout) - (1 - probability) * stake
                     # For American odds: if odds > 0, payout = odds/100; if odds < 0, payout = 100/abs(odds)
+                    expected_value = 0
                     if predicted_odds:
                         predicted_odds = float(predicted_odds)  # Convert Decimal to float
                         if predicted_odds > 0:
@@ -501,11 +502,7 @@ class BennyTrader:
                             payout_multiplier = 1 + (100 / abs(predicted_odds))
                         
                         expected_value = (float(analysis["confidence"]) * payout_multiplier) - 1
-                        
-                        # Only bet if EV is positive (profitable in long run)
-                        if expected_value <= 0:
-                            print(f"  Skipping {game_data['away_team']} @ {game_data['home_team']}: negative EV ({expected_value:.3f})")
-                            continue
+                        print(f"  EV for {game_data['away_team']} @ {game_data['home_team']}: {expected_value:.3f}")
 
                     opportunities.append(
                         {
@@ -520,6 +517,7 @@ class BennyTrader:
                             "commence_time": game_data["commence_time"],
                             "market_key": "h2h",
                             "odds": predicted_odds,
+                            "expected_value": expected_value,
                         }
                     )
 
@@ -620,12 +618,7 @@ class BennyTrader:
                         payout_multiplier = 1 + (100 / abs(avg_odds_float))
                     
                     expected_value = (float(analysis["confidence"]) * payout_multiplier) - 1
-                    
-                    if expected_value <= 0:
-                        print(f"    ✗ Negative EV ({expected_value:.3f})")
-                        continue
-                    
-                    print(f"    ✓ Positive EV ({expected_value:.3f})")
+                    print(f"    EV: {expected_value:.3f}")
                     
                     opportunities.append({
                         "game_id": prop_data["game_id"],
@@ -640,6 +633,7 @@ class BennyTrader:
                         "commence_time": prop_data["commence_time"],
                         "market_key": prop_data["market"],
                         "odds": avg_odds,
+                        "expected_value": expected_value,
                     })
                 elif analysis:
                     print(f"    ✗ Confidence {analysis['confidence']:.2f} < {min_confidence:.2f}")
