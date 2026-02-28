@@ -23,7 +23,8 @@ class BennyTrader:
     """Autonomous trading agent for sports betting"""
 
     WEEKLY_BUDGET = Decimal("100.00")
-    BASE_MIN_CONFIDENCE = 0.65  # Base confidence threshold
+    BASE_MIN_CONFIDENCE = 0.65  # Base confidence threshold (for reference, not enforced)
+    TARGET_ROI = 0.15  # Target 15% ROI for strategic decision-making
     MAX_BET_PERCENTAGE = 0.20  # Max 20% of bankroll per bet
 
     def __init__(self, table_name=None):
@@ -51,8 +52,9 @@ class BennyTrader:
                 "sk": "PARAMETERS",
                 "min_confidence_adjustment": Decimal(
                     "0.0"
-                ),  # Added to BASE_MIN_CONFIDENCE
-                "kelly_fraction": Decimal("0.25"),  # Conservative Kelly (1/4 Kelly)
+                ),  # Added to BASE_MIN_CONFIDENCE (reference only)
+                "kelly_fraction": Decimal("0.5"),  # Half Kelly for more aggressive sizing
+                "target_roi": Decimal("0.15"),  # Target 15% ROI
                 "performance_by_sport": {},
                 "performance_by_bet_type": {},
                 "last_updated": datetime.utcnow().isoformat(),
@@ -63,7 +65,8 @@ class BennyTrader:
             print(f"Error loading learning parameters: {e}")
             return {
                 "min_confidence_adjustment": 0.0,
-                "kelly_fraction": 0.25,
+                "kelly_fraction": 0.5,
+                "target_roi": 0.15,
                 "performance_by_sport": {},
                 "performance_by_bet_type": {},
             }
@@ -473,12 +476,7 @@ class BennyTrader:
                     fatigue,
                 )
 
-                # Use learned confidence threshold
-                min_confidence = self.BASE_MIN_CONFIDENCE + float(
-                    self.learning_params.get("min_confidence_adjustment", 0)
-                )
-
-                if analysis and float(analysis["confidence"]) >= min_confidence:
+                if analysis:
                     # Determine which outcome was predicted and get odds
                     predicted_team = analysis["prediction"].lower()
                     predicted_odds = None
@@ -595,14 +593,9 @@ class BennyTrader:
                 
                 # AI analysis
                 analysis = self._ai_analyze_prop(prop_data, player_stats, player_trends, matchup_data)
-                
-                # Use lower confidence threshold for props (harder to predict)
-                min_confidence = (self.BASE_MIN_CONFIDENCE - 0.05) + float(
-                    self.learning_params.get("min_confidence_adjustment", 0)
-                )
 
-                if analysis and float(analysis["confidence"]) >= min_confidence:
-                    print(f"    ✓ Confidence {analysis['confidence']:.2f} >= {min_confidence:.2f}")
+                if analysis:
+                    print(f"    Confidence: {analysis['confidence']:.2f}")
                     # Find odds for predicted side
                     predicted_side = "Over" if "over" in analysis["prediction"].lower() else "Under"
                     avg_odds = sum(
@@ -657,7 +650,13 @@ class BennyTrader:
             over_prob = self._american_to_probability(avg_over) if avg_over else 0
             under_prob = self._american_to_probability(avg_under) if avg_under else 0
 
-            prompt = f"""You are Benny, an expert sports betting analyst. Analyze this player prop.
+            prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
+
+RISK PARAMETERS:
+- Kelly Fraction: {self.learning_params.get('kelly_fraction', 0.5)} (bet sizing multiplier)
+- Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
+- Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
+- Current Bankroll: ${float(self.bankroll):.2f}
 
 Player: {prop_data['player']} ({prop_data['team']})
 Opponent: {prop_data['opponent']}
@@ -875,7 +874,13 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
             if draw_prob:
                 market_odds += f"\nDraw: {avg_draw_price} ({draw_prob:.1%} implied)"
 
-            prompt = f"""You are Benny, an expert sports betting analyst. Analyze this game and make YOUR prediction.
+            prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
+
+RISK PARAMETERS:
+- Kelly Fraction: {self.learning_params.get('kelly_fraction', 0.5)} (bet sizing multiplier)
+- Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
+- Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
+- Current Bankroll: ${float(self.bankroll):.2f}
 
 Game: {game_data['away_team']} @ {game_data['home_team']}
 Sport: {game_data['sport']}
