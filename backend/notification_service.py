@@ -20,16 +20,21 @@ class NotificationChannel(ABC):
 
 
 class SMSChannel(NotificationChannel):
-    """SMS delivery via AWS SNS"""
+    """SMS delivery via AWS SNS Topic"""
     
     def __init__(self):
         self.sns = boto3.client('sns')
+        self.topic_arn = os.environ.get('NOTIFICATION_TOPIC_ARN')
     
-    def send(self, phone_number: str, message: str, metadata: Optional[Dict] = None) -> bool:
-        """Send SMS via SNS"""
+    def send(self, recipient: str, message: str, metadata: Optional[Dict] = None) -> bool:
+        """Send SMS via SNS Topic"""
+        if not self.topic_arn:
+            logger.error("NOTIFICATION_TOPIC_ARN not set")
+            return False
+        
         try:
             response = self.sns.publish(
-                PhoneNumber=phone_number,
+                TopicArn=self.topic_arn,
                 Message=message,
                 MessageAttributes={
                     'AWS.SNS.SMS.SMSType': {
@@ -38,10 +43,10 @@ class SMSChannel(NotificationChannel):
                     }
                 }
             )
-            logger.info(f"SMS sent successfully to {phone_number}: {response['MessageId']}")
+            logger.info(f"SMS sent successfully via topic: {response['MessageId']}")
             return True
         except Exception as e:
-            logger.error(f"Failed to send SMS to {phone_number}: {str(e)}")
+            logger.error(f"Failed to send SMS via topic: {str(e)}")
             return False
 
 

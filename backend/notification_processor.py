@@ -27,14 +27,9 @@ def lambda_handler(event, context):
             data = message.get('data', {})
             
             if notification_type == 'bet_placed':
-                # For MVP: hardcoded phone from env
-                phone = os.environ.get('BENNY_NOTIFICATION_PHONE')
-                if not phone:
-                    logger.warning("BENNY_NOTIFICATION_PHONE not set, skipping notification")
-                    continue
-                
+                # Send to topic (all subscribers will receive)
                 formatted_message = service.format_bet_notification(data)
-                success = service.send_notification('sms', phone, formatted_message, data)
+                success = service.send_notification('sms', '', formatted_message, data)
                 
                 if success:
                     results['successful'] += 1
