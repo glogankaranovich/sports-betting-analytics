@@ -158,6 +158,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                   <option value="matchup">Matchup</option>
                   <option value="injury_aware">Injury-Aware</option>
                   <option value="news">News Sentiment</option>
+                  <option value="player_stats">Player Stats</option>
                   <option value="fundamentals">Fundamentals</option>
                 </>
               )}

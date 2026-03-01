@@ -100,6 +100,7 @@ const Settings: React.FC<SettingsProps> = ({
               {!isFree && <option value="matchup">Matchup</option>}
               {!isFree && <option value="injury_aware">Injury-Aware</option>}
               {!isFree && <option value="news">News Sentiment</option>}
+              {!isFree && <option value="player_stats">Player Stats</option>}
               {!isFree && <option value="fundamentals">Fundamentals</option>}
             </optgroup>
             {userModels.length > 0 && (
