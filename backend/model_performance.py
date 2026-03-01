@@ -157,14 +157,25 @@ class ModelPerformanceTracker:
         return calibration
 
     def _calculate_roi(self, analyses: List[Dict[str, Any]]) -> float:
-        """Calculate ROI assuming $100 bet per prediction"""
+        """Calculate ROI using actual odds from each bet"""
         total_bet = len(analyses) * 100
         total_return = 0
 
         for analysis in analyses:
             if self._is_prediction_correct(analysis):
-                # Simplified: assume -110 odds (bet $110 to win $100)
-                total_return += 100 + (100 / 1.1)
+                # Use actual odds if available, otherwise default to -110
+                odds = analysis.get("recommended_odds", -110)
+                
+                # Calculate payout based on odds
+                if odds < 0:
+                    # Negative odds: bet abs(odds) to win 100
+                    payout = 100 * (100 / abs(odds))
+                else:
+                    # Positive odds: bet 100 to win odds
+                    payout = odds
+                
+                total_return += 100 + payout
+            # If incorrect, lose the $100 bet (add nothing to total_return)
 
         profit = total_return - total_bet
         roi = (profit / total_bet) if total_bet > 0 else 0.0

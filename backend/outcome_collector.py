@@ -361,13 +361,14 @@ class OutcomeCollector:
 
                         self.table.update_item(
                             Key={"pk": inverse_item["pk"], "sk": inverse_item["sk"]},
-                            UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
+                            UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk, recommended_odds = :odds",
                             ExpressionAttributeValues={
                                 ":home_won": home_won,
                                 ":correct": inverse_correct,
                                 ":verified": verified_at,
                                 ":vpk": verified_pk,
                                 ":vsk": verified_at,
+                                ":odds": inverse_item.get("recommended_odds", -110),
                             },
                         )
                         updates += 1
@@ -388,12 +389,13 @@ class OutcomeCollector:
 
                         self.table.update_item(
                             Key={"pk": inverse_item["pk"], "sk": inverse_item["sk"]},
-                            UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
+                            UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk, recommended_odds = :odds",
                             ExpressionAttributeValues={
                                 ":verified": verified_at,
                                 ":correct": prop_correct,
                                 ":vpk": verified_pk,
                                 ":vsk": verified_at,
+                                ":odds": inverse_item.get("recommended_odds", -110),
                             },
                         )
                         updates += 1
@@ -432,13 +434,14 @@ class OutcomeCollector:
                 # Update the analysis record
                 self.table.update_item(
                     Key={"pk": item["pk"], "sk": item["sk"]},
-                    UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
+                    UpdateExpression="SET actual_home_won = :home_won, analysis_correct = :correct, outcome_verified_at = :verified, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk, recommended_odds = :odds",
                     ExpressionAttributeValues={
                         ":home_won": home_won,
                         ":correct": analysis_correct,
                         ":verified": verified_at,
                         ":vpk": verified_pk,
                         ":vsk": verified_at,
+                        ":odds": item.get("recommended_odds", -110),
                     },
                 )
                 updates += 1
@@ -458,12 +461,13 @@ class OutcomeCollector:
 
                 self.table.update_item(
                     Key={"pk": item["pk"], "sk": item["sk"]},
-                    UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk",
+                    UpdateExpression="SET outcome_verified_at = :verified, analysis_correct = :correct, verified_analysis_pk = :vpk, verified_analysis_sk = :vsk, recommended_odds = :odds",
                     ExpressionAttributeValues={
                         ":verified": verified_at,
                         ":correct": prop_correct,
                         ":vpk": verified_pk,
                         ":vsk": verified_at,
+                        ":odds": item.get("recommended_odds", -110),
                     },
                 )
                 updates += 1
