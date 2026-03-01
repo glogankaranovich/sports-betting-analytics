@@ -30,9 +30,9 @@ export class OddsCollectorScheduleStack extends cdk.Stack {
       { key: 'baseball_mlb', name: 'MLB' },
       { key: 'icehockey_nhl', name: 'NHL' },
       { key: 'soccer_epl', name: 'EPL' },
-      { key: 'basketball_mens-college-basketball', name: 'NCAAMBB' },
-      { key: 'basketball_womens-college-basketball', name: 'NCAAWBB' },
-      { key: 'football_college-football', name: 'NCAAFB' }
+      { key: 'basketball_ncaab', name: 'NCAAMBB' },
+      { key: 'basketball_wncaab', name: 'NCAAWBB' },
+      { key: 'americanfootball_ncaaf', name: 'NCAAFB' }
     ];
 
     // Odds collection - every 4 hours for each sport (staggered by 15 minutes)

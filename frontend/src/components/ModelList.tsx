@@ -27,9 +27,9 @@ const SPORT_LABELS: Record<string, string> = {
   baseball_mlb: 'MLB',
   icehockey_nhl: 'NHL',
   soccer_epl: 'EPL',
-  'basketball_mens-college-basketball': 'NCAA Men\'s Basketball',
-  'basketball_womens-college-basketball': 'NCAA Women\'s Basketball',
-  'football_college-football': 'NCAA Football',
+  'basketball_ncaab': 'NCAA Men\'s Basketball',
+  'basketball_wncaab': 'NCAA Women\'s Basketball',
+  'americanfootball_ncaaf': 'NCAA Football',
 };
 
 const BET_TYPE_LABELS: Record<string, string> = {
