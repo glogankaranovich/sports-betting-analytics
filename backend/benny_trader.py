@@ -362,14 +362,14 @@ class BennyTrader:
             "icehockey_nhl",
             "soccer_epl",
         ]:
-            # Get upcoming games with odds
+            # Get upcoming games with odds for all markets
             response = self.table.query(
                 IndexName="ActiveBetsIndexV2",
                 KeyConditionExpression=Key("active_bet_pk").eq(f"GAME#{sport}")
                 & Key("commence_time").between(now.isoformat(), three_days_out.isoformat()),
-                FilterExpression="attribute_exists(latest) AND latest = :true AND market_key = :h2h",
-                ExpressionAttributeValues={":true": True, ":h2h": "h2h"},
-                Limit=50,
+                FilterExpression="attribute_exists(latest) AND latest = :true",
+                ExpressionAttributeValues={":true": True},
+                Limit=200,
             )
 
             print(f"Checking {sport}: found {len(response.get('Items', []))} odds items")
@@ -384,15 +384,15 @@ class BennyTrader:
                         "home_team": item.get("home_team"),
                         "away_team": item.get("away_team"),
                         "commence_time": item.get("commence_time"),
-                        "odds": [],
+                        "h2h_odds": [],
+                        "spread_odds": [],
+                        "total_odds": [],
                     }
 
-                # Extract odds from outcomes (only h2h markets)
-                if item.get("market_key") != "h2h":
-                    continue
-                    
+                market_key = item.get("market_key")
                 outcomes = item.get("outcomes", [])
-                if len(outcomes) >= 2:
+                
+                if market_key == "h2h" and len(outcomes) >= 2:
                     odds_entry = {
                         "bookmaker": item.get("bookmaker"),
                         "home_price": None,
@@ -400,7 +400,6 @@ class BennyTrader:
                         "draw_price": None,
                     }
                     
-                    # Handle 3-way markets (soccer) vs 2-way markets
                     home_team = item.get("home_team")
                     away_team = item.get("away_team")
                     
@@ -413,16 +412,33 @@ class BennyTrader:
                         elif "draw" in outcome_name or "tie" in outcome_name:
                             odds_entry["draw_price"] = outcome.get("price")
                     
-                    # Only add if we found both home and away prices
                     if odds_entry["home_price"] and odds_entry["away_price"]:
-                        games[game_id]["odds"].append(odds_entry)
+                        games[game_id]["h2h_odds"].append(odds_entry)
+                
+                elif market_key == "spreads" and len(outcomes) >= 2:
+                    games[game_id]["spread_odds"].append({
+                        "bookmaker": item.get("bookmaker"),
+                        "home_point": outcomes[0].get("point"),
+                        "home_price": outcomes[0].get("price"),
+                        "away_point": outcomes[1].get("point"),
+                        "away_price": outcomes[1].get("price"),
+                    })
+                
+                elif market_key == "totals" and len(outcomes) >= 2:
+                    games[game_id]["total_odds"].append({
+                        "bookmaker": item.get("bookmaker"),
+                        "over_point": outcomes[0].get("point"),
+                        "over_price": outcomes[0].get("price"),
+                        "under_point": outcomes[1].get("point"),
+                        "under_price": outcomes[1].get("price"),
+                    })
 
             print(f"  Parsed {len(games)} unique games for {sport}")
             
             # Analyze each game with AI
             for game_id, game_data in games.items():
-                if len(game_data["odds"]) < 2:  # Need at least 2 bookmakers
-                    print(f"  Skipping {game_data['home_team']} vs {game_data['away_team']}: only {len(game_data['odds'])} bookmaker(s)")
+                if len(game_data["h2h_odds"]) < 2:
+                    print(f"  Skipping {game_data['home_team']} vs {game_data['away_team']}: insufficient odds")
                     continue
 
                 print(f"  Analyzing {game_data['home_team']} vs {game_data['away_team']}")
@@ -439,8 +455,6 @@ class BennyTrader:
                 away_form = self._get_recent_form(game_data["away_team"], sport)
                 home_news = self._get_team_news_sentiment(game_data["home_team"], sport)
                 away_news = self._get_team_news_sentiment(game_data["away_team"], sport)
-                
-                # NEW: Advanced metrics
                 home_elo = self._get_elo_rating(game_data["home_team"], sport)
                 away_elo = self._get_elo_rating(game_data["away_team"], sport)
                 home_adjusted = self._get_adjusted_metrics(game_data["home_team"], sport)
@@ -448,17 +462,33 @@ class BennyTrader:
                 weather = self._get_weather_data(game_id)
                 fatigue = self._get_fatigue_data(game_id)
 
-                # Calculate average odds (including draw if available)
-                avg_home_price = sum(o["home_price"] for o in game_data["odds"]) / len(
-                    game_data["odds"]
-                )
-                avg_away_price = sum(o["away_price"] for o in game_data["odds"]) / len(
-                    game_data["odds"]
-                )
-                draw_prices = [o["draw_price"] for o in game_data["odds"] if o.get("draw_price")]
-                avg_draw_price = sum(draw_prices) / len(draw_prices) if draw_prices else None
+                # Calculate average odds for all markets
+                avg_h2h = {
+                    "home": sum(o["home_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"]),
+                    "away": sum(o["away_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"]),
+                }
+                draw_prices = [o["draw_price"] for o in game_data["h2h_odds"] if o.get("draw_price")]
+                if draw_prices:
+                    avg_h2h["draw"] = sum(draw_prices) / len(draw_prices)
+                
+                avg_spread = None
+                if game_data["spread_odds"]:
+                    avg_spread = {
+                        "home_point": sum(o["home_point"] for o in game_data["spread_odds"]) / len(game_data["spread_odds"]),
+                        "home_price": sum(o["home_price"] for o in game_data["spread_odds"]) / len(game_data["spread_odds"]),
+                        "away_point": sum(o["away_point"] for o in game_data["spread_odds"]) / len(game_data["spread_odds"]),
+                        "away_price": sum(o["away_price"] for o in game_data["spread_odds"]) / len(game_data["spread_odds"]),
+                    }
+                
+                avg_total = None
+                if game_data["total_odds"]:
+                    avg_total = {
+                        "point": sum(o["over_point"] for o in game_data["total_odds"]) / len(game_data["total_odds"]),
+                        "over_price": sum(o["over_price"] for o in game_data["total_odds"]) / len(game_data["total_odds"]),
+                        "under_price": sum(o["under_price"] for o in game_data["total_odds"]) / len(game_data["total_odds"]),
+                    }
 
-                # Let AI analyze the data
+                # Let AI analyze all markets
                 analysis = self._ai_analyze_game(
                     game_data,
                     home_stats,
@@ -476,50 +506,63 @@ class BennyTrader:
                     away_adjusted,
                     weather,
                     fatigue,
+                    avg_spread,
+                    avg_total,
                 )
 
                 if analysis:
-                    # Determine which outcome was predicted and get odds
-                    predicted_team = analysis["prediction"].lower()
-                    predicted_odds = None
-
-                    if game_data["home_team"].lower() in predicted_team:
-                        predicted_odds = avg_home_price
-                    elif game_data["away_team"].lower() in predicted_team:
-                        predicted_odds = avg_away_price
-                    elif "draw" in predicted_team or "tie" in predicted_team:
-                        predicted_odds = avg_draw_price
-
-                    # Calculate expected value (EV)
-                    # EV = (probability * payout) - (1 - probability) * stake
-                    # For American odds: if odds > 0, payout = odds/100; if odds < 0, payout = 100/abs(odds)
-                    expected_value = 0
-                    if predicted_odds:
-                        predicted_odds = float(predicted_odds)  # Convert Decimal to float
-                        if predicted_odds > 0:
-                            payout_multiplier = 1 + (predicted_odds / 100)
-                        else:
-                            payout_multiplier = 1 + (100 / abs(predicted_odds))
+                    # Create opportunities for each market prediction
+                    for market_type, prediction_data in analysis.items():
+                        if market_type == "h2h":
+                            predicted_team = prediction_data["prediction"].lower()
+                            if game_data["home_team"].lower() in predicted_team:
+                                odds = avg_h2h["home"]
+                            elif game_data["away_team"].lower() in predicted_team:
+                                odds = avg_h2h["away"]
+                            elif "draw" in predicted_team and "draw" in avg_h2h:
+                                odds = avg_h2h["draw"]
+                            else:
+                                continue
                         
-                        expected_value = (float(analysis["confidence"]) * payout_multiplier) - 1
-                        print(f"  EV for {game_data['away_team']} @ {game_data['home_team']}: {expected_value:.3f}")
+                        elif market_type == "spread" and avg_spread:
+                            if game_data["home_team"].lower() in prediction_data["prediction"].lower():
+                                odds = avg_spread["home_price"]
+                            else:
+                                odds = avg_spread["away_price"]
+                        
+                        elif market_type == "total" and avg_total:
+                            if "over" in prediction_data["prediction"].lower():
+                                odds = avg_total["over_price"]
+                            else:
+                                odds = avg_total["under_price"]
+                        
+                        else:
+                            continue
+                        
+                        # Calculate EV
+                        odds = float(odds)
+                        if odds > 0:
+                            payout_multiplier = 1 + (odds / 100)
+                        else:
+                            payout_multiplier = 1 + (100 / abs(odds))
+                        
+                        expected_value = (float(prediction_data["confidence"]) * payout_multiplier) - 1
+                        print(f"  {market_type.upper()} EV: {expected_value:.3f}")
 
-                    opportunities.append(
-                        {
+                        opportunities.append({
                             "game_id": game_id,
                             "sport": sport,
                             "home_team": game_data["home_team"],
                             "away_team": game_data["away_team"],
-                            "prediction": analysis["prediction"],
-                            "confidence": analysis["confidence"],
-                            "reasoning": analysis["reasoning"],
-                            "key_factors": analysis["key_factors"],
+                            "prediction": prediction_data["prediction"],
+                            "confidence": prediction_data["confidence"],
+                            "reasoning": prediction_data["reasoning"],
+                            "key_factors": prediction_data["key_factors"],
                             "commence_time": game_data["commence_time"],
-                            "market_key": "h2h",
-                            "odds": predicted_odds,
+                            "market_key": market_type,
+                            "odds": odds,
                             "expected_value": expected_value,
-                        }
-                    )
+                        })
 
         return opportunities
 
@@ -852,17 +895,15 @@ Respond with JSON only:
         away_adjusted: Dict,
         weather: Dict,
         fatigue: Dict,
+        avg_spread: Dict = None,
+        avg_total: Dict = None,
     ) -> Dict[str, Any]:
         """Have AI analyze game data and make independent prediction"""
         try:
-            # Calculate average odds across bookmakers
-            avg_home_price = sum(o["home_price"] for o in game_data["odds"]) / len(
-                game_data["odds"]
-            )
-            avg_away_price = sum(o["away_price"] for o in game_data["odds"]) / len(
-                game_data["odds"]
-            )
-            draw_prices = [o["draw_price"] for o in game_data["odds"] if o.get("draw_price")]
+            # Calculate average h2h odds
+            avg_home_price = sum(o["home_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"])
+            avg_away_price = sum(o["away_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"])
+            draw_prices = [o["draw_price"] for o in game_data["h2h_odds"] if o.get("draw_price")]
             avg_draw_price = sum(draw_prices) / len(draw_prices) if draw_prices else None
 
             # Convert to implied probabilities
@@ -871,10 +912,29 @@ Respond with JSON only:
             draw_prob = self._american_to_probability(avg_draw_price) if avg_draw_price else None
 
             # Build market odds section
-            market_odds = f"""Home: {avg_home_price} ({home_prob:.1%} implied)
+            market_odds = f"""MONEYLINE (H2H):
+Home: {avg_home_price} ({home_prob:.1%} implied)
 Away: {avg_away_price} ({away_prob:.1%} implied)"""
             if draw_prob:
                 market_odds += f"\nDraw: {avg_draw_price} ({draw_prob:.1%} implied)"
+            
+            if avg_spread:
+                spread_home_prob = self._american_to_probability(avg_spread["home_price"])
+                spread_away_prob = self._american_to_probability(avg_spread["away_price"])
+                market_odds += f"""
+
+SPREAD:
+Home {avg_spread['home_point']:+.1f}: {avg_spread['home_price']} ({spread_home_prob:.1%} implied)
+Away {avg_spread['away_point']:+.1f}: {avg_spread['away_price']} ({spread_away_prob:.1%} implied)"""
+            
+            if avg_total:
+                total_over_prob = self._american_to_probability(avg_total["over_price"])
+                total_under_prob = self._american_to_probability(avg_total["under_price"])
+                market_odds += f"""
+
+TOTAL:
+Over {avg_total['point']:.1f}: {avg_total['over_price']} ({total_over_prob:.1%} implied)
+Under {avg_total['point']:.1f}: {avg_total['under_price']} ({total_under_prob:.1%} implied)"""
 
             prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
@@ -928,22 +988,25 @@ Home: {json.dumps(home_stats, indent=2) if home_stats else 'No data'}
 Away: {json.dumps(away_stats, indent=2) if away_stats else 'No data'}
 
 ANALYSIS INSTRUCTIONS:
-1. Prioritize Elo ratings and opponent-adjusted metrics - they're more predictive than raw stats
-2. Factor in fatigue if either team has score >50 or traveled >1000 miles
-3. Consider weather impact if marked as "high" or "moderate"
-4. Assess injury impact on team efficiency
+1. Analyze ALL available markets (moneyline, spread, total)
+2. Prioritize Elo ratings and opponent-adjusted metrics
+3. Factor in fatigue if either team has score >50 or traveled >1000 miles
+4. Consider weather impact if marked as "high" or "moderate"
 5. Look for value where your confidence differs significantly from implied odds
-6. {"For soccer/3-way markets: Consider draw as a valid outcome, especially if teams are evenly matched" if draw_prob else "Pick the winning team"}
+6. For spreads: Consider if favorite can cover the spread, not just win
+7. For totals: Analyze pace, defense, and scoring trends
 
-Respond with JSON only:
-{{"prediction": "Team Name{' or Draw' if draw_prob else ''}", "confidence": 0.75, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2", "factor3"]}}"""
+Respond with JSON only - include ALL markets you want to bet on:
+{{"h2h": {{"prediction": "Team Name", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
+
+Only include markets where you have strong conviction (confidence >0.60). Omit markets you don't want to bet."""
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
                 body=json.dumps(
                     {
                         "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 600,
+                        "max_tokens": 800,
                         "messages": [{"role": "user", "content": prompt}],
                     }
                 ),
