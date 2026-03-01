@@ -1368,18 +1368,19 @@ Only include markets where you have strong conviction (confidence >0.60). Omit m
 
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Place a virtual bet"""
-        # Check if we already have a pending bet for this game
+        # Check if we already have a pending bet for this game + market combination
         game_id = opportunity["game_id"]
+        market_key = opportunity["market_key"]
         existing_bets = self.table.query(
             KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
-            FilterExpression="game_id = :gid AND #status = :pending",
+            FilterExpression="game_id = :gid AND market_key = :mk AND #status = :pending",
             ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={":gid": game_id, ":pending": "pending"}
+            ExpressionAttributeValues={":gid": game_id, ":mk": market_key, ":pending": "pending"}
         )
         
         if existing_bets.get("Items"):
-            print(f"  Skipping {opportunity['away_team']} @ {opportunity['home_team']}: already have pending bet")
-            return {"success": False, "reason": "Already have pending bet for this game"}
+            print(f"  Skipping {opportunity['away_team']} @ {opportunity['home_team']} ({market_key}): already have pending bet")
+            return {"success": False, "reason": f"Already have pending bet for this game ({market_key})"}
         
         # Benny already analyzed the game, just use that confidence
         confidence = opportunity["confidence"]
