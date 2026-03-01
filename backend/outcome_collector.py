@@ -306,10 +306,14 @@ class OutcomeCollector:
                         )
 
                         items = response.get("Items", [])
-                        updates += self._process_analysis_items(items, game)
+                        
+                        # Separate LATEST and INVERSE records
+                        latest_items = [item for item in items if "#LATEST" in item.get("sk", "")]
+                        
+                        updates += self._process_analysis_items(latest_items, game)
 
-                        # Also verify inverse predictions
-                        updates += self._verify_inverse_predictions(items, game)
+                        # Also verify inverse predictions (only pass LATEST items)
+                        updates += self._verify_inverse_predictions(latest_items, game)
 
             # Settle Benny bets for this game
             self._settle_benny_bets(game)
