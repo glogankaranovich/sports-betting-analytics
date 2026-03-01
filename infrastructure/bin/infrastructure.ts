@@ -29,6 +29,7 @@ import { ModelComparisonCacheStack } from '../lib/model-comparison-cache-stack';
 import { NewsCollectorsStack } from '../lib/news-collectors-stack';
 import { CustomDataStack } from '../lib/custom-data-stack';
 import { WeatherCollectorStack } from '../lib/weather-collector-stack';
+import { NotificationStack } from '../lib/notification-stack';
 import { MetricsCalculatorStack } from '../lib/metrics-calculator-stack'; // DEPRECATED
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
@@ -156,8 +157,15 @@ if (environment === 'dev') {
     env: ENVIRONMENTS.dev,
   });
 
+  // Notification system (create before Benny to avoid circular dependency)
+  const notificationStack = new NotificationStack(app, StackNames.forEnvironment('dev', 'Notification'), {
+    environment: 'dev',
+    env: ENVIRONMENTS.dev,
+  });
+
   const bennyTraderStack = new BennyTraderStack(app, StackNames.forEnvironment('dev', 'BennyTrader'), {
     betsTable: dynamoStack.betsTable,
+    notificationQueue: notificationStack.notificationQueue,
     env: ENVIRONMENTS.dev,
   });
 

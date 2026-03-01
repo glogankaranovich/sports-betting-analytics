@@ -36,6 +36,8 @@ class BennyTrader:
         self.bankroll = self._get_current_bankroll()
         self.week_start = self._get_week_start()
         self.learning_params = self._get_learning_parameters()
+        self.sqs = boto3.client('sqs')
+        self.notification_queue_url = os.environ.get('NOTIFICATION_QUEUE_URL')
 
     def _get_learning_parameters(self) -> Dict[str, Any]:
         """Get Benny's learned parameters from DynamoDB"""
@@ -1380,6 +1382,9 @@ Respond with JSON only:
         new_bankroll = self.bankroll - bet_size
         self._update_bankroll(new_bankroll)
 
+        # Send notification event to SQS
+        self._send_bet_notification(bet, opportunity)
+
         return {
             "success": True,
             "bet_id": bet_id,
@@ -1387,6 +1392,34 @@ Respond with JSON only:
             "remaining_bankroll": float(new_bankroll),
             "ai_reasoning": opportunity["reasoning"],
         }
+    
+    def _send_bet_notification(self, bet: Dict, opportunity: Dict):
+        """Send bet notification event to SQS"""
+        if not self.notification_queue_url:
+            return
+        
+        message = {
+            'type': 'bet_placed',
+            'data': {
+                'sport': opportunity['sport'],
+                'game': f"{opportunity['away_team']} @ {opportunity['home_team']}",
+                'pick': opportunity['prediction'],
+                'confidence': float(opportunity['confidence']),
+                'stake': float(bet['bet_amount']),
+                'bankroll_percentage': float(bet['bet_amount'] / bet['bankroll_before']),
+                'expected_roi': float(opportunity.get('expected_value', 0)),
+                'reasoning': opportunity['reasoning']
+            }
+        }
+        
+        try:
+            self.sqs.send_message(
+                QueueUrl=self.notification_queue_url,
+                MessageBody=json.dumps(message)
+            )
+        except Exception as e:
+            # Log but don't fail bet placement
+            print(f"Failed to send notification event: {e}")
 
     def run_daily_analysis(self) -> Dict[str, Any]:
         """Run daily analysis for games and props"""

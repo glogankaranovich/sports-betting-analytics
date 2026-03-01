@@ -2,10 +2,12 @@ import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 export interface BennyTraderStackProps extends cdk.StackProps {
   betsTable: dynamodb.ITable;
+  notificationQueue?: sqs.IQueue;
 }
 
 export class BennyTraderStack extends cdk.Stack {
@@ -31,6 +33,9 @@ export class BennyTraderStack extends cdk.Stack {
       memorySize: 1024,
       environment: {
         BETS_TABLE: props.betsTable.tableName,
+        ...(props.notificationQueue && {
+          NOTIFICATION_QUEUE_URL: props.notificationQueue.queueUrl,
+        }),
       },
     });
 
@@ -59,6 +64,11 @@ export class BennyTraderStack extends cdk.Stack {
       ],
       resources: ['*'],
     }));
+
+    // Grant SQS permissions if queue provided
+    if (props.notificationQueue) {
+      props.notificationQueue.grantSendMessages(this.bennyTraderFunction);
+    }
 
     new cdk.CfnOutput(this, 'BennyTraderFunctionName', {
       value: this.bennyTraderFunction.functionName,

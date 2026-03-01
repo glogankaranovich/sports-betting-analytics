@@ -26,6 +26,7 @@ import { BennyTraderScheduleStack } from './benny-trader-schedule-stack';
 import { ModelComparisonCacheStack } from './model-comparison-cache-stack';
 import { CustomDataStack } from './custom-data-stack';
 import { NewsCollectorsStack } from './news-collectors-stack';
+import { NotificationStack } from './notification-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -144,9 +145,15 @@ export class CarpoolBetsStage extends cdk.Stage {
       dynamodbTableName: `carpool-bets-v2-${props.stage}`,
     });
 
+    // Notification system (create before Benny to avoid circular dependency)
+    const notificationStack = new NotificationStack(this, 'Notification', {
+      environment: props.stage,
+    });
+
     // Benny trader stack
     const bennyTraderStack = new BennyTraderStack(this, 'BennyTrader', {
       betsTable: dynamoStack.betsTable,
+      notificationQueue: notificationStack.notificationQueue,
     });
 
     // Benny trader schedule
