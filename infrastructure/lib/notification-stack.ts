@@ -51,7 +51,7 @@ export class NotificationStack extends cdk.Stack {
       }),
       timeout: cdk.Duration.seconds(30),
       environment: {
-        BENNY_NOTIFICATION_PHONE: '+17249614349',
+        BENNY_NOTIFICATION_PHONE: process.env.BENNY_NOTIFICATION_PHONE || '',
       },
     });
 
