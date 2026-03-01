@@ -51,8 +51,8 @@ export class NotificationStack extends cdk.Stack {
       }),
       timeout: cdk.Duration.seconds(30),
       environment: {
-        BENNY_NOTIFICATION_EMAIL: process.env.BENNY_NOTIFICATION_EMAIL || '',
-        NOTIFICATION_FROM_EMAIL: 'notifications@carpoolbets.com',
+        BENNY_NOTIFICATION_EMAIL: 'glogankaranovich@gmail.com',
+        NOTIFICATION_FROM_EMAIL: 'noreply@carpoolbets.com',
       },
     });
 

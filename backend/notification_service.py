@@ -24,13 +24,13 @@ class EmailChannel(NotificationChannel):
     
     def __init__(self):
         self.ses = boto3.client('ses')
-        self.from_email = os.environ.get('NOTIFICATION_FROM_EMAIL', 'notifications@carpoolbets.com')
+        self.from_email = os.environ.get('NOTIFICATION_FROM_EMAIL', 'noreply@carpoolbets.com')
     
     def send(self, recipient: str, message: str, metadata: Optional[Dict] = None) -> bool:
         """Send email via SES"""
         try:
             response = self.ses.send_email(
-                Source=self.from_email,
+                Source=f'Benny Notifications <{self.from_email}>',
                 Destination={'ToAddresses': [recipient]},
                 Message={
                     'Subject': {'Data': '🎯 Benny Placed a Bet!'},
