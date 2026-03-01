@@ -19,6 +19,33 @@ class NotificationChannel(ABC):
         pass
 
 
+class EmailChannel(NotificationChannel):
+    """Email delivery via AWS SES"""
+    
+    def __init__(self):
+        self.ses = boto3.client('ses')
+        self.from_email = os.environ.get('NOTIFICATION_FROM_EMAIL', 'notifications@carpoolbets.com')
+    
+    def send(self, recipient: str, message: str, metadata: Optional[Dict] = None) -> bool:
+        """Send email via SES"""
+        try:
+            response = self.ses.send_email(
+                Source=self.from_email,
+                Destination={'ToAddresses': [recipient]},
+                Message={
+                    'Subject': {'Data': '🎯 Benny Placed a Bet!'},
+                    'Body': {
+                        'Text': {'Data': message}
+                    }
+                }
+            )
+            logger.info(f"Email sent successfully to {recipient}: {response['MessageId']}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send email to {recipient}: {str(e)}")
+            return False
+
+
 class SMSChannel(NotificationChannel):
     """SMS delivery via AWS SNS Topic"""
     
@@ -55,6 +82,7 @@ class NotificationService:
     
     def __init__(self):
         self.channels = {
+            'email': EmailChannel(),
             'sms': SMSChannel(),
         }
     

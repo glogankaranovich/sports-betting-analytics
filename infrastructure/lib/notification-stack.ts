@@ -1,8 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import * as sns from 'aws-cdk-lib/aws-sns';
-import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
@@ -14,24 +12,11 @@ export interface NotificationStackProps extends cdk.StackProps {
 export class NotificationStack extends cdk.Stack {
   public readonly notificationQueue: sqs.Queue;
   public readonly notificationProcessor: lambda.Function;
-  public readonly notificationTopic: sns.Topic;
 
   constructor(scope: Construct, id: string, props: NotificationStackProps) {
     super(scope, id, props);
 
     const { environment } = props;
-
-    // SNS Topic for notifications
-    this.notificationTopic = new sns.Topic(this, 'NotificationTopic', {
-      topicName: `benny-notifications-${environment}`,
-      displayName: 'Benny Bet Notifications',
-    });
-
-    // Subscribe phone number to topic (will send verification SMS)
-    const phoneNumber = process.env.BENNY_NOTIFICATION_PHONE || '+17249614349';
-    this.notificationTopic.addSubscription(
-      new subscriptions.SmsSubscription(phoneNumber)
-    );
 
     // Dead letter queue for failed notifications
     const dlq = new sqs.Queue(this, 'NotificationDLQ', {
@@ -66,12 +51,16 @@ export class NotificationStack extends cdk.Stack {
       }),
       timeout: cdk.Duration.seconds(30),
       environment: {
-        NOTIFICATION_TOPIC_ARN: this.notificationTopic.topicArn,
+        BENNY_NOTIFICATION_EMAIL: process.env.BENNY_NOTIFICATION_EMAIL || '',
+        NOTIFICATION_FROM_EMAIL: 'notifications@carpoolbets.com',
       },
     });
 
-    // Grant SNS publish permissions
-    this.notificationTopic.grantPublish(this.notificationProcessor);
+    // Grant SES send permissions
+    this.notificationProcessor.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+      resources: ['*'],
+    }));
 
     // SQS trigger for processor
     this.notificationProcessor.addEventSource(new SqsEventSource(this.notificationQueue, {
@@ -79,11 +68,6 @@ export class NotificationStack extends cdk.Stack {
     }));
 
     // Outputs
-    new cdk.CfnOutput(this, 'NotificationTopicArn', {
-      value: this.notificationTopic.topicArn,
-      description: 'Notification topic ARN',
-    });
-
     new cdk.CfnOutput(this, 'NotificationQueueUrl', {
       value: this.notificationQueue.queueUrl,
       description: 'Notification queue URL',

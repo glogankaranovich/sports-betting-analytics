@@ -27,9 +27,14 @@ def lambda_handler(event, context):
             data = message.get('data', {})
             
             if notification_type == 'bet_placed':
-                # Send to topic (all subscribers will receive)
+                # Send to email
+                email = os.environ.get('BENNY_NOTIFICATION_EMAIL')
+                if not email:
+                    logger.warning("BENNY_NOTIFICATION_EMAIL not set, skipping notification")
+                    continue
+                
                 formatted_message = service.format_bet_notification(data)
-                success = service.send_notification('sms', '', formatted_message, data)
+                success = service.send_notification('email', email, formatted_message, data)
                 
                 if success:
                     results['successful'] += 1
