@@ -412,22 +412,45 @@ class BennyTrader:
                         games[game_id]["h2h_odds"].append(odds_entry)
                 
                 elif market_key == "spreads" and len(outcomes) >= 2:
-                    games[game_id]["spread_odds"].append({
+                    odds_entry = {
                         "bookmaker": item.get("bookmaker"),
-                        "home_point": outcomes[0].get("point"),
-                        "home_price": outcomes[0].get("price"),
-                        "away_point": outcomes[1].get("point"),
-                        "away_price": outcomes[1].get("price"),
-                    })
+                        "home_point": None,
+                        "home_price": None,
+                        "away_point": None,
+                        "away_price": None,
+                    }
+                    
+                    for outcome in outcomes:
+                        if outcome.get("name") == home_team:
+                            odds_entry["home_point"] = outcome.get("point")
+                            odds_entry["home_price"] = outcome.get("price")
+                        elif outcome.get("name") == away_team:
+                            odds_entry["away_point"] = outcome.get("point")
+                            odds_entry["away_price"] = outcome.get("price")
+                    
+                    if odds_entry["home_price"] and odds_entry["away_price"]:
+                        games[game_id]["spread_odds"].append(odds_entry)
                 
                 elif market_key == "totals" and len(outcomes) >= 2:
-                    games[game_id]["total_odds"].append({
+                    odds_entry = {
                         "bookmaker": item.get("bookmaker"),
-                        "over_point": outcomes[0].get("point"),
-                        "over_price": outcomes[0].get("price"),
-                        "under_point": outcomes[1].get("point"),
-                        "under_price": outcomes[1].get("price"),
-                    })
+                        "over_point": None,
+                        "over_price": None,
+                        "under_point": None,
+                        "under_price": None,
+                    }
+                    
+                    for outcome in outcomes:
+                        outcome_name = outcome.get("name", "").lower()
+                        if "over" in outcome_name:
+                            odds_entry["over_point"] = outcome.get("point")
+                            odds_entry["over_price"] = outcome.get("price")
+                        elif "under" in outcome_name:
+                            odds_entry["under_point"] = outcome.get("point")
+                            odds_entry["under_price"] = outcome.get("price")
+                    
+                    if odds_entry["over_price"] and odds_entry["under_price"]:
+                        games[game_id]["total_odds"].append(odds_entry)
 
             print(f"  Parsed {len(games)} unique games for {sport}")
             
