@@ -22,15 +22,9 @@ class PlayerStatsCollector:
 
     def collect_stats_for_sport(self, sport: str) -> int:
         """Collect player stats for completed games"""
-        supported_sports = [
-            "basketball_nba",
-            "americanfootball_nfl",
-            "baseball_mlb",
-            "icehockey_nhl",
-            "soccer_epl",
-        ]
-
-        if sport not in supported_sports:
+        from constants import SUPPORTED_SPORTS
+        
+        if sport not in SUPPORTED_SPORTS:
             print(f"Player stats not supported for {sport}")
             return 0
 

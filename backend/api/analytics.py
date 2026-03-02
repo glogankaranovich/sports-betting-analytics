@@ -162,10 +162,10 @@ class AnalyticsHandler(BaseAPIHandler):
                     print(f"Error fetching combined cache: {e}")
                 
                 # Fallback: fetch individual sport caches
-                all_sports = ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "soccer_epl"]
+                from constants import SUPPORTED_SPORTS
                 all_models = []
 
-                for s in all_sports:
+                for s in SUPPORTED_SPORTS:
                     cache_key = f"MODEL_COMPARISON#{s}#{days}"
                     try:
                         cache_response = table.get_item(Key={"pk": "CACHE", "sk": cache_key})
