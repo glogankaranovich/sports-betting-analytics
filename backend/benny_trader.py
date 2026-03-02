@@ -1467,7 +1467,9 @@ Only include markets where you have strong conviction (confidence >0.60). Omit m
             'data': {
                 'sport': opportunity['sport'],
                 'game': f"{opportunity['away_team']} @ {opportunity['home_team']}",
+                'market_key': opportunity['market_key'],
                 'pick': opportunity['prediction'],
+                'odds': float(opportunity.get('odds', 0)),
                 'confidence': float(opportunity['confidence']),
                 'stake': float(bet['bet_amount']),
                 'bankroll_percentage': float(bet['bet_amount'] / bet['bankroll_before']),

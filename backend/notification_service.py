@@ -105,17 +105,23 @@ class NotificationService:
         sport = bet_details.get('sport', 'Unknown').replace('_', ' ').title()
         game = bet_details.get('game', 'Unknown game')
         pick = bet_details.get('pick', 'Unknown')
+        market = bet_details.get('market_key', 'h2h').upper()
         confidence = bet_details.get('confidence', 0) * 100
         stake = bet_details.get('stake', 0)
+        odds = bet_details.get('odds', 0)
         bankroll_pct = bet_details.get('bankroll_percentage', 0) * 100
         expected_roi = bet_details.get('expected_roi', 0) * 100
         reasoning = bet_details.get('reasoning', 'No reason provided')
+        
+        # Format odds
+        odds_str = f"{odds:+.0f}" if odds else "N/A"
         
         message = f"""🎯 Benny placed a bet!
 
 Sport: {sport}
 Game: {game}
-Pick: {pick}
+Market: {market}
+Pick: {pick} ({odds_str})
 Confidence: {confidence:.1f}%
 Stake: ${stake:.2f} ({bankroll_pct:.1f}% of bankroll)
 Expected ROI: {expected_roi:.1f}%
