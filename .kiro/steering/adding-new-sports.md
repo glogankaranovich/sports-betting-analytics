@@ -124,15 +124,19 @@ Note: `months` indicates the season (e.g., '10-6' = October through June)
 
 ## Components That Auto-Update
 
-These components automatically pick up new sports from `PLATFORM_CONSTANTS`:
+These components automatically pick up new sports from `SUPPORTED_SPORTS` constant:
 
+- **Benny Trader** - Uses `SUPPORTED_SPORTS` for game and prop analysis
 - **News Collector** - Uses `SUPPORTED_SPORTS` env var
 - **Schedule Collector** - Uses `getSupportedSportsArray()`
 - **Weather Collector** - Uses `getSupportedSportsArray()`
 - **Season Stats Collector** - Uses `getSupportedSportsArray()`
-- **Analysis Generator** - Uses `SUPPORTED_SPORTS` env var
+- **Analysis Generator** - Uses `SUPPORTED_SPORTS` env var (but requires Lambda functions - see step 5)
 - **Team Stats Collector** - Uses `SUPPORTED_SPORTS` env var
 - **Player Stats Collector** - Uses `SUPPORTED_SPORTS` env var
+- **Odds Collector Schedule** - Uses `getSupportedSportsArray()`
+
+**Note:** Analysis Generator requires manual Lambda function creation for each sport (step 5).
 
 ## Deployment
 

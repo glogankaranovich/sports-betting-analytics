@@ -13,6 +13,8 @@ from typing import Any, Dict, List
 import boto3
 from boto3.dynamodb.conditions import Key
 
+from constants import SUPPORTED_SPORTS
+
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
 # Default table for module-level usage (supports both env var names)
@@ -355,13 +357,7 @@ class BennyTrader:
 
         opportunities = []
 
-        for sport in [
-            "basketball_nba",
-            "americanfootball_nfl",
-            "baseball_mlb",
-            "icehockey_nhl",
-            "soccer_epl",
-        ]:
+        for sport in SUPPORTED_SPORTS:
             # Get upcoming games with odds for all markets
             response = self.table.query(
                 IndexName="ActiveBetsIndexV2",
@@ -572,7 +568,10 @@ class BennyTrader:
         three_days_out = now + timedelta(days=3)
         opportunities = []
 
-        for sport in ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl"]:
+        # Only analyze props for sports that support them
+        props_sports = [s for s in SUPPORTED_SPORTS if s in ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "basketball_ncaab"]]
+        
+        for sport in props_sports:
             # Get upcoming props
             response = self.table.query(
                 IndexName="ActiveBetsIndexV2",
