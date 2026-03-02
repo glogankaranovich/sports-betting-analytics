@@ -87,29 +87,40 @@ const sportNames: Record<string, string> = {
 
 **File:** `infrastructure/lib/odds-collector-schedule-stack.ts`
 
-Add to `sports` array with a unique short name:
+The odds collector automatically uses `getSupportedSportsArray()` from constants, so it will pick up new sports automatically.
+
+### 5. Add to Analysis Generator
+
+**File:** `infrastructure/lib/analysis-generator-stack.ts`
+
+Add Lambda function property:
+```typescript
+export class AnalysisGeneratorStack extends cdk.Stack {
+  public readonly analysisGeneratorYOURSPORT: lambda.Function;
+  // ...
+}
+```
+
+Create Lambda function:
+```typescript
+this.analysisGeneratorYOURSPORT = new lambda.Function(this, 'AnalysisGeneratorYOURSPORT', {
+  ...functionProps,
+  functionName: `analysis-generator-yoursport-${props.environment}`
+});
+this.analysisGeneratorYOURSPORT.addToRolePolicy(policy);
+weatherApiSecret.grantRead(this.analysisGeneratorYOURSPORT);
+```
+
+Add to sports array:
 ```typescript
 const sports = [
-  { key: 'basketball_nba', name: 'NBA' },
+  { key: 'basketball_nba', name: 'NBA', lambda: this.analysisGeneratorNBA, months: '10-6' },
   // ...
-  { key: 'your_new_sport', name: 'YOURSPORT' }
+  { key: 'your_new_sport', name: 'YOURSPORT', lambda: this.analysisGeneratorYOURSPORT, months: '8-5' }
 ];
 ```
 
-Add cron schedules (stagger by 5-15 minutes from other sports):
-```typescript
-const oddsSchedules = [
-  'cron(0 */4 * * ? *)',   // NBA
-  // ...
-  'cron(20 */4 * * ? *)',  // Your sport - every 4 hours at :20
-];
-
-const propsSchedules = [
-  'cron(0 */8 * * ? *)',   // NBA
-  // ...
-  'cron(20 */8 * * ? *)',  // Your sport - every 8 hours at :20
-];
-```
+Note: `months` indicates the season (e.g., '10-6' = October through June)
 
 ## Components That Auto-Update
 
@@ -131,7 +142,7 @@ After adding a new sport, deploy these stacks:
 cd infrastructure
 
 # Deploy data collectors
-make deploy-stack STACK=Dev-OddsCollector
+make deploy-stack STACK=Dev-OddsSchedule
 make deploy-stack STACK=Dev-ScheduleCollector
 make deploy-stack STACK=Dev-WeatherCollector
 make deploy-stack STACK=Dev-SeasonStatsCollector
@@ -139,8 +150,14 @@ make deploy-stack STACK=Dev-TeamStatsCollector
 make deploy-stack STACK=Dev-PlayerStatsCollector
 make deploy-stack STACK=Dev-NewsCollectors
 
-# Deploy analysis
+# Deploy analysis generator (creates Lambda functions)
+make deploy-stack STACK=Dev-AnalysisGenerator
+
+# Deploy analysis schedule (creates EventBridge rules)
 make deploy-stack STACK=Dev-AnalysisSchedule
+
+# Deploy API (updates supported sports list)
+make deploy-stack STACK=Dev-BetCollectorApi
 ```
 
 ## Sport Key Format
@@ -151,9 +168,9 @@ Use the format from The Odds API:
 - `baseball_mlb` - MLB Baseball
 - `icehockey_nhl` - NHL Hockey
 - `soccer_epl` - English Premier League
-- `basketball_mens-college-basketball` - NCAA Men's Basketball
-- `basketball_womens-college-basketball` - NCAA Women's Basketball
-- `football_college-football` - NCAA Football
+- `basketball_ncaab` - NCAA Men's Basketball
+- `basketball_wncaab` - NCAA Women's Basketball
+- `americanfootball_ncaaf` - NCAA Football
 
 Check [The Odds API documentation](https://the-odds-api.com/sports-odds-data/sports-apis.html) for available sports.
 
