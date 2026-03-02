@@ -1819,32 +1819,48 @@ class MatchupModel(BaseAnalysisModel):
             if not home_stats or not away_stats:
                 return 0.0
 
-            # Get stats based on sport
-            if sport == "icehockey_nhl":
-                # Use shots and power play for NHL
-                home_offense = float(home_stats.get("stats", {}).get("Shots", {}).get("N", 0))
-                away_offense = float(away_stats.get("stats", {}).get("Shots", {}).get("N", 0))
-                home_pp = float(home_stats.get("stats", {}).get("Power Play Percentage", {}).get("N", 0))
-                away_pp = float(away_stats.get("stats", {}).get("Power Play Percentage", {}).get("N", 0))
+            # Get stats based on sport - all stats are nested in 'stats' field
+            stats_map = {
+                "icehockey_nhl": ("Shots", "Power Play Percentage"),
+                "basketball_nba": ("Field Goal %", "Defensive Rebounds"),
+                "americanfootball_nfl": ("Total Yards", "Turnovers"),
+                "baseball_mlb": ("Batting Average", "ERA"),
+                "soccer_epl": ("ON GOAL", "Effective Tackles"),  # Shots on goal, not target
+                "soccer_usa_mls": ("ON GOAL", "Effective Tackles"),
+                "basketball_ncaab": ("Field Goal %", "Defensive Rebounds"),
+                "basketball_wncaab": ("Field Goal %", "Defensive Rebounds"),
+                "americanfootball_ncaaf": ("Total Yards", "Turnovers"),
+            }
+            
+            if sport in stats_map:
+                offense_stat, defense_stat = stats_map[sport]
                 
-                # Offense advantage: shots + power play
-                offense_matchup = (home_offense - away_offense) / 10 + (home_pp - away_pp) / 10
-                # Defense advantage: inverse (fewer shots against is better)
-                defense_matchup = (away_offense - home_offense) / 10
+                home_offense = float(home_stats.get("stats", {}).get(offense_stat, {}).get("N", 0))
+                away_offense = float(away_stats.get("stats", {}).get(offense_stat, {}).get("N", 0))
+                home_defense = float(home_stats.get("stats", {}).get(defense_stat, {}).get("N", 0))
+                away_defense = float(away_stats.get("stats", {}).get(defense_stat, {}).get("N", 0))
+                
+                # Normalize based on typical ranges
+                if sport == "icehockey_nhl":
+                    offense_matchup = (home_offense - away_offense) / 10
+                    defense_matchup = (home_defense - away_defense) / 10
+                elif sport in ["basketball_nba", "basketball_ncaab", "basketball_wncaab"]:
+                    offense_matchup = (home_offense - away_offense) * 10  # FG% is 0-1
+                    defense_matchup = (home_defense - away_defense) / 5   # Rebounds
+                elif sport in ["americanfootball_nfl", "americanfootball_ncaaf"]:
+                    offense_matchup = (home_offense - away_offense) / 100
+                    defense_matchup = (away_defense - home_defense)  # Fewer turnovers is better
+                elif sport == "baseball_mlb":
+                    offense_matchup = (home_offense - away_offense) * 100  # BA is 0-1
+                    defense_matchup = (away_defense - home_defense) / 2   # Lower ERA is better
+                elif sport in ["soccer_epl", "soccer_usa_mls"]:
+                    offense_matchup = (home_offense - away_offense) / 5
+                    defense_matchup = (home_defense - away_defense) / 10
                 
                 return (offense_matchup + defense_matchup) / 2
             else:
-                # Use points for other sports
-                home_offense = home_stats.get("points_per_game", 0)
-                home_defense = home_stats.get("points_allowed_per_game", 999)
-                away_offense = away_stats.get("points_per_game", 0)
-                away_defense = away_stats.get("points_allowed_per_game", 999)
-
-                # Home advantage calculation
-                offense_matchup = home_offense - away_defense
-                defense_matchup = away_offense - home_defense
-
-                return (offense_matchup + defense_matchup) / 20
+                # Fallback for unknown sports
+                return 0.0
 
         except Exception as e:
             logger.error(f"Error getting style matchup: {e}", exc_info=True)
