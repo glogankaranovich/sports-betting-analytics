@@ -17,6 +17,9 @@ export class AnalysisGeneratorStack extends cdk.Stack {
   public readonly analysisGeneratorMLB: lambda.Function;
   public readonly analysisGeneratorNHL: lambda.Function;
   public readonly analysisGeneratorEPL: lambda.Function;
+  public readonly analysisGeneratorNCAAB: lambda.Function;
+  public readonly analysisGeneratorWNCAAB: lambda.Function;
+  public readonly analysisGeneratorNCAAF: lambda.Function;
 
   constructor(scope: Construct, id: string, props: AnalysisGeneratorStackProps) {
     super(scope, id, props);
@@ -94,13 +97,37 @@ export class AnalysisGeneratorStack extends cdk.Stack {
     this.analysisGeneratorEPL.addToRolePolicy(policy);
     weatherApiSecret.grantRead(this.analysisGeneratorEPL);
     
+    this.analysisGeneratorNCAAB = new lambda.Function(this, 'AnalysisGeneratorNCAAB', {
+      ...functionProps,
+      functionName: `analysis-generator-ncaab-${props.environment}`
+    });
+    this.analysisGeneratorNCAAB.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorNCAAB);
+    
+    this.analysisGeneratorWNCAAB = new lambda.Function(this, 'AnalysisGeneratorWNCAAB', {
+      ...functionProps,
+      functionName: `analysis-generator-wncaab-${props.environment}`
+    });
+    this.analysisGeneratorWNCAAB.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorWNCAAB);
+    
+    this.analysisGeneratorNCAAF = new lambda.Function(this, 'AnalysisGeneratorNCAAF', {
+      ...functionProps,
+      functionName: `analysis-generator-ncaaf-${props.environment}`
+    });
+    this.analysisGeneratorNCAAF.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorNCAAF);
+    
     // Create EventBridge rules
     const sports = [
       { key: 'basketball_nba', name: 'NBA', lambda: this.analysisGeneratorNBA, months: '10-6' },
       { key: 'americanfootball_nfl', name: 'NFL', lambda: this.analysisGeneratorNFL, months: '9-2' },
       { key: 'baseball_mlb', name: 'MLB', lambda: this.analysisGeneratorMLB, months: '3-10' },
       { key: 'icehockey_nhl', name: 'NHL', lambda: this.analysisGeneratorNHL, months: '10-6' },
-      { key: 'soccer_epl', name: 'EPL', lambda: this.analysisGeneratorEPL, months: '8-5' }
+      { key: 'soccer_epl', name: 'EPL', lambda: this.analysisGeneratorEPL, months: '8-5' },
+      { key: 'basketball_ncaab', name: 'NCAAB', lambda: this.analysisGeneratorNCAAB, months: '11-4' },
+      { key: 'basketball_wncaab', name: 'WNCAAB', lambda: this.analysisGeneratorWNCAAB, months: '11-4' },
+      { key: 'americanfootball_ncaaf', name: 'NCAAF', lambda: this.analysisGeneratorNCAAF, months: '8-1' }
     ];
     
     const models = ['consensus', 'value', 'momentum', 'contrarian', 'hot_cold', 'rest_schedule', 'matchup', 'injury_aware', 'fundamentals', 'ensemble'];
