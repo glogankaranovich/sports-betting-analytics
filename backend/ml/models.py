@@ -1819,21 +1819,32 @@ class MatchupModel(BaseAnalysisModel):
             if not home_stats or not away_stats:
                 return 0.0
 
-            # Compare offensive vs defensive ratings
-            home_offense = home_stats.get("points_per_game", 0)
-            home_defense = home_stats.get("points_allowed_per_game", 999)
-            away_offense = away_stats.get("points_per_game", 0)
-            away_defense = away_stats.get("points_allowed_per_game", 999)
+            # Get stats based on sport
+            if sport == "icehockey_nhl":
+                # Use shots and power play for NHL
+                home_offense = float(home_stats.get("stats", {}).get("Shots", {}).get("N", 0))
+                away_offense = float(away_stats.get("stats", {}).get("Shots", {}).get("N", 0))
+                home_pp = float(home_stats.get("stats", {}).get("Power Play Percentage", {}).get("N", 0))
+                away_pp = float(away_stats.get("stats", {}).get("Power Play Percentage", {}).get("N", 0))
+                
+                # Offense advantage: shots + power play
+                offense_matchup = (home_offense - away_offense) / 10 + (home_pp - away_pp) / 10
+                # Defense advantage: inverse (fewer shots against is better)
+                defense_matchup = (away_offense - home_offense) / 10
+                
+                return (offense_matchup + defense_matchup) / 2
+            else:
+                # Use points for other sports
+                home_offense = home_stats.get("points_per_game", 0)
+                home_defense = home_stats.get("points_allowed_per_game", 999)
+                away_offense = away_stats.get("points_per_game", 0)
+                away_defense = away_stats.get("points_allowed_per_game", 999)
 
-            # Home advantage calculation:
-            # Positive if home offense beats away defense AND home defense beats away offense
-            # Home offense vs away defense (higher offense vs lower defense = advantage)
-            offense_matchup = home_offense - away_defense
-            # Home defense vs away offense (lower defense vs higher offense = advantage)
-            defense_matchup = away_offense - home_defense
+                # Home advantage calculation
+                offense_matchup = home_offense - away_defense
+                defense_matchup = away_offense - home_defense
 
-            # Combine (both should be positive for home advantage)
-            return (offense_matchup + defense_matchup) / 20
+                return (offense_matchup + defense_matchup) / 20
 
         except Exception as e:
             logger.error(f"Error getting style matchup: {e}", exc_info=True)
