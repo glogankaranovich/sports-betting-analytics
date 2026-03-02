@@ -30,6 +30,8 @@ const SPORT_LABELS: Record<string, string> = {
   'basketball_ncaab': 'NCAA Men\'s Basketball',
   'basketball_wncaab': 'NCAA Women\'s Basketball',
   'americanfootball_ncaaf': 'NCAA Football',
+  'soccer_usa_mls': 'MLS',
+  'basketball_wnba': 'WNBA',
 };
 
 const BET_TYPE_LABELS: Record<string, string> = {

@@ -15,6 +15,11 @@ SPORT_SEASONS = {
     "MLB": {"start": 3, "end": 10},
     "NHL": {"start": 10, "end": 6},
     "EPL": {"start": 8, "end": 5},
+    "NCAAB": {"start": 11, "end": 4},
+    "WNCAAB": {"start": 11, "end": 4},
+    "NCAAF": {"start": 8, "end": 1},
+    "MLS": {"start": 2, "end": 10},
+    "WNBA": {"start": 5, "end": 10},
 }
 
 

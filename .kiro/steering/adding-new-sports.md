@@ -87,7 +87,29 @@ const sportNames: Record<string, string> = {
 
 **File:** `infrastructure/lib/odds-collector-schedule-stack.ts`
 
-The odds collector automatically uses `getSupportedSportsArray()` from constants, so it will pick up new sports automatically.
+Add to `sports` array:
+```typescript
+const sports = [
+  { key: 'basketball_nba', name: 'NBA' },
+  // ...
+  { key: 'your_new_sport', name: 'YOURSPORT' }
+];
+```
+
+Add cron schedules (stagger by 5 minutes from other sports):
+```typescript
+const oddsSchedules = [
+  'cron(0 */4 * * ? *)',   // NBA
+  // ...
+  'cron(20 */4 * * ? *)',  // Your sport - every 4 hours at :20
+];
+
+const propsSchedules = [
+  'cron(0 */8 * * ? *)',   // NBA
+  // ...
+  'cron(20 */8 * * ? *)',  // Your sport - every 8 hours at :20
+];
+```
 
 ### 5. Add to Analysis Generator
 
@@ -111,16 +133,46 @@ this.analysisGeneratorYOURSPORT.addToRolePolicy(policy);
 weatherApiSecret.grantRead(this.analysisGeneratorYOURSPORT);
 ```
 
+**File:** `infrastructure/lib/analysis-generator-schedule-stack.ts`
+
+Add to interface:
+```typescript
+export interface AnalysisGeneratorScheduleStackProps extends cdk.StackProps {
+  analysisGeneratorYOURSPORT: lambda.IFunction;
+  // ...
+}
+```
+
 Add to sports array:
 ```typescript
 const sports = [
-  { key: 'basketball_nba', name: 'NBA', lambda: this.analysisGeneratorNBA, months: '10-6' },
-  // ...
-  { key: 'your_new_sport', name: 'YOURSPORT', lambda: this.analysisGeneratorYOURSPORT, months: '8-5' }
+  { name: 'YOURSPORT', lambda: props.analysisGeneratorYOURSPORT }
 ];
 ```
 
-Note: `months` indicates the season (e.g., '10-6' = October through June)
+Add to sport key mapping:
+```typescript
+private getSportKey(sportName: string): string {
+  const sportMap: Record<string, string> = {
+    'YOURSPORT': 'your_new_sport',
+    // ...
+  };
+}
+```
+
+### 6. Add to Season Manager
+
+**File:** `backend/season_manager.py`
+
+Add season months:
+```python
+SPORT_SEASONS = {
+    "YOURSPORT": {"start": 8, "end": 5},  # August through May
+    # ...
+}
+```
+
+Note: `start` and `end` are month numbers (1-12). If `start > end`, season wraps around year end.
 
 ## Components That Auto-Update
 
@@ -131,12 +183,15 @@ These components automatically pick up new sports from `SUPPORTED_SPORTS` consta
 - **Schedule Collector** - Uses `getSupportedSportsArray()`
 - **Weather Collector** - Uses `getSupportedSportsArray()`
 - **Season Stats Collector** - Uses `getSupportedSportsArray()`
-- **Analysis Generator** - Uses `SUPPORTED_SPORTS` env var (but requires Lambda functions - see step 5)
 - **Team Stats Collector** - Uses `SUPPORTED_SPORTS` env var
 - **Player Stats Collector** - Uses `SUPPORTED_SPORTS` env var
-- **Odds Collector Schedule** - Uses `getSupportedSportsArray()`
 
-**Note:** Analysis Generator requires manual Lambda function creation for each sport (step 5).
+## Components That Need Manual Updates
+
+- **Odds Collector Schedule** - Hardcoded sports array with cron schedules
+- **Analysis Generator** - Requires Lambda function creation for each sport
+- **Analysis Generator Schedule** - Requires Lambda function references
+- **Season Manager** - Requires season month configuration
 
 ## Deployment
 
@@ -145,8 +200,10 @@ After adding a new sport, deploy these stacks:
 ```bash
 cd infrastructure
 
-# Deploy data collectors
+# Deploy odds collector with new schedule
 make deploy-stack STACK=Dev-OddsSchedule
+
+# Deploy data collectors (auto-pick up from constants)
 make deploy-stack STACK=Dev-ScheduleCollector
 make deploy-stack STACK=Dev-WeatherCollector
 make deploy-stack STACK=Dev-SeasonStatsCollector
@@ -160,8 +217,19 @@ make deploy-stack STACK=Dev-AnalysisGenerator
 # Deploy analysis schedule (creates EventBridge rules)
 make deploy-stack STACK=Dev-AnalysisSchedule
 
+# Deploy season manager (enables/disables rules by season)
+make deploy-stack STACK=Dev-SeasonManager
+
+# Deploy Benny Trader (picks up new sport)
+make deploy-stack STACK=Dev-BennyTrader
+
 # Deploy API (updates supported sports list)
 make deploy-stack STACK=Dev-BetCollectorApi
+
+# Deploy frontend with new sport options
+cd ../frontend
+npm run build
+# Upload to S3 or deploy via your frontend pipeline
 ```
 
 ## Sport Key Format
@@ -175,8 +243,28 @@ Use the format from The Odds API:
 - `basketball_ncaab` - NCAA Men's Basketball
 - `basketball_wncaab` - NCAA Women's Basketball
 - `americanfootball_ncaaf` - NCAA Football
+- `soccer_usa_mls` - MLS Soccer
+- `basketball_wnba` - WNBA Basketball
 
 Check [The Odds API documentation](https://the-odds-api.com/sports-odds-data/sports-apis.html) for available sports.
+
+## Seasonal Coverage
+
+Current sports provide year-round coverage:
+- **Jan**: NFL, NBA, NHL, NCAAB, WNCAAB, NCAAF, MLS
+- **Feb**: NBA, NHL, MLS
+- **Mar**: NBA, NHL, MLB, MLS, NCAAB, WNCAAB
+- **Apr**: NBA, NHL, MLB, MLS, NCAAB, WNCAAB
+- **May**: MLB, MLS, WNBA, EPL
+- **Jun**: MLB, MLS, WNBA
+- **Jul**: MLB, MLS, WNBA
+- **Aug**: MLB, MLS, WNBA, EPL, NCAAF
+- **Sep**: MLB, MLS, WNBA, EPL, NFL, NCAAF
+- **Oct**: NBA, NHL, MLB, MLS, WNBA, EPL, NFL
+- **Nov**: NBA, NHL, EPL, NFL, NCAAB, WNCAAB
+- **Dec**: NBA, NHL, EPL, NFL, NCAAB, WNCAAB, NCAAF
+
+When adding new sports, consider filling gaps or providing alternatives during off-seasons.
 
 ## Verification
 

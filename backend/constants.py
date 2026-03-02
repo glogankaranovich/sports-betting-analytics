@@ -7,7 +7,7 @@ import os
 # Parse from environment variables (comma-separated strings or JSON)
 SUPPORTED_SPORTS = os.environ.get(
     "SUPPORTED_SPORTS",
-    "basketball_nba,americanfootball_nfl,baseball_mlb,icehockey_nhl,soccer_epl,basketball_ncaab,basketball_wncaab,americanfootball_ncaaf",
+    "basketball_nba,americanfootball_nfl,baseball_mlb,icehockey_nhl,soccer_epl,basketball_ncaab,basketball_wncaab,americanfootball_ncaaf,soccer_usa_mls,basketball_wnba",
 ).split(",")
 
 SYSTEM_MODELS = os.environ.get(
@@ -33,6 +33,8 @@ SPORT_NAMES = {
     "basketball_ncaab": "NCAA Men's Basketball",
     "basketball_wncaab": "NCAA Women's Basketball",
     "americanfootball_ncaaf": "NCAA Football",
+    "soccer_usa_mls": "MLS",
+    "basketball_wnba": "WNBA",
 }
 
 MODEL_NAMES = {

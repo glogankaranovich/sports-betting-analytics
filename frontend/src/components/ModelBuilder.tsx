@@ -49,6 +49,8 @@ const SPORTS = [
   { value: 'basketball_ncaab', label: 'NCAA Men\'s Basketball' },
   { value: 'basketball_wncaab', label: 'NCAA Women\'s Basketball' },
   { value: 'americanfootball_ncaaf', label: 'NCAA Football' },
+  { value: 'soccer_usa_mls', label: 'Soccer (MLS)' },
+  { value: 'basketball_wnba', label: 'Basketball (WNBA)' },
 ];
 
 const BET_TYPES = [

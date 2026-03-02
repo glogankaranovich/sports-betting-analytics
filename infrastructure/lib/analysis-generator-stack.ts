@@ -20,6 +20,8 @@ export class AnalysisGeneratorStack extends cdk.Stack {
   public readonly analysisGeneratorNCAAB: lambda.Function;
   public readonly analysisGeneratorWNCAAB: lambda.Function;
   public readonly analysisGeneratorNCAAF: lambda.Function;
+  public readonly analysisGeneratorMLS: lambda.Function;
+  public readonly analysisGeneratorWNBA: lambda.Function;
 
   constructor(scope: Construct, id: string, props: AnalysisGeneratorStackProps) {
     super(scope, id, props);
@@ -117,6 +119,20 @@ export class AnalysisGeneratorStack extends cdk.Stack {
     });
     this.analysisGeneratorNCAAF.addToRolePolicy(policy);
     weatherApiSecret.grantRead(this.analysisGeneratorNCAAF);
+    
+    this.analysisGeneratorMLS = new lambda.Function(this, 'AnalysisGeneratorMLS', {
+      ...functionProps,
+      functionName: `analysis-generator-mls-${props.environment}`
+    });
+    this.analysisGeneratorMLS.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorMLS);
+    
+    this.analysisGeneratorWNBA = new lambda.Function(this, 'AnalysisGeneratorWNBA', {
+      ...functionProps,
+      functionName: `analysis-generator-wnba-${props.environment}`
+    });
+    this.analysisGeneratorWNBA.addToRolePolicy(policy);
+    weatherApiSecret.grantRead(this.analysisGeneratorWNBA);
     
     // Create EventBridge rules
     const sports = [

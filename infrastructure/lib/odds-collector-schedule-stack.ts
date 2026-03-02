@@ -32,7 +32,9 @@ export class OddsCollectorScheduleStack extends cdk.Stack {
       { key: 'soccer_epl', name: 'EPL' },
       { key: 'basketball_ncaab', name: 'NCAAMBB' },
       { key: 'basketball_wncaab', name: 'NCAAWBB' },
-      { key: 'americanfootball_ncaaf', name: 'NCAAFB' }
+      { key: 'americanfootball_ncaaf', name: 'NCAAFB' },
+      { key: 'soccer_usa_mls', name: 'MLS' },
+      { key: 'basketball_wnba', name: 'WNBA' }
     ];
 
     // Odds collection - every 4 hours for each sport (staggered by 15 minutes)
@@ -45,6 +47,8 @@ export class OddsCollectorScheduleStack extends cdk.Stack {
       'cron(55 */4 * * ? *)',  // NCAAMBB: 00:55, 04:55, 08:55, 12:55, 16:55, 20:55 UTC
       'cron(5 */4 * * ? *)',   // NCAAWBB: 00:05, 04:05, 08:05, 12:05, 16:05, 20:05 UTC
       'cron(10 */4 * * ? *)',  // NCAAFB: 00:10, 04:10, 08:10, 12:10, 16:10, 20:10 UTC
+      'cron(20 */4 * * ? *)',  // MLS: 00:20, 04:20, 08:20, 12:20, 16:20, 20:20 UTC
+      'cron(25 */4 * * ? *)',  // WNBA: 00:25, 04:25, 08:25, 12:25, 16:25, 20:25 UTC
     ];
 
     sports.forEach((sport, index) => {
@@ -70,6 +74,8 @@ export class OddsCollectorScheduleStack extends cdk.Stack {
       'cron(55 */8 * * ? *)',  // NCAAMBB: 00:55, 08:55, 16:55 UTC
       'cron(5 */8 * * ? *)',   // NCAAWBB: 00:05, 08:05, 16:05 UTC
       'cron(10 */8 * * ? *)',  // NCAAFB: 00:10, 08:10, 16:10 UTC
+      'cron(20 */8 * * ? *)',  // MLS: 00:20, 08:20, 16:20 UTC
+      'cron(25 */8 * * ? *)',  // WNBA: 00:25, 08:25, 16:25 UTC
     ];
 
     sports.forEach((sport, index) => {

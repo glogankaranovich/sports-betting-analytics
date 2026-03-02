@@ -12,6 +12,11 @@ export interface AnalysisGeneratorScheduleStackProps extends cdk.StackProps {
   analysisGeneratorMLB: lambda.IFunction;
   analysisGeneratorNHL: lambda.IFunction;
   analysisGeneratorEPL: lambda.IFunction;
+  analysisGeneratorNCAAB: lambda.IFunction;
+  analysisGeneratorWNCAAB: lambda.IFunction;
+  analysisGeneratorNCAAF: lambda.IFunction;
+  analysisGeneratorMLS: lambda.IFunction;
+  analysisGeneratorWNBA: lambda.IFunction;
 }
 
 export class AnalysisGeneratorScheduleStack extends cdk.Stack {
@@ -23,7 +28,12 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
       { name: 'NFL', lambda: props.analysisGeneratorNFL },
       { name: 'MLB', lambda: props.analysisGeneratorMLB },
       { name: 'NHL', lambda: props.analysisGeneratorNHL },
-      { name: 'EPL', lambda: props.analysisGeneratorEPL }
+      { name: 'EPL', lambda: props.analysisGeneratorEPL },
+      { name: 'NCAAB', lambda: props.analysisGeneratorNCAAB },
+      { name: 'WNCAAB', lambda: props.analysisGeneratorWNCAAB },
+      { name: 'NCAAF', lambda: props.analysisGeneratorNCAAF },
+      { name: 'MLS', lambda: props.analysisGeneratorMLS },
+      { name: 'WNBA', lambda: props.analysisGeneratorWNBA }
     ];
 
     // Get models from constant, excluding 'benny' (not a prediction model)
@@ -72,7 +82,12 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
       'NFL': 'americanfootball_nfl',
       'MLB': 'baseball_mlb',
       'NHL': 'icehockey_nhl',
-      'EPL': 'soccer_epl'
+      'EPL': 'soccer_epl',
+      'NCAAB': 'basketball_ncaab',
+      'WNCAAB': 'basketball_wncaab',
+      'NCAAF': 'americanfootball_ncaaf',
+      'MLS': 'soccer_usa_mls',
+      'WNBA': 'basketball_wnba'
     };
     return sportMap[sportName] || sportName;
   }

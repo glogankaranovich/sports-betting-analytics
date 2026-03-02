@@ -51,7 +51,9 @@ const Settings: React.FC<SettingsProps> = ({
     'soccer_epl': 'EPL',
     'basketball_ncaab': 'NCAA Men\'s Basketball',
     'basketball_wncaab': 'NCAA Women\'s Basketball',
-    'americanfootball_ncaaf': 'NCAA Football'
+    'americanfootball_ncaaf': 'NCAA Football',
+    'soccer_usa_mls': 'MLS',
+    'basketball_wnba': 'WNBA'
   };
 
   return (

@@ -184,6 +184,11 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ settings, subs
             <option value="baseball_mlb">MLB</option>
             <option value="icehockey_nhl">NHL</option>
             <option value="soccer_epl">EPL</option>
+            <option value="basketball_ncaab">NCAA Men's Basketball</option>
+            <option value="basketball_wncaab">NCAA Women's Basketball</option>
+            <option value="americanfootball_ncaaf">NCAA Football</option>
+            <option value="soccer_usa_mls">MLS</option>
+            <option value="basketball_wnba">WNBA</option>
           </select>
 
           <select value={betTypeFilter} onChange={(e) => setBetTypeFilter(e.target.value as 'all' | 'game' | 'prop')} className="filter-select">

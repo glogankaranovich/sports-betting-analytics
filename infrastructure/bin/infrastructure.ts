@@ -211,6 +211,11 @@ if (environment === 'dev') {
     analysisGeneratorMLB: analysisGeneratorStack.analysisGeneratorMLB,
     analysisGeneratorNHL: analysisGeneratorStack.analysisGeneratorNHL,
     analysisGeneratorEPL: analysisGeneratorStack.analysisGeneratorEPL,
+    analysisGeneratorNCAAB: analysisGeneratorStack.analysisGeneratorNCAAB,
+    analysisGeneratorWNCAAB: analysisGeneratorStack.analysisGeneratorWNCAAB,
+    analysisGeneratorNCAAF: analysisGeneratorStack.analysisGeneratorNCAAF,
+    analysisGeneratorMLS: analysisGeneratorStack.analysisGeneratorMLS,
+    analysisGeneratorWNBA: analysisGeneratorStack.analysisGeneratorWNBA,
     env: ENVIRONMENTS.dev,
   });
 
