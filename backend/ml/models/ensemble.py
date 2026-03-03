@@ -14,7 +14,7 @@ class EnsembleModel(BaseModel):
 
     def __init__(self):
         from ml.dynamic_weighting import DynamicModelWeighting
-        from ml.player_stats_model import PlayerStatsModel
+        from ml.models.player_stats import PlayerStatsModel
         from ml.models.value import ValueModel
         from ml.models.momentum import MomentumModel
         from ml.models.contrarian import ContrarianModel

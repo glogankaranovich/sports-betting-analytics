@@ -5,12 +5,13 @@ from typing import Dict, Optional
 import boto3
 from boto3.dynamodb.conditions import Key
 
-from ml.models import BaseAnalysisModel, AnalysisResult
+from ml.models.base import BaseModel
+from ml.types import AnalysisResult
 
 logger = logging.getLogger(__name__)
 
 
-class PlayerStatsModel(BaseAnalysisModel):
+class PlayerStatsModel(BaseModel):
     """Prop model that compares line to player historical averages"""
     
     def __init__(self):

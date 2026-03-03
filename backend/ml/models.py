@@ -416,7 +416,7 @@ class ModelFactory:
     def create_model(cls, model_name: str) -> BaseAnalysisModel:
         """Create and return a model instance"""
         if model_name == "player_stats":
-            from ml.player_stats_model import PlayerStatsModel
+            from ml.models.player_stats import PlayerStatsModel
             return PlayerStatsModel()
         
         if model_name == "fundamentals":

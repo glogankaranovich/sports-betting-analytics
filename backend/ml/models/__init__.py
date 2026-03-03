@@ -12,5 +12,6 @@ from ml.models.contrarian import ContrarianModel
 from ml.models.news import NewsModel
 from ml.models.ensemble import EnsembleModel
 from ml.models.consensus import ConsensusModel
+from ml.models.player_stats import PlayerStatsModel
 
 __all__ = ["BaseModel", "FundamentalsModel", "MatchupModel", "MomentumModel", "ValueModel", "HotColdModel"]
