@@ -1738,23 +1738,23 @@ class MatchupModel(BaseAnalysisModel):
             if sport in stats_map:
                 offense_stat, defense_stat = stats_map[sport]
                 
-                home_offense = float(home_stats.get("stats", {}).get(offense_stat, {}).get("N", 0))
-                away_offense = float(away_stats.get("stats", {}).get(offense_stat, {}).get("N", 0))
-                home_defense = float(home_stats.get("stats", {}).get(defense_stat, {}).get("N", 0))
-                away_defense = float(away_stats.get("stats", {}).get(defense_stat, {}).get("N", 0))
+                home_offense = float(home_stats.get("stats", {}).get(offense_stat, "0"))
+                away_offense = float(away_stats.get("stats", {}).get(offense_stat, "0"))
+                home_defense = float(home_stats.get("stats", {}).get(defense_stat, "0"))
+                away_defense = float(away_stats.get("stats", {}).get(defense_stat, "0"))
                 
                 # Normalize based on typical ranges
                 if sport == "icehockey_nhl":
                     offense_matchup = (home_offense - away_offense) / 10
                     defense_matchup = (home_defense - away_defense) / 10
                 elif sport in ["basketball_nba", "basketball_wnba", "basketball_ncaab", "basketball_wncaab"]:
-                    offense_matchup = (home_offense - away_offense) * 10  # FG% is 0-1
+                    offense_matchup = (home_offense - away_offense) / 10  # FG% stored as 45-55
                     defense_matchup = (home_defense - away_defense) / 5   # Rebounds
                 elif sport in ["americanfootball_nfl", "americanfootball_ncaaf"]:
                     offense_matchup = (home_offense - away_offense) / 100
                     defense_matchup = (away_defense - home_defense)  # Fewer turnovers is better
                 elif sport == "baseball_mlb":
-                    offense_matchup = (home_offense - away_offense) * 100  # BA is 0-1
+                    offense_matchup = (home_offense - away_offense) * 10  # BA stored as 0.250
                     defense_matchup = (away_defense - home_defense) / 2   # Lower ERA is better
                 elif sport in ["soccer_epl", "soccer_usa_mls"]:
                     offense_matchup = (home_offense - away_offense) / 5
