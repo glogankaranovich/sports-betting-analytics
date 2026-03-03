@@ -351,24 +351,42 @@ class ValueModel(BaseAnalysisModel):
         if not spreads:
             return None
 
-        # For value model, just use the first spread since we're analyzing per-bookmaker
         selected_spread = spreads[0]
         avg_spread = sum(s[0] for s in spreads) / len(spreads)
-        confidence = 0.7 if abs(selected_spread[0] - avg_spread) > 1.0 else 0.5
+        spread_diff = selected_spread[0] - avg_spread
         
-        # Validate with Elo ratings
+        # Value exists when this bookmaker's spread is better than average
+        # More negative spread = home team favored more = better value on home
+        # Less negative spread = away team getting more points = better value on away
+        if abs(spread_diff) < 0.5:
+            return None  # Not enough value
+        
         sport = game_info.get("sport")
         home_team = game_info.get("home_team")
         away_team = game_info.get("away_team")
+        
+        # Determine which team has value
+        if spread_diff < 0:
+            # This book has home team favored more (more negative spread)
+            # Value is on home team covering the larger spread
+            prediction = home_team
+            reasoning = f"Value on {home_team}: {current_bookmaker} offers {abs(selected_spread[0]):.1f} spread vs market average {abs(avg_spread):.1f}. Getting {abs(spread_diff):.1f} extra points of value"
+        else:
+            # This book has away team getting more points
+            # Value is on away team with better spread
+            prediction = away_team
+            reasoning = f"Value on {away_team}: {current_bookmaker} offers +{abs(selected_spread[0]):.1f} spread vs market average +{abs(avg_spread):.1f}. Getting {abs(spread_diff):.1f} extra points of value"
+        
+        confidence = 0.7 if abs(spread_diff) > 1.0 else 0.6
         
         try:
             home_elo = self.elo_calculator.get_team_rating(sport, home_team)
             away_elo = self.elo_calculator.get_team_rating(sport, away_team)
             elo_diff = home_elo - away_elo
             
-            # Check if value bet aligns with Elo
-            if (selected_spread[0] < avg_spread and elo_diff > 50) or \
-               (selected_spread[0] > avg_spread and elo_diff < -50):
+            # Boost confidence if value bet aligns with Elo strength
+            if (prediction == home_team and elo_diff > 50) or \
+               (prediction == away_team and elo_diff < -50):
                 confidence = min(confidence + 0.05, 0.95)
         except Exception as e:
             logger.error(f"Error getting Elo ratings: {e}")
@@ -379,13 +397,13 @@ class ValueModel(BaseAnalysisModel):
             game_id=game_id,
             model="value",
             analysis_type="game",
-            sport=game_info.get("sport"),
-            home_team=game_info.get("home_team"),
-            away_team=game_info.get("away_team"),
+            sport=sport,
+            home_team=home_team,
+            away_team=away_team,
             commence_time=game_info.get("commence_time"),
-            prediction=f"{game_info.get('home_team')} {selected_spread[0]:+.1f} @ {current_bookmaker}",
+            prediction=prediction,
             confidence=confidence,
-            reasoning=f"Better odds found: {current_bookmaker} offers {abs(selected_spread[0]):.1f} point spread vs average of {abs(avg_spread):.1f}. That's a {abs(selected_spread[0] - avg_spread):.1f} point difference",
+            reasoning=reasoning,
             recommended_odds=-110,
         )
 
@@ -465,22 +483,6 @@ class ValueModel(BaseAnalysisModel):
                 model="value",
                 analysis_type="prop",
                 sport=prop_item.get("sport"),
-                home_team=prop_item.get("home_team"),
-                away_team=prop_item.get("away_team"),
-                commence_time=prop_item.get("commence_time"),
-                player_name=prop_item.get("player_name", "Unknown Player"),
-                market_key=prop_item.get("market_key"),
-                prediction=prediction,
-                confidence=confidence,
-                reasoning=reasoning,
-                recommended_odds=-110,
-            )
-
-        except Exception as e:
-            logger.error(f"Error analyzing prop odds: {e}", exc_info=True)
-            return None
-
-
                 home_team=prop_item.get("home_team"),
                 away_team=prop_item.get("away_team"),
                 commence_time=prop_item.get("commence_time"),
