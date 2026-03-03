@@ -659,11 +659,11 @@ class RestScheduleModel(BaseAnalysisModel):
     def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
         """Analyze prop based on team rest situation"""
         sport = prop_item.get("sport")
-        player_name = prop_item.get("player_name", "").lower().replace(" ", "_")
+        player_name = prop_item.get("player_name", "")
         game_date = prop_item.get("commence_time")
+        line = prop_item.get("point", 0)
 
-        # Get team from player stats
-        team = self._get_player_team(sport, player_name)
+        team = self._get_player_team(sport, player_name.lower().replace(" ", "_"))
         if not team:
             return None
 
@@ -672,18 +672,24 @@ class RestScheduleModel(BaseAnalysisModel):
         confidence = 0.5 + (rest_score * 0.03)
         confidence = max(0.3, min(0.8, confidence))
 
-        pick = "over" if rest_score > 1 else "under"
-        reasoning = f"Team rest score: {rest_score:.1f}"
+        if rest_score > 1:
+            prediction = f"Over {line}"
+            reasoning = f"Team well-rested (score: {rest_score:.1f}). Player likely to perform above line."
+        else:
+            prediction = f"Under {line}"
+            reasoning = f"Team fatigued (score: {rest_score:.1f}). Player likely to underperform."
 
         return AnalysisResult(
-            game_id=prop_item.get("game_id"),
+            game_id=prop_item.get("event_id", "unknown"),
             model="rest_schedule",
             analysis_type="prop",
             sport=sport,
-            player_name=prop_item.get("player_name"),
+            home_team=prop_item.get("home_team"),
+            away_team=prop_item.get("away_team"),
+            player_name=player_name,
             market_key=prop_item.get("market_key"),
             commence_time=game_date,
-            prediction=pick,
+            prediction=prediction,
             confidence=confidence,
             reasoning=reasoning,
             recommended_odds=-110,
