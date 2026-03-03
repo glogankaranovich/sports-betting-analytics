@@ -14,6 +14,20 @@ table = dynamodb.Table(os.environ.get("DYNAMODB_TABLE", "sports-betting-bets-dev
 
 
 class ScheduleCollector:
+    # ESPN sport path mappings
+    SPORT_MAP = {
+        "basketball_nba": "basketball/nba",
+        "basketball_wnba": "basketball/wnba",
+        "basketball_ncaab": "basketball/mens-college-basketball",
+        "basketball_wncaab": "basketball/womens-college-basketball",
+        "americanfootball_nfl": "football/nfl",
+        "americanfootball_ncaaf": "football/college-football",
+        "baseball_mlb": "baseball/mlb",
+        "icehockey_nhl": "hockey/nhl",
+        "soccer_epl": "soccer/eng.1",
+        "soccer_usa_mls": "soccer/usa.1",
+    }
+    
     def __init__(self):
         self.espn_base_url = "https://site.api.espn.com/apis/site/v2/sports"
         self.table = table
@@ -36,14 +50,10 @@ class ScheduleCollector:
 
     def _get_teams(self, sport: str) -> List[Dict[str, Any]]:
         """Get all teams for a sport"""
-        sport_map = {
-            "basketball_nba": "basketball/nba",
-            "americanfootball_nfl": "football/nfl",
-            "baseball_mlb": "baseball/mlb",
-            "icehockey_nhl": "hockey/nhl",
-            "soccer_epl": "soccer/eng.1",
-        }
-        espn_sport = sport_map.get(sport, "basketball/nba")
+        espn_sport = self.SPORT_MAP.get(sport)
+        if not espn_sport:
+            print(f"Unsupported sport: {sport}")
+            return []
 
         try:
             url = f"{self.espn_base_url}/{espn_sport}/teams"
@@ -64,14 +74,10 @@ class ScheduleCollector:
         self, sport: str, team_id: str
     ) -> Optional[List[Dict[str, Any]]]:
         """Fetch schedule for a specific team"""
-        sport_map = {
-            "basketball_nba": "basketball/nba",
-            "americanfootball_nfl": "football/nfl",
-            "baseball_mlb": "baseball/mlb",
-            "icehockey_nhl": "hockey/nhl",
-            "soccer_epl": "soccer/eng.1",
-        }
-        espn_sport = sport_map.get(sport, "basketball/nba")
+        espn_sport = self.SPORT_MAP.get(sport)
+        if not espn_sport:
+            print(f"Unsupported sport: {sport}")
+            return None
 
         try:
             url = f"{self.espn_base_url}/{espn_sport}/teams/{team_id}/schedule"
