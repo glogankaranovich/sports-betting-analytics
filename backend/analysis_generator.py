@@ -6,14 +6,19 @@ from typing import Any, Dict
 
 import boto3
 
-from ml.dynamic_weighting import DynamicModelWeighting
 from ml.types import AnalysisResult
 from ml.model_factory import ModelFactory
 
-# DynamoDB setup
-dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-table_name = os.getenv("DYNAMODB_TABLE")
-table = dynamodb.Table(table_name)
+
+def _get_dynamodb_table():
+    """Get DynamoDB table instance"""
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table_name = os.getenv("DYNAMODB_TABLE")
+    return dynamodb.Table(table_name)
+
+
+# Initialize table at module level for Lambda container reuse
+table = _get_dynamodb_table()
 
 
 def decimal_to_float(obj):
@@ -97,8 +102,8 @@ def lambda_handler(event, context):
                     ]
                 }]
             )
-        except:
-            pass  # Don't fail on metric emission
+        except Exception as e:
+            print(f"Failed to emit metric: {e}")
         
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
 
@@ -153,9 +158,6 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
         count = 0
         games_to_process = list(games.items())[:limit] if limit else list(games.items())
 
-        # Initialize dynamic weighting
-        weighting = DynamicModelWeighting()
-
         # Process games in parallel
         def process_game(game_item):
             game_id, game_data = game_item
@@ -186,6 +188,10 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                         recommended_odds=analysis_result.recommended_odds,
                     )
                     
+                    # TODO: DESIGN ISSUE - Hard-coded to h2h market
+                    # Model receives ALL markets (h2h, spreads, totals) but we only attach h2h outcomes
+                    # This causes mismatch when model predicts based on spreads/totals
+                    # Fix: Use analysis_result.market_key once models return it (see DESIGN_MARKET_KEY_FIX.md)
                     bookmaker_item = next((item for item in game_data["items"] if item.get("bookmaker") == bookmaker and item.get("market_key") == "h2h"), None)
                     
                     analysis_dict = bookmaker_result.to_dynamodb_item()
@@ -227,8 +233,8 @@ def generate_game_analysis(sport: str, model, limit: int = None) -> int:
                         ]
                     }]
                 )
-            except:
-                pass
+            except Exception as e:
+                print(f"Failed to emit metric: {e}")
 
         return count
 
@@ -311,9 +317,6 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
         grouped_list = list(grouped_props.values())
         props_to_process = grouped_list[:limit] if limit else grouped_list
 
-        # Initialize dynamic weighting
-        weighting = DynamicModelWeighting()
-
         # Process props in parallel
         def process_prop(grouped_prop):
             prop_count = 0
@@ -381,8 +384,8 @@ def generate_prop_analysis(sport: str, model, limit: int = None) -> int:
                         ]
                     }]
                 )
-            except:
-                pass
+            except Exception as e:
+                print(f"Failed to emit metric: {e}")
 
         return count
 

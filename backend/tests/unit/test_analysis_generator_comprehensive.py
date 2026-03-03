@@ -108,13 +108,9 @@ class TestAnalysisGeneratorComprehensive(unittest.TestCase):
         
         self.assertEqual(result["statusCode"], 500)
 
-    @patch("analysis_generator.DynamicModelWeighting")
     @patch("analysis_generator.table")
-    def test_generate_game_analysis_with_games(self, mock_table, mock_weighting_class):
+    def test_generate_game_analysis_with_games(self, mock_table):
         """Test generating game analysis with actual games"""
-        mock_weighting = Mock()
-        mock_weighting.calculate_adjusted_confidence.return_value = 0.70
-        mock_weighting_class.return_value = mock_weighting
         
         # Mock games query
         mock_table.query.return_value = {
@@ -143,13 +139,9 @@ class TestAnalysisGeneratorComprehensive(unittest.TestCase):
         
         self.assertIsInstance(count, int)
 
-    @patch("analysis_generator.DynamicModelWeighting")
     @patch("analysis_generator.table")
-    def test_generate_game_analysis_pagination(self, mock_table, mock_weighting_class):
+    def test_generate_game_analysis_pagination(self, mock_table):
         """Test game analysis handles pagination"""
-        mock_weighting = Mock()
-        mock_weighting.calculate_adjusted_confidence.return_value = 0.70
-        mock_weighting_class.return_value = mock_weighting
         
         # Mock paginated response
         mock_table.query.side_effect = [
@@ -179,13 +171,9 @@ class TestAnalysisGeneratorComprehensive(unittest.TestCase):
         
         self.assertIsInstance(count, int)
 
-    @patch("analysis_generator.DynamicModelWeighting")
     @patch("analysis_generator.table")
-    def test_generate_prop_analysis_with_props(self, mock_table, mock_weighting_class):
+    def test_generate_prop_analysis_with_props(self, mock_table):
         """Test generating prop analysis"""
-        mock_weighting = Mock()
-        mock_weighting.calculate_adjusted_confidence.return_value = 0.65
-        mock_weighting_class.return_value = mock_weighting
         
         mock_table.query.return_value = {
             "Items": [
