@@ -11,5 +11,6 @@ from ml.models.injury_aware import InjuryAwareModel
 from ml.models.contrarian import ContrarianModel
 from ml.models.news import NewsModel
 from ml.models.ensemble import EnsembleModel
+from ml.models.consensus import ConsensusModel
 
 __all__ = ["BaseModel", "FundamentalsModel", "MatchupModel", "MomentumModel", "ValueModel", "HotColdModel"]
