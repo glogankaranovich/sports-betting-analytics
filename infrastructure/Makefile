@@ -66,7 +66,7 @@ test-backend:
 # Run backend tests with coverage
 test-coverage:
 	@echo "📊 Running backend tests with coverage..."
-	cd ../backend && DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/ --cov=. --cov-report=term-missing --cov-report=html
+	cd ../backend && DYNAMODB_TABLE=test-table python3 -m pytest tests/unit/ --cov=. --cov-report=term-missing --cov-report=html --cov-config=../.coveragerc
 	@echo ""
 	@echo "📈 Coverage report generated in backend/htmlcov/index.html"
 
