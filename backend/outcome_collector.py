@@ -445,6 +445,7 @@ class OutcomeCollector:
                     },
                 )
                 updates += 1
+                print(f"Verified original: {model} - Prediction: {item.get('prediction')}, Correct: {analysis_correct}")
 
             elif item.get("analysis_type") == "prop":
                 # Get player stats for prop verification
@@ -485,6 +486,10 @@ class OutcomeCollector:
             analysis_lower = analysis_result.lower()
             home_team = game.get("home_team", "").lower()
             away_team = game.get("away_team", "").lower()
+
+            # Convert home_won to boolean if it's a string
+            if isinstance(home_won, str):
+                home_won = home_won == "home"
 
             # Check for spread bets (e.g., "Team +7.5" or "Team -3.5")
             if "+" in analysis_result or "-" in analysis_result:
