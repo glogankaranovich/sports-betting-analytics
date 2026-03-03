@@ -15,25 +15,28 @@ import boto3
 
 from constants import SUPPORTED_SPORTS
 
-dynamodb = boto3.resource("dynamodb")
-comprehend = boto3.client("comprehend")
-TABLE_NAME = os.environ.get("TABLE_NAME", "carpool-bets-v2-dev")
-table = dynamodb.Table(TABLE_NAME)
-
 
 class ESPNCollector:
     """Collects news and injury data from ESPN API"""
 
     def __init__(self):
         self.base_url = "https://site.api.espn.com/apis/site/v2/sports"
+        self.dynamodb = boto3.resource("dynamodb")
+        self.comprehend = boto3.client("comprehend")
+        self.table = self.dynamodb.Table(os.environ.get("TABLE_NAME", "carpool-bets-v2-dev"))
 
         # ESPN sport mappings
         self.sport_mappings = {
             "basketball_nba": {"league": "nba", "path": "basketball/nba"},
+            "basketball_wnba": {"league": "wnba", "path": "basketball/wnba"},
+            "basketball_ncaab": {"league": "mens-college-basketball", "path": "basketball/mens-college-basketball"},
+            "basketball_wncaab": {"league": "womens-college-basketball", "path": "basketball/womens-college-basketball"},
             "americanfootball_nfl": {"league": "nfl", "path": "football/nfl"},
-            "icehockey_nhl": {"league": "nhl", "path": "hockey/nhl"},
+            "americanfootball_ncaaf": {"league": "college-football", "path": "football/college-football"},
             "baseball_mlb": {"league": "mlb", "path": "baseball/mlb"},
+            "icehockey_nhl": {"league": "nhl", "path": "hockey/nhl"},
             "soccer_epl": {"league": "eng.1", "path": "soccer/eng.1"},
+            "soccer_usa_mls": {"league": "usa.1", "path": "soccer/usa.1"},
         }
 
     def collect_news_for_sport(self, sport: str) -> Dict:
@@ -48,7 +51,7 @@ class ESPNCollector:
         news_url = f"{self.base_url}/{mapping['path']}/news"
 
         try:
-            response = requests.get(news_url)
+            response = requests.get(news_url, timeout=10)
             response.raise_for_status()
             data = response.json()
 
@@ -81,14 +84,14 @@ class ESPNCollector:
             # High impact keywords
             if any(
                 word in text
-                for word in ["injury", "out", "suspended", "traded", "fired"]
+                for word in ["injury", "out", "suspended", "trade", "fired"]
             ):
                 impact = "high"
                 if "injury" in text or "out" in text:
                     keywords.append("injury")
                 if "suspended" in text:
                     keywords.append("suspension")
-                if "traded" in text or "trade" in text:
+                if "trade" in text:
                     keywords.append("trade")
                 if "fired" in text or "hired" in text:
                     keywords.append("coaching")
@@ -122,7 +125,7 @@ class ESPNCollector:
     def _analyze_sentiment(self, text: str) -> Dict:
         """Analyze sentiment using AWS Comprehend"""
         try:
-            response = comprehend.detect_sentiment(Text=text[:5000], LanguageCode="en")
+            response = self.comprehend.detect_sentiment(Text=text[:5000], LanguageCode="en")
             return {
                 "sentiment": response["Sentiment"],
                 "positive": response["SentimentScore"]["Positive"],
@@ -170,7 +173,7 @@ class ESPNCollector:
             "updated_at": datetime.utcnow().isoformat(),
         }
 
-        table.put_item(Item=item)
+        self.table.put_item(Item=item)
         print(
             f"Stored ESPN news: {news_data['headline'][:50]}... (impact: {news_data['impact']}, sentiment: {sentiment['sentiment']})"
         )
@@ -180,7 +183,7 @@ class ESPNCollector:
         pk = f"NEWS#{sport}"
         cutoff_time = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
 
-        response = table.query(
+        response = self.table.query(
             KeyConditionExpression="pk = :pk AND sk > :cutoff",
             ExpressionAttributeValues={":pk": pk, ":cutoff": cutoff_time},
             ScanIndexForward=False,
