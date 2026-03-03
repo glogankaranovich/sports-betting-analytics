@@ -5,6 +5,7 @@ Runs periodically to calculate and store model performance adjustments.
 Determines which models should use original predictions, inverse predictions, or be avoided.
 """
 from ml.dynamic_weighting import DynamicModelWeighting
+from constants import SUPPORTED_SPORTS
 
 
 def lambda_handler(event, context):
@@ -12,17 +13,9 @@ def lambda_handler(event, context):
     try:
         weighting = DynamicModelWeighting(lookback_days=30)
 
-        sports = [
-            "basketball_nba",
-            "americanfootball_nfl",
-            "baseball_mlb",
-            "icehockey_nhl",
-            "soccer_epl",
-        ]
-
         all_adjustments = []
 
-        for sport in sports:
+        for sport in SUPPORTED_SPORTS:
             print(f"Calculating adjustments for {sport}...")
 
             # Game predictions
