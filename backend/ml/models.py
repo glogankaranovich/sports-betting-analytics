@@ -613,31 +613,25 @@ class HotColdModel(BaseAnalysisModel):
         # Determine prediction based on form differential
         form_diff = home_form - away_form
 
-        # Get spread for context
-        spread = self._get_current_spread(odds_items)
-
         if abs(form_diff) > 0.3:
-            # Strong form differential
             confidence = 0.75
             if form_diff > 0:
-                prediction = f"{home_team} {spread:+.1f}"
+                prediction = home_team
                 reasoning = f"Strong home form: {home_record['wins']}-{home_record['losses']} last {home_record['games']} games. Away: {away_record['wins']}-{away_record['losses']}."
             else:
-                prediction = f"{away_team} {-spread:+.1f}"
+                prediction = away_team
                 reasoning = f"Strong away form: {away_record['wins']}-{away_record['losses']} last {away_record['games']} games. Home: {home_record['wins']}-{home_record['losses']}."
         elif abs(form_diff) > 0.15:
-            # Moderate form differential
             confidence = 0.65
             if form_diff > 0:
-                prediction = f"{home_team} {spread:+.1f}"
+                prediction = home_team
                 reasoning = f"Home team trending up ({home_record['wins']}-{home_record['losses']}), away trending down ({away_record['wins']}-{away_record['losses']})."
             else:
-                prediction = f"{away_team} {-spread:+.1f}"
+                prediction = away_team
                 reasoning = f"Away team trending up ({away_record['wins']}-{away_record['losses']}), home trending down ({home_record['wins']}-{home_record['losses']})."
         else:
-            # Similar form, slight edge to home
             confidence = 0.55
-            prediction = f"{home_team} {spread:+.1f}"
+            prediction = home_team
             reasoning = f"Similar recent form. Home: {home_record['wins']}-{home_record['losses']}, Away: {away_record['wins']}-{away_record['losses']}. Slight home edge."
 
         return AnalysisResult(
