@@ -104,6 +104,11 @@ class TeamStatsCollector:
                 "baseball_mlb": "baseball/mlb",
                 "icehockey_nhl": "hockey/nhl",
                 "soccer_epl": "soccer/eng.1",
+                "soccer_usa_mls": "soccer/usa.1",
+                "basketball_ncaab": "basketball/mens-college-basketball",
+                "basketball_wncaab": "basketball/womens-college-basketball",
+                "americanfootball_ncaaf": "football/college-football",
+                "basketball_wnba": "basketball/wnba",
             }
             espn_sport = sport_map.get(sport, "basketball/nba")
 
@@ -186,6 +191,11 @@ class TeamStatsCollector:
                 "baseball_mlb": "baseball/mlb",
                 "icehockey_nhl": "hockey/nhl",
                 "soccer_epl": "soccer/eng.1",
+                "soccer_usa_mls": "soccer/usa.1",
+                "basketball_ncaab": "basketball/mens-college-basketball",
+                "basketball_wncaab": "basketball/womens-college-basketball",
+                "americanfootball_ncaaf": "football/college-football",
+                "basketball_wnba": "basketball/wnba",
             }
             espn_sport = sport_map.get(sport, "basketball/nba")
             url = f"{self.espn_base_url}/{espn_sport}/summary?event={espn_game_id}"

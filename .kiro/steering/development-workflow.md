@@ -22,10 +22,59 @@
 
 ### Quality Gates
 - **All tests pass** before committing
-- **High test coverage** maintained
+- **High test coverage** maintained (>80% for new code)
 - **Code automatically linted** and fixed
 - **Build succeeds** on all components
 - **Dev deployment works** (for infrastructure changes)
+- **Integration tests pass** in dev environment
+
+## ✅ Pre-Commit Checklist
+
+**NEVER commit code without completing ALL steps:**
+
+### 1. Unit Tests (Required)
+```bash
+cd backend
+python -m pytest tests/ -v
+```
+- Write unit tests for all new code
+- Write regression tests for all bug fixes
+- All tests must pass
+- Aim for >80% coverage on new code
+
+**Unit Test Location:**
+- `backend/tests/` for backend code
+- `backend/tests/models/` for ML models
+- Match file structure: `test_{module_name}.py`
+
+### 2. Deploy to Dev (Required for infrastructure/backend changes)
+```bash
+cd infrastructure
+make deploy-stack STACK=Dev-{StackName}
+```
+- Deploy affected stacks
+- Wait for deployment to complete
+- Check CloudWatch logs for errors
+
+### 3. Integration Tests (Required)
+- [ ] Feature works end-to-end in dev
+- [ ] Error cases handled gracefully  
+- [ ] Logs show correct information
+- [ ] No unexpected errors in CloudWatch
+- [ ] Data stored correctly in DynamoDB
+- [ ] Manually test the feature
+
+### 4. Code Review (Self)
+- [ ] Review your own changes
+- [ ] Check for hardcoded values
+- [ ] Verify error handling exists
+- [ ] Ensure logging is adequate
+- [ ] No sensitive data in logs
+
+### 5. Commit & Push
+- Only after all above steps pass
+- Write clear commit message
+- Push to GitHub
 
 ## 📝 Task Management
 

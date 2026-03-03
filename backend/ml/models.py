@@ -2719,12 +2719,67 @@ class FundamentalsModel(BaseAnalysisModel):
                 
                 return (shots_diff + pp_diff) / 2
             
-            # Soccer and MLB not supported - ESPN doesn't provide team stats
+            elif sport in ["soccer_epl", "soccer_usa_mls"]:
+                home_shots = float(home_metrics.get("shots_on_goal", 5))
+                away_shots = float(away_metrics.get("shots_on_goal", 5))
+                home_poss = float(home_metrics.get("possession", 50))
+                away_poss = float(away_metrics.get("possession", 50))
+                
+                shots_diff = (home_shots - away_shots) / 3
+                poss_diff = (home_poss - away_poss) / 10
+                
+                return (shots_diff + poss_diff) / 2
+            
+            elif sport in ["americanfootball_ncaaf", "basketball_ncaab", "basketball_wncaab", "basketball_wnba"]:
+                # NCAA/WNBA use same metrics as their pro counterparts
+                if "basketball" in sport:
+                    home_ppg = float(home_metrics.get("adjusted_ppg", 0))
+                    away_ppg = float(away_metrics.get("adjusted_ppg", 0))
+                    home_fg = float(home_metrics.get("fg_pct", 0))
+                    away_fg = float(away_metrics.get("fg_pct", 0))
+                    
+                    ppg_diff = (home_ppg - away_ppg) / 5
+                    fg_diff = (home_fg - away_fg) * 20
+                    
+                    return (ppg_diff + fg_diff) / 2
+                else:  # NCAAF
+                    home_yards = float(home_metrics.get("adjusted_total_yards", 0))
+                    away_yards = float(away_metrics.get("adjusted_total_yards", 0))
+                    
+                    return (home_yards - away_yards) / 50
+            
+            elif sport == "baseball_mlb":
+                # MLB stats not yet supported - ESPN doesn't provide consistent team stats
+                self._emit_unsupported_sport_metric(sport)
+                return 0.0
+            
+            # Unknown sport
+            self._emit_unsupported_sport_metric(sport)
             return 0.0
             
         except Exception as e:
             logger.error(f"Error comparing metrics: {e}")
             return 0.0
+    
+    def _emit_unsupported_sport_metric(self, sport: str):
+        """Emit CloudWatch metric for unsupported sport"""
+        try:
+            cloudwatch = boto3.client("cloudwatch", region_name="us-east-1")
+            cloudwatch.put_metric_data(
+                Namespace="SportsAnalytics/Models",
+                MetricData=[{
+                    "MetricName": "UnsupportedSportPrediction",
+                    "Value": 1,
+                    "Unit": "Count",
+                    "Dimensions": [
+                        {"Name": "Model", "Value": "fundamentals"},
+                        {"Name": "Sport", "Value": sport}
+                    ]
+                }]
+            )
+            logger.warning(f"Fundamentals model does not fully support {sport} - missing team stats")
+        except Exception as e:
+            logger.error(f"Error emitting metric: {e}")
 
 
 class ModelFactory:

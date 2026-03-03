@@ -2,6 +2,14 @@
 
 Quick reference for querying the carpool-bets-v2 table.
 
+## ⚠️ CRITICAL: Always Query, Never Scan
+
+**NEVER use `scan`** - it reads the entire table and is slow/expensive.
+
+**ALWAYS use `query`** with a partition key (pk) or GSI.
+
+If you need to find records across multiple partition keys, query each pk separately or use a GSI.
+
 ## Table Structure
 
 **Primary Key**: `pk` (partition key), `sk` (sort key)
