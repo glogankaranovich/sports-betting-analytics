@@ -116,7 +116,6 @@ class PlayerStatsModel(BaseModel):
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=reasoning,
-                bookmaker=prop_item.get('bookmaker', 'fanduel'),
                 recommended_odds=-110,
             )
         except Exception as e:
