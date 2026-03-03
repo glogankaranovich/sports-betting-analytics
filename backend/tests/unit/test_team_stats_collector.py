@@ -165,3 +165,145 @@ class TestTeamStatsCollector(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTeamStatsCollectorAdditional(unittest.TestCase):
+    """Additional tests for team stats collector"""
+    
+    def setUp(self):
+        self.mock_table = Mock()
+
+    @patch("team_stats_collector.boto3")
+    def test_all_sports_supported(self, mock_boto3):
+        """Test all 10 sports are in SPORT_MAP"""
+        expected_sports = [
+            "basketball_nba", "basketball_wnba", "basketball_ncaab", "basketball_wncaab",
+            "americanfootball_nfl", "americanfootball_ncaaf",
+            "baseball_mlb", "icehockey_nhl", "soccer_epl", "soccer_usa_mls"
+        ]
+        for sport in expected_sports:
+            self.assertIn(sport, TeamStatsCollector.SPORT_MAP)
+
+    @patch("team_stats_collector.boto3")
+    def test_extract_numeric_valid(self, mock_boto3):
+        """Test extracting numeric values"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        collector = TeamStatsCollector()
+        
+        self.assertEqual(collector._extract_numeric("45.5"), 45.5)
+        self.assertEqual(collector._extract_numeric("1,234.56"), 1234.56)
+        self.assertEqual(collector._extract_numeric("75%"), 75.0)
+        self.assertEqual(collector._extract_numeric("100"), 100.0)
+
+    @patch("team_stats_collector.boto3")
+    def test_extract_numeric_invalid(self, mock_boto3):
+        """Test extracting numeric from invalid values"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        collector = TeamStatsCollector()
+        
+        self.assertEqual(collector._extract_numeric("invalid"), 0.0)
+        self.assertEqual(collector._extract_numeric(None), 0.0)
+        self.assertEqual(collector._extract_numeric(""), 0.0)
+
+    @patch("team_stats_collector.boto3")
+    @patch("team_stats_collector.requests")
+    def test_find_espn_game_id_success(self, mock_requests, mock_boto3):
+        """Test finding ESPN game ID"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "events": [
+                {
+                    "id": "401810482",
+                    "competitions": [
+                        {
+                            "competitors": [
+                                {"team": {"displayName": "Lakers"}},
+                                {"team": {"displayName": "Warriors"}}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+        mock_requests.get.return_value = mock_response
+        
+        collector = TeamStatsCollector()
+        game = {
+            "home_team": "Lakers",
+            "away_team": "Warriors",
+            "commence_time": "2026-01-25T19:00:00Z"
+        }
+        
+        espn_id = collector._find_espn_game_id(game, "basketball_nba")
+        self.assertEqual(espn_id, "401810482")
+
+    @patch("team_stats_collector.boto3")
+    @patch("team_stats_collector.requests")
+    def test_find_espn_game_id_not_found(self, mock_requests, mock_boto3):
+        """Test when ESPN game ID is not found"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"events": []}
+        mock_requests.get.return_value = mock_response
+        
+        collector = TeamStatsCollector()
+        game = {
+            "home_team": "Team A",
+            "away_team": "Team B",
+            "commence_time": "2026-01-25T19:00:00Z"
+        }
+        
+        espn_id = collector._find_espn_game_id(game, "basketball_nba")
+        self.assertIsNone(espn_id)
+
+    @patch("team_stats_collector.boto3")
+    def test_find_espn_game_id_unsupported_sport(self, mock_boto3):
+        """Test finding game ID for unsupported sport"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        collector = TeamStatsCollector()
+        game = {
+            "home_team": "Team A",
+            "away_team": "Team B",
+            "commence_time": "2026-01-25T19:00:00Z"
+        }
+        
+        espn_id = collector._find_espn_game_id(game, "unsupported_sport")
+        self.assertIsNone(espn_id)
+
+    @patch("team_stats_collector.boto3")
+    def test_fetch_espn_team_stats_unsupported_sport(self, mock_boto3):
+        """Test fetching stats for unsupported sport"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        collector = TeamStatsCollector()
+        stats = collector._fetch_espn_team_stats("game123", "unsupported_sport")
+        self.assertIsNone(stats)
+
+    @patch("team_stats_collector.boto3")
+    def test_store_adjusted_metrics(self, mock_boto3):
+        """Test storing adjusted metrics"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        collector = TeamStatsCollector()
+        metrics = {
+            "adjusted_ppg": 115.5,
+            "fg_pct": 47.5,
+            "games_analyzed": 10
+        }
+        
+        collector._store_adjusted_metrics("Los Angeles Lakers", metrics, "basketball_nba")
+        
+        self.mock_table.put_item.assert_called()
+        call_args = self.mock_table.put_item.call_args[1]["Item"]
+        self.assertEqual(call_args["pk"], "ADJUSTED_METRICS#basketball_nba#los_angeles_lakers")
+        self.assertEqual(call_args["sport"], "basketball_nba")
+        self.assertEqual(call_args["team_name"], "Los Angeles Lakers")
+        self.assertTrue(call_args["latest"])
+
+
+if __name__ == "__main__":
+    unittest.main()
