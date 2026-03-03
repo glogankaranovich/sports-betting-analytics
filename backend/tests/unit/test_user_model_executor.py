@@ -46,6 +46,7 @@ class TestDataSourceEvaluators(unittest.TestCase):
             "Items": [
                 {
                     "sk": "fanduel#h2h#2025-01-01T00:00:00",
+                    "market_key": "h2h",
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "outcomes": [
@@ -55,6 +56,7 @@ class TestDataSourceEvaluators(unittest.TestCase):
                 },
                 {
                     "sk": "fanduel#h2h#LATEST",
+                    "market_key": "h2h",
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "outcomes": [
@@ -74,6 +76,7 @@ class TestDataSourceEvaluators(unittest.TestCase):
             "Items": [
                 {
                     "sk": "fanduel#h2h#2025-01-01T00:00:00",
+                    "market_key": "h2h",
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "outcomes": [
@@ -83,6 +86,7 @@ class TestDataSourceEvaluators(unittest.TestCase):
                 },
                 {
                     "sk": "fanduel#h2h#LATEST",
+                    "market_key": "h2h",
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "outcomes": [
