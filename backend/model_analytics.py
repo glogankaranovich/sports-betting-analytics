@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 import boto3
 
-from constants import SUPPORTED_SPORTS, BET_TYPES
+from constants import SUPPORTED_SPORTS, BET_TYPES, SYSTEM_MODELS
 
 
 class ModelAnalytics:
@@ -337,25 +337,12 @@ class ModelAnalytics:
 
         items = []
         if models is None:
-            models = [
-                "consensus",
-                "value",
-                "momentum",
-                "contrarian",
-                "hot_cold",
-                "rest_schedule",
-                "matchup",
-                "injury_aware",
-                "ensemble",
-            ]
-        sports = [
-            "basketball_nba",
-            "americanfootball_nfl",
-            "baseball_mlb",
-            "icehockey_nhl",
-            "soccer_epl",
-        ]
-        bet_types = ["game", "prop"]
+            # Use SYSTEM_MODELS constant instead of hard-coded list
+            models = SYSTEM_MODELS
+        
+        # Use SUPPORTED_SPORTS constant instead of hard-coded list
+        sports = SUPPORTED_SPORTS
+        bet_types = BET_TYPES
 
         # Calculate cutoff time if days specified
         cutoff_time = None
@@ -427,6 +414,7 @@ class ModelAnalytics:
         import json
         from datetime import datetime
         from decimal import Decimal
+        from constants import SYSTEM_MODELS
 
         def convert_to_decimal(obj):
             """Convert floats to Decimal for DynamoDB"""
@@ -434,17 +422,8 @@ class ModelAnalytics:
 
         timestamp = datetime.now().isoformat()
 
-        models = [
-            "consensus",
-            "value",
-            "momentum",
-            "contrarian",
-            "hot_cold",
-            "rest_schedule",
-            "matchup",
-            "injury_aware",
-            "ensemble",
-        ]
+        # Use SYSTEM_MODELS constant instead of hard-coded list
+        models = SYSTEM_MODELS
 
         # Store summary
         summary = self.get_model_performance_summary()
@@ -613,7 +592,7 @@ def lambda_handler(event, context):
                     'Unit': 'Count'
                 }]
             )
-        except:
-            pass
+        except Exception as e:
+            print(f"Failed to emit metric: {e}")
         
         return {"statusCode": 500, "body": {"error": str(e)}}
