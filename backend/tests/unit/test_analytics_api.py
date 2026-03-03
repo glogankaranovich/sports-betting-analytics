@@ -125,11 +125,12 @@ class TestAnalyticsHandler(unittest.TestCase):
     def test_get_analytics_weights(self, mock_table, mock_weighting_class):
         """Test getting model weights"""
         mock_weighting_instance = MagicMock()
-        # Return weights for all 10 models the code expects
+        # Return weights for all 12 models in SYSTEM_MODELS
         mock_weighting_instance.get_model_weights.return_value = {
             "consensus": 0.35, "value": 0.25, "momentum": 0.20, "contrarian": 0.20,
             "hot_cold": 0.0, "rest_schedule": 0.0, "matchup": 0.0, 
-            "injury_aware": 0.0, "ensemble": 0.0, "benny": 0.0
+            "injury_aware": 0.0, "news": 0.0, "ensemble": 0.0, 
+            "fundamentals": 0.0, "player_stats": 0.0
         }
         mock_weighting_instance.get_recent_accuracy.return_value = 0.65
         mock_weighting_instance.get_recent_brier_score.return_value = 0.20
