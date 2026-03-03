@@ -52,7 +52,10 @@ A full-stack sports betting analytics platform that collects odds data, generate
 
 **Odds Collector** (`odds_collector.py`)
 - Runs every 4 hours via EventBridge
-- Fetches odds from The Odds API for 5 sports (NBA, NFL, MLB, NHL, EPL)
+- Fetches odds from The Odds API for 10 sports:
+  - **Basketball**: NBA, WNBA, NCAA Men's (NCAAB), NCAA Women's (WNCAAB)
+  - **Football**: NFL, NCAA Football (NCAAF)
+  - **Other**: MLB, NHL, EPL, MLS
 - Stores h2h (moneyline), spreads, and totals
 - Marks latest odds with `latest=true` flag
 - Deduplicates using game_id + bookmaker + market_key
@@ -68,8 +71,9 @@ A full-stack sports betting analytics platform that collects odds data, generate
 - Stores in `TEAM_STATS#{sport}#{team}` format
 
 **Injury Collector** (`injury_collector.py`)
-- Tracks player injuries
-- Impacts model predictions
+- Tracks player injuries across all 10 sports
+- Supports NBA, WNBA, NFL, NCAAF, MLB, NHL, EPL, MLS, NCAAB, WNCAAB
+- Impacts model predictions (especially InjuryAwareModel)
 - Stores in `INJURIES#{sport}#{team}` format
 
 **Outcome Collector** (`outcome_collector.py`)
@@ -140,6 +144,7 @@ A full-stack sports betting analytics platform that collects odds data, generate
 **Benny Trader** (`benny_trader.py`)
 - AI-powered autonomous betting agent
 - Analyzes games independently using Claude 3.5 Sonnet
+- Supports all 10 sports (NBA, WNBA, NFL, NCAAF, MLB, NHL, EPL, MLS, NCAAB, WNCAAB)
 - Manages $100/week virtual bankroll
 - Places bets using Kelly Criterion (half-Kelly)
 - Stores bets with actual American odds

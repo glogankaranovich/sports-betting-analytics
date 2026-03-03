@@ -13,7 +13,7 @@ Built Benny, an autonomous AI trading agent that makes virtual sports bets using
 
 **Features:**
 - $100/week virtual bankroll with automatic weekly reset
-- Queries ensemble predictions across 5 sports (NBA, NFL, MLB, NHL, EPL)
+- Queries ensemble predictions across 10 sports (NBA, WNBA, NFL, NCAAF, MLB, NHL, EPL, MLS, NCAAB, WNCAAB)
 - Minimum 65% confidence threshold for bet consideration
 - Kelly Criterion bet sizing (Half Kelly for safety)
 - Bet range: $5 minimum, 20% of bankroll maximum

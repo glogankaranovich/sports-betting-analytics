@@ -2,12 +2,15 @@
 
 ## 📋 Product & Planning
 - **[ROADMAP.md](ROADMAP.md)** - Product roadmap and development phases
+- **[SPORTS_COVERAGE.md](SPORTS_COVERAGE.md)** - Supported sports and data coverage
 - **[ai-agent-architecture.md](ai-agent-architecture.md)** - AI Agent design and implementation plan
 - **[user-defined-models-feature.md](user-defined-models-feature.md)** - Custom model creation feature
 - **[model-marketplace-vision.md](model-marketplace-vision.md)** - Model marketplace design
 
 ## 🏗️ Technical Documentation
 - **[architecture.md](architecture.md)** - System architecture overview
+- **[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)** - Detailed system components
+- **[COMPONENT_ARCHITECTURE.md](COMPONENT_ARCHITECTURE.md)** - Component-level documentation
 - **[api.md](api.md)** - API endpoints and usage
 - **[database.md](database.md)** - DynamoDB schema and indexes
 
@@ -32,5 +35,5 @@ See [archived/](archived/) directory for:
 
 ---
 
-**Last Updated:** February 3, 2026  
+**Last Updated:** March 3, 2026  
 **Maintained By:** Development Team

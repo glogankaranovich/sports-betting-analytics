@@ -40,7 +40,7 @@ latest: true/false
 ```
 
 **Key Features:**
-- Supports 5 sports: NBA, NFL, MLB, NHL, EPL
+- Supports 10 sports: NBA, WNBA, NFL, NCAAF, MLB, NHL, EPL, MLS, NCAAB, WNCAAB
 - Tracks 3 market types: h2h, spreads, totals
 - Stores historical odds for trend analysis
 - Efficient querying via GSIs
