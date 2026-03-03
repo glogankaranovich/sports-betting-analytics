@@ -21,6 +21,10 @@ class WeatherCollector:
                 'Mercedes-Benz Stadium', 'AT&T Stadium', 'Allegiant Stadium',
                 'SoFi Stadium', 'U.S. Bank Stadium', 'Ford Field',
                 'Caesars Superdome', 'Lucas Oil Stadium'
+            ],
+            'baseball_mlb': [
+                'Tropicana Field', 'loanDepot park', 'Globe Life Field',
+                'Chase Field', 'Rogers Centre'
             ]
         }
     
@@ -51,7 +55,8 @@ class WeatherCollector:
             return {"conditions": "indoor", "impact": "none"}
         
         # Skip if not outdoor sport
-        if sport not in ['americanfootball_nfl', 'baseball_mlb', 'soccer_epl']:
+        outdoor_sports = ['americanfootball_nfl', 'baseball_mlb', 'soccer_epl', 'soccer_usa_mls']
+        if sport not in outdoor_sports:
             return None
         
         try:
@@ -113,7 +118,7 @@ class WeatherCollector:
                 return 'moderate'
             return 'low'
         
-        elif sport == 'soccer_epl':
+        elif sport == 'soccer_epl' or sport == 'soccer_usa_mls':
             if precip > 0.5 or wind > 25:
                 return 'high'
             elif precip > 0.2 or wind > 15:
@@ -126,9 +131,8 @@ class WeatherCollector:
         """Store weather data in DynamoDB"""
         timestamp = datetime.utcnow().isoformat()
         
-        self.table.put_item(Item={
+        item = {
             'pk': f'WEATHER#{game_id}',
-            'sk': timestamp,
             'game_id': game_id,
             'sport': sport,
             'temp_f': Decimal(str(weather_data.get('temp_f', 0))),
@@ -138,4 +142,10 @@ class WeatherCollector:
             'humidity': Decimal(str(weather_data.get('humidity', 0))),
             'impact': weather_data.get('impact', 'low'),
             'collected_at': timestamp
-        })
+        }
+        
+        # Store LATEST record for models to read
+        self.table.put_item(Item={**item, 'sk': 'latest'})
+        
+        # Store historical record
+        self.table.put_item(Item={**item, 'sk': timestamp})
