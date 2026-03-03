@@ -60,13 +60,19 @@ class InjuryCollector:
             for item in data.get("items", []):
                 team_url = item.get("$ref")
                 if team_url:
-                    team_data = requests.get(team_url, timeout=10).json()
-                    teams.append(
-                        {
-                            "id": team_data.get("id"),
-                            "name": team_data.get("displayName"),
-                        }
-                    )
+                    try:
+                        team_response = requests.get(team_url, timeout=10)
+                        team_response.raise_for_status()
+                        team_data = team_response.json()
+                        teams.append(
+                            {
+                                "id": team_data.get("id"),
+                                "name": team_data.get("displayName"),
+                            }
+                        )
+                    except Exception as e:
+                        print(f"Error fetching team {team_url}: {e}")
+                        continue
             return teams
         except Exception as e:
             print(f"Error fetching teams: {e}")
@@ -88,8 +94,14 @@ class InjuryCollector:
             for item in data.get("items", []):
                 injury_url = item.get("$ref")
                 if injury_url:
-                    injury_data = requests.get(injury_url, timeout=10).json()
-                    injuries.append(self._parse_injury(injury_data))
+                    try:
+                        injury_response = requests.get(injury_url, timeout=10)
+                        injury_response.raise_for_status()
+                        injury_data = injury_response.json()
+                        injuries.append(self._parse_injury(injury_data))
+                    except Exception as e:
+                        print(f"Error fetching injury {injury_url}: {e}")
+                        continue
 
             return injuries
         except Exception as e:
@@ -108,22 +120,27 @@ class InjuryCollector:
         if athlete_ref:
             try:
                 athlete_response = requests.get(athlete_ref, timeout=5)
+                athlete_response.raise_for_status()
                 athlete_data = athlete_response.json()
                 player_name = athlete_data.get("displayName")
 
                 # Fetch player statistics for importance weighting
                 stats_ref = athlete_data.get("statistics", {}).get("$ref")
                 if stats_ref:
-                    stats_response = requests.get(stats_ref, timeout=5)
-                    stats_data = stats_response.json()
+                    try:
+                        stats_response = requests.get(stats_ref, timeout=5)
+                        stats_response.raise_for_status()
+                        stats_data = stats_response.json()
 
-                    # Extract average minutes from general stats
-                    for category in stats_data.get("splits", {}).get("categories", []):
-                        if category.get("name") == "general":
-                            for stat in category.get("stats", []):
-                                if stat.get("name") == "avgMinutes":
-                                    avg_minutes = float(stat.get("value", 0))
-                                    break
+                        # Extract average minutes from general stats
+                        for category in stats_data.get("splits", {}).get("categories", []):
+                            if category.get("name") == "general":
+                                for stat in category.get("stats", []):
+                                    if stat.get("name") == "avgMinutes":
+                                        avg_minutes = float(stat.get("value", 0))
+                                        break
+                    except Exception as e:
+                        print(f"Error fetching stats: {e}")
             except Exception as e:
                 print(f"Error fetching athlete data: {e}")
 
