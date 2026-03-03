@@ -14,6 +14,20 @@ from nfl_efficiency_calculator import NFLEfficiencyCalculator
 
 
 class PlayerStatsCollector:
+    # ESPN sport path mappings
+    SPORT_MAP = {
+        "basketball_nba": "basketball/nba",
+        "basketball_wnba": "basketball/wnba",
+        "basketball_ncaab": "basketball/mens-college-basketball",
+        "basketball_wncaab": "basketball/womens-college-basketball",
+        "americanfootball_nfl": "football/nfl",
+        "americanfootball_ncaaf": "football/college-football",
+        "baseball_mlb": "baseball/mlb",
+        "icehockey_nhl": "hockey/nhl",
+        "soccer_epl": "soccer/eng.1",
+        "soccer_usa_mls": "soccer/usa.1",
+    }
+    
     def __init__(self):
         self.dynamodb = boto3.resource("dynamodb")
         self.table = self.dynamodb.Table(os.getenv("DYNAMODB_TABLE"))
@@ -103,14 +117,10 @@ class PlayerStatsCollector:
         """Find ESPN game ID by matching teams and date"""
         try:
             # Convert sport key to ESPN format
-            sport_map = {
-                "basketball_nba": "basketball/nba",
-                "americanfootball_nfl": "football/nfl",
-                "baseball_mlb": "baseball/mlb",
-                "icehockey_nhl": "hockey/nhl",
-                "soccer_epl": "soccer/eng.1",
-            }
-            espn_sport = sport_map.get(sport, "basketball/nba")
+            espn_sport = self.SPORT_MAP.get(sport)
+            if not espn_sport:
+                print(f"Unsupported sport: {sport}")
+                return None
 
             # Get game date (YYYYMMDD format)
             game_date = datetime.fromisoformat(
@@ -194,14 +204,11 @@ class PlayerStatsCollector:
     ) -> List[Dict[str, Any]]:
         """Fetch player stats from ESPN API"""
         try:
-            sport_map = {
-                "basketball_nba": "basketball/nba",
-                "americanfootball_nfl": "football/nfl",
-                "baseball_mlb": "baseball/mlb",
-                "icehockey_nhl": "hockey/nhl",
-                "soccer_epl": "soccer/eng.1",
-            }
-            espn_sport = sport_map.get(sport, "basketball/nba")
+            espn_sport = self.SPORT_MAP.get(sport)
+            if not espn_sport:
+                print(f"Unsupported sport: {sport}")
+                return []
+            
             url = f"{self.espn_base_url}/{espn_sport}/summary?event={espn_game_id}"
 
             response = requests.get(url, timeout=10)

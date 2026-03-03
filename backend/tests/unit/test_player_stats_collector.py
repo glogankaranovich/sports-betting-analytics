@@ -156,6 +156,115 @@ class TestPlayerStatsCollector(unittest.TestCase):
         self.assertEqual(result["statusCode"], 200)
         self.assertIn("stats_collected", result["body"])
 
+    def test_all_sports_supported(self):
+        """Test all 10 sports are in SPORT_MAP"""
+        expected_sports = [
+            "basketball_nba", "basketball_wnba", "basketball_ncaab", "basketball_wncaab",
+            "americanfootball_nfl", "americanfootball_ncaaf",
+            "baseball_mlb", "icehockey_nhl", "soccer_epl", "soccer_usa_mls"
+        ]
+        for sport in expected_sports:
+            self.assertIn(sport, PlayerStatsCollector.SPORT_MAP)
 
-if __name__ == "__main__":
-    unittest.main()
+    @patch("player_stats_collector.boto3")
+    @patch("player_stats_collector.requests")
+    def test_find_espn_game_id_success(self, mock_requests, mock_boto3):
+        """Test finding ESPN game ID by matching teams"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "events": [
+                {
+                    "id": "401810482",
+                    "competitions": [
+                        {
+                            "competitors": [
+                                {"team": {"displayName": "Los Angeles Lakers"}},
+                                {"team": {"displayName": "Boston Celtics"}}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+        mock_requests.get.return_value = mock_response
+        
+        collector = PlayerStatsCollector()
+        game = {
+            "home_team": "Los Angeles Lakers",
+            "away_team": "Boston Celtics",
+            "commence_time": "2026-01-25T19:00:00Z"
+        }
+        
+        espn_id = collector._find_espn_game_id(game, "basketball_nba")
+        self.assertEqual(espn_id, "401810482")
+
+    @patch("player_stats_collector.boto3")
+    @patch("player_stats_collector.requests")
+    def test_find_espn_game_id_not_found(self, mock_requests, mock_boto3):
+        """Test when ESPN game ID is not found"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        mock_response = Mock()
+        mock_response.json.return_value = {"events": []}
+        mock_requests.get.return_value = mock_response
+        
+        collector = PlayerStatsCollector()
+        game = {
+            "home_team": "Team A",
+            "away_team": "Team B",
+            "commence_time": "2026-01-25T19:00:00Z"
+        }
+        
+        espn_id = collector._find_espn_game_id(game, "basketball_nba")
+        self.assertIsNone(espn_id)
+
+    @patch("player_stats_collector.boto3")
+    def test_find_espn_game_id_unsupported_sport(self, mock_boto3):
+        """Test finding game ID for unsupported sport"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        collector = PlayerStatsCollector()
+        game = {
+            "home_team": "Team A",
+            "away_team": "Team B",
+            "commence_time": "2026-01-25T19:00:00Z"
+        }
+        
+        espn_id = collector._find_espn_game_id(game, "unsupported_sport")
+        self.assertIsNone(espn_id)
+
+    @patch("player_stats_collector.boto3")
+    def test_fetch_espn_player_stats_unsupported_sport(self, mock_boto3):
+        """Test fetching stats for unsupported sport"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        collector = PlayerStatsCollector()
+        stats = collector._fetch_espn_player_stats("game123", "unsupported_sport")
+        self.assertEqual(stats, [])
+
+    @patch("player_stats_collector.boto3")
+    def test_get_completed_games(self, mock_boto3):
+        """Test getting completed games"""
+        mock_boto3.resource.return_value.Table.return_value = self.mock_table
+        
+        self.mock_table.query.return_value = {
+            "Items": [
+                {
+                    "pk": "GAME#game123",
+                    "home_team": "Lakers",
+                    "away_team": "Celtics",
+                    "commence_time": "2026-01-25T19:00:00Z"
+                }
+            ]
+        }
+        
+        collector = PlayerStatsCollector()
+        games = collector._get_completed_games("basketball_nba")
+        
+        self.assertEqual(len(games), 1)
+        self.assertEqual(games[0]["id"], "game123")
+        self.assertEqual(games[0]["home_team"], "Lakers")
+
+
