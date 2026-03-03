@@ -410,18 +410,18 @@ class ContrarianModel(BaseAnalysisModel):
             confidence = min(0.75 + elo_boost, 0.85)
             # Bet with the line movement (sharp side)
             if movement > 0:
-                prediction = f"{away_team} {-new_spread:+.1f}"
+                prediction = away_team
                 reasoning = f"Big money moving the line: Spread changed {abs(movement):.1f} points. Going against the crowd and following the big bettors.{elo_context}"
             else:
-                prediction = f"{home_team} {new_spread:+.1f}"
+                prediction = home_team
                 reasoning = f"Big money moving the line: Spread changed {abs(movement):.1f} points. Going against the crowd and following the big bettors.{elo_context}"
         elif abs(movement) > 0.5:
             confidence = min(0.65 + elo_boost, 0.75)
             if movement > 0:
-                prediction = f"{away_team} {-new_spread:+.1f}"
+                prediction = away_team
                 reasoning = f"Line moving: Spread shifted {abs(movement):.1f} points. Smart money taking the opposite side of most bettors.{elo_context}"
             else:
-                prediction = f"{home_team} {new_spread:+.1f}"
+                prediction = home_team
                 reasoning = f"Line moving: Spread shifted {abs(movement):.1f} points. Smart money taking the opposite side of most bettors.{elo_context}"
         else:
             # No significant movement, use odds imbalance
@@ -468,30 +468,30 @@ class ContrarianModel(BaseAnalysisModel):
             confidence = 0.70
             if home_price < away_price:
                 # Home has worse price = sharp money on home
-                prediction = f"{game_info.get('home_team')} {home_spread:+.1f}"
+                prediction = game_info.get('home_team')
                 reasoning = f"Uneven odds ({home_price}/{away_price}). Big money is on home team"
             else:
                 # Away has worse price = sharp money on away
-                prediction = f"{game_info.get('away_team')} {-home_spread:+.1f}"
+                prediction = game_info.get('away_team')
                 reasoning = f"Uneven odds ({home_price}/{away_price}). Big money is on away team"
         elif price_diff > 10:
             confidence = 0.60
             if home_price < away_price:
-                prediction = f"{game_info.get('home_team')} {home_spread:+.1f}"
+                prediction = game_info.get('home_team')
                 reasoning = f"Slightly uneven odds ({home_price}/{away_price}). Leaning home"
             else:
-                prediction = f"{game_info.get('away_team')} {-home_spread:+.1f}"
+                prediction = game_info.get('away_team')
                 reasoning = f"Slightly uneven odds ({home_price}/{away_price}). Leaning away"
         else:
             # No clear signal, fade the favorite
             confidence = 0.55
             if home_spread < 0:
                 # Home is favorite, fade them
-                prediction = f"{game_info.get('away_team')} {-home_spread:+.1f}"
+                prediction = game_info.get('away_team')
                 reasoning = f"Betting against the favorite {game_info.get('home_team')}"
             else:
                 # Away is favorite, fade them
-                prediction = f"{game_info.get('home_team')} {home_spread:+.1f}"
+                prediction = game_info.get('home_team')
                 reasoning = f"Betting against the favorite {game_info.get('away_team')}"
 
         return AnalysisResult(
@@ -552,7 +552,6 @@ class ContrarianModel(BaseAnalysisModel):
 
             return AnalysisResult(
                 game_id=prop_item.get("event_id", "unknown"),
-                bookmaker="contrarian",
                 model="contrarian",
                 analysis_type="prop",
                 sport=prop_item.get("sport"),
