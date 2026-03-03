@@ -494,17 +494,16 @@ class NewsModel(BaseAnalysisModel):
 
             return AnalysisResult(
                 game_id=game_id,
-                bookmaker=odds_items[0].get("bookmaker") if odds_items else "unknown",
                 model="news",
                 analysis_type="game",
                 sport=sport,
                 home_team=home_team,
                 away_team=away_team,
                 commence_time=game_info.get("commence_time"),
-                player_name=None,
                 prediction=prediction,
                 confidence=confidence,
                 reasoning=f"Recent news favors {prediction}: {home_sentiment['news_count']} home stories, {away_sentiment['news_count']} away stories. Positive buzz around {prediction}",
+                recommended_odds=-110,
             )
         except Exception as e:
             logger.error(f"Error in news model: {e}")
