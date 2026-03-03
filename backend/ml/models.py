@@ -267,9 +267,9 @@ class ConsensusModel(BaseAnalysisModel):
             home_team=home_team,
             away_team=away_team,
             commence_time=game_info.get("commence_time"),
-            prediction=f"{home_team} {avg_spread:+.1f}",
+            prediction=home_team if avg_spread < 0 else away_team,
             confidence=confidence,
-            reasoning=f"{len(spreads)} sportsbooks agree: {home_team} is favored by {abs(avg_spread):.1f} points. Average payout odds: {avg_odds:+d}.{elo_context}{line_context}",
+            reasoning=f"{len(spreads)} sportsbooks agree: {home_team} favored by {abs(avg_spread):.1f} points. Average payout odds: {avg_odds:+d}.{elo_context}{line_context}",
             recommended_odds=avg_odds,
         )
 
@@ -308,7 +308,6 @@ class ConsensusModel(BaseAnalysisModel):
 
             return AnalysisResult(
                 game_id=prop_item.get("event_id", "unknown"),
-                bookmaker="consensus",  # Will be overridden per bookmaker
                 model="consensus",
                 analysis_type="prop",
                 sport=prop_item.get("sport"),
