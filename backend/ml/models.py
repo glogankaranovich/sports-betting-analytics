@@ -604,27 +604,26 @@ class InjuryAwareModel(BaseAnalysisModel):
 
         # Determine prediction based on injury differential
         impact_diff = away_impact - home_impact  # Higher away impact favors home
-        spread = self._get_current_spread(odds_items)
 
         if abs(impact_diff) > 0.3:
             confidence = 0.75
             if impact_diff > 0:
-                prediction = f"{home_team} {spread:+.1f}"
+                prediction = home_team
                 reasoning = f"{away_team} has {len(away_injuries)} key injuries. {home_team} healthier with {len(home_injuries)} injuries."
             else:
-                prediction = f"{away_team} {-spread:+.1f}"
+                prediction = away_team
                 reasoning = f"{home_team} has {len(home_injuries)} key injuries. {away_team} healthier with {len(away_injuries)} injuries."
         elif abs(impact_diff) > 0.15:
             confidence = 0.65
             if impact_diff > 0:
-                prediction = f"{home_team} {spread:+.1f}"
+                prediction = home_team
                 reasoning = f"{away_team} dealing with injuries ({len(away_injuries)} out). {home_team} advantage."
             else:
-                prediction = f"{away_team} {-spread:+.1f}"
+                prediction = away_team
                 reasoning = f"{home_team} dealing with injuries ({len(home_injuries)} out). {away_team} advantage."
         else:
             confidence = 0.55
-            prediction = f"{home_team} {spread:+.1f}"
+            prediction = home_team
             reasoning = f"Both teams relatively healthy. {home_team}: {len(home_injuries)} injuries, {away_team}: {len(away_injuries)} injuries."
 
         return AnalysisResult(
@@ -655,7 +654,6 @@ class InjuryAwareModel(BaseAnalysisModel):
             if player_injury and player_injury.get("status") in ["Out", "Doubtful"]:
                 return AnalysisResult(
                     game_id=prop_item.get("event_id", "unknown"),
-                    bookmaker="injury_aware",
                     model="injury_aware",
                     analysis_type="prop",
                     sport=sport,
@@ -664,21 +662,25 @@ class InjuryAwareModel(BaseAnalysisModel):
                     commence_time=prop_item.get("commence_time"),
                     player_name=player_name,
                     market_key=market_key,
-                    prediction="AVOID",
+                    prediction=f"Under {line}",
                     confidence=0.9,
-                    reasoning=f"{player_name} listed as {player_injury['status']} ({player_injury.get('injury_type', 'injury')}). Avoid this prop.",
+                    reasoning=f"{player_name} listed as {player_injury['status']} ({player_injury.get('injury_type', 'injury')}). Likely to underperform or not play.",
                     recommended_odds=-110,
                 )
 
-            # Player is healthy or questionable
-            confidence = 0.6 if player_injury else 0.55
-            status_note = (
-                f" (listed as {player_injury['status']})" if player_injury else ""
-            )
+            # Player is healthy or questionable - slight under bias if questionable
+            if player_injury and player_injury.get("status") == "Questionable":
+                confidence = 0.65
+                prediction = f"Under {line}"
+                status_note = f" (listed as Questionable - {player_injury.get('injury_type', 'injury')})"
+                reasoning = f"{player_name}{status_note}. May be limited or sit out."
+            else:
+                confidence = 0.55
+                prediction = f"Over {line}"
+                reasoning = f"{player_name} healthy. No injury concerns."
 
             return AnalysisResult(
                 game_id=prop_item.get("event_id", "unknown"),
-                bookmaker="injury_aware",
                 model="injury_aware",
                 analysis_type="prop",
                 sport=sport,
@@ -687,9 +689,9 @@ class InjuryAwareModel(BaseAnalysisModel):
                 commence_time=prop_item.get("commence_time"),
                 player_name=player_name,
                 market_key=market_key,
-                prediction=f"Over {line}",
+                prediction=prediction,
                 confidence=confidence,
-                reasoning=f"{player_name} healthy{status_note}. Monitor injury reports before game.",
+                reasoning=reasoning,
                 recommended_odds=-110,
             )
 
