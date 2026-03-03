@@ -73,7 +73,7 @@ def lambda_handler(event, context):
                     'Unit': 'Count'
                 }]
             )
-        except:
-            pass
+        except Exception as e:
+            print(f"Failed to emit metric: {e}")
         
         return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}

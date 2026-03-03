@@ -4,16 +4,16 @@ Lambda handler for opponent-adjusted metrics calculation
 import json
 import os
 from team_stats_collector import TeamStatsCollector
+from constants import SUPPORTED_SPORTS
 
 def lambda_handler(event, context):
     """Calculate opponent-adjusted metrics for all sports"""
     try:
         collector = TeamStatsCollector()
         
-        sports = ['basketball_nba', 'americanfootball_nfl', 'soccer_epl', 'icehockey_nhl']
         results = {}
         
-        for sport in sports:
+        for sport in SUPPORTED_SPORTS:
             try:
                 metrics_count = collector.calculate_opponent_adjusted_metrics(sport)
                 results[sport] = metrics_count
