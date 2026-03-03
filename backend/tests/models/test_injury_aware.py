@@ -120,3 +120,59 @@ class TestInjuryAwareModel:
 
     def test_calculate_injury_impact_empty(self, model):
         assert model._calculate_injury_impact([]) == 0.0
+
+    def test_analyze_game_home_team_injured(self, model):
+        """Test game analysis when home team has more injuries"""
+        model.table.query.side_effect = [
+            {"Items": [{"injuries": [{"status": "Out", "usage_rate": 30, "per": 20, "win_shares": 5, "avg_minutes": 35}]}]},
+            {"Items": []}
+        ]
+
+        result = model.analyze_game_odds(
+            "game123",
+            [],
+            {
+                "sport": "basketball_nba",
+                "home_team": "Boston Celtics",
+                "away_team": "Los Angeles Lakers",
+                "commence_time": "2024-01-15T19:00:00Z"
+            }
+        )
+
+        assert result.prediction == "Los Angeles Lakers"
+        assert result.confidence >= 0.65
+
+    def test_calculate_injury_impact_multiple_injuries(self, model):
+        """Test injury impact calculation with multiple injuries"""
+        injuries = [
+            {"status": "Out", "avg_minutes": 30, "usage_rate": 25, "per": 18, "win_shares": 5},
+            {"status": "Out", "avg_minutes": 20, "usage_rate": 18, "per": 14, "win_shares": 2},
+            {"status": "Out", "avg_minutes": 10, "usage_rate": 12, "per": 10, "win_shares": 1},
+        ]
+        impact = model._calculate_injury_impact(injuries)
+        assert 0.5 < impact <= 1.0
+
+    def test_calculate_injury_impact_max_cap(self, model):
+        """Test injury impact is capped at 1.0"""
+        injuries = [{"status": "Out", "avg_minutes": 36, "usage_rate": 30, "per": 25, "win_shares": 10}] * 4
+        impact = model._calculate_injury_impact(injuries)
+        assert impact == 1.0
+
+    def test_get_team_injuries_with_data(self, model):
+        """Test getting team injuries with data"""
+        model.table.query.return_value = {
+            "Items": [
+                {
+                    "injuries": [
+                        {"status": "Out", "player": "Player 1"},
+                        {"status": "Questionable", "player": "Player 2"},
+                        {"status": "Out", "player": "Player 3"},
+                    ]
+                }
+            ]
+        }
+
+        injuries = model._get_team_injuries("Boston Celtics", "basketball_nba")
+
+        assert len(injuries) == 2
+        assert all(inj["status"] == "Out" for inj in injuries)

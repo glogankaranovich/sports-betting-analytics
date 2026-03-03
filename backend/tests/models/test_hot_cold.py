@@ -130,3 +130,60 @@ class TestHotColdModel:
         result = model.analyze_prop_odds(prop_item)
         
         assert result is None
+
+    def test_analyze_game_similar_form(self, model):
+        """Test similar form for both teams"""
+        model.table.query.side_effect = [
+            {"Items": [{"winner": "Boston Celtics"}, {"winner": "Miami Heat"}, {"winner": "Boston Celtics"}, 
+                       {"winner": "Miami Heat"}, {"winner": "Boston Celtics"}]},
+            {"Items": [{"winner": "Miami Heat"}, {"winner": "New York Knicks"}, {"winner": "Miami Heat"}, 
+                       {"winner": "New York Knicks"}, {"winner": "Miami Heat"}]},
+        ]
+        
+        game_info = {
+            "sport": "basketball_nba",
+            "home_team": "Boston Celtics",
+            "away_team": "Miami Heat",
+            "commence_time": "2026-03-02T19:00:00Z"
+        }
+        
+        result = model.analyze_game_odds("test_game", [], game_info)
+        
+        assert isinstance(result, AnalysisResult)
+        assert result.confidence <= 0.60
+
+    def test_calculate_form_score_hot(self, model):
+        """Test form score calculation for hot team"""
+        record = {"wins": 8, "losses": 2, "games": 10}
+        score = model._calculate_form_score(record)
+        assert score > 0.8
+
+    def test_calculate_form_score_cold(self, model):
+        """Test form score calculation for cold team"""
+        record = {"wins": 2, "losses": 8, "games": 10}
+        score = model._calculate_form_score(record)
+        assert score < 0.3
+
+    def test_calculate_form_score_neutral(self, model):
+        """Test form score calculation for neutral team"""
+        record = {"wins": 5, "losses": 5, "games": 10}
+        score = model._calculate_form_score(record)
+        assert abs(score - 0.5) < 0.1
+
+    def test_map_market_to_stat(self, model):
+        """Test market key to stat field mapping"""
+        assert model._map_market_to_stat("player_points") == "PTS"
+        assert model._map_market_to_stat("player_rebounds") == "REB"
+        assert model._map_market_to_stat("player_assists") == "AST"
+        assert model._map_market_to_stat("player_threes") == "3PM"
+        assert model._map_market_to_stat("unknown") == "PTS"
+
+    def test_analyze_prop_invalid_returns_none(self, model):
+        """Test that invalid prop data returns None"""
+        prop_item = {
+            "event_id": "game123",
+            "outcomes": [{"name": "Over", "price": -110}]  # Missing Under
+        }
+        
+        result = model.analyze_prop_odds(prop_item)
+        assert result is None
