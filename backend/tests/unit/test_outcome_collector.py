@@ -182,8 +182,9 @@ class TestOutcomeCollector(unittest.TestCase):
         self.assertEqual(collector._map_sport_name("basketball_nba"), "basketball_nba")
         self.assertEqual(collector._map_sport_name("unknown_sport"), "unknown_sport")
 
+    @patch("outcome_collector.EloCalculator")
     @patch("outcome_collector.boto3")
-    def test_update_analysis_outcomes(self, mock_boto3):
+    def test_update_analysis_outcomes(self, mock_boto3, mock_elo):
         """Test updating analysis outcomes with new schema"""
         mock_table = Mock()
         mock_boto3.resource.return_value.Table.return_value = mock_table
@@ -196,10 +197,12 @@ class TestOutcomeCollector(unittest.TestCase):
                     "Items": [
                         {
                             "pk": "ANALYSIS#basketball_nba#fanduel#consensus#game",
-                            "sk": "LATEST",
+                            "sk": "consensus#game#LATEST",
                             "analysis_type": "game",
                             "prediction": "Lakers +2.5",
                             "game_id": "game123",
+                            "model": "consensus",
+                            "sport": "basketball_nba",
                         }
                     ]
                 }
@@ -270,7 +273,11 @@ class TestOutcomeCollector(unittest.TestCase):
                 "completed": True,
                 "home_team": "Lakers",
                 "away_team": "Warriors",
-                "scores": [{"score": "110"}, {"score": "105"}],
+                "scores": [
+                    {"name": "Lakers", "score": "110"},
+                    {"name": "Warriors", "score": "105"}
+                ],
+                "last_update": "2024-01-15T22:00:00Z"
             }
         ]
         mock_requests.return_value = mock_response
@@ -280,6 +287,8 @@ class TestOutcomeCollector(unittest.TestCase):
 
         self.assertGreater(len(games), 0)
         self.assertEqual(games[0]["home_team"], "Lakers")
+        self.assertEqual(games[0]["home_score"], "110")
+        self.assertEqual(games[0]["away_score"], "105")
 
     @patch("outcome_collector.EloCalculator")
     @patch("outcome_collector.boto3")

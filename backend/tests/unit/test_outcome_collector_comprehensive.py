@@ -61,7 +61,11 @@ class TestOutcomeCollectorComprehensive(unittest.TestCase):
                 "completed": True,
                 "home_team": "Lakers",
                 "away_team": "Warriors",
-                "scores": [{"score": 110}, {"score": 105}]
+                "scores": [
+                    {"name": "Lakers", "score": 110},
+                    {"name": "Warriors", "score": 105}
+                ],
+                "last_update": "2024-01-15T22:00:00Z"
             },
             {
                 "id": "game2",
@@ -75,7 +79,7 @@ class TestOutcomeCollectorComprehensive(unittest.TestCase):
         collector = OutcomeCollector("test-table", "test-key")
         games = collector._get_completed_games(days_back=1)
         
-        # Should only return completed games (1 per sport, 5 sports)
+        # Should only return completed games (1 per sport, 10 sports)
         self.assertGreater(len(games), 0)
         # All should be completed
         for game in games:
