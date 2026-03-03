@@ -476,9 +476,15 @@ class OutcomeCollector:
         return updates
 
     def _check_game_analysis_accuracy(
-        self, analysis_result: str, home_won: bool, game: Dict[str, Any]
+        self, analysis_result: str, winner: str, game: Dict[str, Any]
     ) -> bool:
-        """Check if a game analysis was accurate"""
+        """Check if a game analysis was accurate
+        
+        Args:
+            analysis_result: The prediction string (team name, spread, or total)
+            winner: 'home', 'away', or 'draw'
+            game: Game data with scores and team names
+        """
         try:
             home_score = int(game.get("home_score", 0))
             away_score = int(game.get("away_score", 0))
@@ -487,9 +493,8 @@ class OutcomeCollector:
             home_team = game.get("home_team", "").lower()
             away_team = game.get("away_team", "").lower()
 
-            # Convert home_won to boolean if it's a string
-            if isinstance(home_won, str):
-                home_won = home_won == "home"
+            # Convert winner to boolean for moneyline checks
+            home_won = winner == "home"
 
             # Check for spread bets (e.g., "Team +7.5" or "Team -3.5")
             if "+" in analysis_result or "-" in analysis_result:

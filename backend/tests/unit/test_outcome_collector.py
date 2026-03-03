@@ -158,15 +158,19 @@ class TestOutcomeCollector(unittest.TestCase):
 
         # Home team wins
         game1 = {"home_score": "120", "away_score": "115"}
-        self.assertTrue(collector._determine_winner(game1))
+        self.assertEqual(collector._determine_winner(game1), "home")
 
         # Away team wins
         game2 = {"home_score": "100", "away_score": "105"}
-        self.assertFalse(collector._determine_winner(game2))
+        self.assertEqual(collector._determine_winner(game2), "away")
+
+        # Tie game
+        game3 = {"home_score": "100", "away_score": "100"}
+        self.assertEqual(collector._determine_winner(game3), "draw")
 
         # Missing scores
-        game3 = {"home_score": None, "away_score": "105"}
-        self.assertFalse(collector._determine_winner(game3))
+        game4 = {"home_score": None, "away_score": "105"}
+        self.assertIsNone(collector._determine_winner(game4))
 
     def test_map_sport_name(self):
         """Test sport name mapping - returns api_sport directly"""
