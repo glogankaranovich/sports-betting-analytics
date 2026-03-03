@@ -328,176 +328,6 @@ class ConsensusModel(BaseAnalysisModel):
             return None
 
 
-class ValueModel(BaseAnalysisModel):
-    """Value model: Find best odds discrepancies"""
-
-    def __init__(self):
-        super().__init__()
-        self.elo_calculator = EloCalculator()
-
-    def analyze_game_odds(
-        self, game_id: str, odds_items: List[Dict], game_info: Dict
-    ) -> AnalysisResult:
-        spreads = []
-        current_bookmaker = game_info.get("bookmaker")
-
-        for item in odds_items:
-            if "spreads" in item.get("sk", "") and "outcomes" in item:
-                if len(item["outcomes"]) >= 2:
-                    spread = float(item["outcomes"][0].get("point", 0))
-                    price = float(item["outcomes"][0].get("price", 0))
-                    spreads.append((spread, price))
-
-        if not spreads:
-            return None
-
-        selected_spread = spreads[0]
-        avg_spread = sum(s[0] for s in spreads) / len(spreads)
-        spread_diff = selected_spread[0] - avg_spread
-        
-        # Value exists when this bookmaker's spread is better than average
-        # More negative spread = home team favored more = better value on home
-        # Less negative spread = away team getting more points = better value on away
-        if abs(spread_diff) < 0.5:
-            return None  # Not enough value
-        
-        sport = game_info.get("sport")
-        home_team = game_info.get("home_team")
-        away_team = game_info.get("away_team")
-        
-        # Determine which team has value
-        if spread_diff < 0:
-            # This book has home team favored more (more negative spread)
-            # Value is on home team covering the larger spread
-            prediction = home_team
-            reasoning = f"Value on {home_team}: {current_bookmaker} offers {abs(selected_spread[0]):.1f} spread vs market average {abs(avg_spread):.1f}. Getting {abs(spread_diff):.1f} extra points of value"
-        else:
-            # This book has away team getting more points
-            # Value is on away team with better spread
-            prediction = away_team
-            reasoning = f"Value on {away_team}: {current_bookmaker} offers +{abs(selected_spread[0]):.1f} spread vs market average +{abs(avg_spread):.1f}. Getting {abs(spread_diff):.1f} extra points of value"
-        
-        confidence = 0.7 if abs(spread_diff) > 1.0 else 0.6
-        
-        try:
-            home_elo = self.elo_calculator.get_team_rating(sport, home_team)
-            away_elo = self.elo_calculator.get_team_rating(sport, away_team)
-            elo_diff = home_elo - away_elo
-            
-            # Boost confidence if value bet aligns with Elo strength
-            if (prediction == home_team and elo_diff > 50) or \
-               (prediction == away_team and elo_diff < -50):
-                confidence = min(confidence + 0.05, 0.95)
-        except Exception as e:
-            logger.error(f"Error getting Elo ratings: {e}")
-        
-        confidence = self._adjust_confidence(confidence, "value", sport)
-
-        return AnalysisResult(
-            game_id=game_id,
-            model="value",
-            analysis_type="game",
-            sport=sport,
-            home_team=home_team,
-            away_team=away_team,
-            commence_time=game_info.get("commence_time"),
-            prediction=prediction,
-            confidence=confidence,
-            reasoning=reasoning,
-            recommended_odds=-110,
-        )
-
-    def analyze_prop_odds(self, prop_item: Dict) -> AnalysisResult:
-        """Analyze prop odds looking for value opportunities"""
-        try:
-            if "outcomes" not in prop_item or len(prop_item["outcomes"]) < 2:
-                return None
-
-            outcomes = prop_item["outcomes"]
-            over_outcome = next((o for o in outcomes if o["name"] == "Over"), None)
-            under_outcome = next((o for o in outcomes if o["name"] == "Under"), None)
-
-            if not over_outcome or not under_outcome:
-                return None
-
-            # Convert American odds to probabilities
-            over_decimal = self.american_to_decimal(int(over_outcome["price"]))
-            under_decimal = self.american_to_decimal(int(under_outcome["price"]))
-
-            over_prob = 1 / over_decimal
-            under_prob = 1 / under_decimal
-
-            # Look for value - if one side has significantly better odds
-            total_prob = over_prob + under_prob
-            vig = total_prob - 1.0
-
-            # Remove vig to get fair probabilities
-            over_prob_fair = over_prob / total_prob
-            under_prob_fair = under_prob / total_prob
-
-            # Value model looks for low vig situations (better value for bettors)
-            if vig < 0.06:  # Low vig (< 6%) = good value
-                confidence = 0.75
-                if over_prob_fair > under_prob_fair:
-                    prediction = f"Over {prop_item.get('point', 'N/A')}"
-                    reasoning = (
-                        f"Great odds: Sportsbook is offering better than usual pricing. Over is {over_prob_fair:.0%} likely based on the odds"
-                    )
-                else:
-                    prediction = f"Under {prop_item.get('point', 'N/A')}"
-                    reasoning = (
-                        f"Great odds: Sportsbook is offering better than usual pricing. Under is {under_prob_fair:.0%} likely based on the odds"
-                    )
-            elif vig < 0.08:  # Moderate vig (6-8%) = decent value
-                confidence = 0.65
-                if over_prob_fair > 0.52:  # Slight edge
-                    prediction = f"Over {prop_item.get('point', 'N/A')}"
-                    reasoning = (
-                        f"Good odds: Over has a slight edge at {over_prob_fair:.0%} probability. Better pricing than typical"
-                    )
-                elif under_prob_fair > 0.52:
-                    prediction = f"Under {prop_item.get('point', 'N/A')}"
-                    reasoning = (
-                        f"Good odds: Under has a slight edge at {under_prob_fair:.0%} probability. Better pricing than typical"
-                    )
-                else:
-                    return None  # Too close to call
-            else:
-                # High vig - only recommend if there's a clear edge
-                if over_prob_fair > 0.55:
-                    prediction = f"Over {prop_item.get('point', 'N/A')}"
-                    confidence = 0.6
-                    reasoning = f"Decent odds: Over is {over_prob_fair:.0%} likely. Worth considering despite higher sportsbook fees"
-                elif under_prob_fair > 0.55:
-                    prediction = f"Under {prop_item.get('point', 'N/A')}"
-                    confidence = 0.6
-                    reasoning = f"Decent odds: Under is {under_prob_fair:.0%} likely. Worth considering despite higher sportsbook fees"
-                else:
-                    return None  # No value in high vig situation
-
-            # Adjust confidence based on historical performance
-            confidence = self._adjust_confidence(confidence, "value", prop_item.get("sport"))
-
-            return AnalysisResult(
-                game_id=prop_item.get("event_id", "unknown"),
-                model="value",
-                analysis_type="prop",
-                sport=prop_item.get("sport"),
-                home_team=prop_item.get("home_team"),
-                away_team=prop_item.get("away_team"),
-                commence_time=prop_item.get("commence_time"),
-                player_name=prop_item.get("player_name", "Unknown Player"),
-                market_key=prop_item.get("market_key"),
-                prediction=prediction,
-                confidence=confidence,
-                reasoning=reasoning,
-                recommended_odds=-110,
-            )
-
-        except Exception as e:
-            logger.error(f"Error analyzing prop odds: {e}", exc_info=True)
-            return None
-
 
 class ContrarianModel(BaseAnalysisModel):
     """Contrarian model: Fade the public, follow sharp action with Elo validation"""
@@ -2195,7 +2025,6 @@ class ModelFactory:
 
     _models = {
         "consensus": ConsensusModel,
-        "value": ValueModel,
         "contrarian": ContrarianModel,
         "hot_cold": HotColdModel,
         "rest_schedule": RestScheduleModel,
@@ -2224,9 +2053,13 @@ class ModelFactory:
             from ml.models.momentum import MomentumModel
             return MomentumModel()
         
+        if model_name == "value":
+            from ml.models.value import ValueModel
+            return ValueModel()
+        
         if model_name not in cls._models:
             raise ValueError(
-                f"Unknown model: {model_name}. Available: {list(cls._models.keys()) + ['player_stats', 'fundamentals', 'matchup', 'momentum']}"
+                f"Unknown model: {model_name}. Available: {list(cls._models.keys()) + ['player_stats', 'fundamentals', 'matchup', 'momentum', 'value']}"
             )
 
         return cls._models[model_name]()
@@ -2234,7 +2067,7 @@ class ModelFactory:
     @classmethod
     def get_available_models(cls) -> List[str]:
         """Get list of available model names"""
-        return list(cls._models.keys()) + ["player_stats", "fundamentals", "matchup", "momentum"]
+        return list(cls._models.keys()) + ["player_stats", "fundamentals", "matchup", "momentum", "value"]
 
     def _calculate_std(self, values: List[float]) -> float:
         """Calculate standard deviation"""
