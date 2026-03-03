@@ -31,8 +31,11 @@ def test_handler_success(mock_trader_class, lambda_context, mock_env):
     
     mock_trader = MagicMock()
     mock_trader.run_daily_analysis.return_value = {
-        "bets_placed": 3,
-        "opportunities_found": 10,
+        "game_bets_placed": 2,
+        "prop_bets_placed": 1,
+        "total_bets": 3,
+        "game_opportunities": 5,
+        "prop_opportunities": 5,
         "total_bet_amount": 15.0,
         "remaining_bankroll": 85.0,
     }
@@ -42,7 +45,9 @@ def test_handler_success(mock_trader_class, lambda_context, mock_env):
 
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
-    assert body["bets_placed"] == 3
+    assert body["game_bets_placed"] == 2
+    assert body["prop_bets_placed"] == 1
+    assert body["total_bets"] == 3
     assert "timestamp" in body
 
     mock_trader_class.assert_called_once()
@@ -54,8 +59,11 @@ def test_handler_no_bets(mock_trader_class, lambda_context, mock_env):
     """Test handler when no bets are placed."""
     mock_trader = MagicMock()
     mock_trader.run_daily_analysis.return_value = {
-        "bets_placed": 0,
-        "opportunities_found": 5,
+        "game_bets_placed": 0,
+        "prop_bets_placed": 0,
+        "total_bets": 0,
+        "game_opportunities": 5,
+        "prop_opportunities": 5,
         "total_bet_amount": 0.0,
         "remaining_bankroll": 100.0,
     }
@@ -65,7 +73,7 @@ def test_handler_no_bets(mock_trader_class, lambda_context, mock_env):
 
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
-    assert body["bets_placed"] == 0
+    assert body["total_bets"] == 0
 
 
 @patch("benny_trader_handler.BennyTrader")

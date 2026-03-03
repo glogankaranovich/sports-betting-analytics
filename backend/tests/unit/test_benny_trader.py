@@ -106,14 +106,21 @@ class TestBennyTrader:
         trader._get_team_injuries = MagicMock(return_value=[])
         trader._get_head_to_head = MagicMock(return_value=[])
         trader._get_recent_form = MagicMock(return_value=[])
+        trader._get_team_news_sentiment = MagicMock(return_value={"sentiment_score": 0.0, "impact_score": 0.0, "news_count": 0})
+        trader._get_elo_rating = MagicMock(return_value=1500.0)
+        trader._get_adjusted_metrics = MagicMock(return_value={})
+        trader._get_weather_data = MagicMock(return_value={})
+        trader._get_fatigue_data = MagicMock(return_value={})
         
-        # Mock AI analysis to return high confidence
+        # Mock AI analysis to return high confidence for h2h market
         trader._ai_analyze_game = MagicMock(
             return_value={
-                "prediction": "Lakers",
-                "confidence": 0.75,
-                "reasoning": "Test reasoning",
-                "key_factors": ["Factor 1", "Factor 2"],
+                "h2h": {
+                    "prediction": "Lakers",
+                    "confidence": 0.75,
+                    "reasoning": "Test reasoning",
+                    "key_factors": ["Factor 1", "Factor 2"],
+                }
             }
         )
 
@@ -173,9 +180,12 @@ class TestBennyTrader:
         assert "ai_reasoning" in result
         mock_table.put_item.assert_called()
 
-    def test_place_bet_insufficient_bankroll(self, trader):
+    def test_place_bet_insufficient_bankroll(self, trader, mock_table):
         """Test bet fails with insufficient bankroll"""
         trader.bankroll = Decimal("1.00")
+        
+        # Mock no existing bets
+        mock_table.query.return_value = {"Items": []}
 
         opportunity = {
             "game_id": "test123",
@@ -186,6 +196,7 @@ class TestBennyTrader:
             "confidence": 0.95,
             "commence_time": "2024-01-15T19:00:00Z",
             "market_key": "h2h",
+            "odds": -110,
         }
 
         result = trader.place_bet(opportunity)
