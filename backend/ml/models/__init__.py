@@ -10,5 +10,6 @@ from ml.models.rest_schedule import RestScheduleModel
 from ml.models.injury_aware import InjuryAwareModel
 from ml.models.contrarian import ContrarianModel
 from ml.models.news import NewsModel
+from ml.models.ensemble import EnsembleModel
 
 __all__ = ["BaseModel", "FundamentalsModel", "MatchupModel", "MomentumModel", "ValueModel", "HotColdModel"]
