@@ -8,7 +8,8 @@ from decimal import Decimal
 import sys
 sys.path.insert(0, '/Users/glkaranovich/workplace/sports-betting-analytics/backend')
 
-from ml.models import FundamentalsModel, AnalysisResult
+from ml.models.fundamentals import FundamentalsModel
+from ml.types import AnalysisResult
 
 
 class TestFundamentalsModel:
@@ -17,9 +18,9 @@ class TestFundamentalsModel:
     @pytest.fixture
     def model(self):
         """Create a Fundamentals model instance with mocked dependencies"""
-        with patch('ml.models.EloCalculator'), \
-             patch('ml.models.TravelFatigueCalculator'), \
-             patch('ml.models.boto3'):
+        with patch('elo_calculator.EloCalculator'), \
+             patch('travel_fatigue_calculator.TravelFatigueCalculator'), \
+             patch('boto3.resource'):
             model = FundamentalsModel()
             model.table = Mock()
             model.elo_calculator = Mock()
@@ -321,7 +322,7 @@ class TestFundamentalsModel:
     
     def test_emit_unsupported_sport_metric(self, model):
         """Test CloudWatch metric emission"""
-        with patch('ml.models.boto3.client') as mock_boto:
+        with patch('ml.models.fundamentals.boto3.client') as mock_boto:
             mock_cloudwatch = Mock()
             mock_boto.return_value = mock_cloudwatch
             
