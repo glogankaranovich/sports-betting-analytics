@@ -651,56 +651,46 @@ class HotColdModel(BaseAnalysisModel):
     def _get_recent_record(
         self, team: str, sport: str, lookback: int = 10
     ) -> Dict[str, int]:
-        """
-        Query recent games for a team
-        Returns wins, losses, and total games
-        """
+        """Query recent game outcomes for a team"""
         try:
-            # Query for recent games where this team played
+            # Query OUTCOME table for actual game results
+            normalized_team = team.lower().replace(" ", "_")
+            
             response = self.table.query(
-                IndexName="AnalysisTimeGSI",
-                KeyConditionExpression="analysis_time_pk = :pk",
-                FilterExpression="(home_team = :team OR away_team = :team) AND attribute_exists(analysis_correct)",
+                IndexName="OutcomeGSI",
+                KeyConditionExpression="outcome_gsi_pk = :pk",
+                FilterExpression="home_team = :team OR away_team = :team",
                 ExpressionAttributeValues={
-                    ":pk": f"ANALYSIS#{sport}#all#all#game",
+                    ":pk": f"OUTCOME#{sport}",
                     ":team": team,
                 },
-                Limit=lookback,
-                ScanIndexForward=False,  # Most recent first
+                Limit=lookback * 2,  # Get more since we filter
+                ScanIndexForward=False,
             )
 
-            items = response.get("Items", [])
+            items = response.get("Items", [])[:lookback]
 
             if not items:
-                # No data available, return neutral record
                 return {"wins": 5, "losses": 5, "games": 10}
 
             wins = 0
             losses = 0
 
             for item in items:
-                home_team = item.get("home_team")
-                prediction = item.get("prediction", "")
-                correct = item.get("analysis_correct", False)
-
-                # Determine if this team won
-                if home_team == team:
-                    # Team was home
-                    team_won = correct if team in prediction else not correct
-                else:
-                    # Team was away
-                    team_won = correct if team in prediction else not correct
-
-                if team_won:
+                winner = item.get("winner")
+                if winner == team:
                     wins += 1
-                else:
+                elif winner and winner != "draw":
                     losses += 1
 
-            return {"wins": wins, "losses": losses, "games": wins + losses}
+            total_games = wins + losses
+            if total_games == 0:
+                return {"wins": 5, "losses": 5, "games": 10}
+
+            return {"wins": wins, "losses": losses, "games": total_games}
 
         except Exception as e:
             logger.error(f"Error querying recent record: {e}", exc_info=True)
-            # Return neutral record on error
             return {"wins": 5, "losses": 5, "games": 10}
 
     def _calculate_form_score(self, record: Dict[str, int]) -> float:
