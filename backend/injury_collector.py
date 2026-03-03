@@ -20,10 +20,15 @@ class InjuryCollector:
         """Collect injury reports for all teams in a sport"""
         sport_mapping = {
             "basketball_nba": ("basketball", "nba"),
+            "basketball_wnba": ("basketball", "wnba"),
             "americanfootball_nfl": ("football", "nfl"),
+            "americanfootball_ncaaf": ("football", "college-football"),
             "baseball_mlb": ("baseball", "mlb"),
             "icehockey_nhl": ("hockey", "nhl"),
             "soccer_epl": ("soccer", "eng.1"),
+            "soccer_usa_mls": ("soccer", "usa.1"),
+            "basketball_ncaab": ("basketball", "mens-college-basketball"),
+            "basketball_wncaab": ("basketball", "womens-college-basketball"),
         }
 
         if sport not in sport_mapping:
