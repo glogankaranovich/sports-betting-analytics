@@ -13,6 +13,20 @@ import requests
 
 
 class TeamSeasonStatsCollector:
+    # ESPN sport path mappings
+    SPORT_MAP = {
+        "basketball_nba": "basketball/nba",
+        "basketball_wnba": "basketball/wnba",
+        "basketball_ncaab": "basketball/mens-college-basketball",
+        "basketball_wncaab": "basketball/womens-college-basketball",
+        "americanfootball_nfl": "football/nfl",
+        "americanfootball_ncaaf": "football/college-football",
+        "baseball_mlb": "baseball/mlb",
+        "icehockey_nhl": "hockey/nhl",
+        "soccer_epl": "soccer/eng.1",
+        "soccer_usa_mls": "soccer/usa.1",
+    }
+    
     def __init__(self):
         self.dynamodb = boto3.resource("dynamodb")
         self.table = self.dynamodb.Table(os.getenv("DYNAMODB_TABLE"))
@@ -20,15 +34,9 @@ class TeamSeasonStatsCollector:
 
     def collect_team_stats(self, sport: str, team_abbr: str) -> Optional[Dict]:
         """Collect season statistics for a team"""
-        sport_map = {
-            "basketball_nba": "basketball/nba",
-            "americanfootball_nfl": "football/nfl",
-            "baseball_mlb": "baseball/mlb",
-            "icehockey_nhl": "hockey/nhl",
-        }
-        
-        espn_sport = sport_map.get(sport)
+        espn_sport = self.SPORT_MAP.get(sport)
         if not espn_sport:
+            print(f"Unsupported sport: {sport}")
             return None
         
         url = f"{self.espn_base_url}/{espn_sport}/teams/{team_abbr}/statistics"
@@ -42,14 +50,16 @@ class TeamSeasonStatsCollector:
                 return None
             
             # Parse stats based on sport
-            if sport == "basketball_nba":
+            if sport == "basketball_nba" or sport == "basketball_wnba" or sport == "basketball_ncaab" or sport == "basketball_wncaab":
                 return self._parse_nba_stats(data)
-            elif sport == "americanfootball_nfl":
+            elif sport == "americanfootball_nfl" or sport == "americanfootball_ncaaf":
                 return self._parse_nfl_stats(data)
             elif sport == "icehockey_nhl":
                 return self._parse_nhl_stats(data)
             elif sport == "baseball_mlb":
                 return self._parse_mlb_stats(data)
+            elif sport == "soccer_epl" or sport == "soccer_usa_mls":
+                return self._parse_soccer_stats(data)
             
             return None
             
@@ -174,6 +184,29 @@ class TeamSeasonStatsCollector:
                     stats["era"] = value
                 elif cat_name == "pitching" and name == "WHIP":
                     stats["whip"] = value
+        
+        return stats
+
+    def _parse_soccer_stats(self, data: Dict) -> Dict:
+        """Parse soccer statistics"""
+        stats = {}
+        categories = data.get("results", {}).get("stats", {}).get("categories", [])
+        
+        for category in categories:
+            for stat in category.get("stats", []):
+                name = stat.get("name")
+                value = stat.get("value")
+                
+                if name == "avgGoals":
+                    stats["goals_per_game"] = value
+                elif name == "avgGoalsAgainst":
+                    stats["goals_against_per_game"] = value
+                elif name == "avgShots":
+                    stats["shots_per_game"] = value
+                elif name == "avgShotsOnTarget":
+                    stats["shots_on_target_per_game"] = value
+                elif name == "possession":
+                    stats["possession_pct"] = value
         
         return stats
 
