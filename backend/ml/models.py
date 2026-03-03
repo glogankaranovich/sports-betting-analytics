@@ -524,7 +524,16 @@ class MomentumModel(BaseAnalysisModel):
         away_team = game_info.get("away_team")
         game_date = game_info.get("commence_time")
         
+        # Determine prediction based on line movement
+        # Negative movement = line moving toward home team (sharp money on home)
+        # Positive movement = line moving toward away team (sharp money on away)
+        if movement < 0:
+            prediction = home_team
+        else:
+            prediction = away_team
+        
         fatigue_context = ""
+        fatigue_adjustment = 0
         try:
             home_fatigue = self.fatigue_calculator.calculate_fatigue_score(home_team, sport, game_date)
             away_fatigue = self.fatigue_calculator.calculate_fatigue_score(away_team, sport, game_date)
@@ -536,9 +545,14 @@ class MomentumModel(BaseAnalysisModel):
                 if fatigue_diff > 0:
                     # Away team more fatigued, home advantage
                     fatigue_context = f" {away_team} fatigued (score: {away_fatigue['fatigue_score']}, {away_fatigue['days_rest']}d rest)."
+                    # If prediction aligns with fatigue, boost confidence
+                    if prediction == home_team:
+                        fatigue_adjustment = 0.05
                 else:
                     # Home team more fatigued
                     fatigue_context = f" {home_team} fatigued (score: {home_fatigue['fatigue_score']}, {home_fatigue['days_rest']}d rest)."
+                    if prediction == away_team:
+                        fatigue_adjustment = 0.05
         except Exception as e:
             logger.error(f"Error calculating fatigue: {e}")
 
@@ -565,7 +579,7 @@ class MomentumModel(BaseAnalysisModel):
         except Exception as e:
             logger.error(f"Error getting Elo ratings: {e}")
 
-        confidence = self._adjust_confidence(confidence, "momentum", sport)
+        confidence = self._adjust_confidence(confidence + fatigue_adjustment, "momentum", sport)
 
         return AnalysisResult(
             game_id=game_id,
@@ -575,7 +589,7 @@ class MomentumModel(BaseAnalysisModel):
             home_team=home_team,
             away_team=away_team,
             commence_time=game_date,
-            prediction=f"{home_team} {new_spread:+.1f}",
+            prediction=prediction,
             confidence=confidence,
             reasoning=reasoning,
             recommended_odds=-110,
