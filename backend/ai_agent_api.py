@@ -47,8 +47,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'Unit': 'Count'
                 }]
             )
-        except:
-            pass
+        except Exception as e:
+            print(f"Failed to emit metric: {e}")
         
         return {
             "statusCode": 500,
