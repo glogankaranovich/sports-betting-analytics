@@ -1725,6 +1725,7 @@ class MatchupModel(BaseAnalysisModel):
             stats_map = {
                 "icehockey_nhl": ("Shots", "Power Play Percentage"),
                 "basketball_nba": ("Field Goal %", "Defensive Rebounds"),
+                "basketball_wnba": ("Field Goal %", "Defensive Rebounds"),
                 "americanfootball_nfl": ("Total Yards", "Turnovers"),
                 "baseball_mlb": ("Batting Average", "ERA"),
                 "soccer_epl": ("ON GOAL", "Effective Tackles"),  # Shots on goal, not target
@@ -1746,7 +1747,7 @@ class MatchupModel(BaseAnalysisModel):
                 if sport == "icehockey_nhl":
                     offense_matchup = (home_offense - away_offense) / 10
                     defense_matchup = (home_defense - away_defense) / 10
-                elif sport in ["basketball_nba", "basketball_ncaab", "basketball_wncaab"]:
+                elif sport in ["basketball_nba", "basketball_wnba", "basketball_ncaab", "basketball_wncaab"]:
                     offense_matchup = (home_offense - away_offense) * 10  # FG% is 0-1
                     defense_matchup = (home_defense - away_defense) / 5   # Rebounds
                 elif sport in ["americanfootball_nfl", "americanfootball_ncaaf"]:
