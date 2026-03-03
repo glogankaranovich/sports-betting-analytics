@@ -7,7 +7,8 @@ from typing import Any, Dict
 import boto3
 
 from ml.dynamic_weighting import DynamicModelWeighting
-from ml.models import AnalysisResult, ModelFactory
+from ml.types import AnalysisResult
+from ml.model_factory import ModelFactory
 
 # DynamoDB setup
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
