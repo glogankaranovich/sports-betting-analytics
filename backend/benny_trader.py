@@ -1489,6 +1489,11 @@ Only include markets where you have positive expected value. Omit markets withou
     
     def _send_bet_notification(self, bet: Dict, opportunity: Dict):
         """Send bet notification event to SQS"""
+        # Only send notifications in dev environment
+        environment = os.environ.get('ENVIRONMENT', 'dev')
+        if environment != 'dev':
+            return
+            
         if not self.notification_queue_url:
             return
         
