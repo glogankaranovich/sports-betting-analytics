@@ -74,11 +74,18 @@ def render_template(template: str, data: Dict[str, Any]) -> str:
     return html
 
 
-def prepare_email_data(dashboard_data: Dict[str, Any]) -> Dict[str, Any]:
+def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekly') -> Dict[str, Any]:
     """Prepare data for email template"""
     now = datetime.utcnow()
-    week_start = (now - timedelta(days=7)).strftime('%b %d')
-    week_end = now.strftime('%b %d, %Y')
+    
+    if report_type == 'daily':
+        # Daily report: yesterday to today
+        week_start = (now - timedelta(days=1)).strftime('%b %d')
+        week_end = now.strftime('%b %d, %Y')
+    else:
+        # Weekly report: last 7 days
+        week_start = (now - timedelta(days=7)).strftime('%b %d')
+        week_end = now.strftime('%b %d, %Y')
     
     # Calculate bankroll change
     bankroll = dashboard_data['current_bankroll']
@@ -183,16 +190,17 @@ def send_email(to_email: str, subject: str, html_body: str):
 
 
 def lambda_handler(event, context):
-    """Lambda handler for weekly Benny report"""
+    """Lambda handler for Benny reports (daily or weekly)"""
     try:
-        print("Generating Benny weekly report...")
+        report_type = event.get('report_type', 'weekly')
+        print(f"Generating Benny {report_type} report...")
         
         # Get dashboard data
         dashboard_data = BennyTrader.get_dashboard_data()
         
         # Load and render template
         template = load_template()
-        email_data = prepare_email_data(dashboard_data)
+        email_data = prepare_email_data(dashboard_data, report_type)
         html_body = render_template(template, email_data)
         
         # Get subscribed users
@@ -203,10 +211,12 @@ def lambda_handler(event, context):
         sent_count = 0
         failed_count = 0
         
+        subject_prefix = "🤖 Benny's Daily Update" if report_type == 'daily' else "🤖 Benny's Weekly Report"
+        
         for email in subscribers:
             if send_email(
                 to_email=email,
-                subject=f"🤖 Benny's Weekly Report - {email_data['week_start']} to {email_data['week_end']}",
+                subject=f"{subject_prefix} - {email_data['week_start']} to {email_data['week_end']}",
                 html_body=html_body
             ):
                 sent_count += 1
@@ -216,14 +226,14 @@ def lambda_handler(event, context):
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Weekly report sent',
+                'message': f'{report_type.capitalize()} report sent',
                 'sent': sent_count,
                 'failed': failed_count
             })
         }
         
     except Exception as e:
-        print(f"Error generating weekly report: {e}")
+        print(f"Error generating report: {e}")
         import traceback
         traceback.print_exc()
         

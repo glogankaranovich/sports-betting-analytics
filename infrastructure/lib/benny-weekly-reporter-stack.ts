@@ -76,6 +76,21 @@ export class BennyWeeklyReporterStack extends cdk.Stack {
 
     weeklySchedule.addTarget(new targets.LambdaFunction(this.weeklyReporterFunction));
 
+    // EventBridge schedule - Every day at 8 AM ET (13:00 UTC)
+    const dailySchedule = new events.Rule(this, 'BennyDailyReportSchedule', {
+      schedule: events.Schedule.cron({
+        minute: '0',
+        hour: '13',
+      }),
+      description: 'Trigger Benny daily report every day at 8 AM ET',
+    });
+
+    dailySchedule.addTarget(new targets.LambdaFunction(this.weeklyReporterFunction, {
+      event: events.RuleTargetInput.fromObject({
+        report_type: 'daily'
+      })
+    }));
+
     new cdk.CfnOutput(this, 'BennyWeeklyReporterFunctionName', {
       value: this.weeklyReporterFunction.functionName,
     });
