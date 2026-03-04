@@ -760,7 +760,9 @@ ANALYSIS INSTRUCTIONS:
 7. Be conservative - only bet when you see clear positive value
 
 Respond with JSON only:
-{{"prediction": "Over/Under X.X", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}"""
+{{"prediction": "Over/Under X.X (Player Market)", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}
+
+IMPORTANT: Include market type in prediction for clarity (e.g., "Over 25.5 (Points)", "Under 8.5 (Rebounds)")."""
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
@@ -1027,8 +1029,9 @@ ANALYSIS INSTRUCTIONS:
 8. Be selective - only bet when you have clear positive expected value
 
 Respond with JSON only - include ALL markets you want to bet on:
-{{"h2h": {{"prediction": "Team Name", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
+{{"h2h": {{"prediction": "Team Name (Moneyline)", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name -X.X (Spread)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under XXX.X (Total)", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
 
+IMPORTANT: Include market type in prediction text for clarity.
 Only include markets where you have positive expected value. Omit markets without +EV."""
 
             response = bedrock.invoke_model(
