@@ -75,6 +75,60 @@ class BennyTrader:
                 "performance_by_bet_type": {},
             }
 
+    def _get_performance_stats(self, days: int = 30) -> Dict[str, Any]:
+        """Get Benny's historical performance stats for learning"""
+        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        
+        try:
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND sk > :sk",
+                ExpressionAttributeValues={":pk": "BENNY", ":sk": f"BET#{cutoff}"}
+            )
+            bets = [b for b in response.get("Items", []) if b.get("status") in ["won", "lost"]]
+            
+            if not bets:
+                return {"message": "No settled bets yet"}
+            
+            # Overall stats
+            won = [b for b in bets if b["status"] == "won"]
+            total_wagered = sum(Decimal(str(b.get("stake", 0))) for b in bets)
+            total_profit = sum(Decimal(str(b.get("profit", 0))) for b in bets)
+            
+            stats = {
+                "overall": {
+                    "win_rate": f"{len(won)/len(bets):.1%}",
+                    "roi": f"{(total_profit/total_wagered*100):.1f}%" if total_wagered > 0 else "0%",
+                    "total_bets": len(bets)
+                },
+                "by_sport": {},
+                "by_market": {},
+                "notable": {"best": None, "worst": None}
+            }
+            
+            # By sport
+            for sport in set(b.get("sport", "unknown") for b in bets):
+                sport_bets = [b for b in bets if b.get("sport") == sport]
+                if sport_bets:
+                    sport_won = [b for b in sport_bets if b["status"] == "won"]
+                    stats["by_sport"][sport] = f"{len(sport_won)}/{len(sport_bets)} ({len(sport_won)/len(sport_bets):.1%})"
+            
+            # By market type
+            for market in set(b.get("market_type", "unknown") for b in bets):
+                market_bets = [b for b in bets if b.get("market_type") == market]
+                if market_bets:
+                    market_won = [b for b in market_bets if b["status"] == "won"]
+                    stats["by_market"][market] = f"{len(market_won)}/{len(market_bets)} ({len(market_won)/len(market_bets):.1%})"
+            
+            # Notable bets
+            if bets:
+                stats["notable"]["best"] = max(bets, key=lambda b: Decimal(str(b.get("profit", 0))))
+                stats["notable"]["worst"] = min(bets, key=lambda b: Decimal(str(b.get("profit", 0))))
+            
+            return stats
+        except Exception as e:
+            print(f"Error fetching performance stats: {e}")
+            return {"message": "Error loading stats"}
+
     def _normalize_prediction(self, prediction: str) -> str:
         """Normalize prediction for agreement checking.
 
@@ -721,6 +775,18 @@ class BennyTrader:
             over_prob = self._american_to_probability(avg_over) if avg_over else 0
             under_prob = self._american_to_probability(avg_under) if avg_under else 0
 
+            perf_stats = self._get_performance_stats()
+            print(f"[PROP] Performance stats: {perf_stats}")
+            perf_context = ""
+            if "overall" in perf_stats:
+                perf_context = f"""
+BENNY'S HISTORICAL PERFORMANCE (Last 30 days):
+Overall: {perf_stats['overall']['win_rate']} win rate, {perf_stats['overall']['roi']} ROI ({perf_stats['overall']['total_bets']} bets)
+By Sport: {', '.join(f"{s}: {r}" for s, r in perf_stats['by_sport'].items())}
+By Market: {', '.join(f"{m}: {r}" for m, r in perf_stats['by_market'].items())}
+Note: Use this to inform confidence - be more conservative in markets where you've struggled."""
+                print(f"[PROP] Including performance context in AI prompt")
+
             prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
 RISK PARAMETERS:
@@ -728,7 +794,7 @@ RISK PARAMETERS:
 - Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
 - Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
 - Current Bankroll: ${float(self.bankroll):.2f}
-
+{perf_context}
 Player: {prop_data['player']} ({prop_data['team']})
 Opponent: {prop_data['opponent']}
 Market: {prop_data['market']}
@@ -968,6 +1034,18 @@ TOTAL:
 Over {avg_total['point']:.1f}: {avg_total['over_price']} ({total_over_prob:.1%} implied)
 Under {avg_total['point']:.1f}: {avg_total['under_price']} ({total_under_prob:.1%} implied)"""
 
+            perf_stats = self._get_performance_stats()
+            print(f"[GAME] Performance stats: {perf_stats}")
+            perf_context = ""
+            if "overall" in perf_stats:
+                perf_context = f"""
+BENNY'S HISTORICAL PERFORMANCE (Last 30 days):
+Overall: {perf_stats['overall']['win_rate']} win rate, {perf_stats['overall']['roi']} ROI ({perf_stats['overall']['total_bets']} bets)
+By Sport: {', '.join(f"{s}: {r}" for s, r in perf_stats['by_sport'].items())}
+By Market: {', '.join(f"{m}: {r}" for m, r in perf_stats['by_market'].items())}
+Note: Use this to inform confidence - be more conservative in markets where you've struggled."""
+                print(f"[GAME] Including performance context in AI prompt")
+
             prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
 RISK PARAMETERS:
@@ -975,7 +1053,7 @@ RISK PARAMETERS:
 - Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
 - Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
 - Current Bankroll: ${float(self.bankroll):.2f}
-
+{perf_context}
 Game: {game_data['away_team']} @ {game_data['home_team']}
 Sport: {game_data['sport']}
 Time: {game_data['commence_time']}
