@@ -753,7 +753,11 @@ ANALYSIS INSTRUCTIONS:
 3. Factor in matchup history against this opponent
 4. Look for value where the line doesn't match recent performance
 5. Consider Benny's historical accuracy on this prop type
-6. Be conservative - only bet when you see clear value
+6. CRITICAL: Only recommend bets with positive expected value (EV > 0)
+   - Calculate EV = (confidence × payout) - 1
+   - For -110 odds: payout = 1.909, so need confidence > 0.524 for +EV
+   - For +150 odds: payout = 2.5, so need confidence > 0.40 for +EV
+7. Be conservative - only bet when you see clear positive value
 
 Respond with JSON only:
 {{"prediction": "Over/Under X.X", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}"""
@@ -1014,14 +1018,18 @@ ANALYSIS INSTRUCTIONS:
 2. Prioritize Elo ratings and opponent-adjusted metrics
 3. Factor in fatigue if either team has score >50 or traveled >1000 miles
 4. Consider weather impact if marked as "high" or "moderate"
-5. Look for value where your confidence differs significantly from implied odds
+5. CRITICAL: Only recommend bets with positive expected value (EV > 0)
+   - Calculate EV = (confidence × payout) - 1
+   - Example: -110 odds (payout 1.909) needs confidence > 0.524 for +EV
+   - Example: +150 odds (payout 2.5) needs confidence > 0.40 for +EV
 6. For spreads: Consider if favorite can cover the spread, not just win
 7. For totals: Analyze pace, defense, and scoring trends
+8. Be selective - only bet when you have clear positive expected value
 
 Respond with JSON only - include ALL markets you want to bet on:
 {{"h2h": {{"prediction": "Team Name", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
 
-Only include markets where you have strong conviction (confidence >0.60). Omit markets you don't want to bet."""
+Only include markets where you have positive expected value. Omit markets without +EV."""
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
