@@ -367,13 +367,73 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
         </div>
       </div>
 
+      {/* Pending Bets Section */}
       <div className="benny-bets">
-        <h3>Recent Bets</h3>
-        {data.recent_bets.length === 0 ? (
-          <div className="no-data-message">No recent bets found</div>
+        <h3>Pending Bets</h3>
+        {data.recent_bets.filter(bet => bet.status === 'pending').length === 0 ? (
+          <div className="no-data-message">No pending bets</div>
         ) : (
           <div className="bets-table">
-            {data.recent_bets.map((bet) => (
+            {data.recent_bets.filter(bet => bet.status === 'pending').map((bet) => (
+            <div key={bet.bet_id} className={`bet-card ${bet.status}`}>
+              <div 
+                className={`bet-row ${bet.status}`}
+                onClick={() => setExpandedBet(expandedBet === bet.bet_id ? null : bet.bet_id)}
+              >
+                <div className="bet-game">{bet.game}</div>
+                <div className="bet-prediction">{bet.prediction}</div>
+                <div className="bet-confidence">
+                  {bet.ensemble_confidence !== bet.final_confidence ? (
+                    <>
+                      <span className="ensemble">{(bet.ensemble_confidence * 100).toFixed(0)}%</span>
+                      <span className="arrow">→</span>
+                      <span className="final">{(bet.final_confidence * 100).toFixed(0)}%</span>
+                    </>
+                  ) : (
+                    <span>{(bet.final_confidence * 100).toFixed(0)}%</span>
+                  )}
+                </div>
+                <div className="bet-amount">${bet.bet_amount.toFixed(2)}</div>
+                <div className={`bet-status ${bet.status}`}>
+                  {bet.expected_roi !== null && bet.expected_roi !== undefined ? (
+                    <span style={{ color: bet.expected_roi > 0 ? '#4ade80' : '#f87171' }}>
+                      {bet.expected_roi > 0 ? '+' : ''}{(bet.expected_roi * 100).toFixed(1)}% ROI
+                    </span>
+                  ) : 'Pending'}
+                </div>
+                <div className="expand-icon">{expandedBet === bet.bet_id ? '▼' : '▶'}</div>
+              </div>
+              
+              {expandedBet === bet.bet_id && bet.ai_reasoning && (
+                <div className="bet-reasoning">
+                  <div className="reasoning-header">🤖 Benny's Analysis</div>
+                  <p className="reasoning-text">{bet.ai_reasoning}</p>
+                  {bet.ai_key_factors && bet.ai_key_factors.length > 0 && (
+                    <div className="key-factors">
+                      <strong>Key Factors:</strong>
+                      <ul>
+                        {bet.ai_key_factors.map((factor, idx) => (
+                          <li key={idx}>{factor}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          </div>
+        )}
+      </div>
+
+      {/* Completed Bets Section */}
+      <div className="benny-bets">
+        <h3>Recent Completed Bets</h3>
+        {data.recent_bets.filter(bet => bet.status !== 'pending').length === 0 ? (
+          <div className="no-data-message">No completed bets yet</div>
+        ) : (
+          <div className="bets-table">
+            {data.recent_bets.filter(bet => bet.status !== 'pending').map((bet) => (
             <div key={bet.bet_id} className={`bet-card ${bet.status}`}>
               <div 
                 className={`bet-row ${bet.status}`}
@@ -396,12 +456,6 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
                 <div className={`bet-status ${bet.status}`}>
                   {bet.status === 'won' && `+$${bet.payout.toFixed(2)}`}
                   {bet.status === 'lost' && `-$${bet.bet_amount.toFixed(2)}`}
-                  {bet.status === 'pending' && bet.expected_roi !== null && bet.expected_roi !== undefined && (
-                    <span style={{ color: bet.expected_roi > 0 ? '#4ade80' : '#f87171' }}>
-                      {bet.expected_roi > 0 ? '+' : ''}{(bet.expected_roi * 100).toFixed(1)}% ROI
-                    </span>
-                  )}
-                  {bet.status === 'pending' && (bet.expected_roi === null || bet.expected_roi === undefined) && 'Pending'}
                 </div>
                 <div className="expand-icon">{expandedBet === bet.bet_id ? '▼' : '▶'}</div>
               </div>
