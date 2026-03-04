@@ -25,6 +25,7 @@ import { UserModelsStack } from '../lib/user-models-stack';
 import { AIAgentStack } from '../lib/ai-agent-stack';
 import { BennyTraderStack } from '../lib/benny-trader-stack';
 import { BennyTraderScheduleStack } from '../lib/benny-trader-schedule-stack';
+import { BennyWeeklyReporterStack } from '../lib/benny-weekly-reporter-stack';
 import { ModelComparisonCacheStack } from '../lib/model-comparison-cache-stack';
 import { NewsCollectorsStack } from '../lib/news-collectors-stack';
 import { CustomDataStack } from '../lib/custom-data-stack';
@@ -171,6 +172,16 @@ if (environment === 'dev') {
 
   new BennyTraderScheduleStack(app, StackNames.forEnvironment('dev', 'BennyTraderSchedule'), {
     bennyTraderFunction: bennyTraderStack.bennyTraderFunction,
+    env: ENVIRONMENTS.dev,
+  });
+
+  // Benny weekly reporter (dev only)
+  new BennyWeeklyReporterStack(app, StackNames.forEnvironment('dev', 'BennyWeeklyReporter'), {
+    environment: 'dev',
+    betsTable: dynamoStack.betsTable,
+    frontendUrl: 'https://dev.carpoolbets.com',
+    fromEmail: 'noreply@carpoolbets.com',
+    adminEmail: 'glogankaranovich@gmail.com',
     env: ENVIRONMENTS.dev,
   });
 

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benny's Weekly Report</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0f172a; color: #e2e8f0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0f172a;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #1e293b; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+                            <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">🤖 Benny's Weekly Report</h1>
+                            <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Week of {{week_start}} - {{week_end}}</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Performance Summary -->
+                    <tr>
+                        <td style="padding: 30px;">
+                            <h2 style="margin: 0 0 20px 0; color: #e2e8f0; font-size: 20px; font-weight: 600;">📊 Performance Summary</h2>
+                            
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td width="50%" style="padding: 15px; background-color: #334155; border-radius: 8px;">
+                                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 5px;">Current Bankroll</div>
+                                        <div style="color: #e2e8f0; font-size: 24px; font-weight: 700;">${{current_bankroll}}</div>
+                                        <div style="color: {{bankroll_change_color}}; font-size: 12px; margin-top: 5px;">{{bankroll_change}}</div>
+                                    </td>
+                                    <td width="10"></td>
+                                    <td width="50%" style="padding: 15px; background-color: #334155; border-radius: 8px;">
+                                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 5px;">Win Rate</div>
+                                        <div style="color: #e2e8f0; font-size: 24px; font-weight: 700;">{{win_rate}}%</div>
+                                        <div style="color: #94a3b8; font-size: 12px; margin-top: 5px;">{{total_bets}} bets</div>
+                                    </td>
+                                </tr>
+                                <tr><td colspan="3" height="10"></td></tr>
+                                <tr>
+                                    <td width="50%" style="padding: 15px; background-color: #334155; border-radius: 8px;">
+                                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 5px;">ROI</div>
+                                        <div style="color: {{roi_color}}; font-size: 24px; font-weight: 700;">{{roi}}%</div>
+                                    </td>
+                                    <td width="10"></td>
+                                    <td width="50%" style="padding: 15px; background-color: #334155; border-radius: 8px;">
+                                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 5px;">Pending Bets</div>
+                                        <div style="color: #e2e8f0; font-size: 24px; font-weight: 700;">{{pending_bets}}</div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Pending Bets -->
+                    {{#if has_pending_bets}}
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px;">
+                            <h2 style="margin: 0 0 15px 0; color: #e2e8f0; font-size: 18px; font-weight: 600;">🎯 Pending Bets</h2>
+                            
+                            {{#each pending_bets_list}}
+                            <div style="background-color: #334155; border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #fbbf24;">
+                                <div style="color: #e2e8f0; font-weight: 600; margin-bottom: 5px;">{{this.game}}</div>
+                                <div style="color: #94a3b8; font-size: 14px; margin-bottom: 8px;">{{this.prediction}}</div>
+                                <div style="display: flex; justify-content: space-between; font-size: 12px;">
+                                    <span style="color: #94a3b8;">Confidence: <span style="color: #e2e8f0;">{{this.confidence}}%</span></span>
+                                    <span style="color: #94a3b8;">Stake: <span style="color: #e2e8f0;">${{this.stake}}</span></span>
+                                </div>
+                            </div>
+                            {{/each}}
+                        </td>
+                    </tr>
+                    {{/if}}
+                    
+                    <!-- Recent Completed Bets -->
+                    {{#if has_completed_bets}}
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px;">
+                            <h2 style="margin: 0 0 15px 0; color: #e2e8f0; font-size: 18px; font-weight: 600;">✅ Recent Completed Bets</h2>
+                            
+                            {{#each completed_bets_list}}
+                            <div style="background-color: #334155; border-radius: 8px; padding: 15px; margin-bottom: 10px; border-left: 4px solid {{this.border_color}};">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                    <span style="color: #e2e8f0; font-weight: 600;">{{this.game}}</span>
+                                    <span style="color: {{this.result_color}}; font-weight: 700;">{{this.result}}</span>
+                                </div>
+                                <div style="color: #94a3b8; font-size: 14px;">{{this.prediction}}</div>
+                            </div>
+                            {{/each}}
+                        </td>
+                    </tr>
+                    {{/if}}
+                    
+                    <!-- Best/Worst Bets -->
+                    {{#if has_notable_bets}}
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px;">
+                            <h2 style="margin: 0 0 15px 0; color: #e2e8f0; font-size: 18px; font-weight: 600;">🏆 Notable Bets</h2>
+                            
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                {{#if best_bet}}
+                                <tr>
+                                    <td style="padding: 15px; background-color: #334155; border-radius: 8px; border-left: 4px solid #10b981;">
+                                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 5px;">🏆 Best Bet</div>
+                                        <div style="color: #e2e8f0; font-weight: 600; margin-bottom: 3px;">{{best_bet.game}}</div>
+                                        <div style="color: #10b981; font-weight: 700;">+${{best_bet.profit}}</div>
+                                    </td>
+                                </tr>
+                                {{/if}}
+                                {{#if worst_bet}}
+                                <tr><td height="10"></td></tr>
+                                <tr>
+                                    <td style="padding: 15px; background-color: #334155; border-radius: 8px; border-left: 4px solid #ef4444;">
+                                        <div style="color: #94a3b8; font-size: 12px; margin-bottom: 5px;">💔 Worst Bet</div>
+                                        <div style="color: #e2e8f0; font-weight: 600; margin-bottom: 3px;">{{worst_bet.game}}</div>
+                                        <div style="color: #ef4444; font-weight: 700;">-${{worst_bet.loss}}</div>
+                                    </td>
+                                </tr>
+                                {{/if}}
+                            </table>
+                        </td>
+                    </tr>
+                    {{/if}}
+                    
+                    <!-- AI Impact -->
+                    {{#if has_ai_impact}}
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px;">
+                            <div style="background-color: #334155; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="color: #94a3b8; font-size: 12px; margin-bottom: 5px;">🤖 AI Reasoning Impact</div>
+                                <div style="color: #e2e8f0; font-size: 28px; font-weight: 700; margin-bottom: 5px;">{{ai_win_rate}}%</div>
+                                <div style="color: #94a3b8; font-size: 12px;">Win rate on {{ai_bets_count}} AI-analyzed bets</div>
+                            </div>
+                        </td>
+                    </tr>
+                    {{/if}}
+                    
+                    <!-- CTA -->
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px; text-align: center;">
+                            <a href="{{dashboard_url}}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">View Full Dashboard</a>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 20px 30px; background-color: #0f172a; text-align: center; border-top: 1px solid #334155;">
+                            <p style="margin: 0 0 10px 0; color: #64748b; font-size: 12px;">
+                                You're receiving this because you're subscribed to Benny's weekly reports.
+                            </p>
+                            <p style="margin: 0; color: #64748b; font-size: 12px;">
+                                <a href="{{unsubscribe_url}}" style="color: #667eea; text-decoration: none;">Unsubscribe</a> | 
+                                <a href="{{settings_url}}" style="color: #667eea; text-decoration: none;">Email Preferences</a>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

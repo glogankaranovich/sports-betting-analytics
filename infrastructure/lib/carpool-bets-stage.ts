@@ -22,6 +22,7 @@ import { InjuryCollectorStack } from './injury-collector-stack';
 import { UserModelsStack } from './user-models-stack';
 import { AIAgentStack } from './ai-agent-stack';
 import { BennyTraderStack } from './benny-trader-stack';
+import { BennyWeeklyReporterStack } from './benny-weekly-reporter-stack';
 import { BennyTraderScheduleStack } from './benny-trader-schedule-stack';
 import { ModelComparisonCacheStack } from './model-comparison-cache-stack';
 import { CustomDataStack } from './custom-data-stack';
@@ -160,6 +161,17 @@ export class CarpoolBetsStage extends cdk.Stage {
     new BennyTraderScheduleStack(this, 'BennyTraderSchedule', {
       bennyTraderFunction: bennyTraderStack.bennyTraderFunction,
     });
+
+    // Benny weekly reporter (dev only for now)
+    if (props.stage === 'dev') {
+      new BennyWeeklyReporterStack(this, 'BennyWeeklyReporter', {
+        environment: props.stage,
+        betsTable: dynamoStack.betsTable,
+        frontendUrl: `https://${props.stage}.carpoolbets.com`,
+        fromEmail: 'noreply@carpoolbets.com',
+        adminEmail: 'glogankaranovich@gmail.com',
+      });
+    }
 
     // Schedule stacks - simplified to avoid Lambda permission limit
     new OddsCollectorScheduleStack(this, 'OddsSchedule', {
