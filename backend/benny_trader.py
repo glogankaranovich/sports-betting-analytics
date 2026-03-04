@@ -532,6 +532,10 @@ class BennyTrader:
                 if analysis:
                     # Create opportunities for each market prediction
                     for market_type, prediction_data in analysis.items():
+                        # Skip if AI didn't provide prediction for this market
+                        if not prediction_data or not isinstance(prediction_data, dict):
+                            continue
+                            
                         if market_type == "h2h":
                             predicted_team = prediction_data["prediction"].lower()
                             if game_data["home_team"].lower() in predicted_team:
