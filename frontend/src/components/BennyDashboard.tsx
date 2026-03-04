@@ -427,7 +427,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
       </div>
 
       {/* Completed Bets Section */}
-      <div className="benny-bets">
+      <div className="benny-bets" style={{ marginTop: '40px' }}>
         <h3>Recent Completed Bets</h3>
         {data.recent_bets.filter(bet => bet.status !== 'pending').length === 0 ? (
           <div className="no-data-message">No completed bets yet</div>

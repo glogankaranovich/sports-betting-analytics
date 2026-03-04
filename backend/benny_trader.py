@@ -1792,7 +1792,8 @@ Only include markets where you have positive expected value. Omit markets withou
                         3
                     ) if b.get("expected_payout") and float(b.get("bet_amount", 0)) > 0 else None,
                 }
-                for b in all_bets[:20]  # Show 20 most recent for display
+                # Return all pending bets + 20 most recent completed bets
+                for b in (pending_bets + [b for b in settled_bets[:20]])
             ],
         }
 
