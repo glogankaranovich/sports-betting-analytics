@@ -40,6 +40,29 @@ class BennyTrader:
         self.learning_params = self._get_learning_parameters()
         self.sqs = boto3.client('sqs')
         self.notification_queue_url = os.environ.get('NOTIFICATION_QUEUE_URL')
+    
+    def _acquire_lock(self) -> bool:
+        """Acquire distributed lock for Benny execution. Returns True if acquired."""
+        try:
+            self.table.put_item(
+                Item={
+                    "pk": "BENNY",
+                    "sk": "LOCK",
+                    "locked_at": datetime.utcnow().isoformat(),
+                    "ttl": int((datetime.utcnow() + timedelta(hours=1)).timestamp())
+                },
+                ConditionExpression="attribute_not_exists(pk)"
+            )
+            return True
+        except self.table.meta.client.exceptions.ConditionalCheckFailedException:
+            return False
+    
+    def _release_lock(self):
+        """Release distributed lock"""
+        try:
+            self.table.delete_item(Key={"pk": "BENNY", "sk": "LOCK"})
+        except Exception:
+            pass
 
     def _get_learning_parameters(self) -> Dict[str, Any]:
         """Get Benny's learned parameters from DynamoDB"""
@@ -1891,12 +1914,23 @@ def lambda_handler(event, context):
         if "source" in event and event["source"] == "aws.events":
             # Scheduled daily run
             trader = BennyTrader()
-            result = trader.run_daily_analysis()
-
-            return {
-                "statusCode": 200,
-                "body": json.dumps(result, default=str),
-            }
+            
+            # Try to acquire lock
+            if not trader._acquire_lock():
+                print("Another Benny execution is already running. Exiting.")
+                return {
+                    "statusCode": 200,
+                    "body": json.dumps({"message": "Execution already in progress"}),
+                }
+            
+            try:
+                result = trader.run_daily_analysis()
+                return {
+                    "statusCode": 200,
+                    "body": json.dumps(result, default=str),
+                }
+            finally:
+                trader._release_lock()
         else:
             # API call for dashboard
             dashboard = BennyTrader.get_dashboard_data()
