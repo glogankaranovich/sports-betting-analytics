@@ -530,6 +530,7 @@ class BennyTrader:
                 away_news = self._get_team_news_sentiment(game_data["away_team"], sport)
                 home_elo = self._get_elo_rating(game_data["home_team"], sport)
                 away_elo = self._get_elo_rating(game_data["away_team"], sport)
+                print(f"Elo ratings: {game_data['home_team']} {home_elo:.0f} vs {game_data['away_team']} {away_elo:.0f}")
                 home_adjusted = self._get_adjusted_metrics(game_data["home_team"], sport)
                 away_adjusted = self._get_adjusted_metrics(game_data["away_team"], sport)
                 weather = self._get_weather_data(game_id)
@@ -1179,7 +1180,7 @@ Only include markets where you have positive expected value. Omit markets withou
     def _get_elo_rating(self, team_name: str, sport: str) -> float:
         """Get current Elo rating for a team"""
         try:
-            normalized_team = team_name.lower().replace(" ", "_")
+            normalized_team = team_name.strip().replace(" ", "_").upper()
             response = table.query(
                 KeyConditionExpression=Key("pk").eq(f"ELO#{sport}#{normalized_team}"),
                 ScanIndexForward=False,
