@@ -111,41 +111,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
         </div>
         <h2>Current Plan</h2>
         <p className="tier-price">{tierInfo.price}</p>
-        
-        <div className="usage-stats">
-          <div className="usage-item">
-            <label>User Models</label>
-            <div className="usage-bar">
-              <div 
-                className="usage-fill" 
-                style={{ 
-                  width: limits.max_user_models === -1 
-                    ? '0%' 
-                    : `${(usage.user_models_count / limits.max_user_models) * 100}%` 
-                }}
-              />
-            </div>
-            <span>
-              {usage.user_models_count} / {limits.max_user_models === -1 ? '∞' : limits.max_user_models}
-            </span>
-          </div>
-          <div className="usage-item">
-            <label>Custom Datasets</label>
-            <div className="usage-bar">
-              <div 
-                className="usage-fill" 
-                style={{ 
-                  width: limits.max_custom_datasets === -1 
-                    ? '0%' 
-                    : `${(usage.datasets_count / limits.max_custom_datasets) * 100}%` 
-                }}
-              />
-            </div>
-            <span>
-              {usage.datasets_count} / {limits.max_custom_datasets === -1 ? '∞' : limits.max_custom_datasets}
-            </span>
-          </div>
-        </div>
 
         <div className="features-list">
           <h3>Plan Features</h3>
