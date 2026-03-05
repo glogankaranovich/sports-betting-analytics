@@ -1644,58 +1644,48 @@ Only include markets where you have positive expected value. Omit markets withou
         # Update learning parameters before analyzing
         self.update_learning_parameters()
         
-        # 1. Analyze games first (higher confidence, larger bets)
+        # 1. Analyze all games and props
         game_opportunities = self.analyze_games()
         print(f"Found {len(game_opportunities)} game opportunities")
-
-        game_bets = []
-        game_total = Decimal("0")
-
-        for opp in game_opportunities:
-            if self.bankroll < Decimal("10.00"):
-                print(f"Bankroll too low (${self.bankroll}), stopping game bets")
-                break
-
-            result = self.place_bet(opp)
-            if result["success"]:
-                game_bets.append(result)
-                game_total += Decimal(str(result["bet_amount"]))
-                print(f"Placed game bet: {opp['prediction']} for ${result['bet_amount']}")
-
-        # 2. Analyze props with remaining bankroll (keep $20 reserve)
-        prop_bets = []
-        prop_total = Decimal("0")
         
+        prop_opportunities = []
         if self.bankroll > Decimal("20.00"):
             prop_opportunities = self.analyze_props()
             print(f"Found {len(prop_opportunities)} prop opportunities")
+        
+        # 2. Combine and sort by confidence * edge (best opportunities first)
+        all_opportunities = game_opportunities + prop_opportunities
+        all_opportunities.sort(key=lambda x: x.get("confidence", 0) * x.get("edge", 0), reverse=True)
+        
+        # 3. Place bets in priority order
+        placed_bets = []
+        total_bet = Decimal("0")
+        
+        for opp in all_opportunities:
+            if self.bankroll < Decimal("10.00"):
+                print(f"Bankroll too low (${self.bankroll}), stopping")
+                break
             
-            for opp in prop_opportunities:
-                if self.bankroll < Decimal("15.00"):
-                    print(f"Bankroll too low (${self.bankroll}), stopping prop bets")
-                    break
-
-                result = self.place_bet(opp)
-                if result["success"]:
-                    prop_bets.append(result)
-                    prop_total += Decimal(str(result["bet_amount"]))
-                    print(f"Placed prop bet: {opp['prediction']} for ${result['bet_amount']}")
-        else:
-            print(f"Skipping props - bankroll too low (${self.bankroll})")
-
-        print(f"Analysis complete. Placed {len(game_bets)} game bets (${game_total}) and {len(prop_bets)} prop bets (${prop_total})")
+            result = self.place_bet(opp)
+            if result["success"]:
+                placed_bets.append(result)
+                total_bet += Decimal(str(result["bet_amount"]))
+                print(f"Placed bet: {opp['prediction']} for ${result['bet_amount']}")
+        
+        game_bets = [b for b in placed_bets if b.get("market_key") in ["h2h", "spreads", "totals"]]
+        prop_bets = [b for b in placed_bets if b.get("market_key") not in ["h2h", "spreads", "totals"]]
+        
+        print(f"Analysis complete. Placed {len(game_bets)} game bets and {len(prop_bets)} prop bets (${total_bet} total)")
         
         return {
             "game_opportunities": len(game_opportunities),
+            "prop_opportunities": len(prop_opportunities),
+            "total_bets": len(placed_bets),
             "game_bets_placed": len(game_bets),
-            "game_total_bet": float(game_total),
-            "prop_opportunities": len(prop_opportunities) if self.bankroll > Decimal("20.00") else 0,
             "prop_bets_placed": len(prop_bets),
-            "prop_total_bet": float(prop_total),
-            "total_bets": len(game_bets) + len(prop_bets),
-            "total_bet_amount": float(game_total + prop_total),
+            "total_bet_amount": float(total_bet),
             "remaining_bankroll": float(self.bankroll),
-            "bets": game_bets + prop_bets,
+            "bets": placed_bets,
         }
 
     @staticmethod
