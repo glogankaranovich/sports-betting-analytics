@@ -168,41 +168,6 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
             </div>
             <h3>Current Plan</h3>
             <p className="tier-price">{TIER_INFO[subscription.tier]?.price}</p>
-            
-            <div className="usage-stats">
-              <div className="usage-item">
-                <label>User Models</label>
-                <div className="usage-bar">
-                  <div 
-                    className="usage-fill" 
-                    style={{ 
-                      width: subscription.limits.max_user_models === -1 
-                        ? '0%' 
-                        : `${(subscription.usage.user_models_count / subscription.limits.max_user_models) * 100}%` 
-                    }}
-                  />
-                </div>
-                <span>
-                  {subscription.usage.user_models_count} / {subscription.limits.max_user_models === -1 ? '∞' : subscription.limits.max_user_models}
-                </span>
-              </div>
-              <div className="usage-item">
-                <label>Custom Datasets</label>
-                <div className="usage-bar">
-                  <div 
-                    className="usage-fill" 
-                    style={{ 
-                      width: subscription.limits.max_custom_datasets === -1 
-                        ? '0%' 
-                        : `${(subscription.usage.datasets_count / subscription.limits.max_custom_datasets) * 100}%` 
-                    }}
-                  />
-                </div>
-                <span>
-                  {subscription.usage.datasets_count} / {subscription.limits.max_custom_datasets === -1 ? '∞' : subscription.limits.max_custom_datasets}
-                </span>
-              </div>
-            </div>
 
             <div className="features-list">
               <h4>Plan Features</h4>
@@ -213,28 +178,16 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
                 System Models
               </div>
               <div className="feature-item">
+                <span className={subscription.limits.show_reasoning ? 'enabled' : 'disabled'}>
+                  {subscription.limits.show_reasoning ? '✓' : '✗'}
+                </span>
+                Detailed Reasoning
+              </div>
+              <div className="feature-item">
                 <span className={subscription.limits.benny_ai ? 'enabled' : 'disabled'}>
                   {subscription.limits.benny_ai ? '✓' : '✗'}
                 </span>
                 Benny AI
-              </div>
-              <div className="feature-item">
-                <span className={subscription.limits.user_models ? 'enabled' : 'disabled'}>
-                  {subscription.limits.user_models ? '✓' : '✗'}
-                </span>
-                Custom Models
-              </div>
-              <div className="feature-item">
-                <span className={subscription.limits.custom_data ? 'enabled' : 'disabled'}>
-                  {subscription.limits.custom_data ? '✓' : '✗'}
-                </span>
-                Custom Data
-              </div>
-              <div className="feature-item">
-                <span className={subscription.limits.model_marketplace ? 'enabled' : 'disabled'}>
-                  {subscription.limits.model_marketplace ? '✓' : '✗'}
-                </span>
-                Model Marketplace
               </div>
             </div>
 

@@ -85,17 +85,15 @@ export const AccountPage: React.FC<AccountPageProps> = ({
                   <>
                     <li>All 10 System Models</li>
                     <li>Detailed Reasoning & Analysis</li>
-                    <li>Custom Models (3)</li>
-                    <li>Custom Data (5)</li>
+                    <li>Model Comparison</li>
                   </>
                 )}
                 {tier === 'pro' && (
                   <>
                     <li>All 10 System Models</li>
+                    <li>Detailed Reasoning & Analysis</li>
                     <li>Benny AI Assistant</li>
-                    <li>Custom Models (20)</li>
-                    <li>Custom Data (50)</li>
-                    <li>Model Marketplace</li>
+                    <li>Benny Dashboard</li>
                   </>
                 )}
               </ul>
