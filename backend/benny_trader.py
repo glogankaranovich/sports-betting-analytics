@@ -466,6 +466,9 @@ class BennyTrader:
                         games[game_id]["h2h_odds"].append(odds_entry)
                 
                 elif market_key == "spreads" and len(outcomes) >= 2:
+                    home_team = item.get("home_team")
+                    away_team = item.get("away_team")
+                    
                     odds_entry = {
                         "bookmaker": item.get("bookmaker"),
                         "home_point": None,
