@@ -60,8 +60,8 @@ FEATURE_ROLLOUT = {
     },
     "benny_ai": {
         "name": "Benny AI Betting",
-        "enabled_envs": ["dev"],
-        "beta_users": [],  # Dev only for now
+        "enabled_envs": ["dev", "beta"],
+        "beta_users": [],
     },
     "user_models": {
         "name": "User Models & Custom Data",
