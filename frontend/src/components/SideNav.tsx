@@ -15,6 +15,8 @@ interface SideNavProps {
 }
 
 export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNavigate, isCollapsed }) => {
+  const isDev = process.env.REACT_APP_STAGE === 'dev';
+  
   const navItems: Record<string, SideNavItem[]> = {
     'user-home': [
       { label: 'Profile', page: 'profile' },
@@ -31,14 +33,17 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
       { label: 'Benny Bets', page: 'benny-dashboard' },
       { label: 'Benny Chat', page: 'benny-chat' },
     ],
-    'models-home': [
+    'models-home': isDev ? [
       { label: 'System Models', page: 'system-models' },
       { label: 'My Models', page: 'my-models' },
       { label: 'Model Comparison', page: 'model-comparison' },
+    ] : [
+      { label: 'System Models', page: 'system-models' },
+      { label: 'Model Comparison', page: 'model-comparison' },
     ],
-    'marketplace': [
+    'marketplace': isDev ? [
       { label: 'Browse Models', page: 'marketplace' },
-    ],
+    ] : [],
   };
 
   const items = navItems[section] || [];

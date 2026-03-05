@@ -9,12 +9,19 @@ interface TopNavProps {
 }
 
 export const TopNav: React.FC<TopNavProps> = ({ currentPage, onNavigate, onSignOut, logo }) => {
-  const sections = [
+  const isDev = process.env.REACT_APP_STAGE === 'dev';
+  
+  const sections = isDev ? [
     { label: 'User', page: 'profile' },
     { label: 'Analysis', page: 'games' },
     { label: 'Benny AI', page: 'benny-dashboard' },
     { label: 'Models', page: 'system-models' },
     { label: 'Marketplace', page: 'marketplace' },
+  ] : [
+    { label: 'User', page: 'profile' },
+    { label: 'Analysis', page: 'games' },
+    { label: 'Benny AI', page: 'benny-dashboard' },
+    { label: 'Models', page: 'system-models' },
   ];
 
   const getCurrentSection = () => {

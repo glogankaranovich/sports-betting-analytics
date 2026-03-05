@@ -1471,11 +1471,11 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
           <ModelAnalytics token={token} selectedModel={settings.model} />
         )}
 
-        {activePage === 'my-models' && subscription && (
+        {activePage === 'my-models' && subscription && process.env.REACT_APP_STAGE === 'dev' && (
           <UserModels token={token} subscription={subscription} onNavigate={setActivePage} />
         )}
 
-        {activePage === 'marketplace' && subscription && (
+        {activePage === 'marketplace' && subscription && process.env.REACT_APP_STAGE === 'dev' && (
           <Marketplace subscription={subscription} onNavigate={setActivePage} />
         )}
 
