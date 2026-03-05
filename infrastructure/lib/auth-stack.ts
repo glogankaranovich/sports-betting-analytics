@@ -61,11 +61,7 @@ export class AuthStack extends cdk.Stack {
         requireSymbols: false,
       },
       accountRecovery: cognito.AccountRecovery.NONE,
-      email: cognito.UserPoolEmail.withSES({
-        fromEmail: 'noreply@carpoolbets.com',
-        fromName: 'Carpool Bets',
-        sesRegion: 'us-east-1',
-      }),
+      email: cognito.UserPoolEmail.withCognito(),
       removalPolicy: cdk.RemovalPolicy.DESTROY, // For dev/testing
     });
 
