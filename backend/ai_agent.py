@@ -470,86 +470,10 @@ Always be concise, data-driven, and actionable."""
 
     def _get_tools(self) -> List[Dict[str, Any]]:
         """Define available tools for the agent"""
-        return [
-            {
-                "name": "create_model",
-                "description": "Create a new betting model with specified data sources and weights",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "model_name": {
-                            "type": "string",
-                            "description": "Name for the model",
-                        },
-                        "sport": {
-                            "type": "string",
-                            "enum": [
-                                "basketball_nba",
-                                "americanfootball_nfl",
-                                "icehockey_nhl",
-                                "baseball_mlb",
-                                "soccer_epl",
-                            ],
-                            "description": "Sport for the model",
-                        },
-                        "bet_types": {
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "enum": ["h2h", "spreads", "totals", "props"],
-                            },
-                            "description": "Types of bets to predict",
-                        },
-                        "data_sources": {
-                            "type": "object",
-                            "properties": {
-                                "team_stats": {
-                                    "type": "object",
-                                    "properties": {
-                                        "enabled": {"type": "boolean"},
-                                        "weight": {"type": "number"},
-                                    },
-                                },
-                                "odds_movement": {
-                                    "type": "object",
-                                    "properties": {
-                                        "enabled": {"type": "boolean"},
-                                        "weight": {"type": "number"},
-                                    },
-                                },
-                                "recent_form": {
-                                    "type": "object",
-                                    "properties": {
-                                        "enabled": {"type": "boolean"},
-                                        "weight": {"type": "number"},
-                                    },
-                                },
-                                "rest_schedule": {
-                                    "type": "object",
-                                    "properties": {
-                                        "enabled": {"type": "boolean"},
-                                        "weight": {"type": "number"},
-                                    },
-                                },
-                                "head_to_head": {
-                                    "type": "object",
-                                    "properties": {
-                                        "enabled": {"type": "boolean"},
-                                        "weight": {"type": "number"},
-                                    },
-                                },
-                            },
-                        },
-                        "confidence_threshold": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 1,
-                            "description": "Minimum confidence to make prediction",
-                        },
-                    },
-                    "required": ["model_name", "sport", "bet_types", "data_sources"],
-                },
-            },
+        environment = os.environ.get('ENVIRONMENT', 'dev')
+        
+        # Base tools available in all environments
+        tools = [
             {
                 "name": "analyze_predictions",
                 "description": "Analyze recent predictions for a model or sport",
@@ -629,20 +553,6 @@ Always be concise, data-driven, and actionable."""
                 },
             },
             {
-                "name": "list_user_models",
-                "description": "List all models for a user. Users can only see their own models.",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "user_id": {
-                            "type": "string",
-                            "description": "User ID to list models for",
-                        },
-                    },
-                    "required": ["user_id"],
-                },
-            },
-            {
                 "name": "analyze_bet",
                 "description": "Analyze a specific bet idea on-the-spot - calculate risk, ROI potential, key factors. Use when user asks about a bet that isn't in our predictions.",
                 "input_schema": {
@@ -678,6 +588,104 @@ Always be concise, data-driven, and actionable."""
                 },
             },
         ]
+        
+        # Dev-only tools
+        if environment == 'dev':
+            tools.insert(0, {
+                "name": "create_model",
+                "description": "Create a new betting model with specified data sources and weights",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "model_name": {
+                            "type": "string",
+                            "description": "Name for the model",
+                        },
+                        "sport": {
+                            "type": "string",
+                            "enum": [
+                                "basketball_nba",
+                                "americanfootball_nfl",
+                                "icehockey_nhl",
+                                "baseball_mlb",
+                                "soccer_epl",
+                            ],
+                            "description": "Sport for the model",
+                        },
+                        "bet_types": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["h2h", "spreads", "totals", "props"],
+                            },
+                            "description": "Types of bets to predict",
+                        },
+                        "data_sources": {
+                            "type": "object",
+                            "properties": {
+                                "team_stats": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {"type": "boolean"},
+                                        "weight": {"type": "number"},
+                                    },
+                                },
+                                "odds_movement": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {"type": "boolean"},
+                                        "weight": {"type": "number"},
+                                    },
+                                },
+                                "recent_form": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {"type": "boolean"},
+                                        "weight": {"type": "number"},
+                                    },
+                                },
+                                "rest_schedule": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {"type": "boolean"},
+                                        "weight": {"type": "number"},
+                                    },
+                                },
+                                "head_to_head": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {"type": "boolean"},
+                                        "weight": {"type": "number"},
+                                    },
+                                },
+                            },
+                        },
+                        "confidence_threshold": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                            "description": "Minimum confidence to make prediction",
+                        },
+                    },
+                    "required": ["model_name", "sport", "bet_types", "data_sources"],
+                },
+            })
+            tools.append({
+                "name": "list_user_models",
+                "description": "List all models for a user. Users can only see their own models.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {
+                            "type": "string",
+                            "description": "User ID to list models for",
+                        },
+                    },
+                    "required": ["user_id"],
+                },
+            })
+        
+        return tools
 
 
 def lambda_handler(event, context):
