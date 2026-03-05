@@ -101,6 +101,9 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
   const tierInfo = TIER_INFO[subscription.tier as keyof typeof TIER_INFO];
   const { limits, usage } = subscription;
 
+  console.log('Subscription limits:', limits);
+  console.log('system_models value:', limits.system_models, 'type:', typeof limits.system_models);
+
   return (
     <div className="page-container subscription-container">
       <h2>Subscription</h2>
