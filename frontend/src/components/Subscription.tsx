@@ -171,24 +171,6 @@ export const Subscription: React.FC<SubscriptionProps> = ({ token, userId }) => 
             </span>
             Benny AI Assistant
           </div>
-          <div className="feature-item">
-            <span className={limits.user_models ? 'enabled' : 'disabled'}>
-              {limits.user_models ? '✓' : '✗'}
-            </span>
-            Custom Models
-          </div>
-          <div className="feature-item">
-            <span className={limits.custom_data ? 'enabled' : 'disabled'}>
-              {limits.custom_data ? '✓' : '✗'}
-            </span>
-            Custom Data
-          </div>
-          <div className="feature-item">
-            <span className={limits.model_marketplace ? 'enabled' : 'disabled'}>
-              {limits.model_marketplace ? '✓' : '✗'}
-            </span>
-            Model Marketplace
-          </div>
         </div>
 
         <button className="upgrade-btn" onClick={() => setShowModal(true)}>

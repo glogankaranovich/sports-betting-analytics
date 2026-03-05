@@ -20,17 +20,17 @@ const TIERS = [
     id: 'basic',
     name: 'Basic',
     price: '$9.99/mo',
-    models: 3,
-    datasets: 5,
-    features: ['All 10 System Models', 'Detailed Reasoning & Analysis', 'Model Comparison', 'Custom Models (3)', 'Custom Data (5)']
+    models: 0,
+    datasets: 0,
+    features: ['All 10 System Models', 'Detailed Reasoning & Analysis', 'Model Comparison']
   },
   {
     id: 'pro',
     name: 'Pro',
     price: '$29.99/mo',
-    models: 20,
-    datasets: 50,
-    features: ['Everything in Basic', 'Benny AI Assistant', 'Benny Dashboard', 'Model Marketplace', 'Custom Models (20)', 'Custom Data (50)']
+    models: 0,
+    datasets: 0,
+    features: ['Everything in Basic', 'Benny AI Assistant', 'Benny Dashboard']
   }
 ];
 

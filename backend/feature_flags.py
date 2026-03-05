@@ -32,21 +32,21 @@ TIER_LIMITS = {
         "system_models": True,  # All 10 models
         "show_reasoning": True,  # Full detailed reasoning
         "benny_ai": False,
-        "user_models": True,
-        "custom_data": True,
+        "user_models": False,
+        "custom_data": False,
         "model_marketplace": False,
-        "max_user_models": 3,
-        "max_custom_datasets": 5,
+        "max_user_models": 0,
+        "max_custom_datasets": 0,
     },
     SubscriptionTier.PRO: {
         "system_models": True,  # All 10 models
         "show_reasoning": True,  # Full detailed reasoning
         "benny_ai": True,
-        "user_models": True,
-        "custom_data": True,
-        "model_marketplace": True,
-        "max_user_models": 20,
-        "max_custom_datasets": 50,
+        "user_models": False,
+        "custom_data": False,
+        "model_marketplace": False,
+        "max_user_models": 0,
+        "max_custom_datasets": 0,
     },
 }
 
