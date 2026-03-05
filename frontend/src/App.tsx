@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Authenticator, TextField, SelectField, useAuthenticator } from '@aws-amplify/ui-react';
+import { Authenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { bettingApi } from './services/api';
 import { Game } from './types/betting';
@@ -1590,34 +1590,9 @@ function App() {
   // App requires authentication (beta only)
   return (
     <Authenticator
-      hideSignUp={false}
+      hideSignUp={true}
       loginMechanisms={['email']}
       components={{
-        SignUp: {
-          FormFields() {
-            const { validationErrors } = useAuthenticator();
-            return (
-              <>
-                <Authenticator.SignUp.FormFields />
-                <TextField
-                  label="Invite Code"
-                  name="custom:invite_code"
-                  placeholder="Enter your invite code"
-                  isRequired={true}
-                />
-                <SelectField
-                  label="Subscription Plan"
-                  name="custom:tier"
-                  isRequired={true}
-                >
-                  <option value="free">Free - Ensemble Model</option>
-                  <option value="basic">Basic - All 10 Models + Reasoning</option>
-                  <option value="pro">Pro - Everything + Benny AI</option>
-                </SelectField>
-              </>
-            );
-          },
-        },
         Header() {
           return (
             <img 
@@ -1648,29 +1623,6 @@ function App() {
               </a>
             </div>
           );
-        },
-      }}
-      services={{
-        async validateCustomSignUp(formData) {
-          const inviteCode = formData['custom:invite_code'];
-          if (!inviteCode) {
-            return { 'custom:invite_code': 'Invite code is required' };
-          }
-          
-          try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/validate-invite`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ code: inviteCode })
-            });
-            
-            if (!response.ok) {
-              const data = await response.json();
-              return { 'custom:invite_code': data.reason || 'Invalid invite code' };
-            }
-          } catch (error) {
-            return { 'custom:invite_code': 'Unable to validate invite code' };
-          }
         },
       }}
     >

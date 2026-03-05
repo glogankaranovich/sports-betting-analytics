@@ -6,7 +6,6 @@ from api.user import (
     handle_get_subscription,
     handle_update_profile,
     handle_upgrade_subscription,
-    handle_validate_invite,
 )
 
 
@@ -41,9 +40,6 @@ def lambda_handler(event, context):
         elif path == "/subscription/upgrade" and http_method == "POST":
             body = json.loads(event.get("body", "{}"))
             return handle_upgrade_subscription(body)
-        elif path == "/validate-invite" and http_method == "POST":
-            body = json.loads(event.get("body", "{}"))
-            return handle_validate_invite(body)
         else:
             return create_response(404, {"error": "Endpoint not found"})
 

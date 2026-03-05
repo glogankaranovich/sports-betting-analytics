@@ -9,28 +9,10 @@ from typing import Any, Dict
 import boto3
 
 from api.utils import create_response
-from invites import validate_invite_code, use_invite_code
 
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 table_name = os.getenv("DYNAMODB_TABLE", "carpool-bets-v2-dev")
 table = dynamodb.Table(table_name)
-
-
-def handle_validate_invite(body: Dict[str, Any]):
-    """Validate an invite code"""
-    try:
-        code = body.get("code")
-        if not code:
-            return create_response(400, {"error": "code is required"})
-        
-        result = validate_invite_code(code)
-        
-        if not result['valid']:
-            return create_response(400, {"reason": result['reason']})
-        
-        return create_response(200, {"valid": True})
-    except Exception as e:
-        return create_response(500, {"error": f"Error validating invite: {str(e)}"})
 
 
 def handle_get_subscription(query_params: Dict[str, str]):
