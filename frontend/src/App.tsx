@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Authenticator, TextField, useAuthenticator } from '@aws-amplify/ui-react';
+import { Authenticator, TextField, SelectField, useAuthenticator } from '@aws-amplify/ui-react';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { bettingApi } from './services/api';
 import { Game } from './types/betting';
@@ -1605,6 +1605,15 @@ function App() {
                   placeholder="Enter your invite code"
                   isRequired={true}
                 />
+                <SelectField
+                  label="Subscription Plan"
+                  name="custom:tier"
+                  isRequired={true}
+                >
+                  <option value="free">Free - Ensemble Model</option>
+                  <option value="basic">Basic - All 10 Models + Reasoning</option>
+                  <option value="pro">Pro - Everything + Benny AI</option>
+                </SelectField>
               </>
             );
           },

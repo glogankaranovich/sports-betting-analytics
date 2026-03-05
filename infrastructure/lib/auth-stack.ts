@@ -51,6 +51,7 @@ export class AuthStack extends cdk.Stack {
       },
       customAttributes: {
         'invite_code': new cognito.StringAttribute({ minLen: 1, maxLen: 50 }),
+        'tier': new cognito.StringAttribute({ minLen: 1, maxLen: 20 }),
       },
       passwordPolicy: {
         minLength: 8,
