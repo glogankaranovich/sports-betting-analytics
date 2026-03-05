@@ -1056,6 +1056,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
                           <div className="game-info">
                             <div className="teams">
                               <h3>{analysis.away_team} @ {analysis.home_team}</h3>
+                              {(!analysis.away_team || !analysis.home_team) && (() => { console.log('Empty teams:', analysis); return null; })()}
                             </div>
                           </div>
                           <div className="analysis-info">
