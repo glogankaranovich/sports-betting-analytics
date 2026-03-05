@@ -64,6 +64,14 @@ Always be concise, data-driven, and actionable."""
         self, params: Dict[str, Any], requesting_user_id: str = None
     ) -> Dict[str, Any]:
         """Create a new user model"""
+        # Only allow model creation in dev environment
+        environment = os.environ.get('ENVIRONMENT', 'dev')
+        if environment != 'dev':
+            return {
+                "success": False,
+                "error": "Model creation is only available in development environment"
+            }
+        
         try:
             user_id = requesting_user_id or params.get("user_id", "ai-agent")
             model_id = str(uuid.uuid4())
