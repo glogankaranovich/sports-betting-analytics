@@ -5,6 +5,7 @@ import { bettingApi } from './services/api';
 import { Game } from './types/betting';
 import PlayerProps from './components/PlayerProps';
 import Settings from './components/Settings';
+import Notifications from './components/Notifications';
 import ComplianceWrapper from './components/ComplianceWrapper';
 import { ModelAnalytics } from './components/ModelAnalytics';
 import { ModelComparison } from './components/ModelComparison';
@@ -655,7 +656,7 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
       <div className="app-layout">
         <div className="main-content-wrapper">
           <Breadcrumbs 
-            section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
+            section={activePage.includes('user') || ['profile', 'settings', 'subscription', 'notifications'].includes(activePage) ? 'user-home' : 
                     activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
                     activePage.includes('benny') || ['benny-chat', 'benny-dashboard'].includes(activePage) ? 'benny-home' :
                     activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison'].includes(activePage) ? 'models-home' :
@@ -667,9 +668,9 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
             onToggleCollapse={() => setSideNavCollapsed(!sideNavCollapsed)}
           />
           <div className="content-with-sidenav">
-            {['user-home', 'analysis-home', 'benny-home', 'models-home', 'marketplace', 'about', 'profile', 'settings', 'subscription', 'games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-chat', 'benny-dashboard', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
+            {['user-home', 'analysis-home', 'benny-home', 'models-home', 'marketplace', 'about', 'profile', 'settings', 'subscription', 'notifications', 'games', 'player-props', 'game-analysis', 'prop-analysis', 'benny-chat', 'benny-dashboard', 'system-models', 'my-models', 'model-analytics', 'model-comparison', 'how-it-works', 'terms', 'privacy'].includes(activePage) && (
               <SideNav 
-                section={activePage.includes('user') || ['profile', 'settings', 'subscription'].includes(activePage) ? 'user-home' : 
+                section={activePage.includes('user') || ['profile', 'settings', 'subscription', 'notifications'].includes(activePage) ? 'user-home' : 
                         activePage.includes('analysis') || ['games', 'player-props', 'game-analysis', 'prop-analysis'].includes(activePage) ? 'analysis-home' :
                         activePage.includes('benny') || ['benny-chat', 'benny-dashboard'].includes(activePage) ? 'benny-home' :
                         activePage.includes('models') || ['system-models', 'my-models', 'model-analytics', 'model-comparison'].includes(activePage) ? 'models-home' :
@@ -1462,6 +1463,10 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
 
         {activePage === 'settings' && (
           <SettingsPage settings={settings} onSettingsChange={setSettings} subscription={subscription} />
+        )}
+
+        {activePage === 'notifications' && (
+          <Notifications token={token} userId={userId} subscription={subscription} />
         )}
 
         {activePage === 'system-models' && subscription && (

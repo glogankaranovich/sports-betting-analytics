@@ -22,6 +22,7 @@ export const SideNav: React.FC<SideNavProps> = ({ section, currentPage, onNaviga
       { label: 'Profile', page: 'profile' },
       { label: 'Subscription', page: 'subscription' },
       { label: 'Preferences', page: 'settings' },
+      { label: 'Notifications', page: 'notifications' },
     ],
     'analysis-home': [
       { label: 'Game Bets', page: 'games' },

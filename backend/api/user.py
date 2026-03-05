@@ -117,7 +117,37 @@ def handle_update_profile(body: Dict[str, Any]):
                 "preferences": preferences,
             }
 
+        # Add GSI attributes for notification queries
+        notifications = preferences.get("notifications", {})
+        if notifications.get("bennyWeeklyReport"):
+            item["gsi_pk"] = "NOTIFICATION#BENNY_WEEKLY"
+            item["gsi_sk"] = item.get("email", "")
+        else:
+            # Remove from GSI if unsubscribed
+            item.pop("gsi_pk", None)
+            item.pop("gsi_sk", None)
+
         table.put_item(Item=item)
+
+        # Manage notification subscription items
+        email = item.get("email")
+        
+        if email:
+            _manage_subscription(
+                user_id, 
+                "BENNY_WEEKLY", 
+                "EMAIL", 
+                email, 
+                notifications.get("bennyWeeklyReport", False)
+            )
+            
+            _manage_subscription(
+                user_id, 
+                "BENNY_ALERTS", 
+                "EMAIL", 
+                email, 
+                notifications.get("bennyBetAlerts", False)
+            )
 
         return create_response(200, {"message": "Profile updated successfully"})
     except Exception as e:
@@ -151,3 +181,27 @@ def handle_upgrade_subscription(body: Dict[str, Any]):
         return create_response(
             500, {"error": f"Error updating subscription: {str(e)}"}
         )
+
+
+def _manage_subscription(user_id: str, notification_type: str, channel: str, contact: str, enabled: bool):
+    """Create or delete a notification subscription"""
+    sk = f"NOTIFICATION#{notification_type}#{channel}"
+    gsi_pk = f"NOTIFICATION#{notification_type}#{channel}"
+    
+    if enabled:
+        table.put_item(Item={
+            "pk": f"USER#{user_id}",
+            "sk": sk,
+            "contact": contact,
+            "gsi_pk": gsi_pk,
+            "gsi_sk": contact,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+    else:
+        try:
+            table.delete_item(Key={
+                "pk": f"USER#{user_id}",
+                "sk": sk
+            })
+        except Exception:
+            pass

@@ -163,10 +163,24 @@ def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekl
 
 def get_subscribed_users() -> List[str]:
     """Get list of users subscribed to Benny weekly reports"""
-    # TODO: Query users table for subscribed users
-    # For now, return admin email for testing
-    admin_email = os.environ.get('ADMIN_EMAIL', 'glogankaranovich@gmail.com')
-    return [admin_email]
+    table = dynamodb.Table(f'carpool-bets-v2-{ENVIRONMENT}')
+    
+    try:
+        response = table.query(
+            IndexName='GenericQueryIndex',
+            KeyConditionExpression='gsi_pk = :pk',
+            ExpressionAttributeValues={
+                ':pk': 'NOTIFICATION#BENNY_WEEKLY#EMAIL'
+            },
+            ProjectionExpression='contact'
+        )
+        
+        emails = [item['contact'] for item in response.get('Items', []) if item.get('contact')]
+        
+        return emails if emails else [os.environ.get('ADMIN_EMAIL', 'glogankaranovich@gmail.com')]
+    except Exception as e:
+        print(f"Error fetching subscribed users: {e}")
+        return [os.environ.get('ADMIN_EMAIL', 'glogankaranovich@gmail.com')]
 
 
 def send_email(to_email: str, subject: str, html_body: str):

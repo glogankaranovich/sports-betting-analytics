@@ -11,10 +11,14 @@ interface AccountProps {
 }
 
 const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSettingsChange }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'subscription' | 'preferences'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'subscription' | 'preferences' | 'notifications'>('profile');
   const [profile, setProfile] = useState<any>(null);
   const [subscription, setSubscription] = useState<any>(null);
   const [localSettings, setLocalSettings] = useState(settings);
+  const [notifications, setNotifications] = useState({
+    bennyWeeklyReport: false,
+    bennyBetAlerts: false,
+  });
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -36,7 +40,11 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
       ]);
 
       if (profileRes.ok) {
-        setProfile(await profileRes.json());
+        const profileData = await profileRes.json();
+        setProfile(profileData);
+        if (profileData.preferences?.notifications) {
+          setNotifications(profileData.preferences.notifications);
+        }
       } else {
         setProfile({
           user_id: userId,
@@ -59,6 +67,27 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
     onSettingsChange(localSettings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleSaveNotifications = async () => {
+    try {
+      await fetch(`${process.env.REACT_APP_API_URL}/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          preferences: { notifications },
+        }),
+      });
+      
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      console.error('Error saving notification preferences:', error);
+    }
   };
 
   const handleUpgrade = async (tier: string) => {
@@ -131,6 +160,12 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
           onClick={() => setActiveTab('preferences')}
         >
           Preferences
+        </button>
+        <button
+          className={activeTab === 'notifications' ? 'active' : ''}
+          onClick={() => setActiveTab('notifications')}
+        >
+          Notifications
         </button>
       </div>
 
@@ -270,6 +305,59 @@ const Account: React.FC<AccountProps> = ({ token, userId, user, settings, onSett
               </button>
               <button className="reset-btn" onClick={handleResetSettings}>
                 Reset to Defaults
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'notifications' && (
+        <div className="account-section">
+          <div className="account-card">
+            <h3>Email Notifications</h3>
+            <p className="section-desc">Manage your email notification preferences</p>
+            
+            <div className="notification-item">
+              <div className="notification-info">
+                <label>Benny Weekly Report</label>
+                <p>Receive a weekly summary of Benny's betting performance every Monday</p>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={notifications.bennyWeeklyReport}
+                  onChange={(e) => setNotifications({ ...notifications, bennyWeeklyReport: e.target.checked })}
+                  disabled={!subscription?.limits?.benny_ai}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div className="notification-item">
+              <div className="notification-info">
+                <label>Benny Bet Alerts</label>
+                <p>Get notified when Benny places a new bet</p>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={notifications.bennyBetAlerts}
+                  onChange={(e) => setNotifications({ ...notifications, bennyBetAlerts: e.target.checked })}
+                  disabled={!subscription?.limits?.benny_ai}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            </div>
+
+            {!subscription?.limits?.benny_ai && (
+              <p className="upgrade-notice">
+                Email notifications require a Pro subscription. <button onClick={() => setShowModal(true)}>Upgrade now</button>
+              </p>
+            )}
+
+            <div className="account-actions" style={{ justifyContent: 'flex-end' }}>
+              <button className="save-btn" onClick={handleSaveNotifications}>
+                {saved ? 'Saved!' : 'Save Changes'}
               </button>
             </div>
           </div>
