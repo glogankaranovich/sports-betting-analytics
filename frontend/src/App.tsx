@@ -105,7 +105,8 @@ function Dashboard({ user, signOut }: { user: any; signOut?: () => void }) {
   const [userModels, setUserModels] = useState<any[]>([]);
   const [sideNavCollapsed, setSideNavCollapsed] = useState(() => {
     const saved = localStorage.getItem('sideNavCollapsed');
-    return saved ? JSON.parse(saved) : false;
+    if (saved !== null) return JSON.parse(saved);
+    return window.innerWidth <= 768;
   });
 
   useEffect(() => {

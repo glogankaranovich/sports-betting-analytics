@@ -67,18 +67,48 @@
 @media (max-width: 768px) {
   .top-nav {
     padding: 0 1rem;
+    gap: 1rem;
   }
 
   .nav-sections {
     gap: 0.25rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .nav-sections::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-button {
     padding: 0.5rem 0.75rem;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .sign-out-button {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    flex-shrink: 0;
   }
 
   .dropdown-menu {
     min-width: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-button {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .sign-out-button {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
   }
 }

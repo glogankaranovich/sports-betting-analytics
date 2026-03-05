@@ -96,29 +96,11 @@
 }
 
 @media (max-width: 768px) {
-  .side-nav {
-    width: 70px;
-  }
-
-  .side-nav.collapsed {
-    width: 70px;
-  }
-
-  .side-nav-label {
-    display: none;
-  }
-
-  .side-nav-item {
-    justify-content: center;
-    padding: 0.75rem 0.5rem;
-    font-size: 0.875rem;
-  }
-
-  .side-nav-icon {
-    font-size: 1.1rem;
-  }
-
-  .collapse-button {
-    display: none;
+  .side-nav.hidden {
+    width: 0;
+    opacity: 0;
+    padding: 0;
+    border-right: none;
+    overflow: hidden;
   }
 }
