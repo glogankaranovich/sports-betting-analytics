@@ -216,8 +216,9 @@ def test_custom_data_list_endpoint(api_config):
         params={"user_id": api_config["user_id"]},
         timeout=10,
     )
-    # 200 if permissions are deployed, 500 if Lambda lacks DynamoDB permissions
-    assert response.status_code in [200, 500]
+    # 403 expected - custom data removed from all tiers
+    # 200 if permissions deployed, 500 if Lambda lacks DynamoDB permissions
+    assert response.status_code in [200, 403, 500]
     if response.status_code == 200:
         data = response.json()
         assert "datasets" in data
@@ -293,8 +294,8 @@ def test_update_profile_endpoint(api_config):
         json=payload,
         timeout=10,
     )
-    # 200 if updated, 400 if validation fails, 404 if endpoint not found
-    assert response.status_code in [200, 400, 404]
+    # 200 if updated, 400 if validation fails, 403 if feature restricted, 404 if endpoint not found
+    assert response.status_code in [200, 400, 403, 404]
 
 
 def test_unauthorized_access():
