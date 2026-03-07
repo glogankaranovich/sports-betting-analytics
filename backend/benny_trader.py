@@ -238,6 +238,36 @@ class BennyTrader:
             print(f"Error analyzing mistakes: {e}")
             return "Error analyzing recent mistakes"
 
+    def _get_winning_examples(self, sport: str, limit: int = 3) -> str:
+        """Get recent winning bets for the specific sport being analyzed"""
+        try:
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                FilterExpression="#status = :won AND sport = :sport",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":won": "won", ":sport": sport},
+                ScanIndexForward=False,
+                Limit=limit
+            )
+            
+            wins = response.get("Items", [])
+            if not wins:
+                return f"No winning bets yet for {sport}"
+            
+            examples = []
+            for bet in wins:
+                profit = float(bet.get("profit", 0))
+                confidence = float(bet.get("confidence", 0))
+                reasoning = bet.get("ai_reasoning", "N/A")[:100]
+                examples.append(
+                    f"✓ {bet.get('prediction')} ({confidence:.0%} conf) - Won ${profit:.2f}\n  Reasoning: {reasoning}"
+                )
+            
+            return "\n\n".join(examples)
+        except Exception as e:
+            print(f"Error getting winning examples: {e}")
+            return f"Error loading winning examples for {sport}"
+
     def _normalize_prediction(self, prediction: str) -> str:
         """Normalize prediction for agreement checking.
 

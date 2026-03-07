@@ -266,6 +266,45 @@ class TestBennyLearning(unittest.TestCase):
         
         assert "No recent losses to analyze" in result
 
+    def test_get_winning_examples_with_wins(self):
+        """Test getting winning examples for a sport"""
+        wins = [
+            {
+                "status": "won",
+                "sport": "basketball_nba",
+                "prediction": "Lakers (Moneyline)",
+                "confidence": Decimal("0.72"),
+                "profit": Decimal("15.50"),
+                "ai_reasoning": "Strong home court advantage and recent momentum"
+            },
+            {
+                "status": "won",
+                "sport": "basketball_nba",
+                "prediction": "Celtics -5.5 (Spread)",
+                "confidence": Decimal("0.68"),
+                "profit": Decimal("12.30"),
+                "ai_reasoning": "Elo rating difference of 75 points favors Celtics heavily"
+            }
+        ]
+        
+        self.benny.table.query.return_value = {"Items": wins}
+        
+        result = self.benny._get_winning_examples("basketball_nba", limit=3)
+        
+        assert "Lakers (Moneyline)" in result
+        assert "72%" in result
+        assert "$15.50" in result
+        assert "Strong home court advantage" in result
+        assert "Celtics -5.5 (Spread)" in result
+
+    def test_get_winning_examples_no_wins(self):
+        """Test getting winning examples when no wins exist"""
+        self.benny.table.query.return_value = {"Items": []}
+        
+        result = self.benny._get_winning_examples("soccer_epl", limit=3)
+        
+        assert "No winning bets yet for soccer_epl" in result
+
 
 if __name__ == "__main__":
     unittest.main()
