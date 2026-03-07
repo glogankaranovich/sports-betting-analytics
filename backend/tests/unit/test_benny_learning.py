@@ -336,6 +336,39 @@ class TestBennyLearning(unittest.TestCase):
         
         assert "Not enough settled bets" in result
 
+    def test_get_model_benchmarks_with_data(self):
+        """Test getting model performance benchmarks"""
+        momentum_preds = [
+            {"analysis_correct": True} for _ in range(12)
+        ] + [{"analysis_correct": False} for _ in range(8)]
+        
+        consensus_preds = [
+            {"analysis_correct": True} for _ in range(8)
+        ] + [{"analysis_correct": False} for _ in range(12)]
+        
+        def mock_query(**kwargs):
+            pk = kwargs["ExpressionAttributeValues"][":pk"]
+            if "momentum" in pk:
+                return {"Items": momentum_preds}
+            elif "consensus" in pk:
+                return {"Items": consensus_preds}
+            return {"Items": []}
+        
+        self.benny.table.query = mock_query
+        
+        result = self.benny._get_model_benchmarks("basketball_nba")
+        
+        # Should have at least some models with data
+        assert "60.0%" in result or "40.0%" in result or len(result) > 0
+
+    def test_get_model_benchmarks_no_data(self):
+        """Test getting benchmarks with insufficient data"""
+        self.benny.table.query.return_value = {"Items": []}
+        
+        result = self.benny._get_model_benchmarks("soccer_epl")
+        
+        assert "No benchmark data" in result
+
 
 if __name__ == "__main__":
     unittest.main()

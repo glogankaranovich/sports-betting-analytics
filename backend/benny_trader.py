@@ -311,6 +311,34 @@ class BennyTrader:
             print(f"Error extracting winning factors: {e}")
             return "Error analyzing winning factors"
 
+    def _get_model_benchmarks(self, sport: str) -> str:
+        """Get how other models perform on this sport"""
+        try:
+            from constants import SYSTEM_MODELS
+            
+            benchmarks = []
+            
+            for model in SYSTEM_MODELS:
+                response = self.table.query(
+                    IndexName="VerifiedAnalysisGSI",
+                    KeyConditionExpression=Key("verified_analysis_pk").eq(
+                        f"VERIFIED#{model}#{sport}#game"
+                    ),
+                    ScanIndexForward=False,
+                    Limit=50
+                )
+                
+                preds = response.get("Items", [])
+                if len(preds) >= 10:
+                    correct = sum(1 for p in preds if p.get("analysis_correct"))
+                    accuracy = correct / len(preds)
+                    benchmarks.append(f"{model}: {accuracy:.1%} ({correct}/{len(preds)})")
+            
+            return "\n".join(benchmarks) if benchmarks else f"No benchmark data for {sport}"
+        except Exception as e:
+            print(f"Error getting model benchmarks: {e}")
+            return f"Error loading benchmarks for {sport}"
+
     def _normalize_prediction(self, prediction: str) -> str:
         """Normalize prediction for agreement checking.
 
