@@ -25,7 +25,7 @@ class BennyTrader:
     """Autonomous trading agent for sports betting"""
 
     WEEKLY_BUDGET = Decimal("100.00")
-    BASE_MIN_CONFIDENCE = 0.65  # Minimum confidence threshold to place bet
+    BASE_MIN_CONFIDENCE = 0.70  # Raised from 0.65 - be more selective
     MIN_EV = 0.05  # Minimum 5% expected value (expected ROI per bet)
     TARGET_ROI = 0.15  # Target 15% ROI for strategic decision-making
     MAX_BET_PERCENTAGE = 0.20  # Max 20% of bankroll per bet
@@ -41,6 +41,37 @@ class BennyTrader:
         self.learning_params = self._get_learning_parameters()
         self.sqs = boto3.client('sqs')
         self.notification_queue_url = os.environ.get('NOTIFICATION_QUEUE_URL')
+    
+    def _get_adaptive_threshold(self, sport: str, market: str) -> float:
+        """Get confidence threshold based on historical performance"""
+        # Check sport performance
+        sport_perf = self.learning_params.get('performance_by_sport', {}).get(sport, {})
+        market_perf = self.learning_params.get('performance_by_market', {}).get(market, {})
+        
+        # Calculate win rates if enough data
+        sport_win_rate = None
+        if sport_perf.get('total', 0) >= 30:
+            sport_win_rate = sport_perf['wins'] / sport_perf['total']
+        
+        market_win_rate = None
+        if market_perf.get('total', 0) >= 30:
+            market_win_rate = market_perf['wins'] / market_perf['total']
+        
+        # Use worst performance to set threshold
+        worst_win_rate = min(
+            [r for r in [sport_win_rate, market_win_rate] if r is not None],
+            default=0.50
+        )
+        
+        # Adaptive thresholds based on performance
+        if worst_win_rate < 0.35:
+            return 0.80  # Terrible - require exceptional confidence
+        elif worst_win_rate < 0.45:
+            return 0.75  # Poor - require high confidence
+        elif worst_win_rate > 0.55:
+            return 0.65  # Good - can be more aggressive
+        else:
+            return 0.70  # Neutral - standard threshold
     
     def _acquire_lock(self) -> bool:
         """Acquire distributed lock for Benny execution. Returns True if acquired."""
@@ -1764,6 +1795,17 @@ IMPORTANT:
 
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Place a virtual bet"""
+        # Check adaptive threshold based on sport/market performance
+        sport = opportunity["sport"]
+        market = opportunity["market_key"]
+        required_confidence = self._get_adaptive_threshold(sport, market)
+        
+        if opportunity["confidence"] < required_confidence:
+            print(f"  Skipping {opportunity.get('away_team', '')} @ {opportunity.get('home_team', '')} ({market}): "
+                  f"confidence {opportunity['confidence']:.2f} < required {required_confidence:.2f} "
+                  f"(sport: {sport}, market: {market})")
+            return {"success": False, "reason": f"Confidence {opportunity['confidence']:.2f} below adaptive threshold {required_confidence:.2f}"}
+        
         # Check if we already have a pending bet for this game + market combination
         game_id = opportunity["game_id"]
         market_key = opportunity["market_key"]
@@ -2205,3 +2247,10 @@ def lambda_handler(event, context):
             pass
         
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+
+
+if __name__ == "__main__":
+    import sys
+    result = lambda_handler({}, None)
+    print(f"Benny trader complete: {result}")
+    sys.exit(0 if result.get("statusCode") == 200 else 1)
