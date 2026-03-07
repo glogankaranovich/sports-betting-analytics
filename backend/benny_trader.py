@@ -1001,6 +1001,14 @@ By Market: {', '.join(f"{m}: {r}" for m, r in perf_stats['by_market'].items())}
 Note: Use this to inform confidence - be more conservative in markets where you've struggled."""
                 print(f"[PROP] Including performance context in AI prompt")
 
+            # Add new learning feedback
+            sport = prop_data['sport']
+            what_works = self._get_what_works_analysis()
+            what_fails = self._get_what_fails_analysis()
+            recent_mistakes = self._analyze_recent_mistakes()
+            winning_examples = self._get_winning_examples(sport, limit=2)
+            winning_factors = self._extract_winning_factors()
+
             prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
 RISK PARAMETERS:
@@ -1009,6 +1017,22 @@ RISK PARAMETERS:
 - Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
 - Current Bankroll: ${float(self.bankroll):.2f}
 {perf_context}
+
+WHAT'S WORKING FOR YOU:
+{what_works}
+
+WHAT'S NOT WORKING:
+{what_fails}
+
+RECENT MISTAKE PATTERNS:
+{recent_mistakes}
+
+YOUR RECENT WINS IN {sport.upper()}:
+{winning_examples}
+
+FACTORS THAT PREDICT SUCCESS:
+{winning_factors}
+
 Player: {prop_data['player']} ({prop_data['team']})
 Opponent: {prop_data['opponent']}
 Market: {prop_data['market']}
@@ -1269,6 +1293,15 @@ By Market: {', '.join(f"{m}: {r}" for m, r in perf_stats['by_market'].items())}
 Note: Use this to inform confidence - be more conservative in markets where you've struggled."""
                 print(f"[GAME] Including performance context in AI prompt")
 
+            # Add new learning feedback
+            sport = game_data['sport']
+            what_works = self._get_what_works_analysis()
+            what_fails = self._get_what_fails_analysis()
+            recent_mistakes = self._analyze_recent_mistakes()
+            winning_examples = self._get_winning_examples(sport, limit=2)
+            winning_factors = self._extract_winning_factors()
+            model_benchmarks = self._get_model_benchmarks(sport)
+
             prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
 RISK PARAMETERS:
@@ -1277,6 +1310,26 @@ RISK PARAMETERS:
 - Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
 - Current Bankroll: ${float(self.bankroll):.2f}
 {perf_context}
+
+WHAT'S WORKING FOR YOU:
+{what_works}
+
+WHAT'S NOT WORKING:
+{what_fails}
+
+RECENT MISTAKE PATTERNS:
+{recent_mistakes}
+
+YOUR RECENT WINS IN {sport.upper()}:
+{winning_examples}
+
+FACTORS THAT PREDICT SUCCESS:
+{winning_factors}
+
+OTHER MODELS' PERFORMANCE ON {sport.upper()}:
+{model_benchmarks}
+Note: You should aim to match or beat the best models. If you're underperforming, learn from their approach.
+
 Game: {game_data['away_team']} @ {game_data['home_team']}
 Sport: {game_data['sport']}
 Time: {game_data['commence_time']}
