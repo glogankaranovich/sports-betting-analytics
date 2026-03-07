@@ -25,7 +25,8 @@ class BennyTrader:
     """Autonomous trading agent for sports betting"""
 
     WEEKLY_BUDGET = Decimal("100.00")
-    BASE_MIN_CONFIDENCE = 0.65  # Base confidence threshold (for reference, not enforced)
+    BASE_MIN_CONFIDENCE = 0.65  # Minimum confidence threshold to place bet
+    MIN_EV = 0.05  # Minimum 5% expected value (expected ROI per bet)
     TARGET_ROI = 0.15  # Target 15% ROI for strategic decision-making
     MAX_BET_PERCENTAGE = 0.20  # Max 20% of bankroll per bet
 
@@ -151,6 +152,48 @@ class BennyTrader:
         except Exception as e:
             print(f"Error fetching performance stats: {e}")
             return {"message": "Error loading stats"}
+
+    def _get_what_works_analysis(self) -> str:
+        """Identify patterns in winning bets"""
+        perf_by_sport = self.learning_params.get("performance_by_sport", {})
+        perf_by_market = self.learning_params.get("performance_by_bet_type", {})
+        
+        insights = []
+        
+        for sport, stats in perf_by_sport.items():
+            if stats["total"] >= 5:
+                wr = stats["wins"] / stats["total"]
+                if wr > 0.55:
+                    insights.append(f"✓ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})")
+        
+        for market, stats in perf_by_market.items():
+            if stats["total"] >= 5:
+                wr = stats["wins"] / stats["total"]
+                if wr > 0.55:
+                    insights.append(f"✓ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})")
+        
+        return "\n".join(insights) if insights else "Not enough data yet (need 5+ bets per category)"
+
+    def _get_what_fails_analysis(self) -> str:
+        """Identify patterns in losing bets"""
+        perf_by_sport = self.learning_params.get("performance_by_sport", {})
+        perf_by_market = self.learning_params.get("performance_by_bet_type", {})
+        
+        warnings = []
+        
+        for sport, stats in perf_by_sport.items():
+            if stats["total"] >= 5:
+                wr = stats["wins"] / stats["total"]
+                if wr < 0.45:
+                    warnings.append(f"✗ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - AVOID or be very selective")
+        
+        for market, stats in perf_by_market.items():
+            if stats["total"] >= 5:
+                wr = stats["wins"] / stats["total"]
+                if wr < 0.45:
+                    warnings.append(f"✗ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - AVOID or be very selective")
+        
+        return "\n".join(warnings) if warnings else "No clear failure patterns yet"
 
     def _normalize_prediction(self, prediction: str) -> str:
         """Normalize prediction for agreement checking.
@@ -850,16 +893,25 @@ ANALYSIS INSTRUCTIONS:
 3. Factor in matchup history against this opponent
 4. Look for value where the line doesn't match recent performance
 5. Consider Benny's historical accuracy on this prop type
-6. CRITICAL: Only recommend bets with positive expected value (EV > 0)
-   - Calculate EV = (confidence × payout) - 1
-   - For -110 odds: payout = 1.909, so need confidence > 0.524 for +EV
-   - For +150 odds: payout = 2.5, so need confidence > 0.40 for +EV
-7. Be conservative - only bet when you see clear positive value
+6. CRITICAL BETTING THRESHOLDS:
+   - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
+   - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
+   - Calculate EV/Expected ROI = (confidence × payout) - 1
+   - Example: -110 odds (payout 1.909) at 65% confidence = EV of 0.24 (24% expected ROI) ✓
+   - Example: -110 odds (payout 1.909) at 55% confidence = EV of 0.05 (5% expected ROI) ✓
+   - Example: -110 odds (payout 1.909) at 52% confidence = EV of -0.007 (negative ROI) ✗
+   - NEVER bet on negative expected ROI - you will lose money over time
+7. Be highly selective - props are harder to predict than games
+8. Skip if player data is limited or matchup is unclear
 
 Respond with JSON only:
 {{"prediction": "Over/Under X.X (Player Market)", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}
 
-IMPORTANT: Include market type in prediction for clarity (e.g., "Over 25.5 (Points)", "Under 8.5 (Rebounds)")."""
+IMPORTANT: 
+- Include market type in prediction for clarity (e.g., "Over 25.5 (Points)", "Under 8.5 (Rebounds)")
+- Only bet when confidence >= {self.BASE_MIN_CONFIDENCE} AND expected ROI >= {self.MIN_EV}
+- Expected ROI = (confidence × payout) - 1 must be positive and > 5%
+- When in doubt, skip - protecting bankroll is priority #1"""
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
@@ -1129,19 +1181,27 @@ ANALYSIS INSTRUCTIONS:
 2. Prioritize Elo ratings and opponent-adjusted metrics
 3. Factor in fatigue if either team has score >50 or traveled >1000 miles
 4. Consider weather impact if marked as "high" or "moderate"
-5. CRITICAL: Only recommend bets with positive expected value (EV > 0)
-   - Calculate EV = (confidence × payout) - 1
-   - Example: -110 odds (payout 1.909) needs confidence > 0.524 for +EV
-   - Example: +150 odds (payout 2.5) needs confidence > 0.40 for +EV
+5. CRITICAL BETTING THRESHOLDS:
+   - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
+   - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
+   - Calculate EV/Expected ROI = (confidence × payout) - 1
+   - Example: -110 odds (payout 1.909) at 65% confidence = EV of 0.24 (24% expected ROI) ✓
+   - Example: -110 odds (payout 1.909) at 55% confidence = EV of 0.05 (5% expected ROI) ✓
+   - Example: -110 odds (payout 1.909) at 52% confidence = EV of -0.007 (negative ROI) ✗
+   - NEVER bet on negative expected ROI - you will lose money over time
 6. For spreads: Consider if favorite can cover the spread, not just win
 7. For totals: Analyze pace, defense, and scoring trends
-8. Be selective - only bet when you have clear positive expected value
+8. Be highly selective - quality over quantity. Skip games where edge is unclear.
+9. Learn from your performance by sport - adjust confidence accordingly
 
 Respond with JSON only - include ALL markets you want to bet on:
 {{"h2h": {{"prediction": "Team Name (Moneyline)", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name -X.X (Spread)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under XXX.X (Total)", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
 
-IMPORTANT: Include market type in prediction text for clarity.
-Only include markets where you have positive expected value. Omit markets without +EV."""
+IMPORTANT: 
+- Include market type in prediction text for clarity
+- Only include markets where confidence >= {self.BASE_MIN_CONFIDENCE} AND expected ROI >= {self.MIN_EV}
+- Expected ROI = (confidence × payout) - 1 must be positive and > 5%
+- When in doubt, skip the bet - protecting bankroll is priority #1"""
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",

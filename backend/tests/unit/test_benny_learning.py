@@ -137,6 +137,77 @@ class TestBennyLearning(unittest.TestCase):
         assert perf_by_sport["americanfootball_nfl"]["wins"] == 0
         assert perf_by_sport["americanfootball_nfl"]["total"] == 7
 
+    def test_get_what_works_analysis_with_winning_patterns(self):
+        """Test identifying winning patterns by sport and market"""
+        self.benny.learning_params = {
+            "performance_by_sport": {
+                "basketball_nba": {"wins": 12, "total": 20},  # 60% win rate
+                "americanfootball_nfl": {"wins": 3, "total": 10},  # 30% win rate
+            },
+            "performance_by_bet_type": {
+                "h2h": {"wins": 8, "total": 12},  # 66% win rate
+                "spread": {"wins": 2, "total": 8},  # 25% win rate
+            },
+        }
+
+        result = self.benny._get_what_works_analysis()
+
+        assert "basketball_nba" in result
+        assert "60.0%" in result
+        assert "h2h" in result
+        assert "66.7%" in result
+        assert "americanfootball_nfl" not in result  # Below 55%
+        assert "spread" not in result  # Below 55%
+
+    def test_get_what_works_analysis_insufficient_data(self):
+        """Test what works analysis with insufficient data"""
+        self.benny.learning_params = {
+            "performance_by_sport": {
+                "basketball_nba": {"wins": 3, "total": 4},  # Only 4 bets
+            },
+            "performance_by_bet_type": {},
+        }
+
+        result = self.benny._get_what_works_analysis()
+
+        assert "Not enough data yet" in result
+
+    def test_get_what_fails_analysis_with_losing_patterns(self):
+        """Test identifying losing patterns by sport and market"""
+        self.benny.learning_params = {
+            "performance_by_sport": {
+                "basketball_nba": {"wins": 12, "total": 20},  # 60% win rate
+                "soccer_epl": {"wins": 2, "total": 10},  # 20% win rate
+            },
+            "performance_by_bet_type": {
+                "h2h": {"wins": 8, "total": 12},  # 66% win rate
+                "prop": {"wins": 2, "total": 15},  # 13% win rate
+            },
+        }
+
+        result = self.benny._get_what_fails_analysis()
+
+        assert "soccer_epl" in result
+        assert "20.0%" in result
+        assert "AVOID" in result
+        assert "prop" in result
+        assert "13.3%" in result
+        assert "basketball_nba" not in result  # Above 45%
+        assert "h2h" not in result  # Above 45%
+
+    def test_get_what_fails_analysis_no_failures(self):
+        """Test what fails analysis when no clear failures"""
+        self.benny.learning_params = {
+            "performance_by_sport": {
+                "basketball_nba": {"wins": 10, "total": 20},  # 50% win rate
+            },
+            "performance_by_bet_type": {},
+        }
+
+        result = self.benny._get_what_fails_analysis()
+
+        assert "No clear failure patterns yet" in result
+
 
 if __name__ == "__main__":
     unittest.main()
