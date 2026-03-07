@@ -14,6 +14,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from constants import SUPPORTED_SPORTS
+from benny.position_manager import PositionManager
 
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
@@ -42,6 +43,7 @@ class BennyTrader:
         self.learning_params = self._get_learning_parameters()
         self.sqs = boto3.client('sqs')
         self.notification_queue_url = os.environ.get('NOTIFICATION_QUEUE_URL')
+        self.position_manager = PositionManager(self.table, bedrock)
     
     def _get_adaptive_threshold(self, sport: str, market: str) -> float:
         """Get confidence threshold based on historical performance"""
@@ -2001,7 +2003,10 @@ IMPORTANT:
         # Update learning parameters before analyzing
         self.update_learning_parameters()
         
-        # 1. Analyze all games and props
+        # 1. Evaluate existing positions for cash-out/double-down
+        position_actions = self._manage_positions()
+        
+        # 2. Analyze all games and props
         game_opportunities = self.analyze_games()
         print(f"Found {len(game_opportunities)} game opportunities")
         
@@ -2010,11 +2015,11 @@ IMPORTANT:
             prop_opportunities = self.analyze_props()
             print(f"Found {len(prop_opportunities)} prop opportunities")
         
-        # 2. Combine and sort by confidence * edge (best opportunities first)
+        # 3. Combine and sort by confidence * edge (best opportunities first)
         all_opportunities = game_opportunities + prop_opportunities
         all_opportunities.sort(key=lambda x: x.get("confidence", 0) * x.get("edge", 0), reverse=True)
         
-        # 3. Place bets in priority order
+        # 4. Place bets in priority order
         placed_bets = []
         total_bet = Decimal("0")
         
@@ -2043,6 +2048,42 @@ IMPORTANT:
             "total_bet_amount": float(total_bet),
             "remaining_bankroll": float(self.bankroll),
             "bets": placed_bets,
+            "position_actions": position_actions
+        }
+    
+    def _manage_positions(self) -> Dict[str, Any]:
+        """Manage existing positions - cash-out and double-down"""
+        evaluations = self.position_manager.evaluate_pending_bets()
+        
+        cash_outs = []
+        double_downs = []
+        
+        for eval in evaluations:
+            # Check for cash-out
+            should_cash, reason = self.position_manager.should_cash_out(eval)
+            if should_cash:
+                result = self.position_manager.execute_cash_out(eval["bet"], reason)
+                if result["success"]:
+                    # Return cash to bankroll
+                    self._update_bankroll(self.bankroll + Decimal(str(result["cash_out_value"])))
+                    cash_outs.append(result)
+                    print(f"Cashed out bet: {reason}, returned ${result['cash_out_value']}")
+                continue
+            
+            # Check for double-down
+            should_double, reason, additional_stake = self.position_manager.should_double_down(eval, self.bankroll)
+            if should_double and additional_stake <= self.bankroll:
+                result = self.position_manager.execute_double_down(eval["bet"], additional_stake, reason)
+                if result["success"]:
+                    # Deduct from bankroll
+                    self._update_bankroll(self.bankroll - additional_stake)
+                    double_downs.append(result)
+                    print(f"Doubled down: {reason}, added ${additional_stake}")
+        
+        return {
+            "cash_outs": len(cash_outs),
+            "double_downs": len(double_downs),
+            "details": {"cash_outs": cash_outs, "double_downs": double_downs}
         }
 
     @staticmethod
