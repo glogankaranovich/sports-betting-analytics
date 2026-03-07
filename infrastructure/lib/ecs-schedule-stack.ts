@@ -107,18 +107,28 @@ export class EcsScheduleStack extends cdk.Stack {
       });
     });
 
-    // Benny Trader - daily at 10 AM ET (3 PM UTC)
-    new events.Rule(this, 'BennyTraderSchedule', {
-      schedule: events.Schedule.cron({ minute: '0', hour: '15' }),
-      targets: [
-        new targets.EcsTask({
-          cluster: props.cluster,
-          taskDefinition: props.bennyTraderTask,
-          role: eventRole,
-          subnetSelection,
-          assignPublicIp: true,
-        }),
-      ],
+    // Benny Trader - multiple times daily for cash-out and double-down opportunities
+    // 8 AM, 12 PM, 4 PM, 8 PM ET (13:00, 17:00, 21:00, 01:00 UTC)
+    const bennySchedules = [
+      { hour: '13', name: 'Morning' },   // 8 AM ET
+      { hour: '17', name: 'Midday' },    // 12 PM ET
+      { hour: '21', name: 'Afternoon' }, // 4 PM ET
+      { hour: '1', name: 'Evening' },    // 8 PM ET
+    ];
+
+    bennySchedules.forEach((schedule) => {
+      new events.Rule(this, `BennyTraderSchedule${schedule.name}`, {
+        schedule: events.Schedule.cron({ minute: '0', hour: schedule.hour }),
+        targets: [
+          new targets.EcsTask({
+            cluster: props.cluster,
+            taskDefinition: props.bennyTraderTask,
+            role: eventRole,
+            subnetSelection,
+            assignPublicIp: true,
+          }),
+        ],
+      });
     });
   }
 }
