@@ -60,6 +60,7 @@ export class AnalysisGeneratorScheduleStack extends cdk.Stack {
               month: '*',
               year: '*'
             }),
+            enabled: false, // Disabled - migrated to ECS
             description: `Generate ${sport.name} ${betType} analyses using ${model} model every 4 hours (offset: ${globalOffset}min)`,
             targets: [new targets.LambdaFunction(sport.lambda, {
               event: events.RuleTargetInput.fromObject({

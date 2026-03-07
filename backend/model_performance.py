@@ -38,22 +38,26 @@ class ModelPerformanceTracker:
             }
         """
         try:
+            from constants import SUPPORTED_BOOKMAKERS
             cutoff_time = (datetime.utcnow() - timedelta(days=days)).isoformat()
+            
+            # Query across all bookmakers and bet types to get comprehensive performance data
+            all_analyses = []
+            for bookmaker in SUPPORTED_BOOKMAKERS:
+                for bet_type in ["game", "prop"]:
+                    analysis_time_pk = f"ANALYSIS#{sport}#{bookmaker}#{model}#{bet_type}"
+                    response = self.table.query(
+                        IndexName="AnalysisTimeGSI",
+                        KeyConditionExpression="analysis_time_pk = :pk AND commence_time >= :cutoff",
+                        FilterExpression="attribute_exists(actual_outcome)",
+                        ExpressionAttributeValues={
+                            ":pk": analysis_time_pk,
+                            ":cutoff": cutoff_time,
+                        },
+                    )
+                    all_analyses.extend(response.get("Items", []))
 
-            # Query analyses with outcomes
-            response = self.table.query(
-                IndexName="AnalysisTimeGSI",
-                KeyConditionExpression="begins_with(analysis_time_pk, :prefix) AND commence_time >= :cutoff",
-                FilterExpression="attribute_exists(actual_outcome)",
-                ExpressionAttributeValues={
-                    ":prefix": f"ANALYSIS#{sport}#",
-                    ":cutoff": cutoff_time,
-                },
-            )
-
-            analyses = [
-                item for item in response.get("Items", []) if item.get("model") == model
-            ]
+            analyses = all_analyses
 
             if not analyses:
                 return {

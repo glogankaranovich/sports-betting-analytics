@@ -14,6 +14,7 @@ export class BennyTraderScheduleStack extends cdk.Stack {
 
     new events.Rule(this, 'BennyTraderRule', {
       schedule: events.Schedule.cron({ hour: '14', minute: '0' }),
+      enabled: false, // Disabled - migrated to ECS
       targets: [new targets.LambdaFunction(props.bennyTraderFunction)],
     });
   }

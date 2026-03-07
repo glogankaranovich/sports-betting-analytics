@@ -20,16 +20,14 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
           authentication: cdk.SecretValue.secretsManager('github-token'),
         }),
         installCommands: [
-          'npm install -g aws-cdk@2',  // CDK for infrastructure
-          'python3 -m pip install --upgrade pip',  // Python for backend
+          'npm install -g aws-cdk@2',
+          'python3 -m pip install --upgrade pip',
         ],
         commands: [
-          // Build infrastructure (TypeScript/CDK)
+          // Build infrastructure
           'cd infrastructure',
           'npm ci',
           'npm run build',
-          
-          // Synthesize CDK
           'cdk synth',
         ],
         primaryOutputDirectory: 'infrastructure/cdk.out',
@@ -44,7 +42,43 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
       env: ENVIRONMENTS.beta,
       stage: 'beta',
     });
-    const betaStage = pipeline.addStage(betaStageConstruct);
+    
+    // Build and push Docker image for Beta before deployment
+    const betaStage = pipeline.addStage(betaStageConstruct, {
+      pre: [
+        new CodeBuildStep('BuildDockerImageBeta', {
+          commands: [
+            'echo "Building Docker image for Beta..."',
+            'export AWS_ACCOUNT_ID=' + ENVIRONMENTS.beta.account,
+            'export ECR_REPO_URI=$AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/beta-batch-jobs',
+            'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REPO_URI',
+            'docker build -t beta-batch-jobs:latest .',
+            'docker tag beta-batch-jobs:latest $ECR_REPO_URI:latest',
+            'docker push $ECR_REPO_URI:latest',
+            'echo "Docker image pushed to $ECR_REPO_URI:latest"',
+          ],
+          buildEnvironment: {
+            buildImage: LinuxBuildImage.STANDARD_7_0,
+            privileged: true,
+          },
+          rolePolicyStatements: [
+            new iam.PolicyStatement({
+              actions: [
+                'ecr:GetAuthorizationToken',
+                'ecr:BatchCheckLayerAvailability',
+                'ecr:GetDownloadUrlForLayer',
+                'ecr:BatchGetImage',
+                'ecr:PutImage',
+                'ecr:InitiateLayerUpload',
+                'ecr:UploadLayerPart',
+                'ecr:CompleteLayerUpload',
+              ],
+              resources: ['*'],
+            }),
+          ],
+        }),
+      ],
+    });
 
     // Integration tests (Python) - Run all integration tests
     betaStage.addPost(new CodeBuildStep('IntegrationTests', {
@@ -76,10 +110,47 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
     }));
 
     // Prod stage
-    const prodStage = pipeline.addStage(new CarpoolBetsStage(this, 'Prod', {
+    const prodStageConstruct = new CarpoolBetsStage(this, 'Prod', {
       env: ENVIRONMENTS.prod,
       stage: 'prod',
-    }));
+    });
+    
+    // Build and push Docker image for Prod before deployment
+    const prodStage = pipeline.addStage(prodStageConstruct, {
+      pre: [
+        new CodeBuildStep('BuildDockerImageProd', {
+          commands: [
+            'echo "Building Docker image for Prod..."',
+            'export AWS_ACCOUNT_ID=' + ENVIRONMENTS.prod.account,
+            'export ECR_REPO_URI=$AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/prod-batch-jobs',
+            'aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REPO_URI',
+            'docker build -t prod-batch-jobs:latest .',
+            'docker tag prod-batch-jobs:latest $ECR_REPO_URI:latest',
+            'docker push $ECR_REPO_URI:latest',
+            'echo "Docker image pushed to $ECR_REPO_URI:latest"',
+          ],
+          buildEnvironment: {
+            buildImage: LinuxBuildImage.STANDARD_7_0,
+            privileged: true,
+          },
+          rolePolicyStatements: [
+            new iam.PolicyStatement({
+              actions: [
+                'ecr:GetAuthorizationToken',
+                'ecr:BatchCheckLayerAvailability',
+                'ecr:GetDownloadUrlForLayer',
+                'ecr:BatchGetImage',
+                'ecr:PutImage',
+                'ecr:InitiateLayerUpload',
+                'ecr:UploadLayerPart',
+                'ecr:CompleteLayerUpload',
+              ],
+              resources: ['*'],
+            }),
+          ],
+        }),
+      ],
+    });
 
     // Integration tests for Prod (Python) with automatic rollback - TEMPORARILY DISABLED
     // TODO: Re-enable after fixing integration test schema issues

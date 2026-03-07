@@ -512,3 +512,15 @@ def create_inverse_prediction(analysis_item: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         print(f"Error creating inverse prediction: {e}")
         return None
+
+
+if __name__ == "__main__":
+    import sys
+    sport = os.getenv("SPORT", "basketball_nba")
+    model = os.getenv("MODEL", "fundamentals")
+    bet_type = os.getenv("BET_TYPE", "games")
+    
+    event = {"sport": sport, "model": model, "bet_type": bet_type}
+    result = lambda_handler(event, None)
+    print(f"Analysis complete: {result}")
+    sys.exit(0 if result.get("statusCode") == 200 else 1)

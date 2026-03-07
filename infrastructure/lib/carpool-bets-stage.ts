@@ -28,6 +28,10 @@ import { ModelComparisonCacheStack } from './model-comparison-cache-stack';
 import { CustomDataStack } from './custom-data-stack';
 import { NewsCollectorsStack } from './news-collectors-stack';
 import { NotificationStack } from './notification-stack';
+import { EcsClusterStack } from './ecs-cluster-stack';
+import { EcsTaskStack } from './ecs-task-stack';
+import { EcsScheduleStack } from './ecs-schedule-stack';
+import { EcsAlarmsStack } from './ecs-alarms-stack';
 import { StackNames } from './utils/stack-names';
 
 export interface CarpoolBetsStageProps extends cdk.StageProps {
@@ -44,6 +48,29 @@ export class CarpoolBetsStage extends cdk.Stage {
     // DynamoDB Stack
     const dynamoStack = new DynamoDBStack(this, 'DynamoDB', {
       environment: props.stage,
+    });
+
+    // ECS Cluster Stack (for batch processing)
+    const ecsClusterStack = new EcsClusterStack(this, 'EcsCluster', {
+      stage: props.stage,
+    });
+
+    // ECS Task Stack (task definitions)
+    const ecsTaskStack = new EcsTaskStack(this, 'EcsTasks', {
+      stage: props.stage,
+      cluster: ecsClusterStack.cluster,
+      tableName: `carpool-bets-v2-${props.stage}`,
+      anthropicApiKeyArn: `arn:aws:secretsmanager:${this.region}:${this.account}:secret:anthropic-api-key`,
+      oddsApiKeyArn: `arn:aws:secretsmanager:${this.region}:${this.account}:secret:odds-api-key`,
+    });
+
+    // ECS Schedule Stack (EventBridge rules)
+    const ecsScheduleStack = new EcsScheduleStack(this, 'EcsSchedules', {
+      stage: props.stage,
+      cluster: ecsClusterStack.cluster,
+      propsCollectorTask: ecsTaskStack.propsCollectorTask,
+      analysisGeneratorTask: ecsTaskStack.analysisGeneratorTask,
+      bennyTraderTask: ecsTaskStack.bennyTraderTask,
     });
 
     // Auth Stack
@@ -201,7 +228,7 @@ export class CarpoolBetsStage extends cdk.Stage {
     });
 
     // Monitoring stack
-    new MonitoringStack(this, 'Monitoring', {
+    const monitoringStack = new MonitoringStack(this, 'Monitoring', {
       environment: props.stage,
       oddsCollectorFunction: oddsCollectorStack.oddsCollectorFunction,
       propsCollectorFunction: oddsCollectorStack.propsCollectorFunction,
@@ -227,6 +254,16 @@ export class CarpoolBetsStage extends cdk.Stage {
       aiAgentApiFunction: betCollectorApiStack.aiAgentApiFunction,
       modelExecutorFunction: userModelsStack.modelExecutorFunction,
       queueLoaderFunction: userModelsStack.queueLoaderFunction,
+    });
+
+    // ECS Alarms Stack
+    new EcsAlarmsStack(this, 'EcsAlarms', {
+      stage: props.stage,
+      cluster: ecsClusterStack.cluster,
+      alarmTopic: monitoringStack.alarmTopic,
+      propsCollectorLogGroup: ecsTaskStack.propsCollectorLogGroup,
+      analysisGeneratorLogGroup: ecsTaskStack.analysisGeneratorLogGroup,
+      bennyTraderLogGroup: ecsTaskStack.bennyTraderLogGroup,
     });
 
     new ModelAnalyticsScheduleStack(this, 'ModelAnalyticsSchedule', {

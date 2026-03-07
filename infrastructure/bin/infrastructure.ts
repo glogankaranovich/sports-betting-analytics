@@ -32,6 +32,9 @@ import { CustomDataStack } from '../lib/custom-data-stack';
 import { WeatherCollectorStack } from '../lib/weather-collector-stack';
 import { NotificationStack } from '../lib/notification-stack';
 import { MetricsCalculatorStack } from '../lib/metrics-calculator-stack'; // DEPRECATED
+import { EcsClusterStack } from '../lib/ecs-cluster-stack';
+import { EcsTaskStack } from '../lib/ecs-task-stack';
+import { EcsScheduleStack } from '../lib/ecs-schedule-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -276,6 +279,32 @@ if (environment === 'dev') {
   new NewsCollectorsStack(app, StackNames.forEnvironment('dev', 'NewsCollectors'), {
     environment: 'dev',
     betsTable: dynamoStack.betsTable,
+    env: ENVIRONMENTS.dev,
+  });
+
+  // ECS Cluster Stack (for batch processing)
+  const ecsClusterStack = new EcsClusterStack(app, StackNames.forEnvironment('dev', 'EcsCluster'), {
+    stage: 'dev',
+    env: ENVIRONMENTS.dev,
+  });
+
+  // ECS Task Stack (task definitions)
+  const ecsTaskStack = new EcsTaskStack(app, StackNames.forEnvironment('dev', 'EcsTasks'), {
+    stage: 'dev',
+    cluster: ecsClusterStack.cluster,
+    tableName: 'carpool-bets-v2-dev',
+    anthropicApiKeyArn: '', // Not needed - using AWS Bedrock
+    oddsApiKeyArn: `arn:aws:secretsmanager:us-east-1:${ENVIRONMENTS.dev.account}:secret:sports-betting/odds-api-key-dev-9Sjkjt`,
+    env: ENVIRONMENTS.dev,
+  });
+
+  // ECS Schedule Stack (EventBridge rules)
+  new EcsScheduleStack(app, StackNames.forEnvironment('dev', 'EcsSchedules'), {
+    stage: 'dev',
+    cluster: ecsClusterStack.cluster,
+    propsCollectorTask: ecsTaskStack.propsCollectorTask,
+    analysisGeneratorTask: ecsTaskStack.analysisGeneratorTask,
+    bennyTraderTask: ecsTaskStack.bennyTraderTask,
     env: ENVIRONMENTS.dev,
   });
 } else {

@@ -574,9 +574,26 @@ def lambda_handler(event, context):
 
 
 if __name__ == "__main__":
-    # For local testing
+    # For ECS/local execution
+    import sys
     from dotenv import load_dotenv
 
     load_dotenv()
-    collector = OddsCollector()
-    collector.collect_all_odds()
+    
+    props_only = os.getenv("PROPS_ONLY", "false").lower() == "true"
+    
+    if props_only:
+        # Collect props for NBA and NFL
+        collector = OddsCollector()
+        total = 0
+        for sport in ["basketball_nba", "americanfootball_nfl"]:
+            print(f"Collecting props for {sport}...")
+            count = collector.collect_props_for_sport(sport)
+            total += count
+            print(f"Collected {count} props for {sport}")
+        print(f"Total props collected: {total}")
+        sys.exit(0)
+    else:
+        # Collect all game odds (default behavior)
+        collector = OddsCollector()
+        collector.collect_all_odds()

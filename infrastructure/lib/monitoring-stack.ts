@@ -35,17 +35,19 @@ export interface MonitoringStackProps extends cdk.StackProps {
 }
 
 export class MonitoringStack extends cdk.Stack {
+  public readonly alarmTopic: sns.Topic;
+
   constructor(scope: Construct, id: string, props: MonitoringStackProps) {
     super(scope, id, props);
 
     // SNS Topic for alarms
-    const alarmTopic = new sns.Topic(this, 'AlarmTopic', {
+    this.alarmTopic = new sns.Topic(this, 'AlarmTopic', {
       displayName: `Carpool Bets Alarms - ${props.environment}`,
       topicName: `carpool-bets-alarms-${props.environment}`,
     });
 
     // Add email subscription
-    alarmTopic.addSubscription(
+    this.alarmTopic.addSubscription(
       new sns_subscriptions.EmailSubscription('glogankaranovich@gmail.com')
     );
 
@@ -101,7 +103,7 @@ export class MonitoringStack extends cdk.Stack {
         alarmName: `${props.environment}-${name}-Errors`,
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
       });
-      errorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+      errorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(this.alarmTopic));
 
       // Create alarm for throttles
       const throttleAlarm = new cloudwatch.Alarm(this, `${name}ThrottleAlarm`, {
@@ -112,7 +114,7 @@ export class MonitoringStack extends cdk.Stack {
         alarmName: `${props.environment}-${name}-Throttles`,
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
       });
-      throttleAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+      throttleAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(this.alarmTopic));
 
       return { errors, throttles, duration, invocations };
     };
@@ -262,7 +264,7 @@ export class MonitoringStack extends cdk.Stack {
       alarmDescription: 'Alert when game analysis processing has errors',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
-    gameProcessingErrors.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    gameProcessingErrors.addAlarmAction(new cloudwatch_actions.SnsAction(this.alarmTopic));
 
     const propProcessingErrors = new cloudwatch.Alarm(this, 'PropProcessingErrors', {
       metric: new cloudwatch.Metric({
@@ -277,7 +279,7 @@ export class MonitoringStack extends cdk.Stack {
       alarmDescription: 'Alert when prop analysis processing has errors',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
-    propProcessingErrors.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    propProcessingErrors.addAlarmAction(new cloudwatch_actions.SnsAction(this.alarmTopic));
 
     // Collector error alarms
     const collectorErrors = [
@@ -315,7 +317,7 @@ export class MonitoringStack extends cdk.Stack {
         alarmDescription: `Alert when ${name} has errors`,
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
       });
-      alarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+      alarm.addAlarmAction(new cloudwatch_actions.SnsAction(this.alarmTopic));
     });
 
     // Outputs
@@ -325,7 +327,7 @@ export class MonitoringStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'AlarmTopicArn', {
-      value: alarmTopic.topicArn,
+      value: this.alarmTopic.topicArn,
       description: 'SNS Topic ARN for alarms',
     });
 
@@ -338,7 +340,7 @@ export class MonitoringStack extends cdk.Stack {
           evaluationPeriods: 2,
           alarmName: `${props.environment}-DDB-ReadThrottle-${i}`,
         });
-        readThrottle.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+        readThrottle.addAlarmAction(new cloudwatch_actions.SnsAction(this.alarmTopic));
       });
     }
 
@@ -357,7 +359,7 @@ export class MonitoringStack extends cdk.Stack {
           evaluationPeriods: 2,
           alarmName: `${props.environment}-API-5xxErrors-${i}`,
         });
-        serverErrors.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+        serverErrors.addAlarmAction(new cloudwatch_actions.SnsAction(this.alarmTopic));
       });
     }
 
@@ -370,7 +372,7 @@ export class MonitoringStack extends cdk.Stack {
           evaluationPeriods: 1,
           alarmName: `${props.environment}-DLQ-Depth-${i}`,
         });
-        dlqDepth.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+        dlqDepth.addAlarmAction(new cloudwatch_actions.SnsAction(this.alarmTopic));
       });
     }
   }
