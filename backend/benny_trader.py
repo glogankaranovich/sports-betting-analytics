@@ -185,13 +185,13 @@ class BennyTrader:
             if stats["total"] >= 5:
                 wr = stats["wins"] / stats["total"]
                 if wr < 0.45:
-                    warnings.append(f"✗ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - AVOID or be very selective")
+                    warnings.append(f"✗ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence")
         
         for market, stats in perf_by_market.items():
             if stats["total"] >= 5:
                 wr = stats["wins"] / stats["total"]
                 if wr < 0.45:
-                    warnings.append(f"✗ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - AVOID or be very selective")
+                    warnings.append(f"✗ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence")
         
         return "\n".join(warnings) if warnings else "No clear failure patterns yet"
 

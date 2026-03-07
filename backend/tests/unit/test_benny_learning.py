@@ -189,7 +189,7 @@ class TestBennyLearning(unittest.TestCase):
 
         assert "soccer_epl" in result
         assert "20.0%" in result
-        assert "AVOID" in result
+        assert "be very selective" in result
         assert "prop" in result
         assert "13.3%" in result
         assert "basketball_nba" not in result  # Above 45%
