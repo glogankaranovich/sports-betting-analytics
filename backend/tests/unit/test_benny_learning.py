@@ -23,7 +23,7 @@ class TestBennyLearning(unittest.TestCase):
                         "min_confidence_adjustment": 0.0,
                         "kelly_fraction": 0.25,
                         "performance_by_sport": {},
-                        "performance_by_bet_type": {},
+                        "performance_by_market": {},
                     },
                 ):
                     self.benny = BennyTrader("test-table")
@@ -144,7 +144,7 @@ class TestBennyLearning(unittest.TestCase):
                 "basketball_nba": {"wins": 12, "total": 20},  # 60% win rate
                 "americanfootball_nfl": {"wins": 3, "total": 10},  # 30% win rate
             },
-            "performance_by_bet_type": {
+            "performance_by_market": {
                 "h2h": {"wins": 8, "total": 12},  # 66% win rate
                 "spread": {"wins": 2, "total": 8},  # 25% win rate
             },
@@ -165,7 +165,7 @@ class TestBennyLearning(unittest.TestCase):
             "performance_by_sport": {
                 "basketball_nba": {"wins": 3, "total": 4},  # Only 4 bets
             },
-            "performance_by_bet_type": {},
+            "performance_by_market": {},
         }
 
         result = self.benny._get_what_works_analysis()
@@ -179,7 +179,7 @@ class TestBennyLearning(unittest.TestCase):
                 "basketball_nba": {"wins": 12, "total": 20},  # 60% win rate
                 "soccer_epl": {"wins": 2, "total": 10},  # 20% win rate
             },
-            "performance_by_bet_type": {
+            "performance_by_market": {
                 "h2h": {"wins": 8, "total": 12},  # 66% win rate
                 "prop": {"wins": 2, "total": 15},  # 13% win rate
             },

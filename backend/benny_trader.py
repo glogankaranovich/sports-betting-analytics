@@ -84,7 +84,7 @@ class BennyTrader:
                 "kelly_fraction": Decimal("0.5"),  # Half Kelly for more aggressive sizing
                 "target_roi": Decimal("0.15"),  # Target 15% ROI
                 "performance_by_sport": {},
-                "performance_by_bet_type": {},
+                "performance_by_market": {},
                 "last_updated": datetime.utcnow().isoformat(),
             }
             self.table.put_item(Item=default_params)
@@ -96,7 +96,7 @@ class BennyTrader:
                 "kelly_fraction": 0.5,
                 "target_roi": 0.15,
                 "performance_by_sport": {},
-                "performance_by_bet_type": {},
+                "performance_by_market": {},
             }
 
     def _get_performance_stats(self, days: int = 30) -> Dict[str, Any]:
@@ -156,7 +156,7 @@ class BennyTrader:
     def _get_what_works_analysis(self) -> str:
         """Identify patterns in winning bets"""
         perf_by_sport = self.learning_params.get("performance_by_sport", {})
-        perf_by_market = self.learning_params.get("performance_by_bet_type", {})
+        perf_by_market = self.learning_params.get("performance_by_market", {})
         
         insights = []
         
@@ -177,7 +177,7 @@ class BennyTrader:
     def _get_what_fails_analysis(self) -> str:
         """Identify patterns in losing bets"""
         perf_by_sport = self.learning_params.get("performance_by_sport", {})
-        perf_by_market = self.learning_params.get("performance_by_bet_type", {})
+        perf_by_market = self.learning_params.get("performance_by_market", {})
         
         warnings = []
         
@@ -200,14 +200,13 @@ class BennyTrader:
         try:
             response = self.table.query(
                 KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
-                FilterExpression="#status = :lost",
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={":lost": "lost"},
                 ScanIndexForward=False,
-                Limit=limit
+                Limit=200  # Get more bets, then filter
             )
             
-            losses = response.get("Items", [])
+            all_bets = response.get("Items", [])
+            losses = [b for b in all_bets if b.get("status") == "lost"][:limit]
+            
             if not losses:
                 return "No recent losses to analyze"
             
@@ -243,14 +242,13 @@ class BennyTrader:
         try:
             response = self.table.query(
                 KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
-                FilterExpression="#status = :won AND sport = :sport",
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={":won": "won", ":sport": sport},
                 ScanIndexForward=False,
-                Limit=limit
+                Limit=200  # Get more bets, then filter
             )
             
-            wins = response.get("Items", [])
+            all_bets = response.get("Items", [])
+            wins = [b for b in all_bets if b.get("status") == "won" and b.get("sport") == sport][:limit]
+            
             if not wins:
                 return f"No winning bets yet for {sport}"
             
@@ -1661,7 +1659,7 @@ IMPORTANT:
             cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
 
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq("BENNY#BETS"),
+                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
                 FilterExpression="settled_at > :cutoff AND #status IN (:won, :lost)",
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={
@@ -1700,17 +1698,16 @@ IMPORTANT:
                 adjustment = 0.05
             else:
                 # Acceptable performance, small adjustment toward 0
-                current_adj = self.learning_params.get("min_confidence_adjustment", 0)
+                current_adj = float(self.learning_params.get("min_confidence_adjustment", 0))
                 adjustment = -current_adj * 0.1  # Slowly return to baseline
 
-            # Calculate performance by sport and bet type
+            # Calculate performance by sport and market
             perf_by_sport = {}
-            perf_by_bet_type = {}
+            perf_by_market = {}
             perf_by_prop_market = {}
 
             for bet in bets:
                 sport = bet.get("sport", "unknown")
-                bet_type = bet.get("bet_type", "unknown")
                 market_key = bet.get("market_key", "unknown")
                 won = bet.get("status") == "won"
 
@@ -1720,14 +1717,14 @@ IMPORTANT:
                 if won:
                     perf_by_sport[sport]["wins"] += 1
 
-                if bet_type not in perf_by_bet_type:
-                    perf_by_bet_type[bet_type] = {"wins": 0, "total": 0}
-                perf_by_bet_type[bet_type]["total"] += 1
+                if market_key not in perf_by_market:
+                    perf_by_market[market_key] = {"wins": 0, "total": 0}
+                perf_by_market[market_key]["total"] += 1
                 if won:
-                    perf_by_bet_type[bet_type]["wins"] += 1
+                    perf_by_market[market_key]["wins"] += 1
                 
                 # Track prop market performance (player_points, player_rebounds, etc.)
-                if bet_type == "prop" and market_key.startswith("player_"):
+                if market_key.startswith("player_"):
                     if market_key not in perf_by_prop_market:
                         perf_by_prop_market[market_key] = {"wins": 0, "total": 0}
                     perf_by_prop_market[market_key]["total"] += 1
@@ -1739,7 +1736,7 @@ IMPORTANT:
                 {
                     "min_confidence_adjustment": Decimal(str(adjustment)),
                     "performance_by_sport": perf_by_sport,
-                    "performance_by_bet_type": perf_by_bet_type,
+                    "performance_by_market": perf_by_market,
                     "performance_by_prop_market": perf_by_prop_market,
                     "overall_win_rate": Decimal(str(win_rate)),
                     "total_bets_analyzed": len(bets),
