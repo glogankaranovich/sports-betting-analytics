@@ -305,6 +305,37 @@ class TestBennyLearning(unittest.TestCase):
         
         assert "No winning bets yet for soccer_epl" in result
 
+    def test_extract_winning_factors_with_patterns(self):
+        """Test extracting factors that correlate with wins"""
+        bets = [
+            {"status": "won", "ai_key_factors": ["Elo advantage >50", "Home court"]},
+            {"status": "won", "ai_key_factors": ["Elo advantage >50", "Rest advantage"]},
+            {"status": "won", "ai_key_factors": ["Elo advantage >50"]},
+            {"status": "lost", "ai_key_factors": ["Injury concerns", "Back-to-back"]},
+            {"status": "lost", "ai_key_factors": ["Injury concerns"]},
+            {"status": "won", "ai_key_factors": ["Home court"]},
+            {"status": "lost", "ai_key_factors": ["Back-to-back"]},
+        ] * 2  # 14 bets total
+        
+        self.benny.table.query.return_value = {"Items": bets}
+        
+        result = self.benny._extract_winning_factors()
+        
+        assert "Elo advantage >50" in result
+        assert "100%" in result  # 6/6 wins
+        assert "Injury concerns" in result
+        assert "0%" in result  # 0/4 wins
+
+    def test_extract_winning_factors_insufficient_data(self):
+        """Test extracting factors with insufficient bets"""
+        bets = [{"status": "won", "ai_key_factors": ["Test"]}] * 5
+        
+        self.benny.table.query.return_value = {"Items": bets}
+        
+        result = self.benny._extract_winning_factors()
+        
+        assert "Not enough settled bets" in result
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -268,6 +268,49 @@ class BennyTrader:
             print(f"Error getting winning examples: {e}")
             return f"Error loading winning examples for {sport}"
 
+    def _extract_winning_factors(self) -> str:
+        """Extract which key_factors correlate with wins vs losses"""
+        try:
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                FilterExpression="#status IN (:won, :lost)",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":won": "won", ":lost": "lost"},
+                Limit=100
+            )
+            
+            bets = response.get("Items", [])
+            if len(bets) < 10:
+                return "Not enough settled bets to analyze factors (need 10+)"
+            
+            factor_performance = {}
+            
+            for bet in bets:
+                won = bet.get("status") == "won"
+                factors = bet.get("ai_key_factors", [])
+                
+                for factor in factors:
+                    if factor not in factor_performance:
+                        factor_performance[factor] = {"wins": 0, "total": 0}
+                    factor_performance[factor]["total"] += 1
+                    if won:
+                        factor_performance[factor]["wins"] += 1
+            
+            # Calculate win rate per factor (min 3 occurrences)
+            insights = []
+            for factor, stats in sorted(factor_performance.items(), key=lambda x: x[1]["wins"]/max(x[1]["total"], 1), reverse=True):
+                if stats["total"] >= 3:
+                    wr = stats["wins"] / stats["total"]
+                    if wr >= 0.60:
+                        insights.append(f"✓ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})")
+                    elif wr <= 0.40:
+                        insights.append(f"✗ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})")
+            
+            return "\n".join(insights) if insights else "No clear factor patterns yet (need factors with 3+ occurrences)"
+        except Exception as e:
+            print(f"Error extracting winning factors: {e}")
+            return "Error analyzing winning factors"
+
     def _normalize_prediction(self, prediction: str) -> str:
         """Normalize prediction for agreement checking.
 
