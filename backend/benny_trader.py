@@ -29,6 +29,7 @@ class BennyTrader:
     MIN_EV = 0.05  # Minimum 5% expected value (expected ROI per bet)
     TARGET_ROI = 0.15  # Target 15% ROI for strategic decision-making
     MAX_BET_PERCENTAGE = 0.20  # Max 20% of bankroll per bet
+    MIN_SAMPLE_SIZE = 30  # Minimum bets before adjusting thresholds
 
     def __init__(self, table_name=None):
         # Use module-level table for easier testing, or create new instance if table_name provided
@@ -50,12 +51,16 @@ class BennyTrader:
         
         # Calculate win rates if enough data
         sport_win_rate = None
-        if sport_perf.get('total', 0) >= 30:
+        if sport_perf.get('total', 0) >= self.MIN_SAMPLE_SIZE:
             sport_win_rate = sport_perf['wins'] / sport_perf['total']
         
         market_win_rate = None
-        if market_perf.get('total', 0) >= 30:
+        if market_perf.get('total', 0) >= self.MIN_SAMPLE_SIZE:
             market_win_rate = market_perf['wins'] / market_perf['total']
+        
+        # If insufficient data, use base threshold
+        if sport_win_rate is None and market_win_rate is None:
+            return self.BASE_MIN_CONFIDENCE  # Standard threshold for new sports/markets
         
         # Use worst performance to set threshold
         worst_win_rate = min(
@@ -1701,7 +1706,8 @@ IMPORTANT:
             )
 
             bets = response.get("Items", [])
-            if len(bets) < 10:  # Need at least 10 bets to learn
+            if len(bets) < self.MIN_SAMPLE_SIZE:  # Need minimum sample size to learn
+                print(f"Insufficient data for learning: {len(bets)} bets (need {self.MIN_SAMPLE_SIZE})")
                 return
 
             # Calculate overall win rate
