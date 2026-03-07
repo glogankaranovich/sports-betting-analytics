@@ -195,6 +195,49 @@ class BennyTrader:
         
         return "\n".join(warnings) if warnings else "No clear failure patterns yet"
 
+    def _analyze_recent_mistakes(self, limit: int = 10) -> str:
+        """Analyze recent losing bets to identify patterns"""
+        try:
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                FilterExpression="#status = :lost",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":lost": "lost"},
+                ScanIndexForward=False,
+                Limit=limit
+            )
+            
+            losses = response.get("Items", [])
+            if not losses:
+                return "No recent losses to analyze"
+            
+            patterns = []
+            
+            # Check if overconfident
+            high_conf_losses = [b for b in losses if float(b.get("confidence", 0)) > 0.75]
+            if len(high_conf_losses) > len(losses) * 0.5:
+                patterns.append(f"⚠️ {len(high_conf_losses)}/{len(losses)} losses were high confidence (>75%) - may be overconfident")
+            
+            # Check if betting on underdogs too much
+            underdog_losses = [b for b in losses if float(b.get("odds", 0)) > 0]
+            if len(underdog_losses) > len(losses) * 0.6:
+                patterns.append(f"⚠️ {len(underdog_losses)}/{len(losses)} losses were underdogs (+odds) - may be chasing value")
+            
+            # Check specific sports
+            sport_losses = {}
+            for bet in losses:
+                sport = bet.get("sport", "unknown")
+                sport_losses[sport] = sport_losses.get(sport, 0) + 1
+            
+            for sport, count in sport_losses.items():
+                if count >= 3:
+                    patterns.append(f"⚠️ {count} recent losses in {sport}")
+            
+            return "\n".join(patterns) if patterns else "No clear patterns in recent losses"
+        except Exception as e:
+            print(f"Error analyzing mistakes: {e}")
+            return "Error analyzing recent mistakes"
+
     def _normalize_prediction(self, prediction: str) -> str:
         """Normalize prediction for agreement checking.
 

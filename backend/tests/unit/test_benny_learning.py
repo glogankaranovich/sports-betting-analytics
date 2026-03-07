@@ -208,6 +208,64 @@ class TestBennyLearning(unittest.TestCase):
 
         assert "No clear failure patterns yet" in result
 
+    def test_analyze_recent_mistakes_overconfident(self):
+        """Test detecting overconfidence in recent losses"""
+        losses = [
+            {"status": "lost", "confidence": Decimal("0.80"), "odds": -110, "sport": "basketball_nba"}
+            for _ in range(6)
+        ] + [
+            {"status": "lost", "confidence": Decimal("0.65"), "odds": -110, "sport": "basketball_nba"}
+            for _ in range(4)
+        ]
+        
+        self.benny.table.query.return_value = {"Items": losses}
+        
+        result = self.benny._analyze_recent_mistakes()
+        
+        assert "6/10 losses were high confidence" in result
+        assert "overconfident" in result
+
+    def test_analyze_recent_mistakes_chasing_underdogs(self):
+        """Test detecting underdog chasing pattern"""
+        losses = [
+            {"status": "lost", "confidence": Decimal("0.70"), "odds": 150, "sport": "basketball_nba"}
+            for _ in range(7)
+        ] + [
+            {"status": "lost", "confidence": Decimal("0.70"), "odds": -110, "sport": "basketball_nba"}
+            for _ in range(3)
+        ]
+        
+        self.benny.table.query.return_value = {"Items": losses}
+        
+        result = self.benny._analyze_recent_mistakes()
+        
+        assert "7/10 losses were underdogs" in result
+        assert "chasing value" in result
+
+    def test_analyze_recent_mistakes_sport_specific(self):
+        """Test detecting sport-specific loss patterns"""
+        losses = [
+            {"status": "lost", "confidence": Decimal("0.70"), "odds": -110, "sport": "soccer_epl"}
+            for _ in range(5)
+        ] + [
+            {"status": "lost", "confidence": Decimal("0.70"), "odds": -110, "sport": "basketball_nba"}
+            for _ in range(2)
+        ]
+        
+        self.benny.table.query.return_value = {"Items": losses}
+        
+        result = self.benny._analyze_recent_mistakes()
+        
+        assert "5 recent losses in soccer_epl" in result
+
+    def test_analyze_recent_mistakes_no_losses(self):
+        """Test analyzing mistakes with no recent losses"""
+        self.benny.table.query.return_value = {"Items": []}
+        
+        result = self.benny._analyze_recent_mistakes()
+        
+        assert "No recent losses to analyze" in result
+
 
 if __name__ == "__main__":
     unittest.main()
