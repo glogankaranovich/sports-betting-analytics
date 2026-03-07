@@ -14,8 +14,8 @@
                     <!-- Header -->
                     <tr>
                         <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
-                            <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">🤖 Benny's Weekly Report</h1>
-                            <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Week of {{week_start}} - {{week_end}}</p>
+                            <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">🤖 Benny's {{report_type}} Report</h1>
+                            <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">{{week_start}} - {{week_end}}</p>
                         </td>
                     </tr>
                     
@@ -137,18 +137,11 @@
                     </tr>
                     {{/if}}
                     
-                    <!-- CTA -->
-                    <tr>
-                        <td style="padding: 0 30px 30px 30px; text-align: center;">
-                            <a href="{{dashboard_url}}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">View Full Dashboard</a>
-                        </td>
-                    </tr>
-                    
                     <!-- Footer -->
                     <tr>
                         <td style="padding: 20px 30px; background-color: #0f172a; text-align: center; border-top: 1px solid #334155;">
                             <p style="margin: 0 0 10px 0; color: #64748b; font-size: 12px;">
-                                You're receiving this because you're subscribed to Benny's weekly reports.
+                                You're receiving this because you're subscribed to Benny's {{report_type}} reports.
                             </p>
                             <p style="margin: 0; color: #64748b; font-size: 12px;">
                                 <a href="{{unsubscribe_url}}" style="color: #667eea; text-decoration: none;">Unsubscribe</a> | 

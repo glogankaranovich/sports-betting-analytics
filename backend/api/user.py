@@ -120,7 +120,7 @@ def handle_update_profile(body: Dict[str, Any]):
         # Add GSI attributes for notification queries
         notifications = preferences.get("notifications", {})
         if notifications.get("bennyWeeklyReport"):
-            item["gsi_pk"] = "NOTIFICATION#BENNY_WEEKLY"
+            item["gsi_pk"] = "NOTIFICATION#BENNY_WEEKLY#EMAIL"
             item["gsi_sk"] = item.get("email", "")
         else:
             # Remove from GSI if unsubscribed

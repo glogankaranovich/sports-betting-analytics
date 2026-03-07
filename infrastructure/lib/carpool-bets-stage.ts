@@ -60,8 +60,7 @@ export class CarpoolBetsStage extends cdk.Stage {
       stage: props.stage,
       cluster: ecsClusterStack.cluster,
       tableName: `carpool-bets-v2-${props.stage}`,
-      anthropicApiKeyArn: `arn:aws:secretsmanager:${this.region}:${this.account}:secret:anthropic-api-key`,
-      oddsApiKeyArn: `arn:aws:secretsmanager:${this.region}:${this.account}:secret:odds-api-key`,
+      oddsApiKeyArn: `arn:aws:secretsmanager:${this.region}:${this.account}:secret:sports-betting/odds-api-key-${props.stage}`,
     });
 
     // ECS Schedule Stack (EventBridge rules)

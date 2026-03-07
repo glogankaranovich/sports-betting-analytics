@@ -10,7 +10,7 @@ export interface EcsTaskStackProps extends cdk.StackProps {
   stage: string;
   cluster: ecs.ICluster;
   tableName: string;
-  anthropicApiKeyArn: string;
+  anthropicApiKeyArn?: string;
   oddsApiKeyArn: string;
 }
 

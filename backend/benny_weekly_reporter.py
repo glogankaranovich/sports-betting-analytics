@@ -33,6 +33,12 @@ def render_template(template: str, data: Dict[str, Any]) -> str:
         if isinstance(value, (str, int, float)):
             html = html.replace(f'{{{{{key}}}}}', str(value))
     
+    # Handle nested object properties (e.g., {{best_bet.game}})
+    for key, value in data.items():
+        if isinstance(value, dict):
+            for nested_key, nested_value in value.items():
+                html = html.replace(f'{{{{{key}.{nested_key}}}}}', str(nested_value))
+    
     # Handle conditionals
     for key in ['has_pending_bets', 'has_completed_bets', 'has_notable_bets', 'has_ai_impact', 'best_bet', 'worst_bet']:
         if_block = f'{{{{#if {key}}}}}'
@@ -77,15 +83,11 @@ def render_template(template: str, data: Dict[str, Any]) -> str:
 def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekly') -> Dict[str, Any]:
     """Prepare data for email template"""
     now = datetime.utcnow()
+    start_date = now - timedelta(days=7 if report_type == 'weekly' else 1)
     
-    if report_type == 'daily':
-        # Daily report: yesterday to today
-        week_start = (now - timedelta(days=1)).strftime('%b %d')
-        week_end = now.strftime('%b %d, %Y')
-    else:
-        # Weekly report: last 7 days
-        week_start = (now - timedelta(days=7)).strftime('%b %d')
-        week_end = now.strftime('%b %d, %Y')
+    # Format dates - only show year on end date
+    week_start = start_date.strftime('%b %d')
+    week_end = now.strftime('%b %d, %Y')
     
     # Calculate bankroll change
     bankroll = dashboard_data['current_bankroll']
@@ -129,6 +131,7 @@ def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekl
     completed_bets_list = completed_bets_list[:10]
     
     return {
+        'report_type': report_type.capitalize(),
         'week_start': week_start,
         'week_end': week_end,
         'current_bankroll': f"{bankroll:.2f}",
@@ -172,10 +175,15 @@ def get_subscribed_users() -> List[str]:
             ExpressionAttributeValues={
                 ':pk': 'NOTIFICATION#BENNY_WEEKLY#EMAIL'
             },
-            ProjectionExpression='contact'
+            ProjectionExpression='email, gsi_sk'
         )
         
-        emails = [item['contact'] for item in response.get('Items', []) if item.get('contact')]
+        # Get email from either 'email' attribute or 'gsi_sk' (which stores email)
+        emails = []
+        for item in response.get('Items', []):
+            email = item.get('email') or item.get('gsi_sk')
+            if email:
+                emails.append(email)
         
         return emails if emails else [os.environ.get('ADMIN_EMAIL', 'glogankaranovich@gmail.com')]
     except Exception as e:
