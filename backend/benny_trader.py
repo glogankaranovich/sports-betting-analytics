@@ -51,15 +51,18 @@ class BennyTrader:
         
         # Calculate win rates if enough data
         sport_win_rate = None
-        if sport_perf.get('total', 0) >= self.MIN_SAMPLE_SIZE:
-            sport_win_rate = sport_perf['wins'] / sport_perf['total']
+        sport_total = sport_perf.get('total', 0)
+        if sport_total >= self.MIN_SAMPLE_SIZE:
+            sport_win_rate = sport_perf['wins'] / sport_total
         
         market_win_rate = None
-        if market_perf.get('total', 0) >= self.MIN_SAMPLE_SIZE:
-            market_win_rate = market_perf['wins'] / market_perf['total']
+        market_total = market_perf.get('total', 0)
+        if market_total >= self.MIN_SAMPLE_SIZE:
+            market_win_rate = market_perf['wins'] / market_total
         
         # If insufficient data, use base threshold
         if sport_win_rate is None and market_win_rate is None:
+            print(f"  Threshold for {sport}/{market}: {self.BASE_MIN_CONFIDENCE:.2f} (insufficient data)")
             return self.BASE_MIN_CONFIDENCE  # Standard threshold for new sports/markets
         
         # Use worst performance to set threshold
@@ -70,13 +73,55 @@ class BennyTrader:
         
         # Adaptive thresholds based on performance
         if worst_win_rate < 0.35:
-            return 0.80  # Terrible - require exceptional confidence
+            threshold = 0.80  # Terrible - require exceptional confidence
         elif worst_win_rate < 0.45:
-            return 0.75  # Poor - require high confidence
+            threshold = 0.75  # Poor - require high confidence
         elif worst_win_rate > 0.55:
-            return 0.65  # Good - can be more aggressive
+            threshold = 0.65  # Good - can be more aggressive
         else:
-            return 0.70  # Neutral - standard threshold
+            threshold = 0.70  # Neutral - standard threshold
+        
+        # Log decision
+        sport_str = f"{sport}: {sport_win_rate:.1%} ({sport_total} bets)" if sport_win_rate else f"{sport}: insufficient data"
+        market_str = f"{market}: {market_win_rate:.1%} ({market_total} bets)" if market_win_rate else f"{market}: insufficient data"
+        print(f"  Adaptive threshold: {threshold:.2f} | {sport_str} | {market_str}")
+        
+        return threshold
+    
+    def _get_performance_warnings(self, current_sport: str = None) -> str:
+        """Generate performance warnings for AI prompt"""
+        warnings = []
+        
+        # Check sport performance
+        sport_perf = self.learning_params.get('performance_by_sport', {})
+        for sport, perf in sport_perf.items():
+            if perf.get('total', 0) >= self.MIN_SAMPLE_SIZE:
+                win_rate = perf['wins'] / perf['total']
+                record = f"{perf['wins']}-{perf['total'] - perf['wins']}"
+                
+                if win_rate < 0.35:
+                    warnings.append(f"⚠️ {sport.upper()}: {win_rate:.1%} ({record}) - You STRUGGLE here, be EXTREMELY cautious")
+                elif win_rate < 0.45:
+                    warnings.append(f"⚠️ {sport.upper()}: {win_rate:.1%} ({record}) - You underperform here, be very cautious")
+                elif win_rate > 0.55:
+                    warnings.append(f"✅ {sport.upper()}: {win_rate:.1%} ({record}) - You EXCEL here, trust your analysis")
+        
+        # Check market performance
+        market_perf = self.learning_params.get('performance_by_market', {})
+        for market, perf in market_perf.items():
+            if perf.get('total', 0) >= self.MIN_SAMPLE_SIZE:
+                win_rate = perf['wins'] / perf['total']
+                record = f"{perf['wins']}-{perf['total'] - perf['wins']}"
+                
+                if win_rate < 0.45:
+                    warnings.append(f"⚠️ {market} bets: {win_rate:.1%} ({record}) - Avoid unless exceptional confidence")
+                elif win_rate > 0.55:
+                    warnings.append(f"✅ {market} bets: {win_rate:.1%} ({record}) - Strong performance")
+        
+        if warnings:
+            return "YOUR TRACK RECORD:\n" + "\n".join(warnings)
+        else:
+            return "YOUR TRACK RECORD: Insufficient data to assess performance by category"
     
     def _acquire_lock(self) -> bool:
         """Acquire distributed lock for Benny execution. Returns True if acquired."""
@@ -1025,6 +1070,10 @@ class BennyTrader:
 
             perf_stats = self._get_performance_stats()
             print(f"[PROP] Performance stats: {perf_stats}")
+            
+            # Build performance warnings
+            perf_warnings = self._get_performance_warnings(prop_data['sport'])
+            
             perf_context = ""
             if "overall" in perf_stats:
                 perf_context = f"""
@@ -1032,6 +1081,9 @@ BENNY'S HISTORICAL PERFORMANCE (Last 30 days):
 Overall: {perf_stats['overall']['win_rate']} win rate, {perf_stats['overall']['roi']} ROI ({perf_stats['overall']['total_bets']} bets)
 By Sport: {', '.join(f"{s}: {r}" for s, r in perf_stats['by_sport'].items())}
 By Market: {', '.join(f"{m}: {r}" for m, r in perf_stats['by_market'].items())}
+
+{perf_warnings}
+
 Note: Use this to inform confidence - be more conservative in markets where you've struggled."""
                 print(f"[PROP] Including performance context in AI prompt")
 
@@ -1329,6 +1381,7 @@ Note: Use this to inform confidence - be more conservative in markets where you'
 
             # Add new learning feedback
             sport = game_data['sport']
+            perf_warnings = self._get_performance_warnings(sport)
             what_works = self._get_what_works_analysis()
             what_fails = self._get_what_fails_analysis()
             recent_mistakes = self._analyze_recent_mistakes()
@@ -1344,6 +1397,8 @@ RISK PARAMETERS:
 - Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
 - Current Bankroll: ${float(self.bankroll):.2f}
 {perf_context}
+
+{perf_warnings}
 
 WHAT'S WORKING FOR YOU:
 {what_works}
