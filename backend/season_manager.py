@@ -52,23 +52,23 @@ def lambda_handler(event, context):
         for page in paginator.paginate():
             for rule in page["Rules"]:
                 rule_name = rule["Name"]
+                
+                # Skip old Lambda-based rules (migrated to ECS)
+                if "AnalysisSchedule-AnalysisRule" in rule_name or "PropsRule" in rule_name:
+                    continue
 
                 # Check if this is a sport-specific rule
                 for sport in SPORT_SEASONS.keys():
-                    # Match various rule patterns:
-                    # - AnalysisRuleNBA... (analysis generators)
-                    # - OddsRuleNBA... (odds collectors)
-                    # - PropsRuleNBA... (props collectors)
+                    # Match ECS-based rule patterns:
+                    # - Dev-EcsTasks-AnalysisGenbasketballnba... (ECS analysis generators)
+                    # - Dev-EcsTasks-PropsCollectorSchedule... (ECS props collector)
                     # - DailyNba... (stats/injury collectors)
                     # - DailyNBA... (schedule collectors)
-                    # - analysis-generator-nba (Lambda function names)
                     sport_patterns = [
-                        f"AnalysisRule{sport}",
-                        f"OddsRule{sport}",
-                        f"PropsRule{sport}",
+                        f"AnalysisGen{sport.lower()}",  # ECS analysis generators
+                        f"PropsCollector",  # ECS props collector (sport-agnostic)
                         f"Daily{sport}",
                         f"Daily{sport.capitalize()}",
-                        f"analysis-generator-{sport.lower()}",
                         f"{sport}Stats",
                         f"{sport}Injury",
                         f"{sport}Schedule"
