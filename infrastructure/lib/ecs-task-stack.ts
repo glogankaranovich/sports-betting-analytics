@@ -27,7 +27,7 @@ export class EcsTaskStack extends cdk.Stack {
     super(scope, id, props);
 
     // Create ECR repository
-    const ecrRepo = new ecr.Repository(this, 'BatchJobsRepo', {
+    const repository = new ecr.Repository(this, 'BatchJobsRepo', {
       repositoryName: `${props.stage}-batch-jobs`,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
       lifecycleRules: [
@@ -39,7 +39,7 @@ export class EcsTaskStack extends cdk.Stack {
     });
 
     // Grant pipeline account permission to push images
-    ecrRepo.grantPullPush(new iam.AccountPrincipal('083314012659'));
+    repository.grantPullPush(new iam.AccountPrincipal('083314012659'));
 
     // Import odds API secret
     const oddsApiSecret = secretsmanager.Secret.fromSecretNameV2(
@@ -47,18 +47,6 @@ export class EcsTaskStack extends cdk.Stack {
       'OddsApiSecret',
       props.oddsApiKeySecretName
     );
-
-    // Get ECR repository (create if doesn't exist)
-    const repository = new ecr.Repository(this, 'BatchJobsRepo', {
-      repositoryName: `${props.stage.toLowerCase()}-batch-jobs`,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      lifecycleRules: [
-        {
-          maxImageCount: 10,
-          description: 'Keep last 10 images',
-        },
-      ],
-    });
 
     // Task execution role (for pulling images, writing logs)
     const executionRole = new iam.Role(this, 'TaskExecutionRole', {
