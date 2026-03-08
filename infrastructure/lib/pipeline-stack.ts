@@ -34,6 +34,15 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
         buildEnvironment: {
           buildImage: LinuxBuildImage.STANDARD_7_0,
         },
+        rolePolicyStatements: [
+          new iam.PolicyStatement({
+            actions: ['sts:AssumeRole'],
+            resources: [
+              `arn:aws:iam::${ENVIRONMENTS.beta.account}:role/cdk-*-lookup-role-*`,
+              `arn:aws:iam::${ENVIRONMENTS.prod.account}:role/cdk-*-lookup-role-*`,
+            ],
+          }),
+        ],
       }),
     });
 
