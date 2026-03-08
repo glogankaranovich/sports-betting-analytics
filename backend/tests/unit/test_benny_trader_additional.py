@@ -11,11 +11,21 @@ from benny_trader import BennyTrader
 
 @pytest.fixture
 def trader():
-    with patch("benny_trader.boto3"):
-        with patch.object(BennyTrader, "_get_current_bankroll", return_value=Decimal("100")):
-            with patch.object(BennyTrader, "_get_week_start", return_value="2024-01-15"):
-                with patch.object(BennyTrader, "_get_learning_parameters", return_value={}):
-                    return BennyTrader()
+    with patch("benny_trader.table") as mock_table:
+        mock_table.query.return_value = {
+            "Items": [{
+                "amount": Decimal("100.00"),
+                "timestamp": datetime.utcnow().isoformat(),
+            }]
+        }
+        mock_table.get_item.return_value = {
+            "Item": {
+                "performance_by_sport": {},
+                "performance_by_market": {}
+            }
+        }
+        with patch("benny_trader.bedrock"):
+            return BennyTrader()
 
 
 def test_normalize_prediction_spread_with_bookmaker(trader):
@@ -45,30 +55,8 @@ def test_normalize_prediction_moneyline(trader):
     assert pred == "Lakers"
 
 
-def test_get_learning_parameters_default(trader):
-    """Test default learning parameters initialization"""
-    trader.table = Mock()
-    trader.table.get_item.return_value = {}
-    
-    params = trader._get_learning_parameters()
-    
-    # Should create defaults
-    trader.table.put_item.assert_called_once()
-    assert "min_confidence_adjustment" in params
-
-
-def test_get_learning_parameters_existing(trader):
-    """Test loading existing learning parameters"""
-    trader.table = Mock()
-    trader.table.get_item.return_value = {
-        "Item": {
-            "min_confidence_adjustment": Decimal("0.05"),
-            "kelly_fraction": Decimal("0.25")
-        }
-    }
-    
-    params = trader._get_learning_parameters()
-    assert params["min_confidence_adjustment"] == Decimal("0.05")
+# Tests for _get_learning_parameters removed - now handled by LearningEngine
+# See test_learning_engine.py for learning parameter tests
 
 
 def test_get_week_start_calculation(trader):

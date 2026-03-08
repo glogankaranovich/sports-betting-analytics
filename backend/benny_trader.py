@@ -15,6 +15,10 @@ from boto3.dynamodb.conditions import Key
 
 from constants import SUPPORTED_SPORTS
 from benny.position_manager import PositionManager
+from benny.bankroll_manager import BankrollManager
+from benny.learning_engine import LearningEngine
+from benny.opportunity_analyzer import OpportunityAnalyzer
+from benny.bet_executor import BetExecutor
 
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
@@ -26,103 +30,43 @@ class BennyTrader:
     """Autonomous trading agent for sports betting"""
 
     WEEKLY_BUDGET = Decimal("100.00")
-    BASE_MIN_CONFIDENCE = 0.70  # Raised from 0.65 - be more selective
-    MIN_EV = 0.05  # Minimum 5% expected value (expected ROI per bet)
-    TARGET_ROI = 0.15  # Target 15% ROI for strategic decision-making
-    MAX_BET_PERCENTAGE = 0.20  # Max 20% of bankroll per bet
-    MIN_SAMPLE_SIZE = 30  # Minimum bets before adjusting thresholds
+    BASE_MIN_CONFIDENCE = 0.70
+    MIN_EV = 0.05
+    TARGET_ROI = 0.15
+    MAX_BET_PERCENTAGE = 0.20
+    MIN_SAMPLE_SIZE = 30
 
     def __init__(self, table_name=None):
-        # Use module-level table for easier testing, or create new instance if table_name provided
         if table_name:
             self.table = dynamodb.Table(table_name)
         else:
             self.table = table
-        self.bankroll = self._get_current_bankroll()
-        self.week_start = self._get_week_start()
-        self.learning_params = self._get_learning_parameters()
-        self.sqs = boto3.client('sqs')
-        self.notification_queue_url = os.environ.get('NOTIFICATION_QUEUE_URL')
+        
+        # Initialize composition classes
+        self.bankroll_manager = BankrollManager(self.table)
+        self.learning_engine = LearningEngine(self.table)
+        self.opportunity_analyzer = OpportunityAnalyzer(self.learning_engine)
+        
+        sqs = boto3.client('sqs')
+        notification_queue_url = os.environ.get('NOTIFICATION_QUEUE_URL')
+        self.bet_executor = BetExecutor(self.table, sqs, notification_queue_url)
+        
         self.position_manager = PositionManager(self.table, bedrock)
+        
+        # Delegate to managers
+        self.bankroll = self.bankroll_manager.bankroll
+        self.week_start = self.bankroll_manager.week_start
+        self.learning_params = self.learning_engine.params
     
     def _get_adaptive_threshold(self, sport: str, market: str) -> float:
         """Get confidence threshold based on historical performance"""
-        # Check sport performance
-        sport_perf = self.learning_params.get('performance_by_sport', {}).get(sport, {})
-        market_perf = self.learning_params.get('performance_by_market', {}).get(market, {})
-        
-        # Calculate win rates if enough data
-        sport_win_rate = None
-        sport_total = sport_perf.get('total', 0)
-        if sport_total >= self.MIN_SAMPLE_SIZE:
-            sport_win_rate = sport_perf['wins'] / sport_total
-        
-        market_win_rate = None
-        market_total = market_perf.get('total', 0)
-        if market_total >= self.MIN_SAMPLE_SIZE:
-            market_win_rate = market_perf['wins'] / market_total
-        
-        # If insufficient data, use base threshold
-        if sport_win_rate is None and market_win_rate is None:
-            print(f"  Threshold for {sport}/{market}: {self.BASE_MIN_CONFIDENCE:.2f} (insufficient data)")
-            return self.BASE_MIN_CONFIDENCE  # Standard threshold for new sports/markets
-        
-        # Use worst performance to set threshold
-        worst_win_rate = min(
-            [r for r in [sport_win_rate, market_win_rate] if r is not None],
-            default=0.50
-        )
-        
-        # Adaptive thresholds based on performance
-        if worst_win_rate < 0.35:
-            threshold = 0.80  # Terrible - require exceptional confidence
-        elif worst_win_rate < 0.45:
-            threshold = 0.75  # Poor - require high confidence
-        elif worst_win_rate > 0.55:
-            threshold = 0.65  # Good - can be more aggressive
-        else:
-            threshold = 0.70  # Neutral - standard threshold
-        
-        # Log decision
-        sport_str = f"{sport}: {sport_win_rate:.1%} ({sport_total} bets)" if sport_win_rate else f"{sport}: insufficient data"
-        market_str = f"{market}: {market_win_rate:.1%} ({market_total} bets)" if market_win_rate else f"{market}: insufficient data"
-        print(f"  Adaptive threshold: {threshold:.2f} | {sport_str} | {market_str}")
-        
-        return threshold
+        return self.learning_engine.get_adaptive_threshold(sport, market)
     
     def _get_performance_warnings(self, current_sport: str = None) -> str:
         """Generate performance warnings for AI prompt"""
-        warnings = []
-        
-        # Check sport performance
-        sport_perf = self.learning_params.get('performance_by_sport', {})
-        for sport, perf in sport_perf.items():
-            if perf.get('total', 0) >= self.MIN_SAMPLE_SIZE:
-                win_rate = perf['wins'] / perf['total']
-                record = f"{perf['wins']}-{perf['total'] - perf['wins']}"
-                
-                if win_rate < 0.35:
-                    warnings.append(f"⚠️ {sport.upper()}: {win_rate:.1%} ({record}) - You STRUGGLE here, be EXTREMELY cautious")
-                elif win_rate < 0.45:
-                    warnings.append(f"⚠️ {sport.upper()}: {win_rate:.1%} ({record}) - You underperform here, be very cautious")
-                elif win_rate > 0.55:
-                    warnings.append(f"✅ {sport.upper()}: {win_rate:.1%} ({record}) - You EXCEL here, trust your analysis")
-        
-        # Check market performance
-        market_perf = self.learning_params.get('performance_by_market', {})
-        for market, perf in market_perf.items():
-            if perf.get('total', 0) >= self.MIN_SAMPLE_SIZE:
-                win_rate = perf['wins'] / perf['total']
-                record = f"{perf['wins']}-{perf['total'] - perf['wins']}"
-                
-                if win_rate < 0.45:
-                    warnings.append(f"⚠️ {market} bets: {win_rate:.1%} ({record}) - Avoid unless exceptional confidence")
-                elif win_rate > 0.55:
-                    warnings.append(f"✅ {market} bets: {win_rate:.1%} ({record}) - Strong performance")
-        
-        if warnings:
-            return "YOUR TRACK RECORD:\n" + "\n".join(warnings)
-        else:
+        return self.learning_engine.get_performance_warnings(current_sport)
+    
+    def _acquire_lock(self) -> bool:
             return "YOUR TRACK RECORD: Insufficient data to assess performance by category"
     
     def _acquire_lock(self) -> bool:
@@ -492,20 +436,11 @@ class BennyTrader:
         )
 
     def _update_bankroll(self, amount: Decimal):
-        """Update bankroll amount and store history"""
+        """Update bankroll amount"""
+        self.bankroll_manager.update_bankroll(amount)
         self.bankroll = amount
-        timestamp = datetime.utcnow().isoformat()
-
-        # Update current bankroll
-        self.table.put_item(
-            Item={
-                "pk": "BENNY",
-                "sk": "BANKROLL",
-                "amount": amount,
-                "last_reset": self.week_start,
-                "updated_at": timestamp,
-            }
-        )
+    
+    def _get_learning_parameters(self) -> Dict[str, Any]:
 
         # Store history snapshot
         self.table.put_item(
@@ -1707,41 +1642,8 @@ IMPORTANT:
             return {}
 
     def calculate_bet_size(self, confidence: float, odds: float = None) -> Decimal:
-        """Calculate bet size using Kelly Criterion with learned parameters"""
-        # Kelly Criterion: f = (bp - q) / b
-        # where b = decimal odds - 1, p = win probability, q = 1 - p
-
-        kelly_fraction = float(self.learning_params.get("kelly_fraction", 0.25))
-
-        if odds and odds != 0:
-            # Convert to float to avoid Decimal issues
-            odds_float = float(odds)
-            confidence_float = float(confidence)
-            
-            # Convert American odds to decimal
-            if odds_float > 0:
-                decimal_odds = (odds_float / 100) + 1
-            else:
-                decimal_odds = (100 / abs(odds_float)) + 1
-
-            # Kelly formula
-            b = decimal_odds - 1
-            p = confidence_float
-            q = 1 - p
-            kelly_pct = (b * p - q) / b
-
-            # Apply fractional Kelly for safety
-            kelly_pct = max(0, kelly_pct * kelly_fraction)
-        else:
-            # Fallback: simple confidence-based sizing
-            kelly_pct = (float(confidence) - 0.5) * 2 * kelly_fraction
-
-        max_bet = self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))
-        bet_size = self.bankroll * Decimal(str(kelly_pct))
-        bet_size = min(bet_size, max_bet)
-        bet_size = max(bet_size, Decimal("5.00"))  # Minimum $5 bet
-
-        return bet_size.quantize(Decimal("0.01"))
+        """Calculate bet size using Kelly Criterion"""
+        return self.bankroll_manager.calculate_bet_size(confidence, odds)
 
     def update_learning_parameters(self):
         """Update Benny's learning parameters based on recent performance"""
@@ -1858,18 +1760,16 @@ IMPORTANT:
 
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Place a virtual bet"""
-        # Check adaptive threshold based on sport/market performance
+        # Check adaptive threshold
         sport = opportunity["sport"]
         market = opportunity["market_key"]
         required_confidence = self._get_adaptive_threshold(sport, market)
         
         if opportunity["confidence"] < required_confidence:
-            print(f"  Skipping {opportunity.get('away_team', '')} @ {opportunity.get('home_team', '')} ({market}): "
-                  f"confidence {opportunity['confidence']:.2f} < required {required_confidence:.2f} "
-                  f"(sport: {sport}, market: {market})")
-            return {"success": False, "reason": f"Confidence {opportunity['confidence']:.2f} below adaptive threshold {required_confidence:.2f}"}
+            print(f"  Skipping: confidence {opportunity['confidence']:.2f} < required {required_confidence:.2f}")
+            return {"success": False, "reason": f"Confidence below threshold"}
         
-        # Check if we already have a pending bet for this game + market combination
+        # Check for existing bet
         game_id = opportunity["game_id"]
         market_key = opportunity["market_key"]
         existing_bets = self.table.query(
@@ -1880,91 +1780,31 @@ IMPORTANT:
         )
         
         if existing_bets.get("Items"):
-            print(f"  Skipping {opportunity['away_team']} @ {opportunity['home_team']} ({market_key}): already have pending bet")
-            return {"success": False, "reason": f"Already have pending bet for this game ({market_key})"}
+            print(f"  Skipping: already have pending bet")
+            return {"success": False, "reason": "Already have pending bet"}
         
-        # Benny already analyzed the game, just use that confidence
+        # Calculate bet size
         confidence = opportunity["confidence"]
         odds = opportunity.get("odds")
-        bet_size = self.calculate_bet_size(confidence, odds)
+        bet_size = self.bankroll_manager.calculate_bet_size(confidence, odds)
 
-        # Check if we have enough bankroll
-        if bet_size > self.bankroll:
+        if bet_size <= 0 or bet_size > self.bankroll:
             return {"success": False, "reason": "Insufficient bankroll"}
 
-        bet_id = f"BET#{datetime.utcnow().isoformat()}#{opportunity['game_id']}"
-
-        bet = {
-            "pk": "BENNY",
-            "sk": bet_id,
-            "GSI1PK": "BENNY#BETS",
-            "GSI1SK": opportunity["commence_time"],
-            "bet_id": bet_id,
-            "game_id": opportunity["game_id"],
-            "sport": opportunity["sport"],
-            "home_team": opportunity["home_team"],
-            "away_team": opportunity["away_team"],
-            "prediction": opportunity["prediction"],
-            "confidence": Decimal(str(confidence)),
-            "ai_reasoning": opportunity["reasoning"],
-            "ai_key_factors": opportunity["key_factors"],
-            "bet_amount": bet_size,
-            "market_key": opportunity["market_key"],
-            "commence_time": opportunity["commence_time"],
-            "placed_at": datetime.utcnow().isoformat(),
-            "status": "pending",
-            "bankroll_before": self.bankroll,
-            "odds": Decimal(str(opportunity.get("odds", 0)))
-            if opportunity.get("odds")
-            else None,
-        }
-
-        # Store bet
-        self.table.put_item(Item=bet)
-
-        # Also store as analysis record for outcome verification and leaderboard tracking
-        analysis_record = {
-            "pk": f"ANALYSIS#{opportunity['sport']}#{opportunity['game_id']}#fanduel",
-            "sk": "benny#game#LATEST",
-            "model": "benny",
-            "analysis_type": "game",
-            "sport": opportunity["sport"],
-            "bookmaker": "fanduel",
-            "game_id": opportunity["game_id"],
-            "home_team": opportunity["home_team"],
-            "away_team": opportunity["away_team"],
-            "prediction": opportunity["prediction"],
-            "confidence": Decimal(str(confidence)),
-            "reasoning": opportunity["reasoning"],
-            "market_key": opportunity["market_key"],
-            "commence_time": opportunity["commence_time"],
-            "created_at": datetime.utcnow().isoformat(),
-            "latest": True,
-        }
-        self.table.put_item(Item=analysis_record)
-
+        # Place bet via executor
+        result = self.bet_executor.place_bet(opportunity, bet_size, self.bankroll)
+        
         # Update bankroll
         new_bankroll = self.bankroll - bet_size
         self._update_bankroll(new_bankroll)
 
-        # Send notification event to SQS
-        self._send_bet_notification(bet, opportunity)
-
         return {
             "success": True,
-            "bet_id": bet_id,
-            "bet_amount": float(bet_size),
+            "bet_id": result["bet_id"],
+            "bet_amount": result["bet_amount"],
             "remaining_bankroll": float(new_bankroll),
-            "ai_reasoning": opportunity["reasoning"],
+            "ai_reasoning": result["ai_reasoning"],
         }
-    
-    def _send_bet_notification(self, bet: Dict, opportunity: Dict):
-        """Send bet notification event to SQS"""
-        # Only send notifications in dev environment
-        environment = os.environ.get('ENVIRONMENT', 'dev')
-        if environment != 'dev':
-            return
-            
         if not self.notification_queue_url:
             return
         

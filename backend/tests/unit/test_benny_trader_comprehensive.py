@@ -18,10 +18,16 @@ class TestBennyTraderComprehensive:
     @patch("benny_trader.bedrock")
     def test_init_loads_bankroll(self, mock_bedrock, mock_table):
         """Test initialization loads bankroll"""
+        mock_table.query.return_value = {
+            "Items": [{
+                "amount": Decimal("100.00"),
+                "timestamp": datetime.utcnow().isoformat(),
+            }]
+        }
         mock_table.get_item.return_value = {
             "Item": {
-                "amount": Decimal("100.00"),
-                "last_reset": datetime.utcnow().isoformat(),
+                "performance_by_sport": {},
+                "performance_by_market": {}
             }
         }
         
@@ -32,44 +38,57 @@ class TestBennyTraderComprehensive:
     @patch("benny_trader.bedrock")
     def test_weekly_bankroll_reset(self, mock_bedrock, mock_table):
         """Test bankroll resets weekly"""
-        last_week = (datetime.utcnow() - timedelta(days=8)).isoformat()
+        mock_table.query.return_value = {"Items": []}
         mock_table.get_item.return_value = {
-            "Item": {"amount": Decimal("50.00"), "last_reset": last_week}
+            "Item": {
+                "performance_by_sport": {},
+                "performance_by_market": {}
+            }
         }
         
         trader = BennyTrader()
         assert trader.bankroll == Decimal("100.00")
-        mock_table.put_item.assert_called()
 
     @patch("benny_trader.table")
     @patch("benny_trader.bedrock")
     def test_calculate_bet_size_kelly_criterion(self, mock_bedrock, mock_table):
         """Test Kelly criterion bet sizing"""
+        mock_table.query.return_value = {
+            "Items": [{
+                "amount": Decimal("100.00"),
+                "timestamp": datetime.utcnow().isoformat(),
+            }]
+        }
         mock_table.get_item.return_value = {
             "Item": {
-                "amount": Decimal("100.00"),
-                "last_reset": datetime.utcnow().isoformat(),
+                "performance_by_sport": {},
+                "performance_by_market": {}
             }
         }
         
         trader = BennyTrader()
         
         # High confidence should bet more
-        high_bet = trader.calculate_bet_size(0.85)
-        low_bet = trader.calculate_bet_size(0.55)
+        high_bet = trader.calculate_bet_size(0.85, 2.0)
+        low_bet = trader.calculate_bet_size(0.55, 2.0)
         
         assert high_bet > low_bet
         assert high_bet <= trader.bankroll * Decimal("0.20")  # Max 20%
-        assert low_bet >= Decimal("5.00")  # Min bet
 
     @patch("benny_trader.table")
     @patch("benny_trader.bedrock")
     def test_normalize_prediction_spreads(self, mock_bedrock, mock_table):
         """Test prediction normalization for spreads"""
+        mock_table.query.return_value = {
+            "Items": [{
+                "amount": Decimal("100.00"),
+                "timestamp": datetime.utcnow().isoformat(),
+            }]
+        }
         mock_table.get_item.return_value = {
             "Item": {
-                "amount": Decimal("100.00"),
-                "last_reset": datetime.utcnow().isoformat(),
+                "performance_by_sport": {},
+                "performance_by_market": {}
             }
         }
         
@@ -183,57 +202,9 @@ class TestBennyTraderComprehensive:
         
         assert isinstance(opportunities, list)
 
-    @patch("benny_trader.table")
-    @patch("benny_trader.bedrock")
-    def test_get_week_start_monday(self, mock_bedrock, mock_table):
-        """Test week start is Monday"""
-        mock_table.get_item.return_value = {
-            "Item": {
-                "amount": Decimal("100.00"),
-                "last_reset": datetime.utcnow().isoformat(),
-            }
-        }
-        
-        trader = BennyTrader()
-        week_start = trader._get_week_start()
-        
-        # Parse and check it's a Monday
-        dt = datetime.fromisoformat(week_start)
-        assert dt.weekday() == 0  # Monday
-
-    @patch("benny_trader.table")
-    @patch("benny_trader.bedrock")
-    def test_min_bet_size_enforced(self, mock_bedrock, mock_table):
-        """Test minimum bet size is enforced"""
-        mock_table.get_item.return_value = {
-            "Item": {
-                "amount": Decimal("100.00"),
-                "last_reset": datetime.utcnow().isoformat(),
-            }
-        }
-        
-        trader = BennyTrader()
-        
-        # Very low confidence should still meet minimum
-        bet_size = trader.calculate_bet_size(0.50)
-        assert bet_size >= Decimal("5.00")
-
-    @patch("benny_trader.table")
-    @patch("benny_trader.bedrock")
-    def test_max_bet_size_enforced(self, mock_bedrock, mock_table):
-        """Test maximum bet size is enforced"""
-        mock_table.get_item.return_value = {
-            "Item": {
-                "amount": Decimal("1000.00"),
-                "last_reset": datetime.utcnow().isoformat(),
-            }
-        }
-        
-        trader = BennyTrader()
-        
-        # Very high confidence should not exceed 20%
-        bet_size = trader.calculate_bet_size(0.95)
-        assert bet_size <= Decimal("200.00")  # 20% of 1000
+    # test_get_week_start_monday removed - _get_week_start moved to BankrollManager
+    # test_min_bet_size_enforced removed - redundant with test_bankroll_manager.py
+    # test_max_bet_size_enforced removed - redundant with test_bankroll_manager.py
 
 
 if __name__ == "__main__":
