@@ -40,7 +40,7 @@ def render_template(template: str, data: Dict[str, Any]) -> str:
                 html = html.replace(f'{{{{{key}.{nested_key}}}}}', str(nested_value))
     
     # Handle conditionals
-    for key in ['has_pending_bets', 'has_completed_bets', 'has_notable_bets', 'has_ai_impact', 'best_bet', 'worst_bet']:
+    for key in ['has_pending_bets', 'has_completed_bets', 'has_notable_bets', 'has_ai_impact', 'has_cashouts', 'best_bet', 'worst_bet']:
         if_block = f'{{{{#if {key}}}}}'
         endif_block = f'{{{{/if}}}}'
         
@@ -57,7 +57,7 @@ def render_template(template: str, data: Dict[str, Any]) -> str:
                     html = html[:start] + html[end + len(endif_block):]
     
     # Handle loops
-    for list_key in ['pending_bets_list', 'completed_bets_list']:
+    for list_key in ['pending_bets_list', 'completed_bets_list', 'cashouts_list']:
         each_block = f'{{{{#each {list_key}}}}}'
         endeach_block = '{{/each}}'
         
@@ -130,6 +130,23 @@ def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekl
     # Limit completed bets to 10 most recent
     completed_bets_list = completed_bets_list[:10]
     
+    # Cash-out data
+    cashout_stats = dashboard_data.get('cashout_stats', {})
+    cashouts_list = []
+    if cashout_stats.get('recent_cashouts'):
+        for c in cashout_stats['recent_cashouts'][:10]:
+            cashout_item = {
+                'game_id': c['game_id'],
+                'original_stake': f"{c['original_stake']:.2f}",
+                'cash_out_value': f"{c['cash_out_value']:.2f}",
+                'reason': c['reason'],
+                'outcome': c.get('actual_outcome', 'Pending'),
+                'was_correct': '✓' if c.get('was_correct') else ('✗' if c.get('was_correct') is False else '-'),
+                'money_impact': f"{c['money_saved']:+.2f}" if c.get('money_saved') is not None else '-',
+                'impact_color': '#10b981' if c.get('money_saved', 0) >= 0 else '#ef4444'
+            }
+            cashouts_list.append(cashout_item)
+    
     return {
         'report_type': report_type.capitalize(),
         'week_start': week_start,
@@ -158,6 +175,14 @@ def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekl
         'has_ai_impact': dashboard_data['ai_impact']['win_rate'] is not None,
         'ai_win_rate': f"{dashboard_data['ai_impact']['win_rate'] * 100:.1f}" if dashboard_data['ai_impact']['win_rate'] else "0.0",
         'ai_bets_count': dashboard_data['ai_impact']['bets_count'],
+        'has_cashouts': len(cashouts_list) > 0,
+        'cashout_total': cashout_stats.get('total_cashouts', 0),
+        'cashout_accuracy': f"{cashout_stats.get('accuracy_rate', 0) * 100:.1f}" if cashout_stats.get('accuracy_rate') else 'N/A',
+        'cashout_saved': f"{cashout_stats.get('money_saved', 0):.2f}",
+        'cashout_left': f"{cashout_stats.get('money_left_on_table', 0):.2f}",
+        'cashout_net': f"{cashout_stats.get('net_impact', 0):+.2f}",
+        'cashout_net_color': '#10b981' if cashout_stats.get('net_impact', 0) >= 0 else '#ef4444',
+        'cashouts_list': cashouts_list,
         'dashboard_url': f"{FRONTEND_URL}/benny",
         'unsubscribe_url': f"{FRONTEND_URL}/settings?unsubscribe=benny_weekly",
         'settings_url': f"{FRONTEND_URL}/settings"
@@ -166,29 +191,30 @@ def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekl
 
 def get_subscribed_users() -> List[str]:
     """Get list of users subscribed to Benny weekly reports"""
-    table = dynamodb.Table(f'carpool-bets-v2-{ENVIRONMENT}')
-    
-    try:
-        response = table.query(
-            IndexName='GenericQueryIndex',
-            KeyConditionExpression='gsi_pk = :pk',
-            ExpressionAttributeValues={
-                ':pk': 'NOTIFICATION#BENNY_WEEKLY#EMAIL'
-            },
-            ProjectionExpression='email, gsi_sk'
-        )
-        
-        # Get email from either 'email' attribute or 'gsi_sk' (which stores email)
-        emails = []
-        for item in response.get('Items', []):
-            email = item.get('email') or item.get('gsi_sk')
-            if email:
-                emails.append(email)
-        
-        return emails if emails else [os.environ.get('ADMIN_EMAIL', 'glogankaranovich@gmail.com')]
-    except Exception as e:
-        print(f"Error fetching subscribed users: {e}")
-        return [os.environ.get('ADMIN_EMAIL', 'glogankaranovich@gmail.com')]
+    # table = dynamodb.Table(f'carpool-bets-v2-{ENVIRONMENT}')
+    # 
+    # try:
+    #     response = table.query(
+    #         IndexName='GenericQueryIndex',
+    #         KeyConditionExpression='gsi_pk = :pk',
+    #         ExpressionAttributeValues={
+    #             ':pk': 'NOTIFICATION#BENNY_WEEKLY#EMAIL'
+    #         },
+    #         ProjectionExpression='email, gsi_sk'
+    #     )
+    #     
+    #     # Get email from either 'email' attribute or 'gsi_sk' (which stores email)
+    #     emails = []
+    #     for item in response.get('Items', []):
+    #         email = item.get('email') or item.get('gsi_sk')
+    #         if email:
+    #             emails.append(email)
+    #     
+    #     return emails if emails else [os.environ.get('ADMIN_EMAIL', 'glogankaranovich@gmail.com')]
+    # except Exception as e:
+    #     print(f"Error fetching subscribed users: {e}")
+    #     return [os.environ.get('ADMIN_EMAIL', 'glogankaranovich@gmail.com')]
+    return ['glogankaranovich@gmail.com']
 
 
 def send_email(to_email: str, subject: str, html_body: str):

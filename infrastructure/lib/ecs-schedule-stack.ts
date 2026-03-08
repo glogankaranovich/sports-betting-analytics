@@ -11,14 +11,27 @@ import { PLATFORM_CONSTANTS } from './utils/constants';
 export interface EcsScheduleStackProps extends cdk.StackProps {
   stage: string;
   cluster: ecs.ICluster;
-  propsCollectorTask: ecs.FargateTaskDefinition;
-  analysisGeneratorTask: ecs.FargateTaskDefinition;
-  bennyTraderTask: ecs.FargateTaskDefinition;
+  propsCollectorTaskFamily: string;
+  analysisGeneratorTaskFamily: string;
+  bennyTraderTaskFamily: string;
 }
 
 export class EcsScheduleStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EcsScheduleStackProps) {
     super(scope, id, props);
+
+    const propsCollectorTask = ecs.FargateTaskDefinition.fromFargateTaskDefinitionArn(
+      this, 'PropsCollectorTask', 
+      `arn:aws:ecs:${this.region}:${this.account}:task-definition/${props.propsCollectorTaskFamily}`
+    );
+    const analysisGeneratorTask = ecs.FargateTaskDefinition.fromFargateTaskDefinitionArn(
+      this, 'AnalysisGeneratorTask',
+      `arn:aws:ecs:${this.region}:${this.account}:task-definition/${props.analysisGeneratorTaskFamily}`
+    );
+    const bennyTraderTask = ecs.FargateTaskDefinition.fromFargateTaskDefinitionArn(
+      this, 'BennyTraderTask',
+      `arn:aws:ecs:${this.region}:${this.account}:task-definition/${props.bennyTraderTaskFamily}`
+    );
 
     // EventBridge execution role
     const eventRole = new iam.Role(this, 'EventBridgeEcsRole', {
@@ -29,9 +42,9 @@ export class EcsScheduleStack extends cdk.Stack {
       new iam.PolicyStatement({
         actions: ['ecs:RunTask'],
         resources: [
-          props.propsCollectorTask.taskDefinitionArn,
-          props.analysisGeneratorTask.taskDefinitionArn,
-          props.bennyTraderTask.taskDefinitionArn,
+          `arn:aws:ecs:${this.region}:${this.account}:task-definition/${props.propsCollectorTaskFamily}:*`,
+          `arn:aws:ecs:${this.region}:${this.account}:task-definition/${props.analysisGeneratorTaskFamily}:*`,
+          `arn:aws:ecs:${this.region}:${this.account}:task-definition/${props.bennyTraderTaskFamily}:*`,
         ],
       })
     );
@@ -56,7 +69,7 @@ export class EcsScheduleStack extends cdk.Stack {
       targets: [
         new targets.EcsTask({
           cluster: props.cluster,
-          taskDefinition: props.propsCollectorTask,
+          taskDefinition: propsCollectorTask,
           role: eventRole,
           subnetSelection,
           assignPublicIp: true,
@@ -84,7 +97,7 @@ export class EcsScheduleStack extends cdk.Stack {
             targets: [
               new targets.EcsTask({
                 cluster: props.cluster,
-                taskDefinition: props.analysisGeneratorTask,
+                taskDefinition: analysisGeneratorTask,
                 role: eventRole,
                 subnetSelection,
                 assignPublicIp: true,
@@ -122,7 +135,7 @@ export class EcsScheduleStack extends cdk.Stack {
         targets: [
           new targets.EcsTask({
             cluster: props.cluster,
-            taskDefinition: props.bennyTraderTask,
+            taskDefinition: bennyTraderTask,
             role: eventRole,
             subnetSelection,
             assignPublicIp: true,

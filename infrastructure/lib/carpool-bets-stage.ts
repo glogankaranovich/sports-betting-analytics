@@ -30,7 +30,6 @@ import { NewsCollectorsStack } from './news-collectors-stack';
 import { NotificationStack } from './notification-stack';
 import { EcsClusterStack } from './ecs-cluster-stack';
 import { EcsTaskStack } from './ecs-task-stack';
-import { EcsScheduleStack } from './ecs-schedule-stack';
 import { EcsAlarmsStack } from './ecs-alarms-stack';
 import { StackNames } from './utils/stack-names';
 
@@ -55,21 +54,19 @@ export class CarpoolBetsStage extends cdk.Stage {
       stage: props.stage,
     });
 
+    // Notification system (create before Benny to avoid circular dependency)
+    const notificationStack = new NotificationStack(this, 'Notification', {
+      environment: props.stage,
+    });
+
     // ECS Task Stack (task definitions)
     const ecsTaskStack = new EcsTaskStack(this, 'EcsTasks', {
       stage: props.stage,
       cluster: ecsClusterStack.cluster,
       tableName: `carpool-bets-v2-${props.stage}`,
       oddsApiKeySecretName: `sports-betting/odds-api-key-${props.stage}`,
-    });
-
-    // ECS Schedule Stack (EventBridge rules)
-    const ecsScheduleStack = new EcsScheduleStack(this, 'EcsSchedules', {
-      stage: props.stage,
-      cluster: ecsClusterStack.cluster,
-      propsCollectorTask: ecsTaskStack.propsCollectorTask,
-      analysisGeneratorTask: ecsTaskStack.analysisGeneratorTask,
-      bennyTraderTask: ecsTaskStack.bennyTraderTask,
+      notificationQueueUrl: notificationStack.notificationQueue.queueUrl,
+      notificationQueueArn: notificationStack.notificationQueue.queueArn,
     });
 
     // Auth Stack
@@ -170,11 +167,6 @@ export class CarpoolBetsStage extends cdk.Stage {
     new AIAgentStack(this, 'AIAgent', {
       stage: props.stage,
       dynamodbTableName: `carpool-bets-v2-${props.stage}`,
-    });
-
-    // Notification system (create before Benny to avoid circular dependency)
-    const notificationStack = new NotificationStack(this, 'Notification', {
-      environment: props.stage,
     });
 
     // Benny trader stack

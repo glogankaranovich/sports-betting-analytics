@@ -1,5 +1,5 @@
 # Carpool Bets - Infrastructure Management
-.PHONY: help install build test deploy-dev deploy-pipeline clean
+.PHONY: help install build test deploy-dev deploy-pipeline clean deploy-benny test-benny clear-lock
 
 # Default target
 help:
@@ -21,6 +21,11 @@ help:
 	@echo "  make deploy-dev  - Deploy to dev environment (manual)"
 	@echo "  make deploy-stack STACK=name - Deploy specific stack to dev"
 	@echo "  make deploy-pipeline - Deploy pipeline (auto beta/prod)"
+	@echo "  make deploy-benny - Build Docker image, push to ECR, deploy ECS tasks"
+	@echo ""
+	@echo "🤖 Benny Operations:"
+	@echo "  make test-benny  - Clear lock and run Benny task manually"
+	@echo "  make clear-lock  - Clear Benny execution lock"
 	@echo ""
 	@echo "🔍 Monitoring:"
 	@echo "  make list-stacks - List stacks in all accounts"
@@ -144,3 +149,34 @@ pipeline-status:
 pipeline-history:
 	@echo "📜 Pipeline execution history (last 5):"
 	@AWS_PROFILE=sports-betting-pipeline aws codepipeline list-pipeline-executions --pipeline-name CarpoolBetsPipeline --max-items 5 --query 'pipelineExecutionSummaries[].{Status:status,StartTime:startTime,ExecutionId:pipelineExecutionId}' --output table
+
+# Deploy Benny: rebuild Docker image, push to ECR, and deploy infrastructure
+deploy-benny:
+	@echo "🔨 Building and pushing Docker image..."
+	cd .. && ./scripts/push-docker-image.sh
+	@echo "🚀 Deploying ECS task stack..."
+	$(MAKE) deploy-stack STACK=Dev-EcsTasks
+	@echo "✅ Benny deployment complete!"
+
+# Test Benny: run task manually and show logs
+test-benny:
+	@echo "🤖 Running Benny trader..."
+	aws ecs run-task \
+		--cluster dev-batch-processing \
+		--task-definition DevEcsTasksBennyTraderTaskD418DE3C \
+		--launch-type FARGATE \
+		--network-configuration "awsvpcConfiguration={subnets=[subnet-06fa1463a309553ba],assignPublicIp=ENABLED}" \
+		--profile sports-betting-dev \
+		--region us-east-1 \
+		--query 'tasks[0].taskArn' \
+		--output text
+	@echo "⏳ Waiting 90 seconds for task to complete..."
+	@sleep 90
+	@echo "📋 Checking logs..."
+	@aws logs tail /ecs/dev-benny-trader --since 3m --profile sports-betting-dev --region us-east-1 2>&1 | grep -E "Total bets|complete|notification|Failed" | tail -10 || echo "No matching logs found"
+
+# Clear Benny lock
+clear-lock:
+	@echo "🔓 Clearing Benny lock..."
+	aws dynamodb delete-item --table-name carpool-bets-v2-dev --key '{"pk":{"S":"BENNY"},"sk":{"S":"LOCK"}}' --profile sports-betting-dev --region us-east-1 || true
+	@echo "✅ Lock cleared"

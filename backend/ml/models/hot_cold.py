@@ -76,15 +76,14 @@ class HotColdModel(BaseModel):
         self, team: str, sport: str, lookback: int = 10
     ) -> Dict[str, int]:
         try:
+            normalized_team = team.lower().replace(" ", "_")
             response = self.table.query(
-                IndexName="OutcomeGSI",
-                KeyConditionExpression="outcome_gsi_pk = :pk",
-                FilterExpression="home_team = :team OR away_team = :team",
+                IndexName="TeamOutcomesIndex",
+                KeyConditionExpression="team_outcome_pk = :pk",
                 ExpressionAttributeValues={
-                    ":pk": f"OUTCOME#{sport}",
-                    ":team": team,
+                    ":pk": f"TEAM#{sport}#{normalized_team}",
                 },
-                Limit=lookback * 2,
+                Limit=lookback,
                 ScanIndexForward=False,
             )
 

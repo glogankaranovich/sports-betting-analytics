@@ -5,7 +5,11 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
+import { PLATFORM_CONSTANTS } from './utils/constants';
 
 export interface EcsTaskStackProps extends cdk.StackProps {
   stage: string;
@@ -13,6 +17,8 @@ export interface EcsTaskStackProps extends cdk.StackProps {
   tableName: string;
   anthropicApiKeyArn?: string;
   oddsApiKeySecretName: string;
+  notificationQueueUrl?: string;
+  notificationQueueArn?: string;
 }
 
 export class EcsTaskStack extends cdk.Stack {
@@ -85,6 +91,7 @@ export class EcsTaskStack extends cdk.Stack {
           'dynamodb:GetItem',
           'dynamodb:PutItem',
           'dynamodb:UpdateItem',
+          'dynamodb:DeleteItem',
           'dynamodb:Query',
           'dynamodb:Scan',
           'dynamodb:BatchWriteItem',
@@ -107,10 +114,22 @@ export class EcsTaskStack extends cdk.Stack {
       })
     );
 
+    // Grant SQS permissions if notification queue provided
+    if (props.notificationQueueArn) {
+      taskRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ['sqs:SendMessage'],
+          resources: [props.notificationQueueArn],
+        })
+      );
+    }
+
     // Common environment variables
     const commonEnv = {
       ENVIRONMENT: props.stage,
       DYNAMODB_TABLE: props.tableName,
+      IMAGE_VERSION: new Date().toISOString(), // Force new revision
+      ...(props.notificationQueueUrl && { NOTIFICATION_QUEUE_URL: props.notificationQueueUrl }),
     };
 
     // Props Collector Task
@@ -195,6 +214,111 @@ export class EcsTaskStack extends cdk.Stack {
         logGroup: bennyLogGroup,
         streamPrefix: 'benny-trader',
       }),
+    });
+
+    // EventBridge Schedules
+    const eventRole = new iam.Role(this, 'EventBridgeEcsRole', {
+      assumedBy: new iam.ServicePrincipal('events.amazonaws.com'),
+    });
+
+    eventRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['ecs:RunTask'],
+        resources: [
+          this.propsCollectorTask.taskDefinitionArn,
+          this.analysisGeneratorTask.taskDefinitionArn,
+          this.bennyTraderTask.taskDefinitionArn,
+        ],
+      })
+    );
+
+    eventRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['iam:PassRole'],
+        resources: [executionRole.roleArn, taskRole.roleArn],
+      })
+    );
+
+    const subnetSelection: ec2.SubnetSelection = { subnetType: ec2.SubnetType.PUBLIC };
+
+    // Props Collector - every 6 hours
+    new events.Rule(this, 'PropsCollectorSchedule', {
+      schedule: events.Schedule.cron({ minute: '0', hour: '*/6' }),
+      targets: [
+        new targets.EcsTask({
+          cluster: props.cluster,
+          taskDefinition: this.propsCollectorTask,
+          role: eventRole,
+          subnetSelection,
+          assignPublicIp: true,
+        }),
+      ],
+    });
+
+    // Analysis Generators - every 4 hours for each sport, staggered
+    const sports = PLATFORM_CONSTANTS.SUPPORTED_SPORTS.split(',');
+    const models = PLATFORM_CONSTANTS.SYSTEM_MODELS.split(',').filter(m => m !== 'benny');
+    const betTypes = ['games', 'props'];
+
+    let globalOffset = 0;
+    sports.forEach((sport) => {
+      models.forEach((model) => {
+        betTypes.forEach((betType) => {
+          const minute = globalOffset % 60;
+          const hourOffset = Math.floor(globalOffset / 60);
+
+          new events.Rule(this, `AnalysisGen-${sport}-${model}-${betType}`, {
+            schedule: events.Schedule.cron({
+              minute: minute.toString(),
+              hour: `${hourOffset}/4`,
+            }),
+            targets: [
+              new targets.EcsTask({
+                cluster: props.cluster,
+                taskDefinition: this.analysisGeneratorTask,
+                role: eventRole,
+                subnetSelection,
+                assignPublicIp: true,
+                containerOverrides: [
+                  {
+                    containerName: 'AnalysisGenerator',
+                    environment: [
+                      { name: 'SPORT', value: sport },
+                      { name: 'MODEL', value: model },
+                      { name: 'BET_TYPE', value: betType },
+                    ],
+                  },
+                ],
+              }),
+            ],
+          });
+
+          globalOffset += 2;
+        });
+      });
+    });
+
+    // Benny Trader - multiple times daily
+    const bennySchedules = [
+      { hour: '13', name: 'Morning' },
+      { hour: '17', name: 'Midday' },
+      { hour: '21', name: 'Afternoon' },
+      { hour: '1', name: 'Evening' },
+    ];
+
+    bennySchedules.forEach((schedule) => {
+      new events.Rule(this, `BennyTraderSchedule${schedule.name}`, {
+        schedule: events.Schedule.cron({ minute: '0', hour: schedule.hour }),
+        targets: [
+          new targets.EcsTask({
+            cluster: props.cluster,
+            taskDefinition: this.bennyTraderTask,
+            role: eventRole,
+            subnetSelection,
+            assignPublicIp: true,
+          }),
+        ],
+      });
     });
 
     // Outputs

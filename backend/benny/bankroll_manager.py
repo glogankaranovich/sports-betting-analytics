@@ -59,12 +59,12 @@ class BankrollManager:
             decimal_odds = (100 / abs(odds)) + 1
         
         # Kelly Criterion
-        implied_prob = 1 / decimal_odds
-        edge = confidence - implied_prob
-        kelly_fraction = edge / (decimal_odds - 1)
-        conservative_kelly = max(0, kelly_fraction * 0.25)  # Ensure non-negative
+        implied_prob = Decimal(str(1 / decimal_odds))
+        edge = Decimal(str(confidence)) - implied_prob
+        kelly_fraction = edge / (Decimal(str(decimal_odds)) - 1)
+        conservative_kelly = max(0, kelly_fraction * Decimal('0.25'))
         
-        bet_size = self.bankroll * Decimal(str(conservative_kelly))
+        bet_size = self.bankroll * conservative_kelly
         max_bet = self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))
         return min(bet_size, max_bet)
     

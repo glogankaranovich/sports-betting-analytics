@@ -34,7 +34,6 @@ import { NotificationStack } from '../lib/notification-stack';
 import { MetricsCalculatorStack } from '../lib/metrics-calculator-stack'; // DEPRECATED
 import { EcsClusterStack } from '../lib/ecs-cluster-stack';
 import { EcsTaskStack } from '../lib/ecs-task-stack';
-import { EcsScheduleStack } from '../lib/ecs-schedule-stack';
 import { StackNames } from '../lib/utils/stack-names';
 import { ENVIRONMENTS } from '../lib/config/environments';
 
@@ -295,16 +294,8 @@ if (environment === 'dev') {
     tableName: 'carpool-bets-v2-dev',
     anthropicApiKeyArn: '', // Not needed - using AWS Bedrock
     oddsApiKeySecretName: 'sports-betting/odds-api-key-dev',
-    env: ENVIRONMENTS.dev,
-  });
-
-  // ECS Schedule Stack (EventBridge rules)
-  new EcsScheduleStack(app, StackNames.forEnvironment('dev', 'EcsSchedules'), {
-    stage: 'dev',
-    cluster: ecsClusterStack.cluster,
-    propsCollectorTask: ecsTaskStack.propsCollectorTask,
-    analysisGeneratorTask: ecsTaskStack.analysisGeneratorTask,
-    bennyTraderTask: ecsTaskStack.bennyTraderTask,
+    notificationQueueUrl: notificationStack.notificationQueue.queueUrl,
+    notificationQueueArn: notificationStack.notificationQueue.queueArn,
     env: ENVIRONMENTS.dev,
   });
 } else {

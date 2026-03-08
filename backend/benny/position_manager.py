@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
+import os
 import boto3
 from boto3.dynamodb.conditions import Key
 
@@ -13,6 +14,8 @@ class PositionManager:
     def __init__(self, table, bedrock_client):
         self.table = table
         self.bedrock = bedrock_client
+        self.sqs = boto3.client('sqs')
+        self.notification_queue_url = os.environ.get('NOTIFICATION_QUEUE_URL')
     
     def evaluate_pending_bets(self) -> List[Dict[str, Any]]:
         """Evaluate existing pending bets for cash-out or double-down opportunities"""
@@ -138,11 +141,41 @@ class PositionManager:
             "cashed_out_at": datetime.utcnow().isoformat()
         })
         
+        # Send notification
+        self._send_notification('cash_out', bet, {
+            'cash_out_value': float(cash_out_value),
+            'reason': reason
+        })
+        
         return {
             "success": True,
             "cash_out_value": float(cash_out_value),
             "reason": reason
         }
+    
+    def _send_notification(self, notification_type: str, bet: Dict, details: Dict):
+        """Send notification for position action"""
+        environment = os.environ.get('ENVIRONMENT', 'dev')
+        if environment != 'dev' or not self.notification_queue_url:
+            return
+        
+        message = {
+            'type': notification_type,
+            'data': {
+                'game': f"{bet.get('away_team')} @ {bet.get('home_team')}",
+                'prediction': bet.get('prediction'),
+                'original_stake': float(bet.get('bet_amount', 0)),
+                **details
+            }
+        }
+        
+        try:
+            self.sqs.send_message(
+                QueueUrl=self.notification_queue_url,
+                MessageBody=json.dumps(message)
+            )
+        except Exception as e:
+            print(f"Failed to send notification: {e}")
     
     def execute_double_down(self, bet: Dict, additional_stake: Decimal, reason: str) -> Dict:
         """Execute double-down on a bet"""
@@ -169,6 +202,12 @@ class PositionManager:
             "status": "pending",
             "is_double_down": True,
             "double_down_reason": reason
+        })
+        
+        # Send notification
+        self._send_notification('double_down', bet, {
+            'additional_stake': float(additional_stake),
+            'reason': reason
         })
         
         return {

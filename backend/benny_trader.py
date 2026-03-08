@@ -87,10 +87,12 @@ class BennyTrader:
     
     def _release_lock(self):
         """Release distributed lock"""
+        print("Releasing lock...")
         try:
             self.table.delete_item(Key={"pk": "BENNY", "sk": "LOCK"})
-        except Exception:
-            pass
+            print("Lock released successfully")
+        except Exception as e:
+            print(f"Failed to release lock: {e}")
 
     def _get_learning_parameters(self) -> Dict[str, Any]:
         """Get Benny's learned parameters from DynamoDB"""
@@ -849,15 +851,13 @@ class BennyTrader:
                         "odds": []
                     }
                 
-                # Extract odds
-                outcomes = item.get("outcomes", [])
-                for outcome in outcomes:
-                    props_by_player[key]["odds"].append({
-                        "bookmaker": item.get("bookmaker"),
-                        "side": outcome.get("name"),  # Over/Under
-                        "price": outcome.get("price"),
-                        "point": outcome.get("point"),
-                    })
+                # Each item is a single outcome (Over or Under)
+                props_by_player[key]["odds"].append({
+                    "bookmaker": item.get("bookmaker"),
+                    "side": item.get("outcome"),  # Over/Under
+                    "price": item.get("price"),
+                    "point": item.get("point"),
+                })
 
             print(f"  Parsed {len(props_by_player)} unique props for {sport}")
             
@@ -885,10 +885,13 @@ class BennyTrader:
                     print(f"    Confidence: {analysis['confidence']:.2f}")
                     # Find odds for predicted side
                     predicted_side = "Over" if "over" in analysis["prediction"].lower() else "Under"
-                    avg_odds = sum(
-                        o["price"] for o in prop_data["odds"] 
-                        if o["side"] == predicted_side
-                    ) / len([o for o in prop_data["odds"] if o["side"] == predicted_side])
+                    matching_odds = [o for o in prop_data["odds"] if o["side"] == predicted_side]
+                    
+                    if not matching_odds:
+                        print(f"    No odds available for predicted side: {predicted_side}")
+                        continue
+                    
+                    avg_odds = sum(o["price"] for o in matching_odds) / len(matching_odds)
                     
                     # Calculate EV for props
                     avg_odds_float = float(avg_odds)
@@ -1736,6 +1739,7 @@ IMPORTANT:
             "bet_amount": result["bet_amount"],
             "remaining_bankroll": float(new_bankroll),
             "ai_reasoning": result["ai_reasoning"],
+            "market_key": opportunity["market_key"],
         }
         if not self.notification_queue_url:
             return
@@ -1861,10 +1865,14 @@ IMPORTANT:
     @staticmethod
     def get_dashboard_data() -> Dict[str, Any]:
         """Get dashboard data for Benny"""
-        # Get current bankroll
-        response = table.get_item(Key={"pk": "BENNY", "sk": "BANKROLL"})
-        bankroll_item = response.get("Item", {})
-        current_bankroll = float(bankroll_item.get("amount", 100.0))
+        # Get current bankroll from most recent snapshot
+        response = table.query(
+            KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BANKROLL#"),
+            ScanIndexForward=False,
+            Limit=1
+        )
+        bankroll_items = response.get("Items", [])
+        current_bankroll = float(bankroll_items[0].get("amount", 100.0)) if bankroll_items else 100.0
 
         # Get ALL bets for stats calculation
         all_bets = []
@@ -1996,6 +2004,43 @@ IMPORTANT:
                 "amount": current_bankroll
             })
 
+        # Get cash-out data
+        cashout_response = table.query(
+            KeyConditionExpression=Key("pk").eq("BENNY#CASHOUT"),
+            ScanIndexForward=False,
+            Limit=100
+        )
+        cashouts = cashout_response.get("Items", [])
+        
+        # Calculate cash-out metrics
+        evaluated_cashouts = [c for c in cashouts if c.get("actual_outcome")]
+        correct_cashouts = [c for c in evaluated_cashouts if c.get("was_correct")]
+        
+        total_saved = sum(float(c.get("money_saved", 0)) for c in evaluated_cashouts if c.get("money_saved", 0) > 0)
+        total_left_on_table = sum(abs(float(c.get("money_saved", 0))) for c in evaluated_cashouts if c.get("money_saved", 0) < 0)
+        
+        cashout_stats = {
+            "total_cashouts": len(cashouts),
+            "accuracy_rate": round(len(correct_cashouts) / len(evaluated_cashouts), 3) if evaluated_cashouts else None,
+            "money_saved": round(total_saved, 2),
+            "money_left_on_table": round(total_left_on_table, 2),
+            "net_impact": round(total_saved - total_left_on_table, 2),
+            "recent_cashouts": [
+                {
+                    "bet_id": c.get("bet_id"),
+                    "game_id": c.get("game_id"),
+                    "original_stake": float(c.get("original_stake", 0)),
+                    "cash_out_value": float(c.get("cash_out_value", 0)),
+                    "reason": c.get("reason"),
+                    "cashed_out_at": c.get("cashed_out_at"),
+                    "was_correct": c.get("was_correct"),
+                    "actual_outcome": c.get("actual_outcome"),
+                    "money_saved": float(c.get("money_saved", 0)) if c.get("money_saved") else None,
+                }
+                for c in cashouts[:20]
+            ]
+        }
+
         return {
             "current_bankroll": current_bankroll,
             "weekly_budget": 100.0,
@@ -2003,6 +2048,7 @@ IMPORTANT:
             "pending_bets": len(pending_bets),
             "win_rate": round(win_rate, 3),
             "roi": round(roi, 3),
+            "cashout_stats": cashout_stats,
             "sports_performance": {
                 sport: {
                     "record": f"{stats['wins']}-{stats['losses']}",
@@ -2041,7 +2087,11 @@ IMPORTANT:
             "recent_bets": [
                 {
                     "bet_id": b.get("bet_id"),
-                    "game": f"{b.get('away_team')} @ {b.get('home_team')}",
+                    "game": (
+                        f"{b.get('player_name')} {b.get('market_key')}"
+                        if b.get("player_name")
+                        else f"{b.get('away_team')} @ {b.get('home_team')}"
+                    ),
                     "prediction": b.get("prediction"),
                     "market": b.get("market_key", "h2h"),
                     "ensemble_confidence": float(
@@ -2125,6 +2175,22 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__":
     import sys
-    result = lambda_handler({}, None)
-    print(f"Benny trader complete: {result}")
-    sys.exit(0 if result.get("statusCode") == 200 else 1)
+    trader = BennyTrader()
+    
+    if not trader._acquire_lock():
+        print("Another Benny execution is already running. Exiting.")
+        sys.exit(0)
+    
+    exit_code = 0
+    try:
+        result = trader.run_daily_analysis()
+        print(f"Benny trader complete: {result}")
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        exit_code = 1
+    finally:
+        trader._release_lock()
+    
+    sys.exit(exit_code)

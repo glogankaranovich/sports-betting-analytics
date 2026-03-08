@@ -57,6 +57,24 @@ interface DashboardData {
     amount: number;
   }>;
   recent_bets: Bet[];
+  cashout_stats: {
+    total_cashouts: number;
+    accuracy_rate: number | null;
+    money_saved: number;
+    money_left_on_table: number;
+    net_impact: number;
+    recent_cashouts: Array<{
+      bet_id: string;
+      game_id: string;
+      original_stake: number;
+      cash_out_value: number;
+      reason: string;
+      cashed_out_at: string;
+      was_correct?: boolean;
+      actual_outcome?: string;
+      money_saved?: number;
+    }>;
+  };
 }
 
 interface BennyDashboardProps {
@@ -364,8 +382,71 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
               </div>
             </div>
           )}
+
+          {/* Cash-Out Performance */}
+          {data.cashout_stats && data.cashout_stats.total_cashouts > 0 && (
+            <div className="metric-card">
+              <h4>Cash-Out Performance</h4>
+              <div className="cashout-metrics">
+                <div className="cashout-stat">
+                  <span className="label">Total Cash-Outs:</span>
+                  <span className="value">{data.cashout_stats.total_cashouts}</span>
+                </div>
+                {data.cashout_stats.accuracy_rate !== null && (
+                  <div className="cashout-stat">
+                    <span className="label">Accuracy:</span>
+                    <span className="value">{(data.cashout_stats.accuracy_rate * 100).toFixed(1)}%</span>
+                  </div>
+                )}
+                <div className="cashout-stat">
+                  <span className="label">Money Saved:</span>
+                  <span className="value" style={{ color: '#4ade80' }}>${data.cashout_stats.money_saved.toFixed(2)}</span>
+                </div>
+                <div className="cashout-stat">
+                  <span className="label">Left on Table:</span>
+                  <span className="value" style={{ color: '#f87171' }}>${data.cashout_stats.money_left_on_table.toFixed(2)}</span>
+                </div>
+                <div className="cashout-stat">
+                  <span className="label">Net Impact:</span>
+                  <span className="value" style={{ color: data.cashout_stats.net_impact >= 0 ? '#4ade80' : '#f87171' }}>
+                    {data.cashout_stats.net_impact >= 0 ? '+' : ''}${data.cashout_stats.net_impact.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Cash-Outs Section */}
+      {data.cashout_stats && data.cashout_stats.recent_cashouts && data.cashout_stats.recent_cashouts.length > 0 && (
+        <div className="benny-bets">
+          <h3>Recent Cash-Outs</h3>
+          <div className="bets-table">
+            {data.cashout_stats.recent_cashouts.map((cashout) => (
+              <div key={cashout.bet_id} className="bet-card">
+                <div className="bet-row">
+                  <div className="bet-game">{cashout.game_id}</div>
+                  <div className="bet-prediction">
+                    Cashed Out: ${cashout.cash_out_value.toFixed(2)} (was ${cashout.original_stake.toFixed(2)})
+                  </div>
+                  <div className="bet-confidence">{cashout.reason}</div>
+                  {cashout.was_correct !== undefined && (
+                    <div className={`bet-status ${cashout.was_correct ? 'won' : 'lost'}`}>
+                      {cashout.was_correct ? '✓ Correct' : '✗ Wrong'}
+                      {cashout.money_saved !== null && cashout.money_saved !== undefined && (
+                        <span style={{ marginLeft: '8px', color: cashout.money_saved >= 0 ? '#4ade80' : '#f87171' }}>
+                          {cashout.money_saved >= 0 ? '+' : ''}${cashout.money_saved.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Pending Bets Section */}
       <div className="benny-bets">
