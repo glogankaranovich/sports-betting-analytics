@@ -4,6 +4,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export interface EcsTaskStackProps extends cdk.StackProps {
@@ -11,7 +12,7 @@ export interface EcsTaskStackProps extends cdk.StackProps {
   cluster: ecs.ICluster;
   tableName: string;
   anthropicApiKeyArn?: string;
-  oddsApiKeyArn: string;
+  oddsApiKeySecretName: string;
 }
 
 export class EcsTaskStack extends cdk.Stack {
@@ -24,6 +25,13 @@ export class EcsTaskStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: EcsTaskStackProps) {
     super(scope, id, props);
+
+    // Import odds API secret
+    const oddsApiSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'OddsApiSecret',
+      props.oddsApiKeySecretName
+    );
 
     // Get ECR repository (create if doesn't exist)
     const repository = new ecr.Repository(this, 'BatchJobsRepo', {
@@ -45,19 +53,19 @@ export class EcsTaskStack extends cdk.Stack {
       ],
     });
 
-    // Allow reading secrets (only if provided)
+    // Allow reading secrets
     if (props.anthropicApiKeyArn) {
       executionRole.addToPolicy(
         new iam.PolicyStatement({
           actions: ['secretsmanager:GetSecretValue'],
-          resources: [props.anthropicApiKeyArn, props.oddsApiKeyArn],
+          resources: [props.anthropicApiKeyArn, oddsApiSecret.secretArn],
         })
       );
     } else {
       executionRole.addToPolicy(
         new iam.PolicyStatement({
           actions: ['secretsmanager:GetSecretValue'],
-          resources: [props.oddsApiKeyArn],
+          resources: [oddsApiSecret.secretArn],
         })
       );
     }
@@ -125,9 +133,7 @@ export class EcsTaskStack extends cdk.Stack {
         PROPS_ONLY: 'true',
       },
       secrets: {
-        ODDS_API_KEY: ecs.Secret.fromSecretsManager(
-          cdk.aws_secretsmanager.Secret.fromSecretCompleteArn(this, 'OddsApiKey', props.oddsApiKeyArn)
-        ),
+        ODDS_API_KEY: ecs.Secret.fromSecretsManager(oddsApiSecret),
       },
       logging: ecs.LogDrivers.awsLogs({
         logGroup: propsLogGroup,

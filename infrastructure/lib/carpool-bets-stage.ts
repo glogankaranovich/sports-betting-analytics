@@ -1,5 +1,4 @@
 import * as cdk from 'aws-cdk-lib';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { DynamoDBStack } from './dynamodb-stack';
 import { OddsCollectorStack } from './odds-collector-stack';
@@ -57,17 +56,11 @@ export class CarpoolBetsStage extends cdk.Stage {
     });
 
     // ECS Task Stack (task definitions)
-    const oddsApiSecret = secretsmanager.Secret.fromSecretNameV2(
-      this,
-      'OddsApiSecret',
-      `sports-betting/odds-api-key-${props.stage}`
-    );
-    
     const ecsTaskStack = new EcsTaskStack(this, 'EcsTasks', {
       stage: props.stage,
       cluster: ecsClusterStack.cluster,
       tableName: `carpool-bets-v2-${props.stage}`,
-      oddsApiKeyArn: oddsApiSecret.secretArn,
+      oddsApiKeySecretName: `sports-betting/odds-api-key-${props.stage}`,
     });
 
     // ECS Schedule Stack (EventBridge rules)

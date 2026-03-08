@@ -294,7 +294,7 @@ if (environment === 'dev') {
     cluster: ecsClusterStack.cluster,
     tableName: 'carpool-bets-v2-dev',
     anthropicApiKeyArn: '', // Not needed - using AWS Bedrock
-    oddsApiKeyArn: `arn:aws:secretsmanager:us-east-1:${ENVIRONMENTS.dev.account}:secret:sports-betting/odds-api-key-dev-9Sjkjt`,
+    oddsApiKeySecretName: 'sports-betting/odds-api-key-dev',
     env: ENVIRONMENTS.dev,
   });
 
