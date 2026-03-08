@@ -560,75 +560,7 @@ class BennyTrader:
             return True
         return False
 
-    def _get_top_models(self, sport: str, limit: int = 3) -> List[str]:
-        """Get top performing models for a sport based on recent accuracy"""
-        try:
-            # Get all models for this sport by querying each model type
-            all_models = [
-                "consensus",
-                "value",
-                "momentum",
-                "ensemble",
-                "matchup",
-                "contrarian",
-                "hot_cold",
-                "rest_schedule",
-                "injury_aware",
-            ]
-            model_stats = {}
-
-            for model in all_models:
-                # Query recent verified predictions for this model+sport
-                response = table.query(
-                    IndexName="VerifiedAnalysisGSI",
-                    KeyConditionExpression=Key("verified_analysis_pk").eq(
-                        f"VERIFIED#{model}#{sport}#game"
-                    ),
-                    ScanIndexForward=False,
-                    Limit=100,  # Last 100 predictions per model
-                )
-
-                predictions = response.get("Items", [])
-
-                if len(predictions) < 10:  # Need at least 10 predictions
-                    continue
-
-                # Calculate accuracy
-                correct = sum(1 for p in predictions if p.get("analysis_correct"))
-                total = len(predictions)
-                accuracy = correct / total if total > 0 else 0
-
-                model_stats[model] = {"accuracy": accuracy, "total": total}
-
-            # Sort by accuracy
-            sorted_models = sorted(
-                model_stats.items(),
-                key=lambda x: (x[1]["accuracy"], x[1]["total"]),
-                reverse=True,
-            )
-            top_models = [m[0] for m in sorted_models[:limit]]
-
-            # Fallback to default models if not enough data
-            if len(top_models) < limit:
-                default_models = [
-                    "ensemble",
-                    "consensus",
-                    "value",
-                    "momentum",
-                    "matchup",
-                ]
-                for model in default_models:
-                    if model not in top_models:
-                        top_models.append(model)
-                    if len(top_models) >= limit:
-                        break
-
-            return top_models[:limit]
-
-        except Exception as e:
-            print(f"Error getting top models: {e}")
-            # Fallback to safe defaults
-            return ["ensemble", "consensus", "value"]
+    # _get_top_models removed - dead code, never called
 
     def analyze_games(self) -> List[Dict[str, Any]]:
         """Analyze upcoming games independently using raw data and AI"""
