@@ -52,9 +52,9 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
       stage: 'beta',
     });
     
-    // Build and push Docker image for Beta before deployment
+    // Build and push Docker image for Beta after ECR repo is created
     const betaStage = pipeline.addStage(betaStageConstruct, {
-      pre: [
+      post: [
         new CodeBuildStep('BuildDockerImageBeta', {
           commands: [
             'echo "Building Docker image for Beta..."',
@@ -124,9 +124,9 @@ export class CarpoolBetsPipelineStack extends cdk.Stack {
       stage: 'prod',
     });
     
-    // Build and push Docker image for Prod before deployment
+    // Build and push Docker image for Prod after ECR repo is created
     const prodStage = pipeline.addStage(prodStageConstruct, {
-      pre: [
+      post: [
         new CodeBuildStep('BuildDockerImageProd', {
           commands: [
             'echo "Building Docker image for Prod..."',
