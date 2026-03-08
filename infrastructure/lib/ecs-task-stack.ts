@@ -26,6 +26,21 @@ export class EcsTaskStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EcsTaskStackProps) {
     super(scope, id, props);
 
+    // Create ECR repository
+    const ecrRepo = new ecr.Repository(this, 'BatchJobsRepo', {
+      repositoryName: `${props.stage}-batch-jobs`,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      lifecycleRules: [
+        {
+          maxImageCount: 5,
+          description: 'Keep last 5 images',
+        },
+      ],
+    });
+
+    // Grant pipeline account permission to push images
+    ecrRepo.grantPullPush(new iam.AccountPrincipal('083314012659'));
+
     // Import odds API secret
     const oddsApiSecret = secretsmanager.Secret.fromSecretNameV2(
       this,
