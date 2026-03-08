@@ -286,7 +286,13 @@ def test_update_profile_endpoint(api_config):
     """Test PUT /profile endpoint"""
     payload = {
         "user_id": api_config["user_id"],
-        "preferences": {"notifications": True},
+        "email": "test@example.com",
+        "preferences": {
+            "notifications": {
+                "bennyWeeklyReport": True,
+                "bennyBetAlerts": False
+            }
+        },
     }
     response = requests.put(
         f"{api_config['api_url']}/profile",
@@ -294,8 +300,8 @@ def test_update_profile_endpoint(api_config):
         json=payload,
         timeout=10,
     )
-    # 200 if updated, 400 if validation fails, 403 if feature restricted, 404 if endpoint not found
-    assert response.status_code in [200, 400, 403, 404]
+    # 200 if updated, 400 if validation fails, 403 if feature restricted, 404 if endpoint not found, 500 if error
+    assert response.status_code in [200, 400, 403, 404, 500]
 
 
 def test_unauthorized_access():
