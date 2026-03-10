@@ -35,12 +35,22 @@ class BankrollManager:
     
     def update_bankroll(self, new_amount: Decimal):
         """Update bankroll in DynamoDB"""
+        # Update main bankroll record
         self.table.put_item(Item={
             "pk": "BENNY",
-            "sk": f"BANKROLL#{datetime.now().isoformat()}",
+            "sk": "BANKROLL",
+            "amount": new_amount,
+            "updated_at": datetime.now().isoformat()
+        })
+        
+        # Create snapshot for history
+        self.table.put_item(Item={
+            "pk": "BENNY",
+            "sk": f"SNAPSHOT#{datetime.now().isoformat()}",
             "amount": new_amount,
             "timestamp": datetime.now().isoformat()
         })
+        
         self.bankroll = new_amount
     
     def calculate_bet_size(self, confidence: float, odds: float = None) -> Decimal:

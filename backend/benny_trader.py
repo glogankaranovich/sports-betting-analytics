@@ -1865,14 +1865,9 @@ IMPORTANT:
     @staticmethod
     def get_dashboard_data() -> Dict[str, Any]:
         """Get dashboard data for Benny"""
-        # Get current bankroll from most recent snapshot
-        response = table.query(
-            KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BANKROLL#"),
-            ScanIndexForward=False,
-            Limit=1
-        )
-        bankroll_items = response.get("Items", [])
-        current_bankroll = float(bankroll_items[0].get("amount", 100.0)) if bankroll_items else 100.0
+        # Get current bankroll from main record
+        response = table.get_item(Key={"pk": "BENNY", "sk": "BANKROLL"})
+        current_bankroll = float(response.get("Item", {}).get("amount", 100.0)) if "Item" in response else 100.0
 
         # Get ALL bets for stats calculation
         all_bets = []
