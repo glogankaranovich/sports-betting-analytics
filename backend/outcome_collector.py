@@ -78,9 +78,11 @@ class OutcomeCollector:
                         # Validate API response format
                         validation_errors = self._validate_game_response(game)
                         if validation_errors:
-                            print(f"⚠️  API format validation failed for game {game.get('id', 'unknown')}: {validation_errors}")
+                            print(
+                                f"⚠️  API format validation failed for game {game.get('id', 'unknown')}: {validation_errors}"
+                            )
                             self._emit_validation_error_metric(sport, validation_errors)
-                        
+
                         # Match scores to teams by name
                         scores = game.get("scores", [])
                         home_score = None
@@ -90,13 +92,17 @@ class OutcomeCollector:
                                 home_score = score_entry.get("score")
                             elif score_entry.get("name") == game["away_team"]:
                                 away_score = score_entry.get("score")
-                        
+
                         if home_score is None or away_score is None:
-                            print(f"❌ Failed to match scores for {game.get('home_team')} vs {game.get('away_team')}")
+                            print(
+                                f"❌ Failed to match scores for {game.get('home_team')} vs {game.get('away_team')}"
+                            )
                             print(f"   Scores array: {scores}")
-                            self._emit_validation_error_metric(sport, "score_matching_failed")
+                            self._emit_validation_error_metric(
+                                sport, "score_matching_failed"
+                            )
                             continue
-                        
+
                         completed_games.append(
                             {
                                 "id": game["id"],
@@ -114,7 +120,7 @@ class OutcomeCollector:
                 continue
 
         return completed_games
-    
+
     def _update_elo_ratings(self, game: Dict[str, Any]) -> bool:
         """Update Elo ratings for completed game"""
         try:
@@ -123,11 +129,21 @@ class OutcomeCollector:
             away_team = game.get("away_team")
             home_score = game.get("home_score")
             away_score = game.get("away_score")
-            
-            if not all([sport, home_team, away_team, home_score is not None, away_score is not None]):
+
+            if not all(
+                [
+                    sport,
+                    home_team,
+                    away_team,
+                    home_score is not None,
+                    away_score is not None,
+                ]
+            ):
                 return False
-            
-            self.elo_calculator.update_ratings(sport, home_team, away_team, int(home_score), int(away_score))
+
+            self.elo_calculator.update_ratings(
+                sport, home_team, away_team, int(home_score), int(away_score)
+            )
             return True
         except Exception as e:
             print(f"Error updating Elo ratings: {e}")
@@ -138,7 +154,7 @@ class OutcomeCollector:
         try:
             home_score = int(game.get("home_score", 0))
             away_score = int(game.get("away_score", 0))
-            
+
             # Determine winner (handle draws)
             if home_score > away_score:
                 winner = game["home_team"]
@@ -306,10 +322,12 @@ class OutcomeCollector:
                         )
 
                         items = response.get("Items", [])
-                        
+
                         # Separate LATEST and INVERSE records
-                        latest_items = [item for item in items if "#LATEST" in item.get("sk", "")]
-                        
+                        latest_items = [
+                            item for item in items if "#LATEST" in item.get("sk", "")
+                        ]
+
                         updates += self._process_analysis_items(latest_items, game)
 
                         # Also verify inverse predictions (only pass LATEST items)
@@ -317,6 +335,7 @@ class OutcomeCollector:
 
             # Settle Benny bets for this game
             self._settle_benny_bets(game)
+            self._settle_benny_parlays(game)
 
             # Archive odds to historical records
             self._archive_game_odds(game)
@@ -445,7 +464,9 @@ class OutcomeCollector:
                     },
                 )
                 updates += 1
-                print(f"Verified original: {model} - Prediction: {item.get('prediction')}, Correct: {analysis_correct}")
+                print(
+                    f"Verified original: {model} - Prediction: {item.get('prediction')}, Correct: {analysis_correct}"
+                )
 
             elif item.get("analysis_type") == "prop":
                 # Get player stats for prop verification
@@ -479,7 +500,7 @@ class OutcomeCollector:
         self, analysis_result: str, winner: str, game: Dict[str, Any]
     ) -> bool:
         """Check if a game analysis was accurate
-        
+
         Args:
             analysis_result: The prediction string (team name, spread, or total)
             winner: 'home', 'away', or 'draw'
@@ -648,7 +669,7 @@ class OutcomeCollector:
 
         home_score = int(home_score)
         away_score = int(away_score)
-        
+
         if home_score > away_score:
             return "home"
         elif away_score > home_score:
@@ -659,16 +680,16 @@ class OutcomeCollector:
     def _validate_game_response(self, game: Dict[str, Any]) -> List[str]:
         """Validate Odds API game response format"""
         errors = []
-        
+
         if not game.get("id"):
             errors.append("missing_game_id")
-        
+
         if not game.get("home_team"):
             errors.append("missing_home_team")
-        
+
         if not game.get("away_team"):
             errors.append("missing_away_team")
-        
+
         scores = game.get("scores", [])
         if not isinstance(scores, list):
             errors.append("scores_not_array")
@@ -682,25 +703,28 @@ class OutcomeCollector:
                     errors.append("score_missing_name")
                 elif "score" not in score:
                     errors.append("score_missing_value")
-        
+
         return errors
-    
+
     def _emit_validation_error_metric(self, sport: str, error: str) -> None:
         """Emit CloudWatch metric for validation errors"""
         try:
             import boto3
-            cloudwatch = boto3.client('cloudwatch')
+
+            cloudwatch = boto3.client("cloudwatch")
             cloudwatch.put_metric_data(
-                Namespace='SportsAnalytics/OutcomeCollector',
-                MetricData=[{
-                    'MetricName': 'ValidationError',
-                    'Value': 1,
-                    'Unit': 'Count',
-                    'Dimensions': [
-                        {'Name': 'Sport', 'Value': sport},
-                        {'Name': 'ErrorType', 'Value': str(error)}
-                    ]
-                }]
+                Namespace="SportsAnalytics/OutcomeCollector",
+                MetricData=[
+                    {
+                        "MetricName": "ValidationError",
+                        "Value": 1,
+                        "Unit": "Count",
+                        "Dimensions": [
+                            {"Name": "Sport", "Value": sport},
+                            {"Name": "ErrorType", "Value": str(error)},
+                        ],
+                    }
+                ],
             )
         except Exception as e:
             print(f"Failed to emit metric: {e}")
@@ -714,119 +738,250 @@ class OutcomeCollector:
         try:
             game_id = game["id"]
 
-            # Query for Benny bets on this game
-            response = self.table.query(
-                KeyConditionExpression="pk = :pk",
-                FilterExpression="game_id = :game_id AND #status = :pending",
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={
-                    ":pk": "BENNY",
-                    ":game_id": game_id,
-                    ":pending": "pending",
-                },
-            )
-
-            bets = response.get("Items", [])
-            if not bets:
-                return
-
-            # Get current bankroll
-            bankroll_response = self.table.get_item(
-                Key={"pk": "BENNY", "sk": "BANKROLL"}
-            )
-            current_bankroll = Decimal(
-                str(bankroll_response.get("Item", {}).get("amount", "100.00"))
-            )
-
-            for bet in bets:
-                bet_amount = Decimal(str(bet.get("bet_amount", 0)))
-                prediction = bet.get("prediction", "")
-                odds = bet.get("odds")
-
-                # Determine if bet won using improved matching
-                bet_won = self._check_bet_outcome(
-                    prediction,
-                    game["home_team"],
-                    game["away_team"],
-                    self._determine_winner(game),
-                    game,
-                )
-
-                # Calculate payout using actual odds
-                if bet_won:
-                    if odds:
-                        # Use actual American odds
-                        odds_value = float(odds)
-                        if odds_value > 0:
-                            # Positive odds: profit = (bet * odds) / 100
-                            profit = (
-                                bet_amount * Decimal(str(odds_value)) / Decimal("100")
-                            )
-                        else:
-                            # Negative odds: profit = bet / (abs(odds) / 100)
-                            profit = bet_amount / (
-                                Decimal(str(abs(odds_value))) / Decimal("100")
-                            )
-                        payout = bet_amount + profit
-                    else:
-                        # Fallback to even money if no odds stored
-                        profit = bet_amount
-                        payout = bet_amount * Decimal("2.0")
-                    new_status = "won"
-                else:
-                    payout = Decimal("0")
-                    profit = -bet_amount
-                    new_status = "lost"
-
-                # Update bet record
-                self.table.update_item(
-                    Key={"pk": bet["pk"], "sk": bet["sk"]},
-                    UpdateExpression="SET #status = :status, payout = :payout, profit = :profit, settled_at = :settled",
+            # Settle bets for both v1 and v2
+            for version_pk in ["BENNY", "BENNY_V2"]:
+                # Query for Benny bets on this game
+                response = self.table.query(
+                    KeyConditionExpression="pk = :pk",
+                    FilterExpression="game_id = :game_id AND #status = :pending",
                     ExpressionAttributeNames={"#status": "status"},
                     ExpressionAttributeValues={
-                        ":status": new_status,
-                        ":payout": payout,
-                        ":profit": profit,
-                        ":settled": datetime.utcnow().isoformat(),
+                        ":pk": version_pk,
+                        ":game_id": game_id,
+                        ":pending": "pending",
                     },
                 )
 
-                # Update bankroll
-                current_bankroll += payout
+                bets = response.get("Items", [])
+                if not bets:
+                    continue
 
-                print(
-                    f"Settled Benny bet: {prediction} = {new_status} (${profit}, odds: {odds})"
+                # Get current bankroll
+                bankroll_response = self.table.get_item(
+                    Key={"pk": version_pk, "sk": "BANKROLL"}
+                )
+                current_bankroll = Decimal(
+                    str(bankroll_response.get("Item", {}).get("amount", "100.00"))
                 )
 
-            # Save updated bankroll
-            timestamp = datetime.utcnow().isoformat()
-            bankroll_item = bankroll_response.get("Item", {})
-            
-            # Update current bankroll
-            self.table.put_item(
-                Item={
-                    "pk": "BENNY",
-                    "sk": "BANKROLL",
-                    "amount": current_bankroll,
-                    "last_reset": bankroll_item.get("last_reset", timestamp),
-                    "updated_at": timestamp,
-                }
-            )
-            
-            # Store history snapshot
-            self.table.put_item(
-                Item={
-                    "pk": "BENNY",
-                    "sk": f"BANKROLL#{timestamp}",
-                    "amount": current_bankroll,
-                    "updated_at": timestamp,
-                }
-            )
+                for bet in bets:
+                    bet_amount = Decimal(str(bet.get("bet_amount", 0)))
+                    prediction = bet.get("prediction", "")
+                    odds = bet.get("odds")
 
-            print(f"Updated Benny bankroll: ${current_bankroll}")
+                    # Determine if bet won using improved matching
+                    bet_won = self._check_bet_outcome(
+                        prediction,
+                        game["home_team"],
+                        game["away_team"],
+                        self._determine_winner(game),
+                        game,
+                    )
+
+                    # Calculate payout using actual odds
+                    if bet_won:
+                        if odds:
+                            # Use actual American odds
+                            odds_value = float(odds)
+                            if odds_value > 0:
+                                # Positive odds: profit = (bet * odds) / 100
+                                profit = (
+                                    bet_amount
+                                    * Decimal(str(odds_value))
+                                    / Decimal("100")
+                                )
+                            else:
+                                # Negative odds: profit = bet / (abs(odds) / 100)
+                                profit = bet_amount / (
+                                    Decimal(str(abs(odds_value))) / Decimal("100")
+                                )
+                            payout = bet_amount + profit
+                        else:
+                            # Fallback to even money if no odds stored
+                            profit = bet_amount
+                            payout = bet_amount * Decimal("2.0")
+                        new_status = "won"
+                    else:
+                        payout = Decimal("0")
+                        profit = -bet_amount
+                        new_status = "lost"
+
+                    # Update bet record
+                    self.table.update_item(
+                        Key={"pk": bet["pk"], "sk": bet["sk"]},
+                        UpdateExpression="SET #status = :status, payout = :payout, profit = :profit, settled_at = :settled",
+                        ExpressionAttributeNames={"#status": "status"},
+                        ExpressionAttributeValues={
+                            ":status": new_status,
+                            ":payout": payout,
+                            ":profit": profit,
+                            ":settled": datetime.utcnow().isoformat(),
+                        },
+                    )
+
+                    # Update bankroll
+                    current_bankroll += payout
+
+                    version_label = "v1" if version_pk == "BENNY" else "v2"
+                    print(
+                        f"Settled Benny {version_label} bet: {prediction} = {new_status} (${profit}, odds: {odds})"
+                    )
+
+                # Save updated bankroll (after processing all bets for this version)
+                timestamp = datetime.utcnow().isoformat()
+                bankroll_item = bankroll_response.get("Item", {})
+
+                # Update current bankroll
+                self.table.put_item(
+                    Item={
+                        "pk": version_pk,
+                        "sk": "BANKROLL",
+                        "amount": current_bankroll,
+                        "last_reset": bankroll_item.get("last_reset", timestamp),
+                        "updated_at": timestamp,
+                    }
+                )
+
+                # Store history snapshot
+                self.table.put_item(
+                    Item={
+                        "pk": version_pk,
+                        "sk": f"BANKROLL#{timestamp}",
+                        "amount": current_bankroll,
+                        "updated_at": timestamp,
+                    }
+                )
+
+                print(f"Updated Benny {version_label} bankroll: ${current_bankroll}")
 
         except Exception as e:
             print(f"Error settling Benny bets for game {game.get('id')}: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+    def _settle_benny_parlays(self, game: Dict[str, Any]) -> None:
+        """Settle parlay legs for a completed game."""
+        try:
+            game_id = game["id"]
+
+            for version_pk in ["BENNY", "BENNY_V2"]:
+                response = self.table.query(
+                    KeyConditionExpression="pk = :pk",
+                    FilterExpression="#status = :pending AND bet_type = :parlay",
+                    ExpressionAttributeNames={"#status": "status"},
+                    ExpressionAttributeValues={
+                        ":pk": version_pk,
+                        ":pending": "pending",
+                        ":parlay": "parlay",
+                    },
+                )
+
+                parlays = response.get("Items", [])
+                if not parlays:
+                    continue
+
+                bankroll_response = self.table.get_item(
+                    Key={"pk": version_pk, "sk": "BANKROLL"}
+                )
+                current_bankroll = Decimal(
+                    str(bankroll_response.get("Item", {}).get("amount", "100.00"))
+                )
+                bankroll_changed = False
+
+                for parlay in parlays:
+                    legs = parlay.get("legs", [])
+                    updated = False
+
+                    for leg in legs:
+                        if leg.get("status") != "pending" or leg["game_id"] != game_id:
+                            continue
+
+                        # Check this leg's outcome
+                        leg_won = self._check_bet_outcome(
+                            leg["prediction"],
+                            game["home_team"],
+                            game["away_team"],
+                            self._determine_winner(game),
+                            game,
+                        )
+                        leg["status"] = "won" if leg_won else "lost"
+                        updated = True
+
+                    if not updated:
+                        continue
+
+                    # Check if all legs are settled
+                    statuses = [l["status"] for l in legs]
+                    if "pending" in statuses:
+                        # Still waiting on other legs — just save leg updates
+                        self.table.update_item(
+                            Key={"pk": parlay["pk"], "sk": parlay["sk"]},
+                            UpdateExpression="SET legs = :legs",
+                            ExpressionAttributeValues={":legs": legs},
+                        )
+                        continue
+
+                    # All legs settled — determine parlay outcome
+                    all_won = all(s == "won" for s in statuses)
+                    bet_amount = Decimal(str(parlay.get("bet_amount", 0)))
+
+                    if all_won:
+                        combined_odds = Decimal(str(parlay["combined_decimal_odds"]))
+                        payout = bet_amount * combined_odds
+                        profit = payout - bet_amount
+                        new_status = "won"
+                    else:
+                        payout = Decimal("0")
+                        profit = -bet_amount
+                        new_status = "lost"
+
+                    self.table.update_item(
+                        Key={"pk": parlay["pk"], "sk": parlay["sk"]},
+                        UpdateExpression="SET legs = :legs, #status = :status, payout = :payout, profit = :profit, settled_at = :settled",
+                        ExpressionAttributeNames={"#status": "status"},
+                        ExpressionAttributeValues={
+                            ":legs": legs,
+                            ":status": new_status,
+                            ":payout": payout,
+                            ":profit": profit,
+                            ":settled": datetime.utcnow().isoformat(),
+                        },
+                    )
+
+                    current_bankroll += payout
+                    bankroll_changed = True
+                    version_label = "v1" if version_pk == "BENNY" else "v2"
+                    won_count = sum(1 for s in statuses if s == "won")
+                    print(
+                        f"Settled Benny {version_label} parlay: {won_count}/{len(legs)} legs won = {new_status} (${profit})"
+                    )
+
+                if bankroll_changed:
+                    timestamp = datetime.utcnow().isoformat()
+                    bankroll_item = bankroll_response.get("Item", {})
+                    self.table.put_item(
+                        Item={
+                            "pk": version_pk,
+                            "sk": "BANKROLL",
+                            "amount": current_bankroll,
+                            "last_reset": bankroll_item.get("last_reset", timestamp),
+                            "updated_at": timestamp,
+                        }
+                    )
+                    self.table.put_item(
+                        Item={
+                            "pk": version_pk,
+                            "sk": f"BANKROLL#{timestamp}",
+                            "amount": current_bankroll,
+                            "updated_at": timestamp,
+                        }
+                    )
+                    version_label = "v1" if version_pk == "BENNY" else "v2"
+                    print(f"Updated Benny {version_label} bankroll (parlays): ${current_bankroll}")
+
+        except Exception as e:
+            print(f"Error settling Benny parlays for game {game.get('id')}: {e}")
             import traceback
 
             traceback.print_exc()
@@ -840,14 +995,14 @@ class OutcomeCollector:
         game: Dict[str, Any],
     ) -> bool:
         """Check if a bet won with improved team name matching
-        
+
         Args:
             game_result: 'home', 'away', 'draw', or None
         """
         try:
             if game_result is None:
                 return False
-                
+
             prediction_lower = prediction.lower().strip()
             home_lower = home_team.lower().strip()
             away_lower = away_team.lower().strip()
@@ -867,11 +1022,15 @@ class OutcomeCollector:
 
             # Check for spread bets
             if "+" in prediction or "-" in prediction:
-                return self._check_game_analysis_accuracy(prediction, game_result == "home", game)
+                return self._check_game_analysis_accuracy(
+                    prediction, game_result == "home", game
+                )
 
             # Check for totals
             if "over" in prediction_lower or "under" in prediction_lower:
-                return self._check_game_analysis_accuracy(prediction, game_result == "home", game)
+                return self._check_game_analysis_accuracy(
+                    prediction, game_result == "home", game
+                )
 
             # Check for draw prediction
             if "draw" in prediction_lower or "tie" in prediction_lower:
@@ -975,23 +1134,23 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f"Error in outcome collection: {str(e)}")
         import traceback
+
         traceback.print_exc()
-        
+
         # Emit CloudWatch metric
         try:
             import boto3
-            cloudwatch = boto3.client('cloudwatch')
+
+            cloudwatch = boto3.client("cloudwatch")
             cloudwatch.put_metric_data(
-                Namespace='SportsAnalytics/OutcomeCollector',
-                MetricData=[{
-                    'MetricName': 'CollectionError',
-                    'Value': 1,
-                    'Unit': 'Count'
-                }]
+                Namespace="SportsAnalytics/OutcomeCollector",
+                MetricData=[
+                    {"MetricName": "CollectionError", "Value": 1, "Unit": "Count"}
+                ],
             )
         except:
             pass
-        
+
         return {"statusCode": 500, "body": {"error": str(e)}}
 
 

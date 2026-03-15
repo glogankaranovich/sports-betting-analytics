@@ -39,7 +39,7 @@ def test_update_bankroll(mock_table):
     manager.update_bankroll(Decimal("150.00"))
     
     assert manager.bankroll == Decimal("150.00")
-    mock_table.put_item.assert_called_once()
+    assert mock_table.put_item.call_count == 2  # Main record + snapshot
 
 
 def test_should_reset_weekly_budget(mock_table):

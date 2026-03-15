@@ -31,7 +31,7 @@ class TestBennyTraderComprehensive:
             }
         }
         
-        trader = BennyTrader()
+        trader = BennyTrader(version="v1")
         assert trader.bankroll == Decimal("100.00")
 
     @patch("benny_trader.table")
@@ -46,7 +46,7 @@ class TestBennyTraderComprehensive:
             }
         }
         
-        trader = BennyTrader()
+        trader = BennyTrader(version="v1")
         assert trader.bankroll == Decimal("100.00")
 
     @patch("benny_trader.table")
@@ -66,7 +66,7 @@ class TestBennyTraderComprehensive:
             }
         }
         
-        trader = BennyTrader()
+        trader = BennyTrader(version="v1")
         
         # High confidence should bet more (using American odds)
         high_bet = trader.calculate_bet_size(0.85, -110)
@@ -92,7 +92,7 @@ class TestBennyTraderComprehensive:
             }
         }
         
-        trader = BennyTrader()
+        trader = BennyTrader(version="v1")
         
         # Test spread normalization
         assert trader._normalize_prediction("Patriots +5.0") == "Patriots spread"
@@ -115,7 +115,7 @@ class TestBennyTraderComprehensive:
             }
         }
         
-        trader = BennyTrader()
+        trader = BennyTrader(version="v1")
         
         assert trader._normalize_prediction("Over 220.5") == "Over"
         assert trader._normalize_prediction("Under 45.5") == "Under"
@@ -137,7 +137,7 @@ class TestBennyTraderComprehensive:
             }
         }
         
-        trader = BennyTrader()
+        trader = BennyTrader(version="v1")
         
         assert trader._normalize_prediction("Lakers") == "Lakers"
         assert trader._normalize_prediction("Warriors") == "Warriors"

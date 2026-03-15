@@ -8,22 +8,30 @@ from typing import Dict, Any
 
 class BetExecutor:
     """Handles bet placement and notifications"""
-    
-    def __init__(self, table, sqs_client, notification_queue_url=None):
+
+    def __init__(self, table, sqs_client, notification_queue_url=None, version="v1"):
         self.table = table
         self.sqs = sqs_client
         self.notification_queue_url = notification_queue_url
-    
-    def place_bet(self, opportunity: Dict[str, Any], bet_size: Decimal, bankroll: Decimal) -> Dict[str, Any]:
+        self.version = version
+
+    def place_bet(
+        self,
+        opportunity: Dict[str, Any],
+        bet_size: Decimal,
+        bankroll: Decimal,
+        features: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
         """Place a bet and store in DynamoDB"""
         bet_id = f"{datetime.utcnow().isoformat()}#{opportunity['game_id']}"
-        
+
         is_prop = "player" in opportunity
-        
+        pk = "BENNY" if self.version == "v1" else "BENNY_V2"
+
         bet = {
-            "pk": "BENNY",
+            "pk": pk,
             "sk": f"BET#{bet_id}",
-            "GSI1PK": "BENNY#BETS",
+            "GSI1PK": f"{pk}#BETS",
             "GSI1SK": opportunity["commence_time"],
             "bet_id": bet_id,
             "game_id": opportunity["game_id"],
@@ -38,18 +46,25 @@ class BetExecutor:
             "placed_at": datetime.utcnow().isoformat(),
             "status": "pending",
             "bankroll_before": bankroll,
-            "odds": Decimal(str(opportunity.get("odds", 0))) if opportunity.get("odds") else None,
+            "odds": Decimal(str(opportunity.get("odds", 0)))
+            if opportunity.get("odds")
+            else None,
+            "version": self.version,
         }
-        
+
+        # Add features for v2 (learning version)
+        if features and self.version == "v2":
+            bet["features"] = features
+
         if is_prop:
             bet["player_name"] = opportunity["player"]
             bet["line"] = opportunity.get("line")
         else:
             bet["home_team"] = opportunity["home_team"]
             bet["away_team"] = opportunity["away_team"]
-        
+
         self.table.put_item(Item=bet)
-        
+
         # Store analysis record (only for game bets, not props)
         if not is_prop:
             analysis_record = {
@@ -71,46 +86,114 @@ class BetExecutor:
                 "latest": True,
             }
             self.table.put_item(Item=analysis_record)
-        
+
         # Send notification
         self._send_notification(bet, opportunity)
-        
+
         return {
             "success": True,
             "bet_id": bet_id,
             "bet_amount": float(bet_size),
             "ai_reasoning": opportunity["reasoning"],
         }
-    
+
+    def place_parlay(
+        self, parlay: Dict[str, Any], bet_size: Decimal, bankroll: Decimal
+    ) -> Dict[str, Any]:
+        """Place a parlay bet and store in DynamoDB."""
+        bet_id = f"{datetime.utcnow().isoformat()}#PARLAY"
+        pk = "BENNY" if self.version == "v1" else "BENNY_V2"
+
+        # Use earliest leg commence_time for GSI sorting
+        commence_times = [
+            l["commence_time"] for l in parlay["legs"] if l.get("commence_time")
+        ]
+        earliest = (
+            min(commence_times) if commence_times else datetime.utcnow().isoformat()
+        )
+
+        # Convert legs for DynamoDB (Decimal-safe)
+        legs_for_db = []
+        for leg in parlay["legs"]:
+            legs_for_db.append(
+                {
+                    "game_id": leg["game_id"],
+                    "sport": leg["sport"],
+                    "player": leg.get("player"),
+                    "market": leg.get("market"),
+                    "prediction": leg["prediction"],
+                    "confidence": Decimal(str(leg["confidence"])),
+                    "odds": Decimal(str(leg["odds"])),
+                    "commence_time": leg.get("commence_time"),
+                    "status": "pending",
+                }
+            )
+
+        bet = {
+            "pk": pk,
+            "sk": f"BET#{bet_id}",
+            "GSI1PK": f"{pk}#BETS",
+            "GSI1SK": earliest,
+            "bet_id": bet_id,
+            "bet_type": "parlay",
+            "market_key": "parlay",
+            "num_legs": parlay["num_legs"],
+            "legs": legs_for_db,
+            "combined_confidence": Decimal(str(parlay["combined_confidence"])),
+            "combined_decimal_odds": Decimal(str(parlay["combined_decimal_odds"])),
+            "combined_american_odds": parlay["combined_american_odds"],
+            "bet_amount": bet_size,
+            "placed_at": datetime.utcnow().isoformat(),
+            "status": "pending",
+            "bankroll_before": bankroll,
+            "version": self.version,
+        }
+
+        self.table.put_item(Item=bet)
+
+        return {
+            "success": True,
+            "bet_id": bet_id,
+            "bet_amount": float(bet_size),
+            "bet_type": "parlay",
+            "num_legs": parlay["num_legs"],
+        }
+
     def _send_notification(self, bet: Dict, opportunity: Dict):
         """Send bet notification to SQS"""
-        environment = os.environ.get('ENVIRONMENT', 'dev')
-        if environment != 'dev' or not self.notification_queue_url:
+        environment = os.environ.get("ENVIRONMENT", "dev")
+        if environment != "dev" or not self.notification_queue_url:
             return
-        
+
         is_prop = "player" in opportunity
-        game_desc = f"{opportunity['player']} {opportunity['market']}" if is_prop else f"{opportunity['away_team']} @ {opportunity['home_team']}"
-        
+        game_desc = (
+            f"{opportunity['player']} {opportunity['market']}"
+            if is_prop
+            else f"{opportunity['away_team']} @ {opportunity['home_team']}"
+        )
+
         message = {
-            'type': 'bet_placed',
-            'data': {
-                'sport': opportunity['sport'],
-                'game': game_desc,
-                'market_key': opportunity['market_key'],
-                'pick': opportunity['prediction'],
-                'odds': float(opportunity.get('odds', 0)),
-                'confidence': float(opportunity['confidence']),
-                'stake': float(bet['bet_amount']),
-                'bankroll_percentage': float(bet['bet_amount'] / bet['bankroll_before']),
-                'expected_roi': float(opportunity.get('expected_value', 0)),
-                'reasoning': opportunity['reasoning']
-            }
+            "type": "bet_placed",
+            "data": {
+                "version": self.version,
+                "sport": opportunity["sport"],
+                "game": game_desc,
+                "market_key": opportunity["market_key"],
+                "pick": opportunity["prediction"],
+                "odds": float(opportunity.get("odds", 0)),
+                "confidence": float(opportunity["confidence"]),
+                "stake": float(bet["bet_amount"]),
+                "bankroll_percentage": float(
+                    bet["bet_amount"] / bet["bankroll_before"]
+                ),
+                "expected_roi": float(opportunity.get("expected_value", 0)),
+                "reasoning": opportunity["reasoning"],
+            },
         }
-        
+
         try:
             self.sqs.send_message(
-                QueueUrl=self.notification_queue_url,
-                MessageBody=json.dumps(message)
+                QueueUrl=self.notification_queue_url, MessageBody=json.dumps(message)
             )
         except Exception as e:
             print(f"Failed to send notification: {e}")

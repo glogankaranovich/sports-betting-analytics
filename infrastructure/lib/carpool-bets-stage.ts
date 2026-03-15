@@ -23,6 +23,7 @@ import { UserModelsStack } from './user-models-stack';
 import { AIAgentStack } from './ai-agent-stack';
 import { BennyTraderStack } from './benny-trader-stack';
 import { BennyWeeklyReporterStack } from './benny-weekly-reporter-stack';
+import { BennyABReporterStack } from './benny-ab-reporter-stack';
 import { BennyTraderScheduleStack } from './benny-trader-schedule-stack';
 import { ModelComparisonCacheStack } from './model-comparison-cache-stack';
 import { CustomDataStack } from './custom-data-stack';
@@ -188,6 +189,11 @@ export class CarpoolBetsStage extends cdk.Stage {
         frontendUrl: `https://${props.stage}.carpoolbets.com`,
         fromEmail: 'noreply@carpoolbets.com',
         adminEmail: 'glogankaranovich@gmail.com',
+      });
+      
+      new BennyABReporterStack(this, 'BennyABReporter', {
+        environment: props.stage,
+        betsTable: dynamoStack.betsTable,
       });
     }
 

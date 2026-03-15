@@ -102,6 +102,7 @@ class NotificationService:
     
     def format_bet_notification(self, bet_details: Dict) -> str:
         """Format bet details into notification message"""
+        version = bet_details.get('version', 'v1')
         sport = bet_details.get('sport', 'Unknown').replace('_', ' ').title()
         game = bet_details.get('game', 'Unknown game')
         pick = bet_details.get('pick', 'Unknown')
@@ -116,7 +117,11 @@ class NotificationService:
         # Format odds
         odds_str = f"{odds:+.0f}" if odds else "N/A"
         
-        message = f"""🎯 Benny placed a bet!
+        # Version indicator
+        version_emoji = "🟢" if version == "v1" else "🔵"
+        version_label = "Control" if version == "v1" else "Learning"
+        
+        message = f"""🎯 Benny {version_emoji} {version.upper()} ({version_label}) placed a bet!
 
 Sport: {sport}
 Game: {game}

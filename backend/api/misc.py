@@ -25,7 +25,9 @@ class MiscHandler(BaseAPIHandler):
         elif path == "/compliance/log" and http_method == "POST":
             return self.log_compliance(body)
         elif path == "/benny/dashboard" and http_method == "GET":
-            return self.get_benny_dashboard()
+            return self.get_benny_dashboard(query_params)
+        elif path == "/benny/learning" and http_method == "GET":
+            return self.get_benny_learning()
         else:
             return self.error_response("Endpoint not found", 404)
 
@@ -63,15 +65,57 @@ class MiscHandler(BaseAPIHandler):
             print(f"Error logging compliance action: {str(e)}")
             return self.error_response(str(e), 500)
 
-    def get_benny_dashboard(self) -> Dict[str, Any]:
+    def get_benny_dashboard(self, query_params: Dict[str, str]) -> Dict[str, Any]:
         """Get Benny's trading dashboard data"""
         try:
             from benny_trader import BennyTrader
-
-            dashboard = BennyTrader.get_dashboard_data()
+            
+            # Get version from query params (default to v1)
+            version = query_params.get("version", "v1")
+            
+            trader = BennyTrader(version=version)
+            dashboard = trader.get_dashboard_data()
             return self.success_response(dashboard)
         except Exception as e:
             return self.error_response(f"Error fetching Benny dashboard: {str(e)}", 500)
+    
+    def get_benny_learning(self) -> Dict[str, Any]:
+        """Get Benny v2 learning metrics"""
+        try:
+            import boto3
+            from boto3.dynamodb.conditions import Key
+            
+            dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+            table = dynamodb.Table(table_name)
+            
+            pk = "BENNY_V2#LEARNING"
+            
+            # Get all learning data
+            response = table.query(
+                KeyConditionExpression=Key("pk").eq(pk)
+            )
+            
+            items = response.get("Items", [])
+            
+            # Organize by type
+            data = {
+                "features": None,
+                "calibration": None,
+                "thresholds": None
+            }
+            
+            for item in items:
+                sk = item.get("sk")
+                if sk == "FEATURES":
+                    data["features"] = item.get("insights", {})
+                elif sk == "CALIBRATION":
+                    data["calibration"] = item.get("calibration", {})
+                elif sk == "THRESHOLDS":
+                    data["thresholds"] = item.get("thresholds", {})
+            
+            return self.success_response(data)
+        except Exception as e:
+            return self.error_response(f"Error fetching learning data: {str(e)}", 500)
 
 
 # Lambda handler entry point

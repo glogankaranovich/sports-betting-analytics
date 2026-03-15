@@ -25,7 +25,7 @@ def trader():
             }
         }
         with patch("benny_trader.bedrock"):
-            return BennyTrader()
+            return BennyTrader(version="v1")
 
 
 def test_normalize_prediction_spread_with_bookmaker(trader):

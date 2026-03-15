@@ -11,15 +11,16 @@ class BankrollManager:
     WEEKLY_BUDGET = Decimal("100.00")
     MAX_BET_PERCENTAGE = 0.20
     
-    def __init__(self, table):
+    def __init__(self, table, pk="BENNY"):
         self.table = table
+        self.pk = pk
         self.bankroll = self._get_current_bankroll()
         self.week_start = self._get_week_start()
     
     def _get_current_bankroll(self) -> Decimal:
         """Get current bankroll from DynamoDB"""
         response = self.table.query(
-            KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BANKROLL#"),
+            KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BANKROLL#"),
             ScanIndexForward=False,
             Limit=1
         )
@@ -35,20 +36,22 @@ class BankrollManager:
     
     def update_bankroll(self, new_amount: Decimal):
         """Update bankroll in DynamoDB"""
+        timestamp = datetime.now().isoformat()
+        
         # Update main bankroll record
         self.table.put_item(Item={
-            "pk": "BENNY",
+            "pk": self.pk,
             "sk": "BANKROLL",
             "amount": new_amount,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": timestamp
         })
         
-        # Create snapshot for history
+        # Create history record
         self.table.put_item(Item={
-            "pk": "BENNY",
-            "sk": f"SNAPSHOT#{datetime.now().isoformat()}",
+            "pk": self.pk,
+            "sk": f"BANKROLL#{timestamp}",
             "amount": new_amount,
-            "timestamp": datetime.now().isoformat()
+            "updated_at": timestamp
         })
         
         self.bankroll = new_amount

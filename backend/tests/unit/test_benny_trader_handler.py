@@ -45,13 +45,13 @@ def test_handler_success(mock_trader_class, lambda_context, mock_env):
 
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
-    assert body["game_bets_placed"] == 2
-    assert body["prop_bets_placed"] == 1
-    assert body["total_bets"] == 3
+    assert body["v1"]["game_bets_placed"] == 2
+    assert body["v1"]["prop_bets_placed"] == 1
+    assert body["v1"]["total_bets"] == 3
     assert "timestamp" in body
 
-    mock_trader_class.assert_called_once()
-    mock_trader.run_daily_analysis.assert_called_once()
+    assert mock_trader_class.call_count == 2  # v1 and v2
+    assert mock_trader.run_daily_analysis.call_count == 2
 
 
 @patch("benny_trader_handler.BennyTrader")
@@ -73,7 +73,7 @@ def test_handler_no_bets(mock_trader_class, lambda_context, mock_env):
 
     assert response["statusCode"] == 200
     body = json.loads(response["body"])
-    assert body["total_bets"] == 0
+    assert body["v1"]["total_bets"] == 0
 
 
 @patch("benny_trader_handler.BennyTrader")
@@ -91,4 +91,4 @@ def test_handler_time_window(mock_trader_class, lambda_context, mock_env):
     response = handler({}, lambda_context)
 
     assert response["statusCode"] == 200
-    mock_trader.run_daily_analysis.assert_called_once()
+    assert mock_trader.run_daily_analysis.call_count == 2  # v1 and v2

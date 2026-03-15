@@ -27,6 +27,7 @@ interface DashboardData {
   pending_bets: number;
   win_rate: number;
   roi: number;
+  bankroll_growth: number;
   sports_performance: {
     [sport: string]: {
       record: string;
@@ -90,17 +91,20 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
   const [error, setError] = useState<string | null>(null);
   const [expandedBet, setExpandedBet] = useState<string | null>(null);
   const [chartView, setChartView] = useState<'bankroll' | 'profit' | 'winrate'>('bankroll');
+  const [activeTab, setActiveTab] = useState<'v1' | 'v2'>('v1');
 
   useEffect(() => {
     if (hasAccess) {
       fetchDashboard();
     }
-  }, [hasAccess]);
+  }, [hasAccess, activeTab]);
 
   const fetchDashboard = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/benny/dashboard`);
+      // Fetch data for the active version
+      const endpoint = activeTab === 'v1' ? '/benny/dashboard' : '/benny/dashboard?version=v2';
+      const response = await axios.get(`${API_URL}${endpoint}`);
       setData(response.data);
       setError(null);
     } catch (err) {
@@ -167,6 +171,44 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
       <div className="benny-header">
         <h2>🤖 Benny Bets</h2>
         <p>Autonomous AI trader making virtual bets with a $100/week budget</p>
+        
+        <div className="version-tabs" style={{ 
+          display: 'flex', 
+          gap: '8px', 
+          marginTop: '16px',
+          borderBottom: '1px solid #333'
+        }}>
+          <button
+            onClick={() => setActiveTab('v1')}
+            style={{
+              padding: '8px 16px',
+              background: activeTab === 'v1' ? '#4CAF50' : 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'v1' ? '2px solid #4CAF50' : '2px solid transparent',
+              color: activeTab === 'v1' ? '#fff' : '#888',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'v1' ? 'bold' : 'normal'
+            }}
+          >
+            v1 (Control)
+          </button>
+          <button
+            onClick={() => setActiveTab('v2')}
+            style={{
+              padding: '8px 16px',
+              background: activeTab === 'v2' ? '#2196F3' : 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'v2' ? '2px solid #2196F3' : '2px solid transparent',
+              color: activeTab === 'v2' ? '#fff' : '#888',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === 'v2' ? 'bold' : 'normal'
+            }}
+          >
+            v2 (Learning)
+          </button>
+        </div>
       </div>
 
       <div className="benny-stats">
@@ -185,9 +227,16 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
         </div>
 
         <div className="stat-card">
-          <div className="stat-label">ROI</div>
+          <div className="stat-label">ROI (per $)</div>
           <div className={`stat-value ${data.roi >= 0 ? 'positive' : 'negative'}`}>
             {data.roi >= 0 ? '+' : ''}{(data.roi * 100).toFixed(1)}%
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-label">Bankroll Growth</div>
+          <div className={`stat-value ${data.bankroll_growth >= 0 ? 'positive' : 'negative'}`}>
+            {data.bankroll_growth >= 0 ? '+' : ''}{(data.bankroll_growth * 100).toFixed(1)}%
           </div>
         </div>
 

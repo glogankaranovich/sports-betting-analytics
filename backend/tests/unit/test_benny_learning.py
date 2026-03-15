@@ -27,7 +27,7 @@ class TestBennyLearning(unittest.TestCase):
                 }
             }
             with patch("benny_trader.bedrock"):
-                self.benny = BennyTrader()
+                self.benny = BennyTrader(version="v1")
                 self.benny.table = MagicMock()
 
     def test_calculate_bet_size_with_positive_odds(self):

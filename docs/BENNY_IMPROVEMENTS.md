@@ -2,35 +2,33 @@
 
 ## Performance Optimization
 
-### Separate Learning for Props vs Games
+### ~~Separate Learning for Props vs Games~~ ✅ DONE (March 2026)
 **Priority**: Medium  
 **Effort**: Low  
 **Impact**: Medium
 
-Currently, props and games share the same confidence adjustment parameters. A bad run on props can make Benny too conservative on games, or vice versa.
+~~Currently, props and games share the same confidence adjustment parameters.~~
 
-**Implementation**:
-- Split `min_confidence_adjustment` into `game_confidence_adjustment` and `prop_confidence_adjustment`
-- Calculate separate win rates for props (player_* markets) vs games (h2h, spreads, totals)
-- Apply adjustments independently based on performance
-- Require minimum 10 bets of each type before adjusting
+**Implemented**: Market-type-aware confidence thresholds in `LearningEngine`:
+- Game markets (h2h, spread, totals): 0.80 minimum confidence
+- Prop markets (player_*): 0.65 minimum confidence
+- Learned thresholds from DynamoDB override defaults when available
+- Based on 30-day data showing props at 75-85% win rate / 63%+ ROI vs game bets at ~50% win rate / negative ROI
 
-**Code Location**: `backend/benny_trader.py` line 1583 (`update_learning_parameters`)
+**Code Location**: `backend/benny/learning_engine.py` (`GAME_MARKET_CONFIDENCE`, `PROP_MARKET_CONFIDENCE`)
 
 ---
 
-### Sport-Specific Confidence Thresholds
+### ~~Sport-Specific Confidence Thresholds~~ ✅ INFRASTRUCTURE DONE (March 2026)
 **Priority**: Low  
 **Effort**: Medium  
 **Impact**: Medium
 
-Different sports may have different optimal confidence thresholds. NBA might be more predictable than NHL.
+~~Different sports may have different optimal confidence thresholds.~~
 
-**Implementation**:
-- Track win rate by sport in learning parameters (already done)
-- Add `confidence_adjustment_by_sport` dict
-- Apply sport-specific adjustments when evaluating opportunities
-- Require minimum 20 bets per sport before adjusting
+**Implemented**: `LearningEngine.get_adaptive_threshold()` checks DynamoDB for `by_sport` learned thresholds first, then falls back to market-type defaults. Infrastructure is in place — just needs enough settled bets per sport for the learning system to populate `BENNY#LEARNING` / `BENNY_V2#LEARNING` thresholds.
+
+**Remaining**: Accumulate sufficient data (minimum 30 bets per sport) for learned thresholds to kick in.
 
 ---
 
@@ -196,14 +194,9 @@ Test Benny's strategy on historical data before deploying changes.
 
 ---
 
-### A/B Testing for Strategy Changes
+### ~~A/B Testing for Strategy Changes~~ ✅ DONE (February 2026)
 **Priority**: Low  
 **Effort**: High  
 **Impact**: Medium
 
-Run two versions of Benny simultaneously with different parameters.
-
-**Implementation**:
-- Split bankroll between strategies
-- Track performance separately
-- Promote winning strategy after sufficient data
+**Implemented**: BENNY and BENNY_V2 run simultaneously with separate bankrolls ($147.01 each), separate learning parameters, and independent bet tracking. A/B reporter compares performance across versions. Both versions share infrastructure but maintain isolated state in DynamoDB.

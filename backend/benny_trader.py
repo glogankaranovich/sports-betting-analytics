@@ -18,12 +18,20 @@ from benny.position_manager import PositionManager
 from benny.bankroll_manager import BankrollManager
 from benny.learning_engine import LearningEngine
 from benny.opportunity_analyzer import OpportunityAnalyzer
+from benny.feature_extractor import FeatureExtractor
+from benny.outcome_analyzer import OutcomeAnalyzer
+from benny.threshold_optimizer import ThresholdOptimizer
 from benny.bet_executor import BetExecutor
+from benny.parlay_engine import ParlayEngine
 
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
 bedrock = boto3.client("bedrock-runtime", region_name="us-east-1")
 # Default table for module-level usage (supports both env var names)
-table = dynamodb.Table(os.environ.get("BETS_TABLE", os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev")))
+table = dynamodb.Table(
+    os.environ.get(
+        "BETS_TABLE", os.environ.get("DYNAMODB_TABLE", "carpool-bets-v2-dev")
+    )
+)
 
 
 class BennyTrader:
@@ -36,60 +44,70 @@ class BennyTrader:
     MAX_BET_PERCENTAGE = 0.20
     MIN_SAMPLE_SIZE = 30
 
-    def __init__(self, table_name=None):
+    def __init__(self, table_name=None, version="v1"):
         if table_name:
             self.table = dynamodb.Table(table_name)
         else:
             self.table = table
-        
+
+        self.version = version
+        self.pk = "BENNY" if version == "v1" else "BENNY_V2"
+
         # Initialize composition classes
-        self.bankroll_manager = BankrollManager(self.table)
-        self.learning_engine = LearningEngine(self.table)
+        self.bankroll_manager = BankrollManager(self.table, self.pk)
+        self.learning_engine = LearningEngine(self.table, self.pk)
         self.opportunity_analyzer = OpportunityAnalyzer(self.learning_engine)
-        
-        sqs = boto3.client('sqs')
-        notification_queue_url = os.environ.get('NOTIFICATION_QUEUE_URL')
-        self.bet_executor = BetExecutor(self.table, sqs, notification_queue_url)
-        
+
+        sqs = boto3.client("sqs")
+        notification_queue_url = os.environ.get("NOTIFICATION_QUEUE_URL")
+        self.bet_executor = BetExecutor(
+            self.table, sqs, notification_queue_url, version
+        )
+        self.parlay_engine = ParlayEngine()
+
         self.position_manager = PositionManager(self.table, bedrock)
-        
+
+        # Caches built during analysis, shared across methods
+        self.game_teams = {}  # game_id -> {home_team, away_team}
+        self.player_teams = {}  # player_name -> team_name
+
         # Delegate to managers
         self.bankroll = self.bankroll_manager.bankroll
         self.week_start = self.bankroll_manager.week_start
         self.learning_params = self.learning_engine.params
-    
+
     def _get_adaptive_threshold(self, sport: str, market: str) -> float:
         """Get confidence threshold based on historical performance"""
         return self.learning_engine.get_adaptive_threshold(sport, market)
-    
+
     def _get_performance_warnings(self, current_sport: str = None) -> str:
         """Generate performance warnings for AI prompt"""
         return self.learning_engine.get_performance_warnings(current_sport)
-    
+
     def _acquire_lock(self) -> bool:
-            return "YOUR TRACK RECORD: Insufficient data to assess performance by category"
-    
+        return "YOUR TRACK RECORD: Insufficient data to assess performance by category"
+
     def _acquire_lock(self) -> bool:
         """Acquire distributed lock for Benny execution. Returns True if acquired."""
         try:
             self.table.put_item(
                 Item={
-                    "pk": "BENNY",
+                    "pk": self.pk,
                     "sk": "LOCK",
                     "locked_at": datetime.utcnow().isoformat(),
-                    "ttl": int((datetime.utcnow() + timedelta(hours=1)).timestamp())
+                    "ttl": int((datetime.utcnow() + timedelta(hours=1)).timestamp()),
                 },
-                ConditionExpression="attribute_not_exists(pk)"
+                ConditionExpression="attribute_not_exists(pk)",
             )
             return True
         except self.table.meta.client.exceptions.ConditionalCheckFailedException:
             return False
-    
+
     def _release_lock(self):
         """Release distributed lock"""
         print("Releasing lock...")
         try:
-            self.table.delete_item(Key={"pk": "BENNY", "sk": "LOCK"})
+            self.table.delete_item(Key={"pk": self.pk, "sk": "LOCK"})
             print("Lock released successfully")
         except Exception as e:
             print(f"Failed to release lock: {e}")
@@ -110,7 +128,9 @@ class BennyTrader:
                 "min_confidence_adjustment": Decimal(
                     "0.0"
                 ),  # Added to BASE_MIN_CONFIDENCE (reference only)
-                "kelly_fraction": Decimal("0.5"),  # Half Kelly for more aggressive sizing
+                "kelly_fraction": Decimal(
+                    "0.5"
+                ),  # Half Kelly for more aggressive sizing
                 "target_roi": Decimal("0.15"),  # Target 15% ROI
                 "performance_by_sport": {},
                 "performance_by_market": {},
@@ -131,52 +151,66 @@ class BennyTrader:
     def _get_performance_stats(self, days: int = 30) -> Dict[str, Any]:
         """Get Benny's historical performance stats for learning"""
         cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
-        
+
         try:
             response = self.table.query(
                 KeyConditionExpression="pk = :pk AND sk > :sk",
-                ExpressionAttributeValues={":pk": "BENNY", ":sk": f"BET#{cutoff}"}
+                ExpressionAttributeValues={":pk": "BENNY", ":sk": f"BET#{cutoff}"},
             )
-            bets = [b for b in response.get("Items", []) if b.get("status") in ["won", "lost"]]
-            
+            bets = [
+                b
+                for b in response.get("Items", [])
+                if b.get("status") in ["won", "lost"]
+            ]
+
             if not bets:
                 return {"message": "No settled bets yet"}
-            
+
             # Overall stats
             won = [b for b in bets if b["status"] == "won"]
             total_wagered = sum(Decimal(str(b.get("stake", 0))) for b in bets)
             total_profit = sum(Decimal(str(b.get("profit", 0))) for b in bets)
-            
+
             stats = {
                 "overall": {
                     "win_rate": f"{len(won)/len(bets):.1%}",
-                    "roi": f"{(total_profit/total_wagered*100):.1f}%" if total_wagered > 0 else "0%",
-                    "total_bets": len(bets)
+                    "roi": f"{(total_profit/total_wagered*100):.1f}%"
+                    if total_wagered > 0
+                    else "0%",
+                    "total_bets": len(bets),
                 },
                 "by_sport": {},
                 "by_market": {},
-                "notable": {"best": None, "worst": None}
+                "notable": {"best": None, "worst": None},
             }
-            
+
             # By sport
             for sport in set(b.get("sport", "unknown") for b in bets):
                 sport_bets = [b for b in bets if b.get("sport") == sport]
                 if sport_bets:
                     sport_won = [b for b in sport_bets if b["status"] == "won"]
-                    stats["by_sport"][sport] = f"{len(sport_won)}/{len(sport_bets)} ({len(sport_won)/len(sport_bets):.1%})"
-            
+                    stats["by_sport"][
+                        sport
+                    ] = f"{len(sport_won)}/{len(sport_bets)} ({len(sport_won)/len(sport_bets):.1%})"
+
             # By market type
             for market in set(b.get("market_type", "unknown") for b in bets):
                 market_bets = [b for b in bets if b.get("market_type") == market]
                 if market_bets:
                     market_won = [b for b in market_bets if b["status"] == "won"]
-                    stats["by_market"][market] = f"{len(market_won)}/{len(market_bets)} ({len(market_won)/len(market_bets):.1%})"
-            
+                    stats["by_market"][
+                        market
+                    ] = f"{len(market_won)}/{len(market_bets)} ({len(market_won)/len(market_bets):.1%})"
+
             # Notable bets
             if bets:
-                stats["notable"]["best"] = max(bets, key=lambda b: Decimal(str(b.get("profit", 0))))
-                stats["notable"]["worst"] = min(bets, key=lambda b: Decimal(str(b.get("profit", 0))))
-            
+                stats["notable"]["best"] = max(
+                    bets, key=lambda b: Decimal(str(b.get("profit", 0)))
+                )
+                stats["notable"]["worst"] = min(
+                    bets, key=lambda b: Decimal(str(b.get("profit", 0)))
+                )
+
             return stats
         except Exception as e:
             print(f"Error fetching performance stats: {e}")
@@ -186,82 +220,105 @@ class BennyTrader:
         """Identify patterns in winning bets"""
         perf_by_sport = self.learning_params.get("performance_by_sport", {})
         perf_by_market = self.learning_params.get("performance_by_market", {})
-        
+
         insights = []
-        
+
         for sport, stats in perf_by_sport.items():
             if stats["total"] >= 5:
                 wr = stats["wins"] / stats["total"]
                 if wr > 0.55:
-                    insights.append(f"✓ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})")
-        
+                    insights.append(
+                        f"✓ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})"
+                    )
+
         for market, stats in perf_by_market.items():
             if stats["total"] >= 5:
                 wr = stats["wins"] / stats["total"]
                 if wr > 0.55:
-                    insights.append(f"✓ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})")
-        
-        return "\n".join(insights) if insights else "Not enough data yet (need 5+ bets per category)"
+                    insights.append(
+                        f"✓ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})"
+                    )
+
+        return (
+            "\n".join(insights)
+            if insights
+            else "Not enough data yet (need 5+ bets per category)"
+        )
 
     def _get_what_fails_analysis(self) -> str:
         """Identify patterns in losing bets"""
         perf_by_sport = self.learning_params.get("performance_by_sport", {})
         perf_by_market = self.learning_params.get("performance_by_market", {})
-        
+
         warnings = []
-        
+
         for sport, stats in perf_by_sport.items():
             if stats["total"] >= 5:
                 wr = stats["wins"] / stats["total"]
                 if wr < 0.45:
-                    warnings.append(f"✗ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence")
-        
+                    warnings.append(
+                        f"✗ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence"
+                    )
+
         for market, stats in perf_by_market.items():
             if stats["total"] >= 5:
                 wr = stats["wins"] / stats["total"]
                 if wr < 0.45:
-                    warnings.append(f"✗ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence")
-        
+                    warnings.append(
+                        f"✗ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence"
+                    )
+
         return "\n".join(warnings) if warnings else "No clear failure patterns yet"
 
     def _analyze_recent_mistakes(self, limit: int = 10) -> str:
         """Analyze recent losing bets to identify patterns"""
         try:
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
                 ScanIndexForward=False,
-                Limit=200  # Get more bets, then filter
+                Limit=200,  # Get more bets, then filter
             )
-            
+
             all_bets = response.get("Items", [])
             losses = [b for b in all_bets if b.get("status") == "lost"][:limit]
-            
+
             if not losses:
                 return "No recent losses to analyze"
-            
+
             patterns = []
-            
+
             # Check if overconfident
-            high_conf_losses = [b for b in losses if float(b.get("confidence", 0)) > 0.75]
+            high_conf_losses = [
+                b for b in losses if float(b.get("confidence", 0)) > 0.75
+            ]
             if len(high_conf_losses) > len(losses) * 0.5:
-                patterns.append(f"⚠️ {len(high_conf_losses)}/{len(losses)} losses were high confidence (>75%) - may be overconfident")
-            
+                patterns.append(
+                    f"⚠️ {len(high_conf_losses)}/{len(losses)} losses were high confidence (>75%) - may be overconfident"
+                )
+
             # Check if betting on underdogs too much
             underdog_losses = [b for b in losses if float(b.get("odds", 0)) > 0]
             if len(underdog_losses) > len(losses) * 0.6:
-                patterns.append(f"⚠️ {len(underdog_losses)}/{len(losses)} losses were underdogs (+odds) - may be chasing value")
-            
+                patterns.append(
+                    f"⚠️ {len(underdog_losses)}/{len(losses)} losses were underdogs (+odds) - may be chasing value"
+                )
+
             # Check specific sports
             sport_losses = {}
             for bet in losses:
                 sport = bet.get("sport", "unknown")
                 sport_losses[sport] = sport_losses.get(sport, 0) + 1
-            
+
             for sport, count in sport_losses.items():
                 if count >= 3:
                     patterns.append(f"⚠️ {count} recent losses in {sport}")
-            
-            return "\n".join(patterns) if patterns else "No clear patterns in recent losses"
+
+            return (
+                "\n".join(patterns)
+                if patterns
+                else "No clear patterns in recent losses"
+            )
         except Exception as e:
             print(f"Error analyzing mistakes: {e}")
             return "Error analyzing recent mistakes"
@@ -270,17 +327,22 @@ class BennyTrader:
         """Get recent winning bets for the specific sport being analyzed"""
         try:
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
                 ScanIndexForward=False,
-                Limit=200  # Get more bets, then filter
+                Limit=200,  # Get more bets, then filter
             )
-            
+
             all_bets = response.get("Items", [])
-            wins = [b for b in all_bets if b.get("status") == "won" and b.get("sport") == sport][:limit]
-            
+            wins = [
+                b
+                for b in all_bets
+                if b.get("status") == "won" and b.get("sport") == sport
+            ][:limit]
+
             if not wins:
                 return f"No winning bets yet for {sport}"
-            
+
             examples = []
             for bet in wins:
                 profit = float(bet.get("profit", 0))
@@ -289,7 +351,7 @@ class BennyTrader:
                 examples.append(
                     f"✓ {bet.get('prediction')} ({confidence:.0%} conf) - Won ${profit:.2f}\n  Reasoning: {reasoning}"
                 )
-            
+
             return "\n\n".join(examples)
         except Exception as e:
             print(f"Error getting winning examples: {e}")
@@ -299,41 +361,54 @@ class BennyTrader:
         """Extract which key_factors correlate with wins vs losses"""
         try:
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
                 FilterExpression="#status IN (:won, :lost)",
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={":won": "won", ":lost": "lost"},
-                Limit=100
+                Limit=100,
             )
-            
+
             bets = response.get("Items", [])
             if len(bets) < 10:
                 return "Not enough settled bets to analyze factors (need 10+)"
-            
+
             factor_performance = {}
-            
+
             for bet in bets:
                 won = bet.get("status") == "won"
                 factors = bet.get("ai_key_factors", [])
-                
+
                 for factor in factors:
                     if factor not in factor_performance:
                         factor_performance[factor] = {"wins": 0, "total": 0}
                     factor_performance[factor]["total"] += 1
                     if won:
                         factor_performance[factor]["wins"] += 1
-            
+
             # Calculate win rate per factor (min 3 occurrences)
             insights = []
-            for factor, stats in sorted(factor_performance.items(), key=lambda x: x[1]["wins"]/max(x[1]["total"], 1), reverse=True):
+            for factor, stats in sorted(
+                factor_performance.items(),
+                key=lambda x: x[1]["wins"] / max(x[1]["total"], 1),
+                reverse=True,
+            ):
                 if stats["total"] >= 3:
                     wr = stats["wins"] / stats["total"]
                     if wr >= 0.60:
-                        insights.append(f"✓ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})")
+                        insights.append(
+                            f"✓ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})"
+                        )
                     elif wr <= 0.40:
-                        insights.append(f"✗ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})")
-            
-            return "\n".join(insights) if insights else "No clear factor patterns yet (need factors with 3+ occurrences)"
+                        insights.append(
+                            f"✗ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})"
+                        )
+
+            return (
+                "\n".join(insights)
+                if insights
+                else "No clear factor patterns yet (need factors with 3+ occurrences)"
+            )
         except Exception as e:
             print(f"Error extracting winning factors: {e}")
             return "Error analyzing winning factors"
@@ -342,9 +417,9 @@ class BennyTrader:
         """Get how other models perform on this sport"""
         try:
             from constants import SYSTEM_MODELS
-            
+
             benchmarks = []
-            
+
             for model in SYSTEM_MODELS:
                 response = self.table.query(
                     IndexName="VerifiedAnalysisGSI",
@@ -352,16 +427,22 @@ class BennyTrader:
                         f"VERIFIED#{model}#{sport}#game"
                     ),
                     ScanIndexForward=False,
-                    Limit=50
+                    Limit=50,
                 )
-                
+
                 preds = response.get("Items", [])
                 if len(preds) >= 10:
                     correct = sum(1 for p in preds if p.get("analysis_correct"))
                     accuracy = correct / len(preds)
-                    benchmarks.append(f"{model}: {accuracy:.1%} ({correct}/{len(preds)})")
-            
-            return "\n".join(benchmarks) if benchmarks else f"No benchmark data for {sport}"
+                    benchmarks.append(
+                        f"{model}: {accuracy:.1%} ({correct}/{len(preds)})"
+                    )
+
+            return (
+                "\n".join(benchmarks)
+                if benchmarks
+                else f"No benchmark data for {sport}"
+            )
         except Exception as e:
             print(f"Error getting model benchmarks: {e}")
             return f"Error loading benchmarks for {sport}"
@@ -441,9 +522,8 @@ class BennyTrader:
         """Update bankroll amount"""
         self.bankroll_manager.update_bankroll(amount)
         self.bankroll = amount
-    
-    def _get_learning_parameters(self) -> Dict[str, Any]:
 
+    def _get_learning_parameters(self) -> Dict[str, Any]:
         # Store history snapshot
         self.table.put_item(
             Item={
@@ -459,10 +539,7 @@ class BennyTrader:
         try:
             response = self.table.query(
                 KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
-                ExpressionAttributeValues={
-                    ":pk": "BENNY",
-                    ":sk": "DEPOSIT#"
-                }
+                ExpressionAttributeValues={":pk": "BENNY", ":sk": "DEPOSIT#"},
             )
             deposits = response.get("Items", [])
             return sum(Decimal(str(d.get("amount", 0))) for d in deposits)
@@ -472,7 +549,7 @@ class BennyTrader:
     def _add_deposit(self, amount: Decimal, reason: str = "manual"):
         """Add deposit to bankroll and track separately"""
         timestamp = datetime.utcnow().isoformat()
-        
+
         # Record deposit
         self.table.put_item(
             Item={
@@ -480,10 +557,10 @@ class BennyTrader:
                 "sk": f"DEPOSIT#{timestamp}",
                 "amount": amount,
                 "reason": reason,
-                "created_at": timestamp
+                "created_at": timestamp,
             }
         )
-        
+
         # Update bankroll
         new_bankroll = self.bankroll + amount
         self._update_bankroll(new_bankroll)
@@ -494,70 +571,66 @@ class BennyTrader:
         MIN_BANKROLL_THRESHOLD = Decimal("50.00")
         MIN_WIN_RATE = 0.50
         DEPOSIT_COOLDOWN_DAYS = 7
-        
+
         # Check bankroll threshold
         if self.bankroll >= MIN_BANKROLL_THRESHOLD:
             return False
-        
+
         # Check recent win rate
         try:
             response = self.table.query(
                 KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
-                ExpressionAttributeValues={
-                    ":pk": "BENNY",
-                    ":sk": "BET#"
-                },
+                ExpressionAttributeValues={":pk": "BENNY", ":sk": "BET#"},
                 ScanIndexForward=False,
-                Limit=50
+                Limit=50,
             )
-            
+
             bets = response.get("Items", [])
             settled_bets = [b for b in bets if b.get("status") in ["won", "lost"]]
-            
+
             if len(settled_bets) < 10:  # Need at least 10 bets
                 return False
-            
+
             won_bets = [b for b in settled_bets if b.get("status") == "won"]
             win_rate = len(won_bets) / len(settled_bets)
-            
+
             if win_rate < MIN_WIN_RATE:
                 print(f"Win rate too low ({win_rate:.1%}) for auto-deposit")
                 return False
         except:
             return False
-        
+
         # Check cooldown period
         try:
             response = self.table.query(
                 KeyConditionExpression="pk = :pk AND begins_with(sk, :sk)",
-                ExpressionAttributeValues={
-                    ":pk": "BENNY",
-                    ":sk": "DEPOSIT#"
-                },
+                ExpressionAttributeValues={":pk": "BENNY", ":sk": "DEPOSIT#"},
                 ScanIndexForward=False,
-                Limit=1
+                Limit=1,
             )
-            
+
             deposits = response.get("Items", [])
             if deposits:
                 last_deposit = deposits[0]
                 last_deposit_time = datetime.fromisoformat(last_deposit["created_at"])
                 days_since = (datetime.utcnow() - last_deposit_time).days
-                
+
                 if days_since < DEPOSIT_COOLDOWN_DAYS:
                     print(f"Cooldown active: {days_since} days since last deposit")
                     return False
         except:
             pass
-        
+
         return True
 
     def _auto_deposit_if_needed(self):
         """Automatically deposit funds if conditions are met"""
         AUTO_DEPOSIT_AMOUNT = Decimal("100.00")
-        
+
         if self._check_auto_deposit_conditions():
-            print(f"Auto-deposit triggered: bankroll=${self.bankroll}, adding ${AUTO_DEPOSIT_AMOUNT}")
+            print(
+                f"Auto-deposit triggered: bankroll=${self.bankroll}, adding ${AUTO_DEPOSIT_AMOUNT}"
+            )
             self._add_deposit(AUTO_DEPOSIT_AMOUNT, reason="auto-refill")
             return True
         return False
@@ -576,14 +649,18 @@ class BennyTrader:
             response = self.table.query(
                 IndexName="ActiveBetsIndexV2",
                 KeyConditionExpression=Key("active_bet_pk").eq(f"GAME#{sport}")
-                & Key("commence_time").between(now.isoformat(), three_days_out.isoformat()),
+                & Key("commence_time").between(
+                    now.isoformat(), three_days_out.isoformat()
+                ),
                 FilterExpression="attribute_exists(latest) AND latest = :true",
                 ExpressionAttributeValues={":true": True},
                 Limit=200,
             )
 
-            print(f"Checking {sport}: found {len(response.get('Items', []))} odds items")
-            
+            print(
+                f"Checking {sport}: found {len(response.get('Items', []))} odds items"
+            )
+
             games = {}
             for item in response.get("Items", []):
                 game_id = item.get("pk", "")[5:]  # Remove GAME# prefix
@@ -598,10 +675,11 @@ class BennyTrader:
                         "spread_odds": [],
                         "total_odds": [],
                     }
+                    self.game_teams[game_id] = {"home_team": item.get("home_team"), "away_team": item.get("away_team")}
 
                 market_key = item.get("market_key")
                 outcomes = item.get("outcomes", [])
-                
+
                 if market_key == "h2h" and len(outcomes) >= 2:
                     odds_entry = {
                         "bookmaker": item.get("bookmaker"),
@@ -609,10 +687,10 @@ class BennyTrader:
                         "away_price": None,
                         "draw_price": None,
                     }
-                    
+
                     home_team = item.get("home_team")
                     away_team = item.get("away_team")
-                    
+
                     for outcome in outcomes:
                         outcome_name = outcome.get("name", "").lower()
                         if outcome.get("name") == home_team:
@@ -621,14 +699,14 @@ class BennyTrader:
                             odds_entry["away_price"] = outcome.get("price")
                         elif "draw" in outcome_name or "tie" in outcome_name:
                             odds_entry["draw_price"] = outcome.get("price")
-                    
+
                     if odds_entry["home_price"] and odds_entry["away_price"]:
                         games[game_id]["h2h_odds"].append(odds_entry)
-                
+
                 elif market_key == "spreads" and len(outcomes) >= 2:
                     home_team = item.get("home_team")
                     away_team = item.get("away_team")
-                    
+
                     odds_entry = {
                         "bookmaker": item.get("bookmaker"),
                         "home_point": None,
@@ -636,7 +714,7 @@ class BennyTrader:
                         "away_point": None,
                         "away_price": None,
                     }
-                    
+
                     for outcome in outcomes:
                         if outcome.get("name") == home_team:
                             odds_entry["home_point"] = outcome.get("point")
@@ -644,10 +722,10 @@ class BennyTrader:
                         elif outcome.get("name") == away_team:
                             odds_entry["away_point"] = outcome.get("point")
                             odds_entry["away_price"] = outcome.get("price")
-                    
+
                     if odds_entry["home_price"] and odds_entry["away_price"]:
                         games[game_id]["spread_odds"].append(odds_entry)
-                
+
                 elif market_key == "totals" and len(outcomes) >= 2:
                     odds_entry = {
                         "bookmaker": item.get("bookmaker"),
@@ -656,7 +734,7 @@ class BennyTrader:
                         "under_point": None,
                         "under_price": None,
                     }
-                    
+
                     for outcome in outcomes:
                         outcome_name = outcome.get("name", "").lower()
                         if "over" in outcome_name:
@@ -665,20 +743,24 @@ class BennyTrader:
                         elif "under" in outcome_name:
                             odds_entry["under_point"] = outcome.get("point")
                             odds_entry["under_price"] = outcome.get("price")
-                    
+
                     if odds_entry["over_price"] and odds_entry["under_price"]:
                         games[game_id]["total_odds"].append(odds_entry)
 
             print(f"  Parsed {len(games)} unique games for {sport}")
-            
+
             # Analyze each game with AI
             for game_id, game_data in games.items():
                 if len(game_data["h2h_odds"]) < 2:
-                    print(f"  Skipping {game_data['home_team']} vs {game_data['away_team']}: insufficient odds")
+                    print(
+                        f"  Skipping {game_data['home_team']} vs {game_data['away_team']}: insufficient odds"
+                    )
                     continue
 
-                print(f"  Analyzing {game_data['home_team']} vs {game_data['away_team']}")
-                
+                print(
+                    f"  Analyzing {game_data['home_team']} vs {game_data['away_team']}"
+                )
+
                 # Gather essential data
                 home_stats = self._get_team_stats(game_data["home_team"], sport)
                 away_stats = self._get_team_stats(game_data["away_team"], sport)
@@ -693,36 +775,67 @@ class BennyTrader:
                 away_news = self._get_team_news_sentiment(game_data["away_team"], sport)
                 home_elo = self._get_elo_rating(game_data["home_team"], sport)
                 away_elo = self._get_elo_rating(game_data["away_team"], sport)
-                print(f"Elo ratings: {game_data['home_team']} {home_elo:.0f} vs {game_data['away_team']} {away_elo:.0f}")
-                home_adjusted = self._get_adjusted_metrics(game_data["home_team"], sport)
-                away_adjusted = self._get_adjusted_metrics(game_data["away_team"], sport)
+                print(
+                    f"Elo ratings: {game_data['home_team']} {home_elo:.0f} vs {game_data['away_team']} {away_elo:.0f}"
+                )
+                home_adjusted = self._get_adjusted_metrics(
+                    game_data["home_team"], sport
+                )
+                away_adjusted = self._get_adjusted_metrics(
+                    game_data["away_team"], sport
+                )
                 weather = self._get_weather_data(game_id)
                 fatigue = self._get_fatigue_data(game_id)
 
                 # Calculate average odds for all markets
                 avg_h2h = {
-                    "home": sum(o["home_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"]),
-                    "away": sum(o["away_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"]),
+                    "home": sum(o["home_price"] for o in game_data["h2h_odds"])
+                    / len(game_data["h2h_odds"]),
+                    "away": sum(o["away_price"] for o in game_data["h2h_odds"])
+                    / len(game_data["h2h_odds"]),
                 }
-                draw_prices = [o["draw_price"] for o in game_data["h2h_odds"] if o.get("draw_price")]
+                draw_prices = [
+                    o["draw_price"]
+                    for o in game_data["h2h_odds"]
+                    if o.get("draw_price")
+                ]
                 if draw_prices:
                     avg_h2h["draw"] = sum(draw_prices) / len(draw_prices)
-                
+
                 avg_spread = None
                 if game_data["spread_odds"]:
                     avg_spread = {
-                        "home_point": sum(o["home_point"] for o in game_data["spread_odds"]) / len(game_data["spread_odds"]),
-                        "home_price": sum(o["home_price"] for o in game_data["spread_odds"]) / len(game_data["spread_odds"]),
-                        "away_point": sum(o["away_point"] for o in game_data["spread_odds"]) / len(game_data["spread_odds"]),
-                        "away_price": sum(o["away_price"] for o in game_data["spread_odds"]) / len(game_data["spread_odds"]),
+                        "home_point": sum(
+                            o["home_point"] for o in game_data["spread_odds"]
+                        )
+                        / len(game_data["spread_odds"]),
+                        "home_price": sum(
+                            o["home_price"] for o in game_data["spread_odds"]
+                        )
+                        / len(game_data["spread_odds"]),
+                        "away_point": sum(
+                            o["away_point"] for o in game_data["spread_odds"]
+                        )
+                        / len(game_data["spread_odds"]),
+                        "away_price": sum(
+                            o["away_price"] for o in game_data["spread_odds"]
+                        )
+                        / len(game_data["spread_odds"]),
                     }
-                
+
                 avg_total = None
                 if game_data["total_odds"]:
                     avg_total = {
-                        "point": sum(o["over_point"] for o in game_data["total_odds"]) / len(game_data["total_odds"]),
-                        "over_price": sum(o["over_price"] for o in game_data["total_odds"]) / len(game_data["total_odds"]),
-                        "under_price": sum(o["under_price"] for o in game_data["total_odds"]) / len(game_data["total_odds"]),
+                        "point": sum(o["over_point"] for o in game_data["total_odds"])
+                        / len(game_data["total_odds"]),
+                        "over_price": sum(
+                            o["over_price"] for o in game_data["total_odds"]
+                        )
+                        / len(game_data["total_odds"]),
+                        "under_price": sum(
+                            o["under_price"] for o in game_data["total_odds"]
+                        )
+                        / len(game_data["total_odds"]),
                     }
 
                 # Let AI analyze all markets
@@ -753,7 +866,7 @@ class BennyTrader:
                         # Skip if AI didn't provide prediction for this market
                         if not prediction_data or not isinstance(prediction_data, dict):
                             continue
-                            
+
                         if market_type == "h2h":
                             predicted_team = prediction_data["prediction"].lower()
                             if game_data["home_team"].lower() in predicted_team:
@@ -764,33 +877,38 @@ class BennyTrader:
                                 odds = avg_h2h["draw"]
                             else:
                                 continue
-                        
+
                         elif market_type == "spread" and avg_spread:
-                            if game_data["home_team"].lower() in prediction_data["prediction"].lower():
+                            if (
+                                game_data["home_team"].lower()
+                                in prediction_data["prediction"].lower()
+                            ):
                                 odds = avg_spread["home_price"]
                             else:
                                 odds = avg_spread["away_price"]
-                        
+
                         elif market_type == "total" and avg_total:
                             if "over" in prediction_data["prediction"].lower():
                                 odds = avg_total["over_price"]
                             else:
                                 odds = avg_total["under_price"]
-                        
+
                         else:
                             continue
-                        
+
                         # Calculate EV
                         odds = float(odds)
                         if odds > 0:
                             payout_multiplier = 1 + (odds / 100)
                         else:
                             payout_multiplier = 1 + (100 / abs(odds))
-                        
-                        expected_value = (float(prediction_data["confidence"]) * payout_multiplier) - 1
+
+                        expected_value = (
+                            float(prediction_data["confidence"]) * payout_multiplier
+                        ) - 1
                         print(f"  {market_type.upper()} EV: {expected_value:.3f}")
 
-                        opportunities.append({
+                        opportunity = {
                             "game_id": game_id,
                             "sport": sport,
                             "home_team": game_data["home_team"],
@@ -803,7 +921,28 @@ class BennyTrader:
                             "market_key": market_type,
                             "odds": odds,
                             "expected_value": expected_value,
-                        })
+                        }
+
+                        # Extract features for v2
+                        if self.version == "v2":
+                            features = FeatureExtractor.extract_features(
+                                game_data=game_data,
+                                home_elo=home_elo,
+                                away_elo=away_elo,
+                                fatigue=fatigue,
+                                home_injuries=home_injuries,
+                                away_injuries=away_injuries,
+                                home_form=home_form,
+                                away_form=away_form,
+                                weather=weather,
+                                h2h_history=h2h_history,
+                                odds=odds,
+                                market_key=market_type,
+                                prediction=prediction_data["prediction"],
+                            )
+                            opportunity["features"] = features
+
+                        opportunities.append(opportunity)
 
         return opportunities
 
@@ -814,21 +953,36 @@ class BennyTrader:
         opportunities = []
 
         # Only analyze props for sports that support them
-        props_sports = [s for s in SUPPORTED_SPORTS if s in ["basketball_nba", "americanfootball_nfl", "baseball_mlb", "icehockey_nhl", "basketball_ncaab"]]
-        
+        props_sports = [
+            s
+            for s in SUPPORTED_SPORTS
+            if s
+            in [
+                "basketball_nba",
+                "americanfootball_nfl",
+                "baseball_mlb",
+                "icehockey_nhl",
+                "basketball_ncaab",
+            ]
+        ]
+
         for sport in props_sports:
             # Get upcoming props
             response = self.table.query(
                 IndexName="ActiveBetsIndexV2",
                 KeyConditionExpression=Key("active_bet_pk").eq(f"PROP#{sport}")
-                & Key("commence_time").between(now.isoformat(), three_days_out.isoformat()),
+                & Key("commence_time").between(
+                    now.isoformat(), three_days_out.isoformat()
+                ),
                 FilterExpression="attribute_exists(latest) AND latest = :true",
                 ExpressionAttributeValues={":true": True},
                 Limit=100,
             )
 
-            print(f"Checking {sport} props: found {len(response.get('Items', []))} items")
-            
+            print(
+                f"Checking {sport} props: found {len(response.get('Items', []))} items"
+            )
+
             # Group props by player and market
             props_by_player = {}
             for item in response.get("Items", []):
@@ -836,116 +990,149 @@ class BennyTrader:
                 market = item.get("market_key")
                 if not player or not market:
                     continue
-                    
+
                 key = f"{player}#{market}"
                 if key not in props_by_player:
+                    game_id = item.get("event_id")
                     props_by_player[key] = {
                         "player": player,
                         "market": market,
                         "sport": sport,
-                        "game_id": item.get("game_id"),
-                        "team": item.get("team"),
-                        "opponent": item.get("opponent"),
+                        "game_id": game_id,
+                        "team": self._get_player_team(player, sport),
+                        "opponent": self._get_player_opponent(player, sport, game_id),
                         "commence_time": item.get("commence_time"),
                         "line": item.get("point"),
-                        "odds": []
+                        "odds": [],
                     }
-                
+
                 # Each item is a single outcome (Over or Under)
-                props_by_player[key]["odds"].append({
-                    "bookmaker": item.get("bookmaker"),
-                    "side": item.get("outcome"),  # Over/Under
-                    "price": item.get("price"),
-                    "point": item.get("point"),
-                })
+                props_by_player[key]["odds"].append(
+                    {
+                        "bookmaker": item.get("bookmaker"),
+                        "side": item.get("outcome"),  # Over/Under
+                        "price": item.get("price"),
+                        "point": item.get("point"),
+                    }
+                )
 
             print(f"  Parsed {len(props_by_player)} unique props for {sport}")
-            
+
             # Analyze top props (limit to prevent timeout)
             for prop_key, prop_data in list(props_by_player.items())[:20]:
                 if len(prop_data["odds"]) < 2:
                     continue
 
                 print(f"  Analyzing {prop_data['player']} {prop_data['market']}")
-                
+
                 # Get player data
                 player_stats = self._get_player_stats(prop_data["player"], sport)
-                player_trends = self._get_player_trends(prop_data["player"], sport, prop_data["market"])
-                matchup_data = self._get_player_matchup(prop_data["player"], prop_data["opponent"], sport)
-                
+                player_trends = self._get_player_trends(
+                    prop_data["player"], sport, prop_data["market"]
+                )
+                matchup_data = self._get_player_matchup(
+                    prop_data["player"], prop_data["opponent"], sport
+                )
+
                 if player_stats:
                     print(f"    Player stats: {list(player_stats.keys())[:5]}")
                 else:
                     print(f"    No player stats found")
-                
+
                 # AI analysis
-                analysis = self._ai_analyze_prop(prop_data, player_stats, player_trends, matchup_data)
+                analysis = self._ai_analyze_prop(
+                    prop_data, player_stats, player_trends, matchup_data
+                )
 
                 if analysis:
                     print(f"    Confidence: {analysis['confidence']:.2f}")
                     # Find odds for predicted side
-                    predicted_side = "Over" if "over" in analysis["prediction"].lower() else "Under"
-                    matching_odds = [o for o in prop_data["odds"] if o["side"] == predicted_side]
-                    
+                    predicted_side = (
+                        "Over" if "over" in analysis["prediction"].lower() else "Under"
+                    )
+                    matching_odds = [
+                        o for o in prop_data["odds"] if o["side"] == predicted_side
+                    ]
+
                     if not matching_odds:
-                        print(f"    No odds available for predicted side: {predicted_side}")
+                        print(
+                            f"    No odds available for predicted side: {predicted_side}"
+                        )
                         continue
-                    
-                    avg_odds = sum(o["price"] for o in matching_odds) / len(matching_odds)
-                    
+
+                    avg_odds = sum(o["price"] for o in matching_odds) / len(
+                        matching_odds
+                    )
+
                     # Calculate EV for props
                     avg_odds_float = float(avg_odds)
                     if avg_odds_float > 0:
                         payout_multiplier = 1 + (avg_odds_float / 100)
                     else:
                         payout_multiplier = 1 + (100 / abs(avg_odds_float))
-                    
-                    expected_value = (float(analysis["confidence"]) * payout_multiplier) - 1
+
+                    expected_value = (
+                        float(analysis["confidence"]) * payout_multiplier
+                    ) - 1
                     print(f"    EV: {expected_value:.3f}")
-                    
-                    opportunities.append({
-                        "game_id": prop_data["game_id"],
-                        "sport": sport,
-                        "player": prop_data["player"],
-                        "market": prop_data["market"],
-                        "line": prop_data["line"],
-                        "prediction": analysis["prediction"],
-                        "confidence": analysis["confidence"],
-                        "reasoning": analysis["reasoning"],
-                        "key_factors": analysis["key_factors"],
-                        "commence_time": prop_data["commence_time"],
-                        "market_key": prop_data["market"],
-                        "odds": avg_odds,
-                        "expected_value": expected_value,
-                    })
+
+                    opportunities.append(
+                        {
+                            "game_id": prop_data["game_id"],
+                            "sport": sport,
+                            "player": prop_data["player"],
+                            "market": prop_data["market"],
+                            "line": prop_data["line"],
+                            "prediction": analysis["prediction"],
+                            "confidence": analysis["confidence"],
+                            "reasoning": analysis["reasoning"],
+                            "key_factors": analysis["key_factors"],
+                            "commence_time": prop_data["commence_time"],
+                            "market_key": prop_data["market"],
+                            "odds": avg_odds,
+                            "expected_value": expected_value,
+                        }
+                    )
                 elif analysis:
-                    print(f"    ✗ Confidence {analysis['confidence']:.2f} < {min_confidence:.2f}")
+                    print(
+                        f"    ✗ Confidence {analysis['confidence']:.2f} < {min_confidence:.2f}"
+                    )
                 else:
                     print(f"    ✗ AI analysis failed")
 
         return opportunities
 
     def _ai_analyze_prop(
-        self, prop_data: Dict, player_stats: Dict, player_trends: Dict, matchup_data: Dict
+        self,
+        prop_data: Dict,
+        player_stats: Dict,
+        player_trends: Dict,
+        matchup_data: Dict,
     ) -> Dict[str, Any]:
         """AI analysis for player props"""
         try:
             # Calculate average line and odds
             over_odds = [o for o in prop_data["odds"] if o["side"] == "Over"]
             under_odds = [o for o in prop_data["odds"] if o["side"] == "Under"]
-            
-            avg_over = sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
-            avg_under = sum(o["price"] for o in under_odds) / len(under_odds) if under_odds else 0
-            
+
+            avg_over = (
+                sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
+            )
+            avg_under = (
+                sum(o["price"] for o in under_odds) / len(under_odds)
+                if under_odds
+                else 0
+            )
+
             over_prob = self._american_to_probability(avg_over) if avg_over else 0
             under_prob = self._american_to_probability(avg_under) if avg_under else 0
 
             perf_stats = self._get_performance_stats()
             print(f"[PROP] Performance stats: {perf_stats}")
-            
+
             # Build performance warnings
-            perf_warnings = self._get_performance_warnings(prop_data['sport'])
-            
+            perf_warnings = self._get_performance_warnings(prop_data["sport"])
+
             perf_context = ""
             if "overall" in perf_stats:
                 perf_context = f"""
@@ -960,7 +1147,7 @@ Note: Use this to inform confidence - be more conservative in markets where you'
                 print(f"[PROP] Including performance context in AI prompt")
 
             # Add new learning feedback
-            sport = prop_data['sport']
+            sport = prop_data["sport"]
             what_works = self._get_what_works_analysis()
             what_fails = self._get_what_fails_analysis()
             recent_mistakes = self._analyze_recent_mistakes()
@@ -1041,11 +1228,13 @@ IMPORTANT:
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-                body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 400,
-                    "messages": [{"role": "user", "content": prompt}],
-                }),
+                body=json.dumps(
+                    {
+                        "anthropic_version": "bedrock-2023-05-31",
+                        "max_tokens": 400,
+                        "messages": [{"role": "user", "content": prompt}],
+                    }
+                ),
             )
 
             result = json.loads(response["body"].read())
@@ -1062,39 +1251,92 @@ IMPORTANT:
             print(f"Error in prop AI analysis: {e}")
             return None
 
+    def _get_player_team(self, player_name: str, sport: str) -> str:
+        """Get player's team name, cached across calls"""
+        if player_name in self.player_teams:
+            return self.player_teams[player_name]
+        # Will be populated by _get_player_stats; do a minimal lookup if needed
+        try:
+            normalized = player_name.lower().replace(" ", "_")
+            resp = self.table.query(
+                KeyConditionExpression=Key("pk").eq(f"PLAYER_STATS#{sport}#{normalized}"),
+                ScanIndexForward=False, Limit=1,
+            )
+            items = resp.get("Items", [])
+            team = items[0].get("stats", {}).get("team") if items else None
+            self.player_teams[player_name] = team
+            return team
+        except Exception:
+            self.player_teams[player_name] = None
+            return None
+
+    def _get_player_opponent(self, player_name: str, sport: str, game_id: str) -> str:
+        """Derive opponent from player's team + game data"""
+        game = self.game_teams.get(game_id)
+        if not game:
+            return None
+        team = self._get_player_team(player_name, sport)
+        if not team:
+            return None
+        home = game.get("home_team", "")
+        away = game.get("away_team", "")
+        if team.lower() in home.lower() or home.lower() in team.lower():
+            return away
+        elif team.lower() in away.lower() or away.lower() in team.lower():
+            return home
+        return None
+
     def _get_player_stats(self, player_name: str, sport: str) -> Dict:
         """Get player season stats by aggregating recent games"""
         try:
             normalized = player_name.lower().replace(" ", "_")
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(f"PLAYER_STATS#{sport}#{normalized}"),
+                KeyConditionExpression=Key("pk").eq(
+                    f"PLAYER_STATS#{sport}#{normalized}"
+                ),
                 ScanIndexForward=False,
                 Limit=20,  # Last 20 games for season average
             )
             games = response.get("Items", [])
             if not games:
                 return {}
-            
+
+            # Cache player team from most recent game
+            if player_name not in self.player_teams:
+                self.player_teams[player_name] = games[0].get("stats", {}).get("team")
+
             # Sport-specific stat keys
             stat_keys_by_sport = {
                 "basketball_nba": ["PTS", "REB", "AST", "STL", "BLK", "3PM", "TO"],
-                "americanfootball_nfl": ["passing_yards", "rushing_yards", "receiving_yards", "touchdowns", "receptions"],
+                "americanfootball_nfl": [
+                    "passing_yards",
+                    "rushing_yards",
+                    "receiving_yards",
+                    "touchdowns",
+                    "receptions",
+                ],
                 "baseball_mlb": ["hits", "runs", "RBI", "home_runs", "strikeouts"],
-                "icehockey_nhl": ["goals", "assists", "shots", "plus_minus"]
+                "icehockey_nhl": ["goals", "assists", "shots", "plus_minus"],
             }
-            
+
             stat_keys = stat_keys_by_sport.get(sport, [])
             if not stat_keys:
                 return {}
-            
+
             # Aggregate stats across games
             aggregated = {}
             for key in stat_keys:
-                values = [float(g.get("stats", {}).get(key, 0)) for g in games if g.get("stats", {}).get(key)]
+                values = [
+                    float(g.get("stats", {}).get(key, 0))
+                    for g in games
+                    if g.get("stats", {}).get(key)
+                ]
                 if values:
                     aggregated[f"{key}_avg"] = round(sum(values) / len(values), 2)
-                    aggregated[f"{key}_last5"] = round(sum(values[:5]) / min(5, len(values)), 2)
-            
+                    aggregated[f"{key}_last5"] = round(
+                        sum(values[:5]) / min(5, len(values)), 2
+                    )
+
             aggregated["games_played"] = len(games)
             return aggregated
         except Exception as e:
@@ -1106,14 +1348,16 @@ IMPORTANT:
         try:
             normalized = player_name.lower().replace(" ", "_")
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(f"PLAYER_STATS#{sport}#{normalized}"),
+                KeyConditionExpression=Key("pk").eq(
+                    f"PLAYER_STATS#{sport}#{normalized}"
+                ),
                 ScanIndexForward=False,
                 Limit=10,
             )
             games = response.get("Items", [])
             if not games:
                 return {}
-            
+
             # Map market to stat key
             market_to_stat = {
                 "player_points": "PTS",
@@ -1123,23 +1367,27 @@ IMPORTANT:
                 "player_steals": "STL",
                 "player_blocks": "BLK",
             }
-            
+
             stat_key = market_to_stat.get(market)
             if not stat_key:
                 return {}
-            
-            values = [float(g.get("stats", {}).get(stat_key, 0)) for g in games if g.get("stats", {}).get(stat_key)]
+
+            values = [
+                float(g.get("stats", {}).get(stat_key, 0))
+                for g in games
+                if g.get("stats", {}).get(stat_key)
+            ]
             if not values:
                 return {}
-            
+
             avg = sum(values) / len(values)
             last3_avg = sum(values[:3]) / min(3, len(values))
-            
+
             return {
                 "last_10_avg": round(avg, 2),
                 "last_3_avg": round(last3_avg, 2),
                 "trend": "hot" if last3_avg > avg else "cold",
-                "games": values
+                "games": values,
             }
         except Exception as e:
             print(f"Error fetching player trends: {e}")
@@ -1147,30 +1395,38 @@ IMPORTANT:
 
     def _get_player_matchup(self, player_name: str, opponent: str, sport: str) -> Dict:
         """Get player performance vs specific opponent"""
+        if not player_name or not opponent:
+            return {}
         try:
             normalized_player = player_name.lower().replace(" ", "_")
             normalized_opp = opponent.lower().replace(" ", "_")
-            
+
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(f"PLAYER_STATS#{sport}#{normalized_player}"),
+                KeyConditionExpression=Key("pk").eq(
+                    f"PLAYER_STATS#{sport}#{normalized_player}"
+                ),
                 ScanIndexForward=False,
-                Limit=20
+                Limit=20,
             )
-            
+
             # Filter for games against this opponent
-            matchup_games = [g for g in response.get("Items", []) if normalized_opp in g.get("sk", "").lower()]
-            
+            matchup_games = [
+                g
+                for g in response.get("Items", [])
+                if normalized_opp in g.get("sk", "").lower()
+            ]
+
             if not matchup_games:
                 return {"games_vs_opponent": 0}
-            
+
             return {
                 "games_vs_opponent": len(matchup_games),
-                "recent_games": matchup_games[:5]
+                "recent_games": matchup_games[:5],
             }
         except Exception as e:
             print(f"Error fetching player matchup: {e}")
             return {}
-    
+
     def _get_prop_market_performance(self, market_key: str) -> str:
         """Get Benny's historical performance on this prop market"""
         perf = self.learning_params.get("performance_by_prop_market", {})
@@ -1204,15 +1460,27 @@ IMPORTANT:
         """Have AI analyze game data and make independent prediction"""
         try:
             # Calculate average h2h odds
-            avg_home_price = sum(o["home_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"])
-            avg_away_price = sum(o["away_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"])
-            draw_prices = [o["draw_price"] for o in game_data["h2h_odds"] if o.get("draw_price")]
-            avg_draw_price = sum(draw_prices) / len(draw_prices) if draw_prices else None
+            avg_home_price = sum(o["home_price"] for o in game_data["h2h_odds"]) / len(
+                game_data["h2h_odds"]
+            )
+            avg_away_price = sum(o["away_price"] for o in game_data["h2h_odds"]) / len(
+                game_data["h2h_odds"]
+            )
+            draw_prices = [
+                o["draw_price"] for o in game_data["h2h_odds"] if o.get("draw_price")
+            ]
+            avg_draw_price = (
+                sum(draw_prices) / len(draw_prices) if draw_prices else None
+            )
 
             # Convert to implied probabilities
             home_prob = self._american_to_probability(avg_home_price)
             away_prob = self._american_to_probability(avg_away_price)
-            draw_prob = self._american_to_probability(avg_draw_price) if avg_draw_price else None
+            draw_prob = (
+                self._american_to_probability(avg_draw_price)
+                if avg_draw_price
+                else None
+            )
 
             # Build market odds section
             market_odds = f"""MONEYLINE (H2H):
@@ -1220,19 +1488,25 @@ Home: {avg_home_price} ({home_prob:.1%} implied)
 Away: {avg_away_price} ({away_prob:.1%} implied)"""
             if draw_prob:
                 market_odds += f"\nDraw: {avg_draw_price} ({draw_prob:.1%} implied)"
-            
+
             if avg_spread:
-                spread_home_prob = self._american_to_probability(avg_spread["home_price"])
-                spread_away_prob = self._american_to_probability(avg_spread["away_price"])
+                spread_home_prob = self._american_to_probability(
+                    avg_spread["home_price"]
+                )
+                spread_away_prob = self._american_to_probability(
+                    avg_spread["away_price"]
+                )
                 market_odds += f"""
 
 SPREAD:
 Home {avg_spread['home_point']:+.1f}: {avg_spread['home_price']} ({spread_home_prob:.1%} implied)
 Away {avg_spread['away_point']:+.1f}: {avg_spread['away_price']} ({spread_away_prob:.1%} implied)"""
-            
+
             if avg_total:
                 total_over_prob = self._american_to_probability(avg_total["over_price"])
-                total_under_prob = self._american_to_probability(avg_total["under_price"])
+                total_under_prob = self._american_to_probability(
+                    avg_total["under_price"]
+                )
                 market_odds += f"""
 
 TOTAL:
@@ -1252,7 +1526,7 @@ Note: Use this to inform confidence - be more conservative in markets where you'
                 print(f"[GAME] Including performance context in AI prompt")
 
             # Add new learning feedback
-            sport = game_data['sport']
+            sport = game_data["sport"]
             perf_warnings = self._get_performance_warnings(sport)
             what_works = self._get_what_works_analysis()
             what_fails = self._get_what_fails_analysis()
@@ -1260,6 +1534,7 @@ Note: Use this to inform confidence - be more conservative in markets where you'
             winning_examples = self._get_winning_examples(sport, limit=2)
             winning_factors = self._extract_winning_factors()
             model_benchmarks = self._get_model_benchmarks(sport)
+            feature_insights = self._get_feature_insights()
 
             prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
@@ -1271,6 +1546,8 @@ RISK PARAMETERS:
 {perf_context}
 
 {perf_warnings}
+
+{feature_insights}
 
 WHAT'S WORKING FOR YOU:
 {what_works}
@@ -1441,7 +1718,9 @@ IMPORTANT:
         try:
             normalized_team = team_name.lower().replace(" ", "_")
             response = table.query(
-                KeyConditionExpression=Key("pk").eq(f"ADJUSTED_METRICS#{sport}#{normalized_team}"),
+                KeyConditionExpression=Key("pk").eq(
+                    f"ADJUSTED_METRICS#{sport}#{normalized_team}"
+                ),
                 FilterExpression="attribute_exists(latest) AND latest = :true",
                 ExpressionAttributeValues={":true": True},
                 Limit=1,
@@ -1576,9 +1855,133 @@ IMPORTANT:
             print(f"Error fetching team stats: {e}")
             return {}
 
+    def _get_feature_insights(self) -> str:
+        """Get learned feature importance insights for AI prompt (v2 only)"""
+        if self.version != "v2":
+            return "No learned insights available (v1)"
+
+        try:
+            response = self.table.get_item(
+                Key={"pk": f"{self.pk}#LEARNING", "sk": "FEATURES"}
+            )
+            insights = response.get("Item", {}).get("insights", {})
+
+            if not insights or "strongest_predictors" not in insights:
+                return "Insufficient data to determine feature importance"
+
+            lines = []
+            lines.append("LEARNED FEATURE IMPORTANCE (What Actually Predicts Wins):")
+
+            # Top predictive features
+            for pred in insights["strongest_predictors"][:3]:
+                feature = pred["feature"]
+                lines.append(
+                    f"\n{feature.upper()} (predictive power: {pred['spread']:.1%} spread)"
+                )
+
+                # Get specific insights for this feature
+                feature_data = insights.get("insights", {}).get(feature, {})
+                if feature_data:
+                    for range_key, data in sorted(
+                        feature_data.items(),
+                        key=lambda x: x[1].get("win_rate", 0),
+                        reverse=True,
+                    )[:3]:
+                        if data.get("count", 0) >= 5:
+                            lines.append(
+                                f"  • {range_key}: {data['win_rate']:.1%} win rate ({data['count']} bets)"
+                            )
+
+            return "\n".join(lines)
+        except:
+            return "Error loading feature insights"
+
     def calculate_bet_size(self, confidence: float, odds: float = None) -> Decimal:
         """Calculate bet size using Kelly Criterion"""
         return self.bankroll_manager.calculate_bet_size(confidence, odds)
+
+    def analyze_feature_performance(self):
+        """Analyze which features predict wins (v2 only)"""
+        if self.version != "v2":
+            print("Feature analysis only available for v2")
+            return
+
+        from datetime import datetime
+
+        analyzer = OutcomeAnalyzer(self.table, self.pk)
+
+        # Analyze features
+        insights = analyzer.analyze_features()
+
+        if "error" in insights:
+            print(
+                f"Feature analysis: {insights['error']} ({insights.get('bet_count', 0)} bets)"
+            )
+        else:
+            print(f"\n=== FEATURE ANALYSIS ({insights['total_bets']} bets) ===")
+            print("\nStrongest Predictors:")
+            for pred in insights["strongest_predictors"][:5]:
+                print(
+                    f"  {pred['feature']}: {pred['spread']:.1%} spread (max: {pred['max_win_rate']:.1%}, min: {pred['min_win_rate']:.1%})"
+                )
+
+            insights["timestamp"] = datetime.utcnow().isoformat()
+            analyzer.save_insights(insights)
+            print("Feature insights saved")
+
+        # Analyze confidence calibration
+        calibration = analyzer.analyze_confidence_calibration()
+
+        if "error" in calibration:
+            print(
+                f"Calibration analysis: {calibration['error']} ({calibration.get('bet_count', 0)} bets)"
+            )
+        else:
+            print(
+                f"\n=== CONFIDENCE CALIBRATION ({calibration['total_bets']} bets) ==="
+            )
+            print(
+                f"Average calibration error: {calibration['avg_calibration_error']:.1%}"
+            )
+            print(f"Well calibrated: {calibration['is_well_calibrated']}")
+
+            print("\nCalibration by bucket:")
+            for bucket, data in calibration["calibration"].items():
+                print(
+                    f"  {bucket}%: {data['actual_win_rate']:.1%} actual vs {data['expected_confidence']:.1%} expected ({data['count']} bets)"
+                )
+
+            calibration["timestamp"] = datetime.utcnow().isoformat()
+            analyzer.save_calibration(calibration)
+            print("Calibration data saved")
+
+        # Optimize thresholds
+        optimizer = ThresholdOptimizer(self.table, self.pk)
+        thresholds = optimizer.optimize_thresholds()
+
+        if "error" in thresholds:
+            print(
+                f"Threshold optimization: {thresholds['error']} ({thresholds.get('bet_count', 0)} bets)"
+            )
+        else:
+            print(f"\n=== THRESHOLD OPTIMIZATION ({thresholds['total_bets']} bets) ===")
+            print(
+                f"Global optimal: confidence={thresholds['global']['optimal_min_confidence']:.0%}, EV={thresholds['global']['optimal_min_ev']:.1%}"
+            )
+            print(
+                f"  Expected ROI: {thresholds['global']['expected_roi']:.1%} ({thresholds['global']['sample_size']} bets)"
+            )
+
+            if thresholds.get("by_sport"):
+                print("\nOptimal by sport:")
+                for sport, opt in thresholds["by_sport"].items():
+                    print(
+                        f"  {sport}: conf={opt['optimal_min_confidence']:.0%}, ROI={opt['expected_roi']:.1%}"
+                    )
+
+            thresholds["timestamp"] = datetime.utcnow().isoformat()
+            optimizer.save_optimal_thresholds(thresholds)
+            print("Optimal thresholds saved")
 
     def update_learning_parameters(self):
         """Update Benny's learning parameters based on recent performance"""
@@ -1589,7 +1992,8 @@ IMPORTANT:
             cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
 
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
                 FilterExpression="settled_at > :cutoff AND #status IN (:won, :lost)",
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={
@@ -1601,24 +2005,32 @@ IMPORTANT:
 
             bets = response.get("Items", [])
             if len(bets) < self.MIN_SAMPLE_SIZE:  # Need minimum sample size to learn
-                print(f"Insufficient data for learning: {len(bets)} bets (need {self.MIN_SAMPLE_SIZE})")
+                print(
+                    f"Insufficient data for learning: {len(bets)} bets (need {self.MIN_SAMPLE_SIZE})"
+                )
                 return
 
             # Calculate overall win rate
             wins = sum(1 for b in bets if b.get("status") == "won")
             win_rate = wins / len(bets)
-            
+
             # Calculate true profit (excluding deposits)
             total_deposits = self._get_total_deposits()
             true_profit = self.bankroll - self.WEEKLY_BUDGET - total_deposits
-            
+
             # Calculate ROI based on actual betting, not deposits
             settled_bets = [b for b in bets if b.get("status") in ["won", "lost"]]
             won_bets = [b for b in settled_bets if b.get("status") == "won"]
-            
-            total_wagered = sum(Decimal(str(b.get("bet_amount", 0))) for b in settled_bets)
+
+            total_wagered = sum(
+                Decimal(str(b.get("bet_amount", 0))) for b in settled_bets
+            )
             total_profit = sum(Decimal(str(b.get("profit", 0))) for b in settled_bets)
-            roi = (total_profit / total_wagered * 100) if total_wagered > 0 else Decimal("0")
+            roi = (
+                (total_profit / total_wagered * 100)
+                if total_wagered > 0
+                else Decimal("0")
+            )
 
             # Adjust MIN_CONFIDENCE based on performance
             if win_rate > 0.60:
@@ -1629,7 +2041,9 @@ IMPORTANT:
                 adjustment = 0.05
             else:
                 # Acceptable performance, small adjustment toward 0
-                current_adj = float(self.learning_params.get("min_confidence_adjustment", 0))
+                current_adj = float(
+                    self.learning_params.get("min_confidence_adjustment", 0)
+                )
                 adjustment = -current_adj * 0.1  # Slowly return to baseline
 
             # Calculate performance by sport and market
@@ -1649,11 +2063,14 @@ IMPORTANT:
                     perf_by_sport[sport]["wins"] += 1
 
                 if market_key not in perf_by_market:
-                    perf_by_market[market_key] = {"wins": 0, "total": 0}
+                    perf_by_market[market_key] = {"wins": 0, "total": 0, "wagered": 0, "returned": 0}
                 perf_by_market[market_key]["total"] += 1
+                bet_amt = float(bet.get("bet_amount", 0))
+                perf_by_market[market_key]["wagered"] += bet_amt
                 if won:
                     perf_by_market[market_key]["wins"] += 1
-                
+                    perf_by_market[market_key]["returned"] += float(bet.get("payout", 0))
+
                 # Track prop market performance (player_points, player_rebounds, etc.)
                 if market_key.startswith("player_"):
                     if market_key not in perf_by_prop_market:
@@ -1682,11 +2099,15 @@ IMPORTANT:
             print(
                 f"Updated Benny learning: win_rate={win_rate:.2%}, adjustment={adjustment:+.3f}"
             )
-            
+
             # Log prop market performance
             if perf_by_prop_market:
                 print("Prop market performance:")
-                for market, stats in sorted(perf_by_prop_market.items(), key=lambda x: x[1]["wins"]/max(x[1]["total"], 1), reverse=True):
+                for market, stats in sorted(
+                    perf_by_prop_market.items(),
+                    key=lambda x: x[1]["wins"] / max(x[1]["total"], 1),
+                    reverse=True,
+                ):
                     wr = stats["wins"] / stats["total"] if stats["total"] > 0 else 0
                     print(f"  {market}: {stats['wins']}/{stats['total']} ({wr:.1%})")
 
@@ -1699,36 +2120,54 @@ IMPORTANT:
         sport = opportunity["sport"]
         market = opportunity["market_key"]
         required_confidence = self._get_adaptive_threshold(sport, market)
-        
+
         if opportunity["confidence"] < required_confidence:
-            print(f"  Skipping: confidence {opportunity['confidence']:.2f} < required {required_confidence:.2f}")
+            print(
+                f"  Skipping: confidence {opportunity['confidence']:.2f} < required {required_confidence:.2f}"
+            )
             return {"success": False, "reason": f"Confidence below threshold"}
-        
+
         # Check for existing bet
         game_id = opportunity["game_id"]
         market_key = opportunity["market_key"]
         existing_bets = self.table.query(
-            KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+            KeyConditionExpression=Key("pk").eq(self.pk)
+            & Key("sk").begins_with("BET#"),
             FilterExpression="game_id = :gid AND market_key = :mk AND #status = :pending",
             ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={":gid": game_id, ":mk": market_key, ":pending": "pending"}
+            ExpressionAttributeValues={
+                ":gid": game_id,
+                ":mk": market_key,
+                ":pending": "pending",
+            },
         )
-        
+
         if existing_bets.get("Items"):
             print(f"  Skipping: already have pending bet")
             return {"success": False, "reason": "Already have pending bet"}
-        
+
         # Calculate bet size
         confidence = opportunity["confidence"]
         odds = opportunity.get("odds")
         bet_size = self.bankroll_manager.calculate_bet_size(confidence, odds)
 
-        if bet_size <= 0 or bet_size > self.bankroll:
+        # Check minimum bet size
+        MIN_BET = Decimal("5.00")
+        if bet_size < MIN_BET:
+            print(f"  Skipping: bet size ${bet_size:.2f} < minimum ${MIN_BET}")
+            return {"success": False, "reason": f"Bet size below ${MIN_BET} minimum"}
+
+        if bet_size > self.bankroll:
             return {"success": False, "reason": "Insufficient bankroll"}
 
+        # Extract features for v2
+        features = opportunity.get("features") if self.version == "v2" else None
+
         # Place bet via executor
-        result = self.bet_executor.place_bet(opportunity, bet_size, self.bankroll)
-        
+        result = self.bet_executor.place_bet(
+            opportunity, bet_size, self.bankroll, features
+        )
+
         # Update bankroll
         new_bankroll = self.bankroll - bet_size
         self._update_bankroll(new_bankroll)
@@ -1743,27 +2182,28 @@ IMPORTANT:
         }
         if not self.notification_queue_url:
             return
-        
+
         message = {
-            'type': 'bet_placed',
-            'data': {
-                'sport': opportunity['sport'],
-                'game': f"{opportunity['away_team']} @ {opportunity['home_team']}",
-                'market_key': opportunity['market_key'],
-                'pick': opportunity['prediction'],
-                'odds': float(opportunity.get('odds', 0)),
-                'confidence': float(opportunity['confidence']),
-                'stake': float(bet['bet_amount']),
-                'bankroll_percentage': float(bet['bet_amount'] / bet['bankroll_before']),
-                'expected_roi': float(opportunity.get('expected_value', 0)),
-                'reasoning': opportunity['reasoning']
-            }
+            "type": "bet_placed",
+            "data": {
+                "sport": opportunity["sport"],
+                "game": f"{opportunity['away_team']} @ {opportunity['home_team']}",
+                "market_key": opportunity["market_key"],
+                "pick": opportunity["prediction"],
+                "odds": float(opportunity.get("odds", 0)),
+                "confidence": float(opportunity["confidence"]),
+                "stake": float(bet["bet_amount"]),
+                "bankroll_percentage": float(
+                    bet["bet_amount"] / bet["bankroll_before"]
+                ),
+                "expected_roi": float(opportunity.get("expected_value", 0)),
+                "reasoning": opportunity["reasoning"],
+            },
         }
-        
+
         try:
             self.sqs.send_message(
-                QueueUrl=self.notification_queue_url,
-                MessageBody=json.dumps(message)
+                QueueUrl=self.notification_queue_url, MessageBody=json.dumps(message)
             )
         except Exception as e:
             # Log but don't fail bet placement
@@ -1771,69 +2211,118 @@ IMPORTANT:
 
     def run_daily_analysis(self) -> Dict[str, Any]:
         """Run daily analysis for games and props"""
-        print(f"Starting Benny Trader analysis. Current bankroll: ${self.bankroll}")
-        
+        print(
+            f"Starting Benny Trader {self.version} analysis. Current bankroll: ${self.bankroll}"
+        )
+
         # Check if auto-deposit is needed
         auto_deposited = self._auto_deposit_if_needed()
-        
+
         # Update learning parameters before analyzing
         self.update_learning_parameters()
-        
+
+        # Run feature analysis for v2
+        if self.version == "v2":
+            self.analyze_feature_performance()
+
         # 1. Evaluate existing positions for cash-out/double-down
         position_actions = self._manage_positions()
-        
+
         # 2. Analyze all games and props
         game_opportunities = self.analyze_games()
         print(f"Found {len(game_opportunities)} game opportunities")
-        
+
         prop_opportunities = []
         if self.bankroll > Decimal("20.00"):
             prop_opportunities = self.analyze_props()
             print(f"Found {len(prop_opportunities)} prop opportunities")
-        
-        # 3. Combine and sort by confidence * edge (best opportunities first)
+
+        # 3. Build and place parlays from prop opportunities
+        parlay_bets = []
+        if prop_opportunities:
+            eligible = [o for o in prop_opportunities if o.get("confidence", 0) >= 0.70]
+            game_ids = [o.get("game_id") for o in eligible]
+            print(f"Parlay candidates: {len(eligible)} legs with ≥0.70 conf, {len(set(game_ids))} unique games")
+            parlays = self.parlay_engine.build_parlays(prop_opportunities)
+            for parlay in parlays:
+                if self.bankroll < Decimal("10.00"):
+                    break
+                bet_size = self.parlay_engine.calculate_parlay_bet_size(
+                    parlay, self.bankroll
+                )
+                if bet_size < Decimal("5.00"):
+                    continue
+                result = self.bet_executor.place_parlay(
+                    parlay, bet_size, self.bankroll
+                )
+                if result["success"]:
+                    self._update_bankroll(self.bankroll - bet_size)
+                    parlay_bets.append(result)
+                    total_bet += Decimal(str(result["bet_amount"]))
+                    print(
+                        f"Placed {parlay['num_legs']}-leg parlay for ${result['bet_amount']} "
+                        f"(odds: {parlay['combined_american_odds']:+d})"
+                    )
+            print(f"Placed {len(parlay_bets)} parlays")
+
+        # 4. Combine and sort by confidence * edge (best opportunities first)
         all_opportunities = game_opportunities + prop_opportunities
-        all_opportunities.sort(key=lambda x: x.get("confidence", 0) * x.get("edge", 0), reverse=True)
-        
-        # 4. Place bets in priority order
+        all_opportunities.sort(
+            key=lambda x: x.get("confidence", 0) * x.get("edge", 0), reverse=True
+        )
+
+        # 5. Place bets in priority order
         placed_bets = []
         total_bet = Decimal("0")
-        
+
         for opp in all_opportunities:
             if self.bankroll < Decimal("10.00"):
                 print(f"Bankroll too low (${self.bankroll}), stopping")
                 break
-            
+
             result = self.place_bet(opp)
             if result["success"]:
                 placed_bets.append(result)
                 total_bet += Decimal(str(result["bet_amount"]))
                 print(f"Placed bet: {opp['prediction']} for ${result['bet_amount']}")
-        
-        game_bets = [b for b in placed_bets if b.get("market_key") in ["h2h", "spreads", "totals"]]
-        prop_bets = [b for b in placed_bets if b.get("market_key") not in ["h2h", "spreads", "totals"]]
-        
-        print(f"Analysis complete. Placed {len(game_bets)} game bets and {len(prop_bets)} prop bets (${total_bet} total)")
-        
+
+        game_bets = [
+            b
+            for b in placed_bets
+            if b.get("market_key") in ["h2h", "spreads", "totals"]
+        ]
+        prop_bets = [
+            b
+            for b in placed_bets
+            if b.get("market_key") not in ["h2h", "spreads", "totals"]
+        ]
+
+        print(
+            f"Analysis complete. Placed {len(game_bets)} game bets, {len(prop_bets)} prop bets, "
+            f"{len(parlay_bets)} parlays (${total_bet} total)"
+        )
+
         return {
             "game_opportunities": len(game_opportunities),
             "prop_opportunities": len(prop_opportunities),
-            "total_bets": len(placed_bets),
+            "total_bets": len(placed_bets) + len(parlay_bets),
             "game_bets_placed": len(game_bets),
             "prop_bets_placed": len(prop_bets),
+            "parlay_bets_placed": len(parlay_bets),
             "total_bet_amount": float(total_bet),
             "remaining_bankroll": float(self.bankroll),
             "bets": placed_bets,
-            "position_actions": position_actions
+            "parlay_bets": parlay_bets,
+            "position_actions": position_actions,
         }
-    
+
     def _manage_positions(self) -> Dict[str, Any]:
         """Manage existing positions - cash-out and double-down"""
         evaluations = self.position_manager.evaluate_pending_bets()
-        
+
         cash_outs = []
         double_downs = []
-        
+
         for eval in evaluations:
             # Check for cash-out
             should_cash, reason = self.position_manager.should_cash_out(eval)
@@ -1841,48 +2330,63 @@ IMPORTANT:
                 result = self.position_manager.execute_cash_out(eval["bet"], reason)
                 if result["success"]:
                     # Return cash to bankroll
-                    self._update_bankroll(self.bankroll + Decimal(str(result["cash_out_value"])))
+                    self._update_bankroll(
+                        self.bankroll + Decimal(str(result["cash_out_value"]))
+                    )
                     cash_outs.append(result)
-                    print(f"Cashed out bet: {reason}, returned ${result['cash_out_value']}")
+                    print(
+                        f"Cashed out bet: {reason}, returned ${result['cash_out_value']}"
+                    )
                 continue
-            
+
             # Check for double-down
-            should_double, reason, additional_stake = self.position_manager.should_double_down(eval, self.bankroll)
+            (
+                should_double,
+                reason,
+                additional_stake,
+            ) = self.position_manager.should_double_down(eval, self.bankroll)
             if should_double and additional_stake <= self.bankroll:
-                result = self.position_manager.execute_double_down(eval["bet"], additional_stake, reason)
+                result = self.position_manager.execute_double_down(
+                    eval["bet"], additional_stake, reason
+                )
                 if result["success"]:
                     # Deduct from bankroll
                     self._update_bankroll(self.bankroll - additional_stake)
                     double_downs.append(result)
                     print(f"Doubled down: {reason}, added ${additional_stake}")
-        
+
         return {
             "cash_outs": len(cash_outs),
             "double_downs": len(double_downs),
-            "details": {"cash_outs": cash_outs, "double_downs": double_downs}
+            "details": {"cash_outs": cash_outs, "double_downs": double_downs},
         }
 
-    @staticmethod
-    def get_dashboard_data() -> Dict[str, Any]:
+    def get_dashboard_data(self) -> Dict[str, Any]:
         """Get dashboard data for Benny"""
         # Get current bankroll from main record
-        response = table.get_item(Key={"pk": "BENNY", "sk": "BANKROLL"})
-        current_bankroll = float(response.get("Item", {}).get("amount", 100.0)) if "Item" in response else 100.0
+        response = self.table.get_item(Key={"pk": self.pk, "sk": "BANKROLL"})
+        current_bankroll = (
+            float(response.get("Item", {}).get("amount", 100.0))
+            if "Item" in response
+            else 100.0
+        )
+        print(f"[DASHBOARD] Read bankroll from main record: ${current_bankroll}")
 
         # Get ALL bets for stats calculation
         all_bets = []
         last_key = None
         while True:
             query_kwargs = {
-                "KeyConditionExpression": Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
-                "ScanIndexForward": False
+                "KeyConditionExpression": Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
+                "ScanIndexForward": False,
             }
             if last_key:
                 query_kwargs["ExclusiveStartKey"] = last_key
-            
-            response = table.query(**query_kwargs)
+
+            response = self.table.query(**query_kwargs)
             all_bets.extend(response.get("Items", []))
-            
+
             last_key = response.get("LastEvaluatedKey")
             if not last_key:
                 break
@@ -1945,18 +2449,26 @@ IMPORTANT:
                 }
 
         # Best and worst bets
-        best_bet = max(
-            won_bets,
-            key=lambda b: float(b.get("payout", 0)) - float(b.get("bet_amount", 0)),
-            default=None,
-        ) if won_bets else None
-        
+        best_bet = (
+            max(
+                won_bets,
+                key=lambda b: float(b.get("payout", 0)) - float(b.get("bet_amount", 0)),
+                default=None,
+            )
+            if won_bets
+            else None
+        )
+
         lost_bets = [b for b in settled_bets if b.get("status") == "lost"]
-        worst_bet = max(
-            lost_bets,
-            key=lambda b: float(b.get("bet_amount", 0)),
-            default=None,
-        ) if lost_bets else None
+        worst_bet = (
+            max(
+                lost_bets,
+                key=lambda b: float(b.get("bet_amount", 0)),
+                default=None,
+            )
+            if lost_bets
+            else None
+        )
 
         # AI adjustment impact
         ai_adjusted_bets = [
@@ -1970,7 +2482,7 @@ IMPORTANT:
 
         # Bankroll history (get all bankroll updates)
         bankroll_response = table.query(
-            KeyConditionExpression=Key("pk").eq("BENNY")
+            KeyConditionExpression=Key("pk").eq(self.pk)
             & Key("sk").begins_with("BANKROLL#"),
             ScanIndexForward=True,
             Limit=50,
@@ -1982,41 +2494,52 @@ IMPORTANT:
             }
             for item in bankroll_response.get("Items", [])
         ]
-        
+
         # Ensure current bankroll is the last point
         if bankroll_history:
             last_amount = bankroll_history[-1]["amount"]
             if abs(last_amount - current_bankroll) > 0.01:
                 # Add current bankroll as final point if different
-                bankroll_history.append({
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "amount": current_bankroll
-                })
+                bankroll_history.append(
+                    {
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "amount": current_bankroll,
+                    }
+                )
         else:
             # No history, add current as only point
-            bankroll_history.append({
-                "timestamp": datetime.utcnow().isoformat(),
-                "amount": current_bankroll
-            })
+            bankroll_history.append(
+                {"timestamp": datetime.utcnow().isoformat(), "amount": current_bankroll}
+            )
 
         # Get cash-out data
         cashout_response = table.query(
             KeyConditionExpression=Key("pk").eq("BENNY#CASHOUT"),
             ScanIndexForward=False,
-            Limit=100
+            Limit=100,
         )
         cashouts = cashout_response.get("Items", [])
-        
+
         # Calculate cash-out metrics
         evaluated_cashouts = [c for c in cashouts if c.get("actual_outcome")]
         correct_cashouts = [c for c in evaluated_cashouts if c.get("was_correct")]
-        
-        total_saved = sum(float(c.get("money_saved", 0)) for c in evaluated_cashouts if c.get("money_saved", 0) > 0)
-        total_left_on_table = sum(abs(float(c.get("money_saved", 0))) for c in evaluated_cashouts if c.get("money_saved", 0) < 0)
-        
+
+        total_saved = sum(
+            float(c.get("money_saved", 0))
+            for c in evaluated_cashouts
+            if c.get("money_saved", 0) > 0
+        )
+        total_left_on_table = sum(
+            abs(float(c.get("money_saved", 0)))
+            for c in evaluated_cashouts
+            if c.get("money_saved", 0) < 0
+        )
+
         cashout_stats = {
             "total_cashouts": len(cashouts),
-            "accuracy_rate": round(len(correct_cashouts) / len(evaluated_cashouts), 3) if evaluated_cashouts else None,
+            "accuracy_rate": round(len(correct_cashouts) / len(evaluated_cashouts), 3)
+            if evaluated_cashouts
+            else None,
             "money_saved": round(total_saved, 2),
             "money_left_on_table": round(total_left_on_table, 2),
             "net_impact": round(total_saved - total_left_on_table, 2),
@@ -2030,10 +2553,12 @@ IMPORTANT:
                     "cashed_out_at": c.get("cashed_out_at"),
                     "was_correct": c.get("was_correct"),
                     "actual_outcome": c.get("actual_outcome"),
-                    "money_saved": float(c.get("money_saved", 0)) if c.get("money_saved") else None,
+                    "money_saved": float(c.get("money_saved", 0))
+                    if c.get("money_saved")
+                    else None,
                 }
                 for c in cashouts[:20]
-            ]
+            ],
         }
 
         return {
@@ -2043,6 +2568,7 @@ IMPORTANT:
             "pending_bets": len(pending_bets),
             "win_rate": round(win_rate, 3),
             "roi": round(roi, 3),
+            "bankroll_growth": round((current_bankroll - bankroll_history[0]["amount"]) / bankroll_history[0]["amount"], 3) if bankroll_history and bankroll_history[0]["amount"] > 0 else 0,
             "cashout_stats": cashout_stats,
             "sports_performance": {
                 sport: {
@@ -2102,9 +2628,15 @@ IMPORTANT:
                     "payout": float(b.get("payout", 0)),
                     "placed_at": b.get("placed_at"),
                     "expected_roi": round(
-                        (float(b.get("expected_payout", 0)) - float(b.get("bet_amount", 0))) / float(b.get("bet_amount", 1)),
-                        3
-                    ) if b.get("expected_payout") and float(b.get("bet_amount", 0)) > 0 else None,
+                        (
+                            float(b.get("expected_payout", 0))
+                            - float(b.get("bet_amount", 0))
+                        )
+                        / float(b.get("bet_amount", 1)),
+                        3,
+                    )
+                    if b.get("expected_payout") and float(b.get("bet_amount", 0)) > 0
+                    else None,
                 }
                 # Return all pending bets + 20 most recent completed bets
                 for b in (pending_bets + [b for b in settled_bets[:20]])
@@ -2119,7 +2651,7 @@ def lambda_handler(event, context):
         if "source" in event and event["source"] == "aws.events":
             # Scheduled daily run
             trader = BennyTrader()
-            
+
             # Try to acquire lock
             if not trader._acquire_lock():
                 print("Another Benny execution is already running. Exiting.")
@@ -2127,7 +2659,7 @@ def lambda_handler(event, context):
                     "statusCode": 200,
                     "body": json.dumps({"message": "Execution already in progress"}),
                 }
-            
+
             try:
                 result = trader.run_daily_analysis()
                 return {
@@ -2148,44 +2680,52 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f"Error: {str(e)}")
         import traceback
+
         traceback.print_exc()
-        
+
         # Emit CloudWatch metric
         try:
             import boto3
-            cloudwatch = boto3.client('cloudwatch')
+
+            cloudwatch = boto3.client("cloudwatch")
             cloudwatch.put_metric_data(
-                Namespace='SportsAnalytics/BennyTrader',
-                MetricData=[{
-                    'MetricName': 'TradingError',
-                    'Value': 1,
-                    'Unit': 'Count'
-                }]
+                Namespace="SportsAnalytics/BennyTrader",
+                MetricData=[
+                    {"MetricName": "TradingError", "Value": 1, "Unit": "Count"}
+                ],
             )
         except:
             pass
-        
+
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
 
 
 if __name__ == "__main__":
     import sys
-    trader = BennyTrader()
-    
-    if not trader._acquire_lock():
+
+    trader_v1 = BennyTrader(version="v1")
+
+    if not trader_v1._acquire_lock():
         print("Another Benny execution is already running. Exiting.")
         sys.exit(0)
-    
+
     exit_code = 0
     try:
-        result = trader.run_daily_analysis()
-        print(f"Benny trader complete: {result}")
+        print("Running Benny v1...")
+        result_v1 = trader_v1.run_daily_analysis()
+        print(f"Benny v1 complete: {result_v1}")
+
+        print("\nRunning Benny v2...")
+        trader_v2 = BennyTrader(version="v2")
+        result_v2 = trader_v2.run_daily_analysis()
+        print(f"Benny v2 complete: {result_v2}")
     except Exception as e:
         print(f"Error: {e}")
         import traceback
+
         traceback.print_exc()
         exit_code = 1
     finally:
-        trader._release_lock()
-    
+        trader_v1._release_lock()
+
     sys.exit(exit_code)
