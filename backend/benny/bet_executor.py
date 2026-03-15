@@ -151,6 +151,9 @@ class BetExecutor:
 
         self.table.put_item(Item=bet)
 
+        # Send notification
+        self._send_parlay_notification(parlay, bet_size, bankroll)
+
         return {
             "success": True,
             "bet_id": bet_id,
@@ -197,3 +200,40 @@ class BetExecutor:
             )
         except Exception as e:
             print(f"Failed to send notification: {e}")
+
+    def _send_parlay_notification(self, parlay: Dict, bet_size: Decimal, bankroll: Decimal):
+        """Send parlay placement notification to SQS"""
+        environment = os.environ.get("ENVIRONMENT", "dev")
+        if environment != "dev" or not self.notification_queue_url:
+            return
+
+        legs_desc = []
+        for leg in parlay["legs"]:
+            player = leg.get("player", "")
+            market = leg.get("market", "")
+            pred = leg.get("prediction", "")
+            legs_desc.append(f"{player} {market} {pred}".strip())
+
+        message = {
+            "type": "bet_placed",
+            "data": {
+                "version": self.version,
+                "sport": parlay["legs"][0].get("sport", "Unknown"),
+                "game": f"🎲 {parlay['num_legs']}-Leg Parlay",
+                "market_key": "parlay",
+                "pick": " + ".join(legs_desc),
+                "odds": parlay.get("combined_american_odds", 0),
+                "confidence": parlay.get("combined_confidence", 0),
+                "stake": float(bet_size),
+                "bankroll_percentage": float(bet_size / bankroll) if bankroll else 0,
+                "expected_roi": 0,
+                "reasoning": f"{parlay['num_legs']}-leg parlay at {parlay.get('combined_american_odds', '')} odds",
+            },
+        }
+
+        try:
+            self.sqs.send_message(
+                QueueUrl=self.notification_queue_url, MessageBody=json.dumps(message)
+            )
+        except Exception as e:
+            print(f"Failed to send parlay notification: {e}")

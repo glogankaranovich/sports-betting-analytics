@@ -1,6 +1,21 @@
 """Dynamic threshold optimizer - finds optimal betting thresholds"""
+import json
+from decimal import Decimal
 from typing import Dict, Any, List, Tuple
 from boto3.dynamodb.conditions import Key
+
+
+def _to_decimal(obj):
+    """Recursively convert floats/ints to Decimal for DynamoDB."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, int) and not isinstance(obj, bool):
+        return Decimal(str(obj))
+    if isinstance(obj, dict):
+        return {k: _to_decimal(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_to_decimal(i) for i in obj]
+    return obj
 
 
 class ThresholdOptimizer:
@@ -105,6 +120,6 @@ class ThresholdOptimizer:
         self.table.put_item(Item={
             "pk": f"{self.pk}#LEARNING",
             "sk": "THRESHOLDS",
-            "thresholds": thresholds,
+            "thresholds": _to_decimal(thresholds),
             "updated_at": thresholds.get("timestamp", "")
         })

@@ -2,6 +2,7 @@
 from typing import Dict, Any, List
 from collections import defaultdict
 from boto3.dynamodb.conditions import Key
+from benny.threshold_optimizer import _to_decimal
 
 
 class OutcomeAnalyzer:
@@ -201,7 +202,7 @@ class OutcomeAnalyzer:
         self.table.put_item(Item={
             "pk": f"{self.pk}#LEARNING",
             "sk": "FEATURES",
-            "insights": insights,
+            "insights": _to_decimal(insights),
             "updated_at": insights.get("timestamp", "")
         })
     
@@ -210,6 +211,6 @@ class OutcomeAnalyzer:
         self.table.put_item(Item={
             "pk": f"{self.pk}#LEARNING",
             "sk": "CALIBRATION",
-            "calibration": calibration,
+            "calibration": _to_decimal(calibration),
             "updated_at": calibration.get("timestamp", "")
         })

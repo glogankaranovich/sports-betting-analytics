@@ -18,6 +18,15 @@ interface Bet {
   payout: number;
   placed_at: string;
   expected_roi?: number;
+  bet_type?: string;
+  combined_odds?: string;
+  legs?: Array<{
+    player: string;
+    market: string;
+    prediction: string;
+    odds: number;
+    status: string;
+  }>;
 }
 
 interface DashboardData {
@@ -511,7 +520,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
                 onClick={() => setExpandedBet(expandedBet === bet.bet_id ? null : bet.bet_id)}
               >
                 <div className="bet-game">{bet.game}</div>
-                <div className="bet-prediction">{bet.prediction}</div>
+                <div className="bet-prediction">{bet.bet_type === 'parlay' ? (bet.combined_odds || 'Parlay') : bet.prediction}</div>
                 <div className="bet-confidence">
                   {bet.ensemble_confidence !== bet.final_confidence ? (
                     <>
@@ -534,7 +543,23 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
                 <div className="expand-icon">{expandedBet === bet.bet_id ? '▼' : '▶'}</div>
               </div>
               
-              {expandedBet === bet.bet_id && bet.ai_reasoning && (
+              {expandedBet === bet.bet_id && bet.bet_type === 'parlay' && bet.legs && (
+                <div className="bet-reasoning">
+                  <div className="reasoning-header">🎲 Parlay Legs</div>
+                  <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                    {bet.legs.map((leg, idx) => (
+                      <li key={idx} style={{ marginBottom: '4px' }}>
+                        <span>{leg.player} {leg.market}</span>
+                        <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>{leg.prediction}</span>
+                        <span style={{ marginLeft: '8px', color: leg.status === 'won' ? '#4ade80' : leg.status === 'lost' ? '#f87171' : '#94a3b8' }}>
+                          ({leg.status})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {expandedBet === bet.bet_id && bet.bet_type !== 'parlay' && bet.ai_reasoning && (
                 <div className="bet-reasoning">
                   <div className="reasoning-header">🤖 Benny's Analysis</div>
                   <p className="reasoning-text">{bet.ai_reasoning}</p>
@@ -570,7 +595,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
                 onClick={() => setExpandedBet(expandedBet === bet.bet_id ? null : bet.bet_id)}
               >
                 <div className="bet-game">{bet.game}</div>
-                <div className="bet-prediction">{bet.prediction}</div>
+                <div className="bet-prediction">{bet.bet_type === 'parlay' ? (bet.combined_odds || 'Parlay') : bet.prediction}</div>
                 <div className="bet-confidence">
                   {bet.ensemble_confidence !== bet.final_confidence ? (
                     <>
@@ -590,7 +615,23 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
                 <div className="expand-icon">{expandedBet === bet.bet_id ? '▼' : '▶'}</div>
               </div>
               
-              {expandedBet === bet.bet_id && bet.ai_reasoning && (
+              {expandedBet === bet.bet_id && bet.bet_type === 'parlay' && bet.legs && (
+                <div className="bet-reasoning">
+                  <div className="reasoning-header">🎲 Parlay Legs</div>
+                  <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                    {bet.legs.map((leg, idx) => (
+                      <li key={idx} style={{ marginBottom: '4px' }}>
+                        <span>{leg.player} {leg.market}</span>
+                        <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>{leg.prediction}</span>
+                        <span style={{ marginLeft: '8px', color: leg.status === 'won' ? '#4ade80' : leg.status === 'lost' ? '#f87171' : '#94a3b8' }}>
+                          ({leg.status})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {expandedBet === bet.bet_id && bet.bet_type !== 'parlay' && bet.ai_reasoning && (
                 <div className="bet-reasoning">
                   <div className="reasoning-header">🤖 Benny's Analysis</div>
                   <p className="reasoning-text">{bet.ai_reasoning}</p>

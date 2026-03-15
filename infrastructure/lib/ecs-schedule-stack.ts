@@ -124,6 +124,8 @@ export class EcsScheduleStack extends cdk.Stack {
     // 8 AM, 12 PM, 4 PM, 8 PM ET (13:00, 17:00, 21:00, 01:00 UTC)
     const bennySchedules = [
       { hour: '13', name: 'Morning' },   // 8 AM ET
+      { hour: '17', name: 'Midday' },    // 12 PM ET
+      { hour: '21', name: 'Afternoon' }, // 4 PM ET
       { hour: '1', name: 'Evening' },    // 8 PM ET
     ];
 

@@ -1045,6 +1045,10 @@ class BennyTrader:
                 )
 
                 if analysis:
+                    prediction = analysis.get("prediction", "")
+                    if not prediction or "skip" in prediction.lower():
+                        print(f"    AI recommended skip")
+                        continue
                     print(f"    Confidence: {analysis['confidence']:.2f}")
                     # Find odds for predicted side
                     predicted_side = (
@@ -2063,13 +2067,13 @@ IMPORTANT:
                     perf_by_sport[sport]["wins"] += 1
 
                 if market_key not in perf_by_market:
-                    perf_by_market[market_key] = {"wins": 0, "total": 0, "wagered": 0, "returned": 0}
+                    perf_by_market[market_key] = {"wins": 0, "total": 0, "wagered": Decimal("0"), "returned": Decimal("0")}
                 perf_by_market[market_key]["total"] += 1
-                bet_amt = float(bet.get("bet_amount", 0))
+                bet_amt = Decimal(str(bet.get("bet_amount", 0)))
                 perf_by_market[market_key]["wagered"] += bet_amt
                 if won:
                     perf_by_market[market_key]["wins"] += 1
-                    perf_by_market[market_key]["returned"] += float(bet.get("payout", 0))
+                    perf_by_market[market_key]["returned"] += Decimal(str(bet.get("payout", 0)))
 
                 # Track prop market performance (player_points, player_rebounds, etc.)
                 if market_key.startswith("player_"):
@@ -2361,6 +2365,66 @@ IMPORTANT:
             "details": {"cash_outs": cash_outs, "double_downs": double_downs},
         }
 
+    def _format_bet_for_dashboard(self, b: Dict) -> Dict:
+        """Format a bet record for the dashboard API response."""
+        is_parlay = b.get("bet_type") == "parlay"
+
+        if is_parlay:
+            legs = b.get("legs", [])
+            leg_summaries = [
+                f"{l.get('player', '')} {l.get('market', '')} {l.get('prediction', '')}".strip()
+                for l in legs
+            ]
+            game = f"🎲 {len(legs)}-Leg Parlay"
+            prediction = " + ".join(leg_summaries)
+            confidence = float(b.get("combined_confidence", 0))
+        else:
+            game = (
+                f"{b.get('player_name')} {b.get('market_key')}"
+                if b.get("player_name")
+                else f"{b.get('away_team')} @ {b.get('home_team')}"
+            )
+            prediction = b.get("prediction")
+            confidence = float(b.get("final_confidence", b.get("confidence", 0)))
+
+        result = {
+            "bet_id": b.get("bet_id"),
+            "game": game,
+            "prediction": prediction,
+            "market": b.get("market_key", "h2h"),
+            "bet_type": "parlay" if is_parlay else "single",
+            "ensemble_confidence": float(b.get("ensemble_confidence", b.get("confidence", confidence))),
+            "final_confidence": confidence,
+            "ai_reasoning": b.get("ai_reasoning", ""),
+            "ai_key_factors": b.get("ai_key_factors", []),
+            "bet_amount": float(b.get("bet_amount", 0)),
+            "status": b.get("status"),
+            "payout": float(b.get("payout", 0)),
+            "placed_at": b.get("placed_at"),
+            "expected_roi": None,
+        }
+
+        if is_parlay:
+            result["legs"] = [
+                {
+                    "player": l.get("player"),
+                    "market": l.get("market"),
+                    "prediction": l.get("prediction"),
+                    "odds": float(l.get("odds", 0)),
+                    "status": l.get("status", "pending"),
+                }
+                for l in b.get("legs", [])
+            ]
+            result["combined_odds"] = b.get("combined_american_odds")
+        elif b.get("expected_payout") and float(b.get("bet_amount", 0)) > 0:
+            result["expected_roi"] = round(
+                (float(b["expected_payout"]) - float(b["bet_amount"]))
+                / float(b["bet_amount"]),
+                3,
+            )
+
+        return result
+
     def get_dashboard_data(self) -> Dict[str, Any]:
         """Get dashboard data for Benny"""
         # Get current bankroll from main record
@@ -2606,38 +2670,7 @@ IMPORTANT:
             },
             "bankroll_history": bankroll_history,
             "recent_bets": [
-                {
-                    "bet_id": b.get("bet_id"),
-                    "game": (
-                        f"{b.get('player_name')} {b.get('market_key')}"
-                        if b.get("player_name")
-                        else f"{b.get('away_team')} @ {b.get('home_team')}"
-                    ),
-                    "prediction": b.get("prediction"),
-                    "market": b.get("market_key", "h2h"),
-                    "ensemble_confidence": float(
-                        b.get("ensemble_confidence", b.get("confidence", 0))
-                    ),
-                    "final_confidence": float(
-                        b.get("final_confidence", b.get("confidence", 0))
-                    ),
-                    "ai_reasoning": b.get("ai_reasoning", ""),
-                    "ai_key_factors": b.get("ai_key_factors", []),
-                    "bet_amount": float(b.get("bet_amount", 0)),
-                    "status": b.get("status"),
-                    "payout": float(b.get("payout", 0)),
-                    "placed_at": b.get("placed_at"),
-                    "expected_roi": round(
-                        (
-                            float(b.get("expected_payout", 0))
-                            - float(b.get("bet_amount", 0))
-                        )
-                        / float(b.get("bet_amount", 1)),
-                        3,
-                    )
-                    if b.get("expected_payout") and float(b.get("bet_amount", 0)) > 0
-                    else None,
-                }
+                self._format_bet_for_dashboard(b)
                 # Return all pending bets + 20 most recent completed bets
                 for b in (pending_bets + [b for b in settled_bets[:20]])
             ],
