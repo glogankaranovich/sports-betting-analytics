@@ -300,8 +300,10 @@ export class EcsTaskStack extends cdk.Stack {
 
     // Benny Trader - multiple times daily
     const bennySchedules = [
-      { hour: '13', name: 'Morning' },
-      { hour: '1', name: 'Evening' },
+      { hour: '13', name: 'Morning' },   // 8 AM ET
+      { hour: '17', name: 'Midday' },    // 12 PM ET
+      { hour: '21', name: 'Afternoon' }, // 4 PM ET
+      { hour: '1', name: 'Evening' },    // 8 PM ET
     ];
 
     bennySchedules.forEach((schedule) => {
