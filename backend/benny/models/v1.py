@@ -440,7 +440,47 @@ IMPORTANT:
         return "No learned insights available (v1)"
 
     def calculate_bet_size(self, confidence: float, odds: float, bankroll: Decimal) -> Decimal:
-        return self.bankroll_manager.calculate_bet_size(confidence, odds)
+        calibrated = self._calibrate_confidence(confidence)
+        return self.bankroll_manager.calculate_bet_size(calibrated, odds)
+
+    def _calibrate_confidence(self, raw_confidence: float) -> float:
+        """Map raw AI confidence to historical win rate at that level."""
+        if not hasattr(self, "_calibration_cache"):
+            self._calibration_cache = self._build_calibration_table()
+        bucket = round(raw_confidence, 1)
+        # If no calibration data, use raw confidence (don't penalize)
+        return self._calibration_cache.get(bucket, raw_confidence)
+
+    def _build_calibration_table(self) -> dict:
+        """Build confidence → actual win rate mapping from settled bets."""
+        try:
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                FilterExpression="#s IN (:w, :l)",
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={":w": "won", ":l": "lost"},
+                ProjectionExpression="confidence, #s",
+            )
+            buckets = {}
+            for b in response.get("Items", []):
+                conf = round(float(b.get("confidence", 0)), 1)
+                won = b.get("status") == "won"
+                if conf not in buckets:
+                    buckets[conf] = {"wins": 0, "total": 0}
+                buckets[conf]["total"] += 1
+                if won:
+                    buckets[conf]["wins"] += 1
+
+            table = {}
+            for conf, data in buckets.items():
+                if data["total"] >= 10:  # need enough data
+                    table[conf] = data["wins"] / data["total"]
+            if table:
+                print(f"Calibration table: {table}")
+            return table
+        except Exception as e:
+            print(f"Failed to build calibration table: {e}")
+            return {}
 
     def get_threshold(self, sport: str, market: str) -> float:
         return self.learning_engine.get_adaptive_threshold(sport, market)
