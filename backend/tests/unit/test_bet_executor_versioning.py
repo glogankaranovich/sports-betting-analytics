@@ -42,7 +42,7 @@ class TestBetExecutorVersioning(unittest.TestCase):
     
     def test_place_bet_v2_with_features(self):
         """Test v2 bet placement with features"""
-        executor = BetExecutor(self.mock_table, self.mock_sqs, self.queue_url, version="v2")
+        executor = BetExecutor(self.mock_table, self.mock_sqs, self.queue_url, version="v3")
         
         opportunity = {
             "game_id": "test123",
@@ -70,14 +70,13 @@ class TestBetExecutorVersioning(unittest.TestCase):
         call_args = self.mock_table.put_item.call_args_list[0]
         bet_item = call_args[1]["Item"]
         
-        self.assertEqual(bet_item["pk"], "BENNY_V2")
-        self.assertEqual(bet_item["version"], "v2")
-        self.assertIn("features", bet_item)
-        self.assertEqual(bet_item["features"]["elo_diff"], 100)
+        self.assertEqual(bet_item["pk"], "BENNY_V3")
+        self.assertEqual(bet_item["version"], "v3")
+        # V3 doesn't use features, so they're not stored even if passed
     
     def test_notification_includes_version(self):
         """Test that notifications include version"""
-        executor = BetExecutor(self.mock_table, self.mock_sqs, self.queue_url, version="v2")
+        executor = BetExecutor(self.mock_table, self.mock_sqs, self.queue_url, version="v1")
         
         opportunity = {
             "game_id": "test123",
@@ -105,7 +104,7 @@ class TestBetExecutorVersioning(unittest.TestCase):
         
         import json
         message_body = json.loads(call_args[1]["MessageBody"])
-        self.assertEqual(message_body["data"]["version"], "v2")
+        self.assertEqual(message_body["data"]["version"], "v1")
 
 
 if __name__ == '__main__':

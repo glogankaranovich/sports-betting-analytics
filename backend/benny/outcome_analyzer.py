@@ -8,10 +8,10 @@ from benny.threshold_optimizer import _to_decimal
 class OutcomeAnalyzer:
     """Analyzes settled bets to find which features predict wins"""
     
-    def __init__(self, table, pk="BENNY_V2"):
+    def __init__(self, table, pk="BENNY"):
         self.table = table
         self.pk = pk
-    
+
     def analyze_features(self) -> Dict[str, Any]:
         """Analyze feature correlations with wins"""
         # Get all settled bets with features

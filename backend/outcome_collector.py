@@ -738,8 +738,8 @@ class OutcomeCollector:
         try:
             game_id = game["id"]
 
-            # Settle bets for both v1 and v2
-            for version_pk in ["BENNY", "BENNY_V2"]:
+            # Settle bets for both v1 and v3
+            for version_pk in ["BENNY", "BENNY_V3"]:
                 # Query for Benny bets on this game
                 response = self.table.query(
                     KeyConditionExpression="pk = :pk",
@@ -822,7 +822,7 @@ class OutcomeCollector:
                     # Update bankroll
                     current_bankroll += payout
 
-                    version_label = "v1" if version_pk == "BENNY" else "v2"
+                    version_label = "v1" if version_pk == "BENNY" else "v3"
                     print(
                         f"Settled Benny {version_label} bet: {prediction} = {new_status} (${profit}, odds: {odds})"
                     )
@@ -865,7 +865,7 @@ class OutcomeCollector:
         try:
             game_id = game["id"]
 
-            for version_pk in ["BENNY", "BENNY_V2"]:
+            for version_pk in ["BENNY", "BENNY_V3"]:
                 response = self.table.query(
                     KeyConditionExpression="pk = :pk",
                     FilterExpression="#status = :pending AND bet_type = :parlay",
@@ -951,7 +951,7 @@ class OutcomeCollector:
 
                     current_bankroll += payout
                     bankroll_changed = True
-                    version_label = "v1" if version_pk == "BENNY" else "v2"
+                    version_label = "v1" if version_pk == "BENNY" else "v3"
                     won_count = sum(1 for s in statuses if s == "won")
                     print(
                         f"Settled Benny {version_label} parlay: {won_count}/{len(legs)} legs won = {new_status} (${profit})"
@@ -977,7 +977,7 @@ class OutcomeCollector:
                             "updated_at": timestamp,
                         }
                     )
-                    version_label = "v1" if version_pk == "BENNY" else "v2"
+                    version_label = "v1" if version_pk == "BENNY" else "v3"
                     print(f"Updated Benny {version_label} bankroll (parlays): ${current_bankroll}")
 
         except Exception as e:

@@ -8,7 +8,7 @@ class TestOutcomeAnalyzer(unittest.TestCase):
     
     def setUp(self):
         self.mock_table = Mock()
-        self.analyzer = OutcomeAnalyzer(self.mock_table, "BENNY_V2")
+        self.analyzer = OutcomeAnalyzer(self.mock_table, "BENNY")
     
     def test_analyze_numeric_feature(self):
         """Test numeric feature analysis"""

@@ -21,7 +21,7 @@ def _to_decimal(obj):
 class ThresholdOptimizer:
     """Optimizes min_confidence and min_ev thresholds to maximize ROI"""
     
-    def __init__(self, table, pk="BENNY_V2"):
+    def __init__(self, table, pk="BENNY"):
         self.table = table
         self.pk = pk
     

@@ -100,7 +100,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
   const [error, setError] = useState<string | null>(null);
   const [expandedBet, setExpandedBet] = useState<string | null>(null);
   const [chartView, setChartView] = useState<'bankroll' | 'profit' | 'winrate'>('bankroll');
-  const [activeTab, setActiveTab] = useState<'v1' | 'v2'>('v1');
+  const [activeTab, setActiveTab] = useState<'v1' | 'v3'>('v1');
 
   useEffect(() => {
     if (hasAccess) {
@@ -112,7 +112,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
     try {
       setLoading(true);
       // Fetch data for the active version
-      const endpoint = activeTab === 'v1' ? '/benny/dashboard' : '/benny/dashboard?version=v2';
+      const endpoint = activeTab === 'v1' ? '/benny/dashboard' : '/benny/dashboard?version=v3';
       const response = await axios.get(`${API_URL}${endpoint}`);
       setData(response.data);
       setError(null);
@@ -203,19 +203,19 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
             v1 (Control)
           </button>
           <button
-            onClick={() => setActiveTab('v2')}
+            onClick={() => setActiveTab('v3')}
             style={{
               padding: '8px 16px',
-              background: activeTab === 'v2' ? '#2196F3' : 'transparent',
+              background: activeTab === 'v3' ? '#2196F3' : 'transparent',
               border: 'none',
-              borderBottom: activeTab === 'v2' ? '2px solid #2196F3' : '2px solid transparent',
-              color: activeTab === 'v2' ? '#fff' : '#888',
+              borderBottom: activeTab === 'v3' ? '2px solid #2196F3' : '2px solid transparent',
+              color: activeTab === 'v3' ? '#fff' : '#888',
               cursor: 'pointer',
               fontSize: '14px',
-              fontWeight: activeTab === 'v2' ? 'bold' : 'normal'
+              fontWeight: activeTab === 'v3' ? 'bold' : 'normal'
             }}
           >
-            v2 (Learning)
+            v3 (Lean)
           </button>
         </div>
       </div>

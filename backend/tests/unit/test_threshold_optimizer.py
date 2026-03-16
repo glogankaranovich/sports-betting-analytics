@@ -9,7 +9,7 @@ class TestThresholdOptimizer(unittest.TestCase):
     
     def setUp(self):
         self.mock_table = Mock()
-        self.optimizer = ThresholdOptimizer(self.mock_table, "BENNY_V2")
+        self.optimizer = ThresholdOptimizer(self.mock_table, "BENNY")
     
     def test_find_optimal_thresholds(self):
         """Test finding optimal thresholds for a set of bets"""
@@ -96,7 +96,7 @@ class TestThresholdOptimizer(unittest.TestCase):
         
         self.mock_table.put_item.assert_called_once()
         call_args = self.mock_table.put_item.call_args[1]["Item"]
-        self.assertEqual(call_args["pk"], "BENNY_V2#LEARNING")
+        self.assertEqual(call_args["pk"], "BENNY#LEARNING")
         self.assertEqual(call_args["sk"], "THRESHOLDS")
 
 

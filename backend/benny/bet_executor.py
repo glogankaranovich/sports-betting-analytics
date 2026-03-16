@@ -26,7 +26,7 @@ class BetExecutor:
         bet_id = f"{datetime.utcnow().isoformat()}#{opportunity['game_id']}"
 
         is_prop = "player" in opportunity
-        pk = "BENNY" if self.version == "v1" else "BENNY_V2"
+        pk = {"v1": "BENNY", "v3": "BENNY_V3"}.get(self.version, "BENNY")
 
         bet = {
             "pk": pk,
@@ -102,7 +102,7 @@ class BetExecutor:
     ) -> Dict[str, Any]:
         """Place a parlay bet and store in DynamoDB."""
         bet_id = f"{datetime.utcnow().isoformat()}#PARLAY"
-        pk = "BENNY" if self.version == "v1" else "BENNY_V2"
+        pk = {"v1": "BENNY", "v3": "BENNY_V3"}.get(self.version, "BENNY")
 
         # Use earliest leg commence_time for GSI sorting
         commence_times = [

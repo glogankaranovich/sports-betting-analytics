@@ -80,42 +80,13 @@ class MiscHandler(BaseAPIHandler):
             return self.error_response(f"Error fetching Benny dashboard: {str(e)}", 500)
     
     def get_benny_learning(self) -> Dict[str, Any]:
-        """Get Benny v2 learning metrics"""
-        try:
-            import boto3
-            from boto3.dynamodb.conditions import Key
-            
-            dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-            table = dynamodb.Table(table_name)
-            
-            pk = "BENNY_V2#LEARNING"
-            
-            # Get all learning data
-            response = table.query(
-                KeyConditionExpression=Key("pk").eq(pk)
-            )
-            
-            items = response.get("Items", [])
-            
-            # Organize by type
-            data = {
-                "features": None,
-                "calibration": None,
-                "thresholds": None
-            }
-            
-            for item in items:
-                sk = item.get("sk")
-                if sk == "FEATURES":
-                    data["features"] = item.get("insights", {})
-                elif sk == "CALIBRATION":
-                    data["calibration"] = item.get("calibration", {})
-                elif sk == "THRESHOLDS":
-                    data["thresholds"] = item.get("thresholds", {})
-            
-            return self.success_response(data)
-        except Exception as e:
-            return self.error_response(f"Error fetching learning data: {str(e)}", 500)
+        """Get Benny learning metrics (V2 retired — returns historical data only)"""
+        return self.success_response({
+            "features": None,
+            "calibration": None,
+            "thresholds": None,
+            "note": "V2 learning retired. V1 uses adaptive thresholds, V3 uses flat sizing."
+        })
 
 
 # Lambda handler entry point

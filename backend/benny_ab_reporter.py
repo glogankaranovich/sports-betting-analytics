@@ -1,4 +1,4 @@
-"""Daily A/B comparison report for Benny v1 vs v2"""
+"""Daily A/B comparison report for Benny v1 vs v3"""
 import os
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -79,8 +79,8 @@ def get_bets(table, pk: str, days: int) -> List[Dict]:
     return response.get("Items", [])
 
 
-def format_email(v1_metrics: Dict, v2_metrics: Dict, days: int) -> str:
-    """Format HTML email comparing v1 and v2"""
+def format_email(v1_metrics: Dict, v3_metrics: Dict, days: int) -> str:
+    """Format HTML email comparing v1 and v3"""
     
     def format_sport_table(metrics: Dict) -> str:
         if not metrics["by_sport"]:
@@ -110,8 +110,8 @@ def format_email(v1_metrics: Dict, v2_metrics: Dict, days: int) -> str:
             </tr>"""
         return f"<table border='1' cellpadding='5'><tr><th>Market</th><th>Bets</th><th>Win Rate</th><th>Profit</th></tr>{rows}</table>"
     
-    winner = "v2" if v2_metrics["roi"] > v1_metrics["roi"] else "v1"
-    roi_diff = abs(v2_metrics["roi"] - v1_metrics["roi"])
+    winner = "v3" if v3_metrics["roi"] > v1_metrics["roi"] else "v1"
+    roi_diff = abs(v3_metrics["roi"] - v1_metrics["roi"])
     
     return f"""
     <html>
@@ -123,57 +123,57 @@ def format_email(v1_metrics: Dict, v2_metrics: Dict, days: int) -> str:
         <table border="1" cellpadding="10">
             <tr>
                 <th>Metric</th>
-                <th>v1 (Control)</th>
-                <th>v2 (Learning)</th>
+                <th>v1 (Kelly + Full Prompts)</th>
+                <th>v3 (Flat 2% + Lean Prompts)</th>
             </tr>
             <tr>
                 <td>Total Bets</td>
                 <td>{v1_metrics['total_bets']}</td>
-                <td>{v2_metrics['total_bets']}</td>
+                <td>{v3_metrics['total_bets']}</td>
             </tr>
             <tr>
                 <td>Settled Bets</td>
                 <td>{v1_metrics['settled_bets']}</td>
-                <td>{v2_metrics['settled_bets']}</td>
+                <td>{v3_metrics['settled_bets']}</td>
             </tr>
             <tr>
                 <td>Win Rate</td>
                 <td>{v1_metrics['win_rate']:.1f}%</td>
-                <td>{v2_metrics['win_rate']:.1f}%</td>
+                <td>{v3_metrics['win_rate']:.1f}%</td>
             </tr>
             <tr>
                 <td>ROI</td>
                 <td>{v1_metrics['roi']:.2f}%</td>
-                <td>{v2_metrics['roi']:.2f}%</td>
+                <td>{v3_metrics['roi']:.2f}%</td>
             </tr>
             <tr>
                 <td>Total Wagered</td>
                 <td>${v1_metrics['total_wagered']:.2f}</td>
-                <td>${v2_metrics['total_wagered']:.2f}</td>
+                <td>${v3_metrics['total_wagered']:.2f}</td>
             </tr>
             <tr>
                 <td>Total Profit</td>
                 <td>${v1_metrics['total_profit']:.2f}</td>
-                <td>${v2_metrics['total_profit']:.2f}</td>
+                <td>${v3_metrics['total_profit']:.2f}</td>
             </tr>
             <tr>
                 <td>Avg Bet Size</td>
                 <td>${v1_metrics['avg_bet_size']:.2f}</td>
-                <td>${v2_metrics['avg_bet_size']:.2f}</td>
+                <td>${v3_metrics['avg_bet_size']:.2f}</td>
             </tr>
         </table>
         
         <h3>v1 Performance by Sport</h3>
         {format_sport_table(v1_metrics)}
         
-        <h3>v2 Performance by Sport</h3>
-        {format_sport_table(v2_metrics)}
+        <h3>v3 Performance by Sport</h3>
+        {format_sport_table(v3_metrics)}
         
         <h3>v1 Performance by Market</h3>
         {format_market_table(v1_metrics)}
         
-        <h3>v2 Performance by Market</h3>
-        {format_market_table(v2_metrics)}
+        <h3>v3 Performance by Market</h3>
+        {format_market_table(v3_metrics)}
         
         <p><em>Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</em></p>
     </body>
@@ -191,14 +191,14 @@ def handler(event, context):
     
     # Get bets for both versions (last 7 days)
     v1_bets = get_bets(table, "BENNY", 7)
-    v2_bets = get_bets(table, "BENNY_V2", 7)
+    v3_bets = get_bets(table, "BENNY_V3", 7)
     
     # Calculate metrics
     v1_metrics = calculate_metrics(v1_bets)
-    v2_metrics = calculate_metrics(v2_bets)
+    v3_metrics = calculate_metrics(v3_bets)
     
     # Format email
-    email_body = format_email(v1_metrics, v2_metrics, 7)
+    email_body = format_email(v1_metrics, v3_metrics, 7)
     
     # Send email
     try:
