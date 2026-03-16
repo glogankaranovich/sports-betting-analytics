@@ -29,13 +29,14 @@ class TestBennyLearning(unittest.TestCase):
             with patch("benny_trader.bedrock"):
                 self.benny = BennyTrader(version="v1")
                 self.benny.table = MagicMock()
+                self.benny.model.table = self.benny.table
 
     def test_calculate_bet_size_with_positive_odds(self):
         """Test Kelly Criterion with positive American odds"""
         confidence = 0.70
         odds = 150  # +150
 
-        bet_size = self.benny.calculate_bet_size(confidence, odds)
+        bet_size = self.benny.model.calculate_bet_size(confidence, odds, self.benny.bankroll)
 
         # Should return positive bet size
         assert bet_size > Decimal("0")
@@ -46,7 +47,7 @@ class TestBennyLearning(unittest.TestCase):
         confidence = 0.65
         odds = -110
 
-        bet_size = self.benny.calculate_bet_size(confidence, odds)
+        bet_size = self.benny.model.calculate_bet_size(confidence, odds, self.benny.bankroll)
 
         assert bet_size > Decimal("0.00")  # Positive bet
         assert bet_size <= self.benny.bankroll * Decimal("0.20")
@@ -56,7 +57,7 @@ class TestBennyLearning(unittest.TestCase):
         confidence = 0.51  # Very low confidence
         odds = -500  # Heavy favorite
 
-        bet_size = self.benny.calculate_bet_size(confidence, odds)
+        bet_size = self.benny.model.calculate_bet_size(confidence, odds, self.benny.bankroll)
 
         assert bet_size >= Decimal("0.00")  # Non-negative
 
@@ -65,7 +66,7 @@ class TestBennyLearning(unittest.TestCase):
 
     def test_get_what_works_analysis_with_winning_patterns(self):
         """Test identifying winning patterns by sport and market"""
-        self.benny.learning_params = {
+        self.benny.learning_params = self.benny.model.learning_engine.params = {
             "performance_by_sport": {
                 "basketball_nba": {"wins": 12, "total": 20},  # 60% win rate
                 "americanfootball_nfl": {"wins": 3, "total": 10},  # 30% win rate
@@ -76,7 +77,7 @@ class TestBennyLearning(unittest.TestCase):
             },
         }
 
-        result = self.benny._get_what_works_analysis()
+        result = self.benny.model._get_what_works_analysis()
 
         assert "basketball_nba" in result
         assert "60.0%" in result
@@ -87,20 +88,20 @@ class TestBennyLearning(unittest.TestCase):
 
     def test_get_what_works_analysis_insufficient_data(self):
         """Test what works analysis with insufficient data"""
-        self.benny.learning_params = {
+        self.benny.learning_params = self.benny.model.learning_engine.params = {
             "performance_by_sport": {
                 "basketball_nba": {"wins": 3, "total": 4},  # Only 4 bets
             },
             "performance_by_market": {},
         }
 
-        result = self.benny._get_what_works_analysis()
+        result = self.benny.model._get_what_works_analysis()
 
         assert "Not enough data yet" in result
 
     def test_get_what_fails_analysis_with_losing_patterns(self):
         """Test identifying losing patterns by sport and market"""
-        self.benny.learning_params = {
+        self.benny.learning_params = self.benny.model.learning_engine.params = {
             "performance_by_sport": {
                 "basketball_nba": {"wins": 12, "total": 20},  # 60% win rate
                 "soccer_epl": {"wins": 2, "total": 10},  # 20% win rate
@@ -111,7 +112,7 @@ class TestBennyLearning(unittest.TestCase):
             },
         }
 
-        result = self.benny._get_what_fails_analysis()
+        result = self.benny.model._get_what_fails_analysis()
 
         assert "soccer_epl" in result
         assert "20.0%" in result
@@ -123,14 +124,14 @@ class TestBennyLearning(unittest.TestCase):
 
     def test_get_what_fails_analysis_no_failures(self):
         """Test what fails analysis when no clear failures"""
-        self.benny.learning_params = {
+        self.benny.learning_params = self.benny.model.learning_engine.params = {
             "performance_by_sport": {
                 "basketball_nba": {"wins": 10, "total": 20},  # 50% win rate
             },
             "performance_by_bet_type": {},
         }
 
-        result = self.benny._get_what_fails_analysis()
+        result = self.benny.model._get_what_fails_analysis()
 
         assert "No clear failure patterns yet" in result
 
@@ -146,7 +147,7 @@ class TestBennyLearning(unittest.TestCase):
         
         self.benny.table.query.return_value = {"Items": losses}
         
-        result = self.benny._analyze_recent_mistakes()
+        result = self.benny.model._analyze_recent_mistakes()
         
         assert "6/10 losses were high confidence" in result
         assert "overconfident" in result
@@ -163,7 +164,7 @@ class TestBennyLearning(unittest.TestCase):
         
         self.benny.table.query.return_value = {"Items": losses}
         
-        result = self.benny._analyze_recent_mistakes()
+        result = self.benny.model._analyze_recent_mistakes()
         
         assert "7/10 losses were underdogs" in result
         assert "chasing value" in result
@@ -180,7 +181,7 @@ class TestBennyLearning(unittest.TestCase):
         
         self.benny.table.query.return_value = {"Items": losses}
         
-        result = self.benny._analyze_recent_mistakes()
+        result = self.benny.model._analyze_recent_mistakes()
         
         assert "5 recent losses in soccer_epl" in result
 
@@ -188,7 +189,7 @@ class TestBennyLearning(unittest.TestCase):
         """Test analyzing mistakes with no recent losses"""
         self.benny.table.query.return_value = {"Items": []}
         
-        result = self.benny._analyze_recent_mistakes()
+        result = self.benny.model._analyze_recent_mistakes()
         
         assert "No recent losses to analyze" in result
 
@@ -215,7 +216,7 @@ class TestBennyLearning(unittest.TestCase):
         
         self.benny.table.query.return_value = {"Items": wins}
         
-        result = self.benny._get_winning_examples("basketball_nba", limit=3)
+        result = self.benny.model._get_winning_examples("basketball_nba", limit=3)
         
         assert "Lakers (Moneyline)" in result
         assert "72%" in result
@@ -227,7 +228,7 @@ class TestBennyLearning(unittest.TestCase):
         """Test getting winning examples when no wins exist"""
         self.benny.table.query.return_value = {"Items": []}
         
-        result = self.benny._get_winning_examples("soccer_epl", limit=3)
+        result = self.benny.model._get_winning_examples("soccer_epl", limit=3)
         
         assert "No winning bets yet for soccer_epl" in result
 
@@ -245,7 +246,7 @@ class TestBennyLearning(unittest.TestCase):
         
         self.benny.table.query.return_value = {"Items": bets}
         
-        result = self.benny._extract_winning_factors()
+        result = self.benny.model._extract_winning_factors()
         
         assert "Elo advantage >50" in result
         assert "100%" in result  # 6/6 wins
@@ -258,7 +259,7 @@ class TestBennyLearning(unittest.TestCase):
         
         self.benny.table.query.return_value = {"Items": bets}
         
-        result = self.benny._extract_winning_factors()
+        result = self.benny.model._extract_winning_factors()
         
         assert "Not enough settled bets" in result
 
@@ -282,7 +283,7 @@ class TestBennyLearning(unittest.TestCase):
         
         self.benny.table.query = mock_query
         
-        result = self.benny._get_model_benchmarks("basketball_nba")
+        result = self.benny.model._get_model_benchmarks("basketball_nba")
         
         # Should have at least some models with data
         assert "60.0%" in result or "40.0%" in result or len(result) > 0
@@ -291,7 +292,7 @@ class TestBennyLearning(unittest.TestCase):
         """Test getting benchmarks with insufficient data"""
         self.benny.table.query.return_value = {"Items": []}
         
-        result = self.benny._get_model_benchmarks("soccer_epl")
+        result = self.benny.model._get_model_benchmarks("soccer_epl")
         
         assert "No benchmark data" in result
 

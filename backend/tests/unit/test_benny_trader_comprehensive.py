@@ -69,79 +69,13 @@ class TestBennyTraderComprehensive:
         trader = BennyTrader(version="v1")
         
         # High confidence should bet more (using American odds)
-        high_bet = trader.calculate_bet_size(0.85, -110)
-        low_bet = trader.calculate_bet_size(0.60, -110)
+        high_bet = trader.model.calculate_bet_size(0.85, -110, trader.bankroll)
+        low_bet = trader.model.calculate_bet_size(0.60, -110, trader.bankroll)
         
         assert high_bet >= low_bet
         assert high_bet <= trader.bankroll * Decimal("0.20")  # Max 20%
 
-    @patch("benny_trader.table")
-    @patch("benny_trader.bedrock")
-    def test_normalize_prediction_spreads(self, mock_bedrock, mock_table):
-        """Test prediction normalization for spreads"""
-        mock_table.query.return_value = {
-            "Items": [{
-                "amount": Decimal("100.00"),
-                "timestamp": datetime.utcnow().isoformat(),
-            }]
-        }
-        mock_table.get_item.return_value = {
-            "Item": {
-                "performance_by_sport": {},
-                "performance_by_market": {}
-            }
-        }
-        
-        trader = BennyTrader(version="v1")
-        
-        # Test spread normalization
-        assert trader._normalize_prediction("Patriots +5.0") == "Patriots spread"
-        assert trader._normalize_prediction("Lakers -3.5 @ draftkings") == "Lakers spread"
-
-    @patch("benny_trader.table")
-    @patch("benny_trader.bedrock")
-    def test_normalize_prediction_totals(self, mock_bedrock, mock_table):
-        """Test prediction normalization for totals"""
-        mock_table.query.return_value = {
-            "Items": [{
-                "amount": Decimal("100.00"),
-                "timestamp": datetime.utcnow().isoformat(),
-            }]
-        }
-        mock_table.get_item.return_value = {
-            "Item": {
-                "performance_by_sport": {},
-                "performance_by_market": {}
-            }
-        }
-        
-        trader = BennyTrader(version="v1")
-        
-        assert trader._normalize_prediction("Over 220.5") == "Over"
-        assert trader._normalize_prediction("Under 45.5") == "Under"
-
-    @patch("benny_trader.table")
-    @patch("benny_trader.bedrock")
-    def test_normalize_prediction_moneyline(self, mock_bedrock, mock_table):
-        """Test prediction normalization for moneyline"""
-        mock_table.query.return_value = {
-            "Items": [{
-                "amount": Decimal("100.00"),
-                "timestamp": datetime.utcnow().isoformat(),
-            }]
-        }
-        mock_table.get_item.return_value = {
-            "Item": {
-                "performance_by_sport": {},
-                "performance_by_market": {}
-            }
-        }
-        
-        trader = BennyTrader(version="v1")
-        
-        assert trader._normalize_prediction("Lakers") == "Lakers"
-        assert trader._normalize_prediction("Warriors") == "Warriors"
-
+    # _normalize_prediction tests removed - function was unused and removed in model refactor
     # test_get_top_models tests removed - testing dead code
     # test_analyze_games_queries_upcoming removed - complex mock issues, covered by integration tests
     # test_get_week_start_monday removed - _get_week_start moved to BankrollManager

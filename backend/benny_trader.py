@@ -19,8 +19,6 @@ from benny.bankroll_manager import BankrollManager
 from benny.learning_engine import LearningEngine
 from benny.opportunity_analyzer import OpportunityAnalyzer
 from benny.feature_extractor import FeatureExtractor
-from benny.outcome_analyzer import OutcomeAnalyzer
-from benny.threshold_optimizer import ThresholdOptimizer
 from benny.bet_executor import BetExecutor
 from benny.parlay_engine import ParlayEngine
 
@@ -73,27 +71,21 @@ class BennyTrader:
         self.player_teams = {}  # player_name -> team_name
         self._perf_stats_cache = None  # populated once per run
 
-        # V3 model (lean prompts, flat sizing, variance tracking)
-        self.model = None
+        # Model — each version has its own strategy class
         if version == "v3":
             from benny.models.v3 import BennyV3
             self.model = BennyV3(self.table)
+        elif version == "v2":
+            from benny.models.v2 import BennyV2
+            self.model = BennyV2(self.table, self.learning_engine, self.bankroll_manager)
+        else:
+            from benny.models.v1 import BennyV1
+            self.model = BennyV1(self.table, self.learning_engine, self.bankroll_manager)
 
         # Delegate to managers
         self.bankroll = self.bankroll_manager.bankroll
         self.week_start = self.bankroll_manager.week_start
         self.learning_params = self.learning_engine.params
-
-    def _get_adaptive_threshold(self, sport: str, market: str) -> float:
-        """Get confidence threshold based on historical performance"""
-        return self.learning_engine.get_adaptive_threshold(sport, market)
-
-    def _get_performance_warnings(self, current_sport: str = None) -> str:
-        """Generate performance warnings for AI prompt"""
-        return self.learning_engine.get_performance_warnings(current_sport)
-
-    def _acquire_lock(self) -> bool:
-        return "YOUR TRACK RECORD: Insufficient data to assess performance by category"
 
     def _acquire_lock(self) -> bool:
         """Acquire distributed lock for Benny execution. Returns True if acquired."""
@@ -219,265 +211,6 @@ class BennyTrader:
             print(f"Error fetching performance stats: {e}")
             self._perf_stats_cache = {"message": "Error loading stats"}
             return self._perf_stats_cache
-
-    def _get_what_works_analysis(self) -> str:
-        """Identify patterns in winning bets"""
-        perf_by_sport = self.learning_params.get("performance_by_sport", {})
-        perf_by_market = self.learning_params.get("performance_by_market", {})
-
-        insights = []
-
-        for sport, stats in perf_by_sport.items():
-            if stats["total"] >= 5:
-                wr = stats["wins"] / stats["total"]
-                if wr > 0.55:
-                    insights.append(
-                        f"✓ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})"
-                    )
-
-        for market, stats in perf_by_market.items():
-            if stats["total"] >= 5:
-                wr = stats["wins"] / stats["total"]
-                if wr > 0.55:
-                    insights.append(
-                        f"✓ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})"
-                    )
-
-        return (
-            "\n".join(insights)
-            if insights
-            else "Not enough data yet (need 5+ bets per category)"
-        )
-
-    def _get_what_fails_analysis(self) -> str:
-        """Identify patterns in losing bets"""
-        perf_by_sport = self.learning_params.get("performance_by_sport", {})
-        perf_by_market = self.learning_params.get("performance_by_market", {})
-
-        warnings = []
-
-        for sport, stats in perf_by_sport.items():
-            if stats["total"] >= 5:
-                wr = stats["wins"] / stats["total"]
-                if wr < 0.45:
-                    warnings.append(
-                        f"✗ {sport}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence"
-                    )
-
-        for market, stats in perf_by_market.items():
-            if stats["total"] >= 5:
-                wr = stats["wins"] / stats["total"]
-                if wr < 0.45:
-                    warnings.append(
-                        f"✗ {market}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence"
-                    )
-
-        return "\n".join(warnings) if warnings else "No clear failure patterns yet"
-
-    def _analyze_recent_mistakes(self, limit: int = 10) -> str:
-        """Analyze recent losing bets to identify patterns"""
-        try:
-            response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk)
-                & Key("sk").begins_with("BET#"),
-                ScanIndexForward=False,
-                Limit=200,  # Get more bets, then filter
-            )
-
-            all_bets = response.get("Items", [])
-            losses = [b for b in all_bets if b.get("status") == "lost"][:limit]
-
-            if not losses:
-                return "No recent losses to analyze"
-
-            patterns = []
-
-            # Check if overconfident
-            high_conf_losses = [
-                b for b in losses if float(b.get("confidence", 0)) > 0.75
-            ]
-            if len(high_conf_losses) > len(losses) * 0.5:
-                patterns.append(
-                    f"⚠️ {len(high_conf_losses)}/{len(losses)} losses were high confidence (>75%) - may be overconfident"
-                )
-
-            # Check if betting on underdogs too much
-            underdog_losses = [b for b in losses if float(b.get("odds", 0)) > 0]
-            if len(underdog_losses) > len(losses) * 0.6:
-                patterns.append(
-                    f"⚠️ {len(underdog_losses)}/{len(losses)} losses were underdogs (+odds) - may be chasing value"
-                )
-
-            # Check specific sports
-            sport_losses = {}
-            for bet in losses:
-                sport = bet.get("sport", "unknown")
-                sport_losses[sport] = sport_losses.get(sport, 0) + 1
-
-            for sport, count in sport_losses.items():
-                if count >= 3:
-                    patterns.append(f"⚠️ {count} recent losses in {sport}")
-
-            return (
-                "\n".join(patterns)
-                if patterns
-                else "No clear patterns in recent losses"
-            )
-        except Exception as e:
-            print(f"Error analyzing mistakes: {e}")
-            return "Error analyzing recent mistakes"
-
-    def _get_winning_examples(self, sport: str, limit: int = 3) -> str:
-        """Get recent winning bets for the specific sport being analyzed"""
-        try:
-            response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk)
-                & Key("sk").begins_with("BET#"),
-                ScanIndexForward=False,
-                Limit=200,  # Get more bets, then filter
-            )
-
-            all_bets = response.get("Items", [])
-            wins = [
-                b
-                for b in all_bets
-                if b.get("status") == "won" and b.get("sport") == sport
-            ][:limit]
-
-            if not wins:
-                return f"No winning bets yet for {sport}"
-
-            examples = []
-            for bet in wins:
-                profit = float(bet.get("profit", 0))
-                confidence = float(bet.get("confidence", 0))
-                reasoning = bet.get("ai_reasoning", "N/A")[:100]
-                examples.append(
-                    f"✓ {bet.get('prediction')} ({confidence:.0%} conf) - Won ${profit:.2f}\n  Reasoning: {reasoning}"
-                )
-
-            return "\n\n".join(examples)
-        except Exception as e:
-            print(f"Error getting winning examples: {e}")
-            return f"Error loading winning examples for {sport}"
-
-    def _extract_winning_factors(self) -> str:
-        """Extract which key_factors correlate with wins vs losses"""
-        try:
-            response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk)
-                & Key("sk").begins_with("BET#"),
-                FilterExpression="#status IN (:won, :lost)",
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={":won": "won", ":lost": "lost"},
-                Limit=100,
-            )
-
-            bets = response.get("Items", [])
-            if len(bets) < 10:
-                return "Not enough settled bets to analyze factors (need 10+)"
-
-            factor_performance = {}
-
-            for bet in bets:
-                won = bet.get("status") == "won"
-                factors = bet.get("ai_key_factors", [])
-
-                for factor in factors:
-                    if factor not in factor_performance:
-                        factor_performance[factor] = {"wins": 0, "total": 0}
-                    factor_performance[factor]["total"] += 1
-                    if won:
-                        factor_performance[factor]["wins"] += 1
-
-            # Calculate win rate per factor (min 3 occurrences)
-            insights = []
-            for factor, stats in sorted(
-                factor_performance.items(),
-                key=lambda x: x[1]["wins"] / max(x[1]["total"], 1),
-                reverse=True,
-            ):
-                if stats["total"] >= 3:
-                    wr = stats["wins"] / stats["total"]
-                    if wr >= 0.60:
-                        insights.append(
-                            f"✓ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})"
-                        )
-                    elif wr <= 0.40:
-                        insights.append(
-                            f"✗ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})"
-                        )
-
-            return (
-                "\n".join(insights)
-                if insights
-                else "No clear factor patterns yet (need factors with 3+ occurrences)"
-            )
-        except Exception as e:
-            print(f"Error extracting winning factors: {e}")
-            return "Error analyzing winning factors"
-
-    def _get_model_benchmarks(self, sport: str) -> str:
-        """Get how other models perform on this sport"""
-        try:
-            from constants import SYSTEM_MODELS
-
-            benchmarks = []
-
-            for model in SYSTEM_MODELS:
-                response = self.table.query(
-                    IndexName="VerifiedAnalysisGSI",
-                    KeyConditionExpression=Key("verified_analysis_pk").eq(
-                        f"VERIFIED#{model}#{sport}#game"
-                    ),
-                    ScanIndexForward=False,
-                    Limit=50,
-                )
-
-                preds = response.get("Items", [])
-                if len(preds) >= 10:
-                    correct = sum(1 for p in preds if p.get("analysis_correct"))
-                    accuracy = correct / len(preds)
-                    benchmarks.append(
-                        f"{model}: {accuracy:.1%} ({correct}/{len(preds)})"
-                    )
-
-            return (
-                "\n".join(benchmarks)
-                if benchmarks
-                else f"No benchmark data for {sport}"
-            )
-        except Exception as e:
-            print(f"Error getting model benchmarks: {e}")
-            return f"Error loading benchmarks for {sport}"
-
-    def _normalize_prediction(self, prediction: str) -> str:
-        """Normalize prediction for agreement checking.
-
-        Spreads: "Team +5.0" -> "Team spread"
-        Totals: "Over 220.5" -> "Over"
-        Moneyline: "Team" -> "Team"
-        """
-        pred = prediction.strip()
-
-        # Handle spreads (e.g., "Patriots +5.0 @ draftkings" or "Patriots +5.0")
-        if "+" in pred or "-" in pred:
-            # Extract team name before the +/- sign
-            parts = pred.split()
-            team_parts = []
-            for part in parts:
-                if "+" in part or "-" in part or "@" in part:
-                    break
-                team_parts.append(part)
-            team = " ".join(team_parts)
-            return f"{team} spread"
-
-        # Handle totals (e.g., "Over 220.5" or "Under 45.5")
-        if pred.startswith("Over") or pred.startswith("Under"):
-            return pred.split()[0]  # Just "Over" or "Under"
-
-        # Moneyline - return as-is (team name)
-        return pred
 
     def _get_week_start(self) -> str:
         """Get start of current week (Monday)"""
@@ -1119,153 +852,17 @@ class BennyTrader:
     ) -> Dict[str, Any]:
         """AI analysis for player props"""
         try:
-            # Calculate average line and odds
-            over_odds = [o for o in prop_data["odds"] if o["side"] == "Over"]
-            under_odds = [o for o in prop_data["odds"] if o["side"] == "Under"]
-
-            avg_over = (
-                sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
-            )
-            avg_under = (
-                sum(o["price"] for o in under_odds) / len(under_odds)
-                if under_odds
-                else 0
-            )
-
-            over_prob = self._american_to_probability(avg_over) if avg_over else 0
-            under_prob = self._american_to_probability(avg_under) if avg_under else 0
-
-            # V3: use lean prompt from model
-            if self.model:
-                prompt = self.model.build_prop_prompt(prop_data, player_stats, player_trends, matchup_data)
-                response = bedrock.invoke_model(
-                    modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-                    body=json.dumps({
-                        "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 300,
-                        "messages": [{"role": "user", "content": prompt}],
-                    }),
-                )
-                result = json.loads(response["body"].read())
-                content = result["content"][0]["text"]
-                if "```json" in content:
-                    content = content.split("```json")[1].split("```")[0].strip()
-                elif "```" in content:
-                    content = content.split("```")[1].split("```")[0].strip()
-                return json.loads(content)
-
-            # V1/V2: full prompt with performance context
-
-            perf_stats = self._get_performance_stats()
-            print(f"[PROP] Performance stats: {perf_stats}")
-
-            # Build performance warnings
-            perf_warnings = self._get_performance_warnings(prop_data["sport"])
-
-            perf_context = ""
-            if "overall" in perf_stats:
-                perf_context = f"""
-BENNY'S HISTORICAL PERFORMANCE (Last 30 days):
-Overall: {perf_stats['overall']['win_rate']} win rate, {perf_stats['overall']['roi']} ROI ({perf_stats['overall']['total_bets']} bets)
-By Sport: {', '.join(f"{s}: {r}" for s, r in perf_stats['by_sport'].items())}
-By Market: {', '.join(f"{m}: {r}" for m, r in perf_stats['by_market'].items())}
-
-{perf_warnings}
-
-Note: Use this to inform confidence - be more conservative in markets where you've struggled."""
-                print(f"[PROP] Including performance context in AI prompt")
-
-            # Add new learning feedback
-            sport = prop_data["sport"]
-            what_works = self._get_what_works_analysis()
-            what_fails = self._get_what_fails_analysis()
-            recent_mistakes = self._analyze_recent_mistakes()
-            winning_examples = self._get_winning_examples(sport, limit=2)
-            winning_factors = self._extract_winning_factors()
-
-            prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
-
-RISK PARAMETERS:
-- Kelly Fraction: {self.learning_params.get('kelly_fraction', 0.5)} (bet sizing multiplier)
-- Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
-- Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
-- Current Bankroll: ${float(self.bankroll):.2f}
-{perf_context}
-
-WHAT'S WORKING FOR YOU:
-{what_works}
-
-WHAT'S NOT WORKING:
-{what_fails}
-
-RECENT MISTAKE PATTERNS:
-{recent_mistakes}
-
-YOUR RECENT WINS IN {sport.upper()}:
-{winning_examples}
-
-FACTORS THAT PREDICT SUCCESS:
-{winning_factors}
-
-Player: {prop_data['player']} ({prop_data['team']})
-Opponent: {prop_data['opponent']}
-Market: {prop_data['market']}
-Line: {prop_data['line']}
-Sport: {prop_data['sport']}
-
-MARKET ODDS:
-Over {prop_data['line']}: {avg_over} ({over_prob:.1%} implied)
-Under {prop_data['line']}: {avg_under} ({under_prob:.1%} implied)
-
-PLAYER SEASON STATS (Last 20 games):
-{json.dumps(player_stats, indent=2) if player_stats else 'No season data available'}
-
-RECENT TRENDS (Last 10 games for this market):
-{json.dumps(player_trends, indent=2) if player_trends else 'No trend data available'}
-
-MATCHUP HISTORY vs {prop_data['opponent']}:
-{json.dumps(matchup_data, indent=2) if matchup_data else 'No matchup history available'}
-
-BENNY'S PROP PERFORMANCE:
-{self._get_prop_market_performance(prop_data['market'])}
-
-ANALYSIS INSTRUCTIONS:
-1. Compare player's season average and last 5 games to the line
-2. Consider recent trends - is player hot or cold?
-3. Factor in matchup history against this opponent
-4. Look for value where the line doesn't match recent performance
-5. Consider Benny's historical accuracy on this prop type
-6. CRITICAL BETTING THRESHOLDS:
-   - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
-   - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
-   - Calculate EV/Expected ROI = (confidence × payout) - 1
-   - Example: -110 odds (payout 1.909) at 65% confidence = EV of 0.24 (24% expected ROI) ✓
-   - Example: -110 odds (payout 1.909) at 55% confidence = EV of 0.05 (5% expected ROI) ✓
-   - Example: -110 odds (payout 1.909) at 52% confidence = EV of -0.007 (negative ROI) ✗
-   - NEVER bet on negative expected ROI - you will lose money over time
-7. Be highly selective - props are harder to predict than games
-8. Skip if player data is limited or matchup is unclear
-
-Respond with JSON only:
-{{"prediction": "Over/Under X.X (Player Market)", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}
-
-IMPORTANT: 
-- Include market type in prediction for clarity (e.g., "Over 25.5 (Points)", "Under 8.5 (Rebounds)")
-- Only bet when confidence >= {self.BASE_MIN_CONFIDENCE} AND expected ROI >= {self.MIN_EV}
-- Expected ROI = (confidence × payout) - 1 must be positive and > 5%
-- When in doubt, skip - protecting bankroll is priority #1"""
+            prompt = self.model.build_prop_prompt(prop_data, player_stats, player_trends, matchup_data)
+            max_tokens = 300 if self.version == "v3" else 400
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-                body=json.dumps(
-                    {
-                        "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 400,
-                        "messages": [{"role": "user", "content": prompt}],
-                    }
-                ),
+                body=json.dumps({
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": max_tokens,
+                    "messages": [{"role": "user", "content": prompt}],
+                }),
             )
-
             result = json.loads(response["body"].read())
             content = result["content"][0]["text"]
 
@@ -1275,7 +872,6 @@ IMPORTANT:
                 content = content.split("```")[1].split("```")[0].strip()
 
             return json.loads(content)
-
         except Exception as e:
             print(f"Error in prop AI analysis: {e}")
             return None
@@ -1456,15 +1052,6 @@ IMPORTANT:
             print(f"Error fetching player matchup: {e}")
             return {}
 
-    def _get_prop_market_performance(self, market_key: str) -> str:
-        """Get Benny's historical performance on this prop market"""
-        perf = self.learning_params.get("performance_by_prop_market", {})
-        if market_key in perf:
-            stats = perf[market_key]
-            wr = stats["wins"] / stats["total"] if stats["total"] > 0 else 0
-            return f"Benny's {market_key} record: {stats['wins']}/{stats['total']} ({wr:.1%})"
-        return f"No historical data for {market_key}"
-
     def _ai_analyze_game(
         self,
         game_data: Dict[str, Any],
@@ -1489,245 +1076,81 @@ IMPORTANT:
         """Have AI analyze game data and make independent prediction"""
         try:
             # Calculate average h2h odds
-            avg_home_price = sum(o["home_price"] for o in game_data["h2h_odds"]) / len(
-                game_data["h2h_odds"]
-            )
-            avg_away_price = sum(o["away_price"] for o in game_data["h2h_odds"]) / len(
-                game_data["h2h_odds"]
-            )
-            draw_prices = [
-                o["draw_price"] for o in game_data["h2h_odds"] if o.get("draw_price")
-            ]
-            avg_draw_price = (
-                sum(draw_prices) / len(draw_prices) if draw_prices else None
-            )
+            avg_home_price = sum(o["home_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"])
+            avg_away_price = sum(o["away_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"])
+            draw_prices = [o["draw_price"] for o in game_data["h2h_odds"] if o.get("draw_price")]
+            avg_draw_price = sum(draw_prices) / len(draw_prices) if draw_prices else None
 
-            # Convert to implied probabilities
             home_prob = self._american_to_probability(avg_home_price)
             away_prob = self._american_to_probability(avg_away_price)
-            draw_prob = (
-                self._american_to_probability(avg_draw_price)
-                if avg_draw_price
-                else None
-            )
+            draw_prob = self._american_to_probability(avg_draw_price) if avg_draw_price else None
 
-            # V3: use lean prompt from model
-            if self.model:
-                context = {
-                    "avg_h2h": {"home": avg_home_price, "away": avg_away_price},
-                    "home_prob": home_prob,
-                    "away_prob": away_prob,
-                    "draw_prob": draw_prob,
-                    "avg_spread": avg_spread,
-                    "avg_total": avg_total,
-                    "home_elo": home_elo,
-                    "away_elo": away_elo,
-                    "home_form": home_form,
-                    "away_form": away_form,
-                    "home_injuries": home_injuries,
-                    "away_injuries": away_injuries,
-                    "h2h_history": h2h_history,
-                }
-                if draw_prob and avg_draw_price:
-                    context["avg_h2h"]["draw"] = avg_draw_price
-                prompt = self.model.build_game_prompt(game_data, context)
-                response = bedrock.invoke_model(
-                    modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-                    body=json.dumps({
-                        "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 500,
-                        "messages": [{"role": "user", "content": prompt}],
-                    }),
-                )
-                result = json.loads(response["body"].read())
-                content = result["content"][0]["text"]
-                if "```json" in content:
-                    content = content.split("```json")[1].split("```")[0].strip()
-                elif "```" in content:
-                    content = content.split("```")[1].split("```")[0].strip()
-                return json.loads(content)
+            # Build context dict for model
+            context = {
+                "avg_h2h": {"home": avg_home_price, "away": avg_away_price},
+                "home_prob": home_prob,
+                "away_prob": away_prob,
+                "draw_prob": draw_prob,
+                "avg_spread": avg_spread,
+                "avg_total": avg_total,
+                "home_elo": home_elo,
+                "away_elo": away_elo,
+                "home_form": home_form,
+                "away_form": away_form,
+                "home_injuries": home_injuries,
+                "away_injuries": away_injuries,
+                "h2h_history": h2h_history,
+                "home_stats": home_stats,
+                "away_stats": away_stats,
+                "home_news": home_news,
+                "away_news": away_news,
+                "home_adjusted": home_adjusted,
+                "away_adjusted": away_adjusted,
+                "weather": weather,
+                "fatigue": fatigue,
+                "bankroll": self.bankroll,
+                "perf_stats": self._get_performance_stats(),
+            }
+            if draw_prob and avg_draw_price:
+                context["avg_h2h"]["draw"] = avg_draw_price
 
-            # V1/V2: full prompt with performance context
-
-            # Build market odds section
-            market_odds = f"""MONEYLINE (H2H):
+            # V1/V2 need pre-formatted market_odds string
+            if self.version != "v3":
+                market_odds = f"""MONEYLINE (H2H):
 Home: {avg_home_price} ({home_prob:.1%} implied)
 Away: {avg_away_price} ({away_prob:.1%} implied)"""
-            if draw_prob:
-                market_odds += f"\nDraw: {avg_draw_price} ({draw_prob:.1%} implied)"
+                if draw_prob:
+                    market_odds += f"\nDraw: {avg_draw_price} ({draw_prob:.1%} implied)"
+                if avg_spread:
+                    sp_home = self._american_to_probability(avg_spread["home_price"])
+                    sp_away = self._american_to_probability(avg_spread["away_price"])
+                    market_odds += f"\n\nSPREAD:\nHome {avg_spread['home_point']:+.1f}: {avg_spread['home_price']} ({sp_home:.1%} implied)\nAway {avg_spread['away_point']:+.1f}: {avg_spread['away_price']} ({sp_away:.1%} implied)"
+                if avg_total:
+                    t_over = self._american_to_probability(avg_total["over_price"])
+                    t_under = self._american_to_probability(avg_total["under_price"])
+                    market_odds += f"\n\nTOTAL:\nOver {avg_total['point']:.1f}: {avg_total['over_price']} ({t_over:.1%} implied)\nUnder {avg_total['point']:.1f}: {avg_total['under_price']} ({t_under:.1%} implied)"
+                context["market_odds"] = market_odds
 
-            if avg_spread:
-                spread_home_prob = self._american_to_probability(
-                    avg_spread["home_price"]
-                )
-                spread_away_prob = self._american_to_probability(
-                    avg_spread["away_price"]
-                )
-                market_odds += f"""
-
-SPREAD:
-Home {avg_spread['home_point']:+.1f}: {avg_spread['home_price']} ({spread_home_prob:.1%} implied)
-Away {avg_spread['away_point']:+.1f}: {avg_spread['away_price']} ({spread_away_prob:.1%} implied)"""
-
-            if avg_total:
-                total_over_prob = self._american_to_probability(avg_total["over_price"])
-                total_under_prob = self._american_to_probability(
-                    avg_total["under_price"]
-                )
-                market_odds += f"""
-
-TOTAL:
-Over {avg_total['point']:.1f}: {avg_total['over_price']} ({total_over_prob:.1%} implied)
-Under {avg_total['point']:.1f}: {avg_total['under_price']} ({total_under_prob:.1%} implied)"""
-
-            perf_stats = self._get_performance_stats()
-            print(f"[GAME] Performance stats: {perf_stats}")
-            perf_context = ""
-            if "overall" in perf_stats:
-                perf_context = f"""
-BENNY'S HISTORICAL PERFORMANCE (Last 30 days):
-Overall: {perf_stats['overall']['win_rate']} win rate, {perf_stats['overall']['roi']} ROI ({perf_stats['overall']['total_bets']} bets)
-By Sport: {', '.join(f"{s}: {r}" for s, r in perf_stats['by_sport'].items())}
-By Market: {', '.join(f"{m}: {r}" for m, r in perf_stats['by_market'].items())}
-Note: Use this to inform confidence - be more conservative in markets where you've struggled."""
-                print(f"[GAME] Including performance context in AI prompt")
-
-            # Add new learning feedback
-            sport = game_data["sport"]
-            perf_warnings = self._get_performance_warnings(sport)
-            what_works = self._get_what_works_analysis()
-            what_fails = self._get_what_fails_analysis()
-            recent_mistakes = self._analyze_recent_mistakes()
-            winning_examples = self._get_winning_examples(sport, limit=2)
-            winning_factors = self._extract_winning_factors()
-            model_benchmarks = self._get_model_benchmarks(sport)
-            feature_insights = self._get_feature_insights()
-
-            prompt = f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
-
-RISK PARAMETERS:
-- Kelly Fraction: {self.learning_params.get('kelly_fraction', 0.5)} (bet sizing multiplier)
-- Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(self.bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
-- Target ROI: {self.learning_params.get('target_roi', 0.15)*100:.0f}%
-- Current Bankroll: ${float(self.bankroll):.2f}
-{perf_context}
-
-{perf_warnings}
-
-{feature_insights}
-
-WHAT'S WORKING FOR YOU:
-{what_works}
-
-WHAT'S NOT WORKING:
-{what_fails}
-
-RECENT MISTAKE PATTERNS:
-{recent_mistakes}
-
-YOUR RECENT WINS IN {sport.upper()}:
-{winning_examples}
-
-FACTORS THAT PREDICT SUCCESS:
-{winning_factors}
-
-OTHER MODELS' PERFORMANCE ON {sport.upper()}:
-{model_benchmarks}
-Note: You should aim to match or beat the best models. If you're underperforming, learn from their approach.
-
-Game: {game_data['away_team']} @ {game_data['home_team']}
-Sport: {game_data['sport']}
-Time: {game_data['commence_time']}
-
-MARKET ODDS:
-{market_odds}
-
-ELO RATINGS (Team Strength):
-Home: {home_elo:.0f} | Away: {away_elo:.0f} | Difference: {home_elo - away_elo:+.0f}
-Note: Higher = stronger. Difference >50 = significant edge. Average team = 1500.
-
-OPPONENT-ADJUSTED EFFICIENCY:
-Home: {json.dumps(home_adjusted, indent=2) if home_adjusted else 'No data'}
-Away: {json.dumps(away_adjusted, indent=2) if away_adjusted else 'No data'}
-Note: Adjusted for opponent strength - more accurate than raw stats.
-
-TRAVEL & FATIGUE:
-{json.dumps(fatigue, indent=2) if fatigue else 'No data'}
-Note: Fatigue score 0-100 where <30=fresh, 30-60=moderate, >60=tired. High fatigue hurts performance.
-
-WEATHER CONDITIONS:
-{json.dumps(weather, indent=2) if weather else 'Indoor venue or no data'}
-Note: Impact levels - high=significant effect, moderate=some effect, low=minimal.
-
-RECENT FORM (Last 5 games):
-Home: {home_form.get('record', 'Unknown')} - {home_form.get('streak', '')}
-Away: {away_form.get('record', 'Unknown')} - {away_form.get('streak', '')}
-
-HEAD-TO-HEAD (Last 3 meetings):
-{json.dumps(h2h_history, indent=2) if h2h_history else 'No history'}
-
-KEY INJURIES:
-Home: {json.dumps(home_injuries, indent=2) if home_injuries else 'None'}
-Away: {json.dumps(away_injuries, indent=2) if away_injuries else 'None'}
-
-NEWS SENTIMENT (Last 48 hours):
-Home: Sentiment={home_news.get('sentiment_score', 0):.2f}, Impact={home_news.get('impact_score', 0):.1f}, Articles={home_news.get('news_count', 0)}
-Away: Sentiment={away_news.get('sentiment_score', 0):.2f}, Impact={away_news.get('impact_score', 0):.1f}, Articles={away_news.get('news_count', 0)}
-
-RAW TEAM STATS (Season Averages):
-Home: {json.dumps(home_stats, indent=2) if home_stats else 'No data'}
-Away: {json.dumps(away_stats, indent=2) if away_stats else 'No data'}
-
-ANALYSIS INSTRUCTIONS:
-1. Analyze ALL available markets (moneyline, spread, total)
-2. Prioritize Elo ratings and opponent-adjusted metrics
-3. Factor in fatigue if either team has score >50 or traveled >1000 miles
-4. Consider weather impact if marked as "high" or "moderate"
-5. CRITICAL BETTING THRESHOLDS:
-   - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
-   - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
-   - Calculate EV/Expected ROI = (confidence × payout) - 1
-   - Example: -110 odds (payout 1.909) at 65% confidence = EV of 0.24 (24% expected ROI) ✓
-   - Example: -110 odds (payout 1.909) at 55% confidence = EV of 0.05 (5% expected ROI) ✓
-   - Example: -110 odds (payout 1.909) at 52% confidence = EV of -0.007 (negative ROI) ✗
-   - NEVER bet on negative expected ROI - you will lose money over time
-6. For spreads: Consider if favorite can cover the spread, not just win
-7. For totals: Analyze pace, defense, and scoring trends
-8. Be highly selective - quality over quantity. Skip games where edge is unclear.
-9. Learn from your performance by sport - adjust confidence accordingly
-
-Respond with JSON only - include ALL markets you want to bet on:
-{{"h2h": {{"prediction": "Team Name (Moneyline)", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name -X.X (Spread)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under XXX.X (Total)", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
-
-IMPORTANT: 
-- Include market type in prediction text for clarity
-- Only include markets where confidence >= {self.BASE_MIN_CONFIDENCE} AND expected ROI >= {self.MIN_EV}
-- Expected ROI = (confidence × payout) - 1 must be positive and > 5%
-- When in doubt, skip the bet - protecting bankroll is priority #1"""
+            prompt = self.model.build_game_prompt(game_data, context)
+            max_tokens = 500 if self.version == "v3" else 800
 
             response = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-                body=json.dumps(
-                    {
-                        "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 800,
-                        "messages": [{"role": "user", "content": prompt}],
-                    }
-                ),
+                body=json.dumps({
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": max_tokens,
+                    "messages": [{"role": "user", "content": prompt}],
+                }),
             )
-
             result = json.loads(response["body"].read())
             content = result["content"][0]["text"]
 
-            # Extract JSON
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0].strip()
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0].strip()
 
-            analysis = json.loads(content)
-            return analysis
-
+            return json.loads(content)
         except Exception as e:
             print(f"Error in AI analysis: {e}")
             return None
@@ -1922,265 +1345,6 @@ IMPORTANT:
             print(f"Error fetching team stats: {e}")
             return {}
 
-    def _get_feature_insights(self) -> str:
-        """Get learned feature importance insights for AI prompt (v2 only)"""
-        if self.version != "v2":
-            return "No learned insights available (v1)"
-
-        try:
-            response = self.table.get_item(
-                Key={"pk": f"{self.pk}#LEARNING", "sk": "FEATURES"}
-            )
-            insights = response.get("Item", {}).get("insights", {})
-
-            if not insights or "strongest_predictors" not in insights:
-                return "Insufficient data to determine feature importance"
-
-            lines = []
-            lines.append("LEARNED FEATURE IMPORTANCE (What Actually Predicts Wins):")
-
-            # Top predictive features
-            for pred in insights["strongest_predictors"][:3]:
-                feature = pred["feature"]
-                lines.append(
-                    f"\n{feature.upper()} (predictive power: {pred['spread']:.1%} spread)"
-                )
-
-                # Get specific insights for this feature
-                feature_data = insights.get("insights", {}).get(feature, {})
-                if feature_data:
-                    for range_key, data in sorted(
-                        feature_data.items(),
-                        key=lambda x: x[1].get("win_rate", 0),
-                        reverse=True,
-                    )[:3]:
-                        if data.get("count", 0) >= 5:
-                            lines.append(
-                                f"  • {range_key}: {data['win_rate']:.1%} win rate ({data['count']} bets)"
-                            )
-
-            return "\n".join(lines)
-        except:
-            return "Error loading feature insights"
-
-    def calculate_bet_size(self, confidence: float, odds: float = None) -> Decimal:
-        """Calculate bet size using Kelly Criterion"""
-        return self.bankroll_manager.calculate_bet_size(confidence, odds)
-
-    def analyze_feature_performance(self):
-        """Analyze which features predict wins (v2 only)"""
-        if self.version != "v2":
-            print("Feature analysis only available for v2")
-            return
-
-        from datetime import datetime
-
-        analyzer = OutcomeAnalyzer(self.table, self.pk)
-
-        # Analyze features
-        insights = analyzer.analyze_features()
-
-        if "error" in insights:
-            print(
-                f"Feature analysis: {insights['error']} ({insights.get('bet_count', 0)} bets)"
-            )
-        else:
-            print(f"\n=== FEATURE ANALYSIS ({insights['total_bets']} bets) ===")
-            print("\nStrongest Predictors:")
-            for pred in insights["strongest_predictors"][:5]:
-                print(
-                    f"  {pred['feature']}: {pred['spread']:.1%} spread (max: {pred['max_win_rate']:.1%}, min: {pred['min_win_rate']:.1%})"
-                )
-
-            insights["timestamp"] = datetime.utcnow().isoformat()
-            analyzer.save_insights(insights)
-            print("Feature insights saved")
-
-        # Analyze confidence calibration
-        calibration = analyzer.analyze_confidence_calibration()
-
-        if "error" in calibration:
-            print(
-                f"Calibration analysis: {calibration['error']} ({calibration.get('bet_count', 0)} bets)"
-            )
-        else:
-            print(
-                f"\n=== CONFIDENCE CALIBRATION ({calibration['total_bets']} bets) ==="
-            )
-            print(
-                f"Average calibration error: {calibration['avg_calibration_error']:.1%}"
-            )
-            print(f"Well calibrated: {calibration['is_well_calibrated']}")
-
-            print("\nCalibration by bucket:")
-            for bucket, data in calibration["calibration"].items():
-                print(
-                    f"  {bucket}%: {data['actual_win_rate']:.1%} actual vs {data['expected_confidence']:.1%} expected ({data['count']} bets)"
-                )
-
-            calibration["timestamp"] = datetime.utcnow().isoformat()
-            analyzer.save_calibration(calibration)
-            print("Calibration data saved")
-
-        # Optimize thresholds
-        optimizer = ThresholdOptimizer(self.table, self.pk)
-        thresholds = optimizer.optimize_thresholds()
-
-        if "error" in thresholds:
-            print(
-                f"Threshold optimization: {thresholds['error']} ({thresholds.get('bet_count', 0)} bets)"
-            )
-        else:
-            print(f"\n=== THRESHOLD OPTIMIZATION ({thresholds['total_bets']} bets) ===")
-            print(
-                f"Global optimal: confidence={thresholds['global']['optimal_min_confidence']:.0%}, EV={thresholds['global']['optimal_min_ev']:.1%}"
-            )
-            print(
-                f"  Expected ROI: {thresholds['global']['expected_roi']:.1%} ({thresholds['global']['sample_size']} bets)"
-            )
-
-            if thresholds.get("by_sport"):
-                print("\nOptimal by sport:")
-                for sport, opt in thresholds["by_sport"].items():
-                    print(
-                        f"  {sport}: conf={opt['optimal_min_confidence']:.0%}, ROI={opt['expected_roi']:.1%}"
-                    )
-
-            thresholds["timestamp"] = datetime.utcnow().isoformat()
-            optimizer.save_optimal_thresholds(thresholds)
-            print("Optimal thresholds saved")
-
-    def update_learning_parameters(self):
-        """Update Benny's learning parameters based on recent performance"""
-        try:
-            # Get recent settled bets (last 30 days)
-            from datetime import timedelta
-
-            cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
-
-            response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk)
-                & Key("sk").begins_with("BET#"),
-                FilterExpression="settled_at > :cutoff AND #status IN (:won, :lost)",
-                ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={
-                    ":cutoff": cutoff,
-                    ":won": "won",
-                    ":lost": "lost",
-                },
-            )
-
-            bets = response.get("Items", [])
-            if len(bets) < self.MIN_SAMPLE_SIZE:  # Need minimum sample size to learn
-                print(
-                    f"Insufficient data for learning: {len(bets)} bets (need {self.MIN_SAMPLE_SIZE})"
-                )
-                return
-
-            # Calculate overall win rate
-            wins = sum(1 for b in bets if b.get("status") == "won")
-            win_rate = wins / len(bets)
-
-            # Calculate true profit (excluding deposits)
-            total_deposits = self._get_total_deposits()
-            true_profit = self.bankroll - self.WEEKLY_BUDGET - total_deposits
-
-            # Calculate ROI based on actual betting, not deposits
-            settled_bets = [b for b in bets if b.get("status") in ["won", "lost"]]
-            won_bets = [b for b in settled_bets if b.get("status") == "won"]
-
-            total_wagered = sum(
-                Decimal(str(b.get("bet_amount", 0))) for b in settled_bets
-            )
-            total_profit = sum(Decimal(str(b.get("profit", 0))) for b in settled_bets)
-            roi = (
-                (total_profit / total_wagered * 100)
-                if total_wagered > 0
-                else Decimal("0")
-            )
-
-            # Adjust MIN_CONFIDENCE based on performance
-            if win_rate > 0.60:
-                # Performing well, can lower threshold slightly
-                adjustment = -0.02
-            elif win_rate < 0.45:
-                # Performing poorly, raise threshold
-                adjustment = 0.05
-            else:
-                # Acceptable performance, small adjustment toward 0
-                current_adj = float(
-                    self.learning_params.get("min_confidence_adjustment", 0)
-                )
-                adjustment = -current_adj * 0.1  # Slowly return to baseline
-
-            # Calculate performance by sport and market
-            perf_by_sport = {}
-            perf_by_market = {}
-            perf_by_prop_market = {}
-
-            for bet in bets:
-                sport = bet.get("sport", "unknown")
-                market_key = bet.get("market_key", "unknown")
-                won = bet.get("status") == "won"
-
-                if sport not in perf_by_sport:
-                    perf_by_sport[sport] = {"wins": 0, "total": 0}
-                perf_by_sport[sport]["total"] += 1
-                if won:
-                    perf_by_sport[sport]["wins"] += 1
-
-                if market_key not in perf_by_market:
-                    perf_by_market[market_key] = {"wins": 0, "total": 0, "wagered": Decimal("0"), "returned": Decimal("0")}
-                perf_by_market[market_key]["total"] += 1
-                bet_amt = Decimal(str(bet.get("bet_amount", 0)))
-                perf_by_market[market_key]["wagered"] += bet_amt
-                if won:
-                    perf_by_market[market_key]["wins"] += 1
-                    perf_by_market[market_key]["returned"] += Decimal(str(bet.get("payout", 0)))
-
-                # Track prop market performance (player_points, player_rebounds, etc.)
-                if market_key.startswith("player_"):
-                    if market_key not in perf_by_prop_market:
-                        perf_by_prop_market[market_key] = {"wins": 0, "total": 0}
-                    perf_by_prop_market[market_key]["total"] += 1
-                    if won:
-                        perf_by_prop_market[market_key]["wins"] += 1
-
-            # Update learning parameters
-            self.learning_params.update(
-                {
-                    "min_confidence_adjustment": Decimal(str(adjustment)),
-                    "performance_by_sport": perf_by_sport,
-                    "performance_by_market": perf_by_market,
-                    "performance_by_prop_market": perf_by_prop_market,
-                    "overall_win_rate": Decimal(str(win_rate)),
-                    "total_bets_analyzed": len(bets),
-                    "total_deposits": total_deposits,
-                    "true_profit": true_profit,
-                    "roi_percentage": roi,
-                    "last_updated": datetime.utcnow().isoformat(),
-                }
-            )
-
-            self.table.put_item(Item=self.learning_params)
-            print(
-                f"Updated Benny learning: win_rate={win_rate:.2%}, adjustment={adjustment:+.3f}"
-            )
-
-            # Log prop market performance
-            if perf_by_prop_market:
-                print("Prop market performance:")
-                for market, stats in sorted(
-                    perf_by_prop_market.items(),
-                    key=lambda x: x[1]["wins"] / max(x[1]["total"], 1),
-                    reverse=True,
-                ):
-                    wr = stats["wins"] / stats["total"] if stats["total"] > 0 else 0
-                    print(f"  {market}: {stats['wins']}/{stats['total']} ({wr:.1%})")
-
-        except Exception as e:
-            print(f"Error updating learning parameters: {e}")
-
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Place a virtual bet"""
         sport = opportunity["sport"]
@@ -2188,20 +1352,12 @@ IMPORTANT:
         confidence = opportunity["confidence"]
         odds = opportunity.get("odds")
 
-        # V3: use model's should_bet and flat sizing
-        if self.model:
-            implied_prob = self._american_to_probability(float(odds)) if odds else 0.5
-            if not self.model.should_bet(confidence, opportunity.get("expected_value", 0), implied_prob, sport, market):
-                print(f"  Skipping: model rejected (conf={confidence:.2f}, ev={opportunity.get('expected_value', 0):.3f}, edge_vs_market={confidence - implied_prob:.3f})")
-                return {"success": False, "reason": "Model rejected"}
-            bet_size = self.model.calculate_bet_size(confidence, float(odds) if odds else 0, self.bankroll)
-        else:
-            # V1/V2: adaptive threshold + Kelly sizing
-            required_confidence = self._get_adaptive_threshold(sport, market)
-            if confidence < required_confidence:
-                print(f"  Skipping: confidence {confidence:.2f} < required {required_confidence:.2f}")
-                return {"success": False, "reason": f"Confidence below threshold"}
-            bet_size = self.bankroll_manager.calculate_bet_size(confidence, odds)
+        # Delegate to model for threshold/sizing
+        implied_prob = self._american_to_probability(float(odds)) if odds else 0.5
+        if not self.model.should_bet(confidence, opportunity.get("expected_value", 0), implied_prob, sport, market):
+            print(f"  Skipping: model rejected (conf={confidence:.2f}, ev={opportunity.get('expected_value', 0):.3f})")
+            return {"success": False, "reason": "Model rejected"}
+        bet_size = self.model.calculate_bet_size(confidence, float(odds) if odds else 0, self.bankroll)
 
         # Check for existing bet
         game_id = opportunity["game_id"]
@@ -2223,7 +1379,7 @@ IMPORTANT:
             return {"success": False, "reason": "Already have pending bet"}
 
         # Check minimum bet size
-        min_bet = self.model.get_min_bet() if self.model else Decimal("5.00")
+        min_bet = self.model.get_min_bet()
         if bet_size < min_bet:
             print(f"  Skipping: bet size ${bet_size:.2f} < minimum ${min_bet}")
             return {"success": False, "reason": f"Bet size below ${min_bet} minimum"}
@@ -2288,14 +1444,6 @@ IMPORTANT:
 
         # Check if auto-deposit is needed
         auto_deposited = self._auto_deposit_if_needed()
-
-        # Update learning parameters before analyzing (V1/V2 only)
-        if self.version != "v3":
-            self.update_learning_parameters()
-
-        # Run feature analysis for v2
-        if self.version == "v2":
-            self.analyze_feature_performance()
 
         # 1. Evaluate existing positions for cash-out/double-down (V1/V2 only)
         position_actions = self._manage_positions() if self.version != "v3" else {"cash_outs": 0, "double_downs": 0, "details": {"cash_outs": [], "double_downs": []}}
@@ -2388,9 +1536,8 @@ IMPORTANT:
             "position_actions": position_actions,
         }
 
-        # V3: run post-analysis (Monte Carlo variance tracking)
-        if self.model:
-            self.model.post_run(result)
+        # Post-run: learning updates, feature analysis, variance tracking
+        self.model.post_run(result)
 
         return result
 

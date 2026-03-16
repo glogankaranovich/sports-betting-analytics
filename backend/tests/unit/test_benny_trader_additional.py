@@ -28,35 +28,7 @@ def trader():
             return BennyTrader(version="v1")
 
 
-def test_normalize_prediction_spread_with_bookmaker(trader):
-    """Test normalizing spread with bookmaker"""
-    pred = trader._normalize_prediction("Patriots +5.0 @ draftkings")
-    assert pred == "Patriots spread"
-
-
-def test_normalize_prediction_negative_spread(trader):
-    """Test normalizing negative spread"""
-    pred = trader._normalize_prediction("Lakers -7.5")
-    assert pred == "Lakers spread"
-
-
-def test_normalize_prediction_total_with_decimal(trader):
-    """Test normalizing total with decimal"""
-    pred = trader._normalize_prediction("Over 220.5")
-    assert pred == "Over"
-    
-    pred = trader._normalize_prediction("Under 45.5")
-    assert pred == "Under"
-
-
-def test_normalize_prediction_moneyline(trader):
-    """Test normalizing moneyline"""
-    pred = trader._normalize_prediction("Lakers")
-    assert pred == "Lakers"
-
-
-# Tests for _get_learning_parameters removed - now handled by LearningEngine
-# See test_learning_engine.py for learning parameter tests
+# _normalize_prediction tests removed - function was unused and removed in model refactor
 
 
 def test_get_week_start_calculation(trader):

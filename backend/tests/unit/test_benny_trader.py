@@ -62,14 +62,14 @@ class TestBennyTrader:
 
     def test_calculate_bet_size_high_confidence(self, trader):
         """Test bet sizing with high confidence"""
-        bet_size = trader.calculate_bet_size(0.85)
+        bet_size = trader.model.calculate_bet_size(0.85, -110, trader.bankroll)
 
         assert bet_size > Decimal("0.00")
         assert bet_size <= trader.bankroll * Decimal("0.20")
 
     def test_calculate_bet_size_low_confidence(self, trader):
         """Test bet sizing with low confidence"""
-        bet_size = trader.calculate_bet_size(0.55)
+        bet_size = trader.model.calculate_bet_size(0.55, -110, trader.bankroll)
 
         assert bet_size > Decimal("0.00")
         assert bet_size < trader.bankroll * Decimal("0.10")
@@ -416,10 +416,10 @@ class TestBennyTrader:
         """Test maximum bet size is enforced"""
         trader.bankroll = Decimal("1000.00")
         
-        bet_size = trader.calculate_bet_size(0.95)
+        bet_size = trader.model.calculate_bet_size(0.95, -110, trader.bankroll)
         assert bet_size <= Decimal("200.00")  # 20% max
 
     def test_min_bet_size(self, trader):
         """Test minimum bet size"""
-        bet_size = trader.calculate_bet_size(0.50)
+        bet_size = trader.model.calculate_bet_size(0.50, -110, trader.bankroll)
         assert bet_size >= Decimal("0.00")  # Non-negative
