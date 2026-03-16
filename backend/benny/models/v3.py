@@ -2,7 +2,7 @@
 
 Philosophy: trust the market more, trust AI confidence less.
 - Stripped-down prompts (just data, no history/examples)
-- Flat 2% bet sizing (no Kelly — AI confidence is unreliable)
+- Flat 5% bet sizing (no Kelly — AI confidence is unreliable)
 - Odds-edge floor (AI must disagree with market by 5%+)
 - Monte Carlo variance tracking
 - Single fixed threshold (0.70 confidence, 5% EV)
@@ -25,7 +25,7 @@ from benny.variance_tracker import VarianceTracker
 class BennyV3(BennyModelBase):
     """Lean betting model — flat sizing, minimal prompts, variance-aware"""
 
-    FLAT_BET_PCT = Decimal("0.02")  # 2% of bankroll
+    FLAT_BET_PCT = Decimal("0.05")  # 5% of bankroll
     MIN_CONFIDENCE = 0.70
     MIN_EV = 0.05
     MIN_EDGE_VS_MARKET = 0.05  # Must disagree with market by 5%+
