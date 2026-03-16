@@ -6,6 +6,13 @@ Philosophy: trust the market more, trust AI confidence less.
 - Odds-edge floor (AI must disagree with market by 5%+)
 - Monte Carlo variance tracking
 - Single fixed threshold (0.70 confidence, 5% EV)
+
+FUTURE: Edge-based sizing instead of flat.
+  AI confidence is uncalibrated (says 0.75, wins 47%), but edge-vs-market is a real signal.
+  After 200+ bets, check if edge correlates with win rate. If so:
+    edge = ai_implied_prob - market_implied_prob
+    bet_size = base_pct + (edge - 0.05) * scale_factor
+  This sizes on market disagreement (measurable) rather than AI confidence (unreliable).
 """
 import json
 from decimal import Decimal
