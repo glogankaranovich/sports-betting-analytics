@@ -2243,6 +2243,7 @@ IMPORTANT:
 
         # 3. Build and place parlays from prop opportunities
         parlay_bets = []
+        total_bet = Decimal("0")
         if prop_opportunities:
             eligible = [o for o in prop_opportunities if o.get("confidence", 0) >= 0.70]
             game_ids = [o.get("game_id") for o in eligible]
@@ -2277,7 +2278,6 @@ IMPORTANT:
 
         # 5. Place bets in priority order
         placed_bets = []
-        total_bet = Decimal("0")
 
         for opp in all_opportunities:
             if self.bankroll < Decimal("10.00"):
