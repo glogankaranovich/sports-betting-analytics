@@ -17,9 +17,9 @@ class OutcomeAnalyzer:
         # Get all settled bets with features
         response = self.table.query(
             KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BET#"),
-            FilterExpression="attribute_exists(features) AND #status = :settled",
+            FilterExpression="attribute_exists(features) AND #status IN (:won, :lost)",
             ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues={":settled": "settled"}
+            ExpressionAttributeValues={":won": "won", ":lost": "lost"}
         )
         
         bets = response.get("Items", [])

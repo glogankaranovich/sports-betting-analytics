@@ -18,7 +18,6 @@ from benny.position_manager import PositionManager
 from benny.bankroll_manager import BankrollManager
 from benny.learning_engine import LearningEngine
 from benny.opportunity_analyzer import OpportunityAnalyzer
-from benny.feature_extractor import FeatureExtractor
 from benny.bet_executor import BetExecutor
 from benny.parlay_engine import ParlayEngine
 
@@ -49,7 +48,7 @@ class BennyTrader:
             self.table = table
 
         self.version = version
-        pk_map = {"v1": "BENNY", "v2": "BENNY_V2", "v3": "BENNY_V3"}
+        pk_map = {"v1": "BENNY", "v3": "BENNY_V3"}
         self.pk = pk_map.get(version, "BENNY")
 
         # Initialize composition classes
@@ -75,9 +74,6 @@ class BennyTrader:
         if version == "v3":
             from benny.models.v3 import BennyV3
             self.model = BennyV3(self.table)
-        elif version == "v2":
-            from benny.models.v2 import BennyV2
-            self.model = BennyV2(self.table, self.learning_engine, self.bankroll_manager)
         else:
             from benny.models.v1 import BennyV1
             self.model = BennyV1(self.table, self.learning_engine, self.bankroll_manager)
@@ -659,25 +655,6 @@ class BennyTrader:
                             "odds": odds,
                             "expected_value": expected_value,
                         }
-
-                        # Extract features for v2
-                        if self.version == "v2":
-                            features = FeatureExtractor.extract_features(
-                                game_data=game_data,
-                                home_elo=home_elo,
-                                away_elo=away_elo,
-                                fatigue=fatigue,
-                                home_injuries=home_injuries,
-                                away_injuries=away_injuries,
-                                home_form=home_form,
-                                away_form=away_form,
-                                weather=weather,
-                                h2h_history=h2h_history,
-                                odds=odds,
-                                market_key=market_type,
-                                prediction=prediction_data["prediction"],
-                            )
-                            opportunity["features"] = features
 
                         opportunities.append(opportunity)
 
@@ -1387,12 +1364,9 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
         if bet_size > self.bankroll:
             return {"success": False, "reason": "Insufficient bankroll"}
 
-        # Extract features for v2
-        features = opportunity.get("features") if self.version == "v2" else None
-
         # Place bet via executor
         result = self.bet_executor.place_bet(
-            opportunity, bet_size, self.bankroll, features
+            opportunity, bet_size, self.bankroll, None
         )
 
         # Update bankroll
@@ -1968,11 +1942,6 @@ if __name__ == "__main__":
         print("Running Benny v1...")
         result_v1 = trader_v1.run_daily_analysis()
         print(f"Benny v1 complete: {result_v1}")
-
-        print("\nRunning Benny v2...")
-        trader_v2 = BennyTrader(version="v2")
-        result_v2 = trader_v2.run_daily_analysis()
-        print(f"Benny v2 complete: {result_v2}")
 
         print("\nRunning Benny v3...")
         trader_v3 = BennyTrader(version="v3")

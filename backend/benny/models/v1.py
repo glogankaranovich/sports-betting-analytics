@@ -4,6 +4,14 @@
 - Kelly criterion bet sizing via BankrollManager
 - Adaptive confidence thresholds via LearningEngine
 - Post-run: update_learning_parameters
+
+TODO: Consider adding feature analysis (OutcomeAnalyzer + FeatureExtractor) to post_run.
+  V2 tried this but the loop was broken (OutcomeAnalyzer filtered for status='settled' instead
+  of 'won'/'lost' — now fixed). The idea: extract structured features per bet (elo_diff,
+  fatigue, injury_advantage, form_advantage, etc.), analyze which correlate with wins, and
+  use insights for your own analysis. Don't inject into the AI prompt — it didn't help V2.
+  Would need: FeatureExtractor.extract_features() in analyze_games, store with bet,
+  then OutcomeAnalyzer.analyze_features() + save_insights() in post_run.
 """
 import json
 from datetime import datetime
