@@ -1928,6 +1928,114 @@ def lambda_handler(event, context):
         return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
 
 
+def _send_consensus_email(table):
+    """Compare today's V1 and V3 bets and email consensus/disagreements."""
+    try:
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        v1_bets = _get_todays_bets(table, "BENNY", today)
+        v3_bets = _get_todays_bets(table, "BENNY_V3", today)
+
+        if not v1_bets and not v3_bets:
+            print("No bets placed today, skipping consensus email")
+            return
+
+        # Match on game_id + market_key
+        v1_by_key = {(b["game_id"], b["market_key"]): b for b in v1_bets}
+        v3_by_key = {(b["game_id"], b["market_key"]): b for b in v3_bets}
+
+        agree, v1_only, v3_only = [], [], []
+        for key, b1 in v1_by_key.items():
+            if key in v3_by_key:
+                b3 = v3_by_key[key]
+                same_pick = b1["prediction"] == b3["prediction"]
+                entry = {
+                    "pick": b1["prediction"],
+                    "v1_conf": float(b1.get("confidence", 0)),
+                    "v3_conf": float(b3.get("confidence", 0)),
+                    "sport": b1.get("sport", ""),
+                    "odds": float(b1.get("odds", 0)),
+                    "same_pick": same_pick,
+                }
+                if same_pick:
+                    agree.append(entry)
+                else:
+                    entry["v3_pick"] = b3["prediction"]
+                    agree.append(entry)  # still interesting — same game, different pick
+            else:
+                v1_only.append(b1)
+        for key, b3 in v3_by_key.items():
+            if key not in v1_by_key:
+                v3_only.append(b3)
+
+        # Build email
+        lines = [f"<h2>Benny Consensus Report — {today}</h2>"]
+
+        if agree:
+            same = [a for a in agree if a["same_pick"]]
+            diff = [a for a in agree if not a["same_pick"]]
+            if same:
+                lines.append("<h3>🤝 Both Models Agree</h3><ul>")
+                for a in same:
+                    lines.append(
+                        f"<li><b>{a['pick']}</b> ({a['sport']}) — "
+                        f"V1 conf: {a['v1_conf']:.0%}, V3 conf: {a['v3_conf']:.0%}, "
+                        f"odds: {a['odds']:+.0f}</li>"
+                    )
+                lines.append("</ul>")
+            if diff:
+                lines.append("<h3>⚔️ Same Game, Different Pick</h3><ul>")
+                for a in diff:
+                    lines.append(
+                        f"<li>{a['sport']}: V1 says <b>{a['pick']}</b> (conf {a['v1_conf']:.0%}), "
+                        f"V3 says <b>{a['v3_pick']}</b> (conf {a['v3_conf']:.0%})</li>"
+                    )
+                lines.append("</ul>")
+
+        if v1_only:
+            lines.append("<h3>V1 Only</h3><ul>")
+            for b in v1_only:
+                lines.append(
+                    f"<li>{b['prediction']} ({b.get('sport', '')}) — "
+                    f"conf: {float(b.get('confidence', 0)):.0%}, "
+                    f"${float(b.get('bet_amount', 0)):.2f}</li>"
+                )
+            lines.append("</ul>")
+
+        if v3_only:
+            lines.append("<h3>V3 Only</h3><ul>")
+            for b in v3_only:
+                lines.append(
+                    f"<li>{b['prediction']} ({b.get('sport', '')}) — "
+                    f"conf: {float(b.get('confidence', 0)):.0%}, "
+                    f"${float(b.get('bet_amount', 0)):.2f}</li>"
+                )
+            lines.append("</ul>")
+
+        html = "\n".join(lines)
+        ses = boto3.client("ses", region_name="us-east-1")
+        ses.send_email(
+            Source="noreply@carpoolbets.com",
+            Destination={"ToAddresses": ["glogankaranovich@gmail.com"]},
+            Message={
+                "Subject": {"Data": f"Benny Consensus — {today}"},
+                "Body": {"Html": {"Data": html}},
+            },
+        )
+        print(f"Consensus email sent: {len(agree)} shared, {len(v1_only)} V1-only, {len(v3_only)} V3-only")
+    except Exception as e:
+        print(f"Failed to send consensus email: {e}")
+
+
+def _get_todays_bets(table, pk, today):
+    """Get non-parlay bets placed today for a given pk."""
+    response = table.query(
+        KeyConditionExpression=Key("pk").eq(pk) & Key("sk").begins_with("BET#"),
+        FilterExpression="begins_with(placed_at, :today) AND (attribute_not_exists(bet_type) OR bet_type <> :parlay)",
+        ExpressionAttributeValues={":today": today, ":parlay": "parlay"},
+    )
+    return response.get("Items", [])
+
+
 if __name__ == "__main__":
     import sys
 
@@ -1947,6 +2055,9 @@ if __name__ == "__main__":
         trader_v3 = BennyTrader(version="v3")
         result_v3 = trader_v3.run_daily_analysis()
         print(f"Benny v3 complete: {result_v3}")
+
+        # Send consensus notification
+        _send_consensus_email(trader_v1.table)
     except Exception as e:
         print(f"Error: {e}")
         import traceback
