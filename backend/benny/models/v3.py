@@ -34,6 +34,9 @@ class BennyV3(BennyModelBase):
         self.table = table
         self.variance_tracker = VarianceTracker(table, self.pk)
 
+    def get_min_bet(self) -> Decimal:
+        return Decimal("1.00")
+
     @property
     def pk(self) -> str:
         return "BENNY_V3"
