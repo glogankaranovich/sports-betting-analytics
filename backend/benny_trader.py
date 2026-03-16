@@ -51,7 +51,8 @@ class BennyTrader:
             self.table = table
 
         self.version = version
-        self.pk = "BENNY" if version == "v1" else "BENNY_V2"
+        pk_map = {"v1": "BENNY", "v2": "BENNY_V2", "v3": "BENNY_V3"}
+        self.pk = pk_map.get(version, "BENNY")
 
         # Initialize composition classes
         self.bankroll_manager = BankrollManager(self.table, self.pk)
@@ -70,6 +71,13 @@ class BennyTrader:
         # Caches built during analysis, shared across methods
         self.game_teams = {}  # game_id -> {home_team, away_team}
         self.player_teams = {}  # player_name -> team_name
+        self._perf_stats_cache = None  # populated once per run
+
+        # V3 model (lean prompts, flat sizing, variance tracking)
+        self.model = None
+        if version == "v3":
+            from benny.models.v3 import BennyV3
+            self.model = BennyV3(self.table)
 
         # Delegate to managers
         self.bankroll = self.bankroll_manager.bankroll
@@ -149,7 +157,10 @@ class BennyTrader:
             }
 
     def _get_performance_stats(self, days: int = 30) -> Dict[str, Any]:
-        """Get Benny's historical performance stats for learning"""
+        """Get Benny's historical performance stats for learning (cached per run)"""
+        if self._perf_stats_cache is not None:
+            return self._perf_stats_cache
+
         cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
 
         try:
@@ -164,7 +175,8 @@ class BennyTrader:
             ]
 
             if not bets:
-                return {"message": "No settled bets yet"}
+                self._perf_stats_cache = {"message": "No settled bets yet"}
+                return self._perf_stats_cache
 
             # Overall stats
             won = [b for b in bets if b["status"] == "won"]
@@ -181,7 +193,6 @@ class BennyTrader:
                 },
                 "by_sport": {},
                 "by_market": {},
-                "notable": {"best": None, "worst": None},
             }
 
             # By sport
@@ -202,19 +213,12 @@ class BennyTrader:
                         market
                     ] = f"{len(market_won)}/{len(market_bets)} ({len(market_won)/len(market_bets):.1%})"
 
-            # Notable bets
-            if bets:
-                stats["notable"]["best"] = max(
-                    bets, key=lambda b: Decimal(str(b.get("profit", 0)))
-                )
-                stats["notable"]["worst"] = min(
-                    bets, key=lambda b: Decimal(str(b.get("profit", 0)))
-                )
-
-            return stats
+            self._perf_stats_cache = stats
+            return self._perf_stats_cache
         except Exception as e:
             print(f"Error fetching performance stats: {e}")
-            return {"message": "Error loading stats"}
+            self._perf_stats_cache = {"message": "Error loading stats"}
+            return self._perf_stats_cache
 
     def _get_what_works_analysis(self) -> str:
         """Identify patterns in winning bets"""
@@ -1131,6 +1135,27 @@ class BennyTrader:
             over_prob = self._american_to_probability(avg_over) if avg_over else 0
             under_prob = self._american_to_probability(avg_under) if avg_under else 0
 
+            # V3: use lean prompt from model
+            if self.model:
+                prompt = self.model.build_prop_prompt(prop_data, player_stats, player_trends, matchup_data)
+                response = bedrock.invoke_model(
+                    modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+                    body=json.dumps({
+                        "anthropic_version": "bedrock-2023-05-31",
+                        "max_tokens": 300,
+                        "messages": [{"role": "user", "content": prompt}],
+                    }),
+                )
+                result = json.loads(response["body"].read())
+                content = result["content"][0]["text"]
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0].strip()
+                return json.loads(content)
+
+            # V1/V2: full prompt with performance context
+
             perf_stats = self._get_performance_stats()
             print(f"[PROP] Performance stats: {perf_stats}")
 
@@ -1485,6 +1510,44 @@ IMPORTANT:
                 if avg_draw_price
                 else None
             )
+
+            # V3: use lean prompt from model
+            if self.model:
+                context = {
+                    "avg_h2h": {"home": avg_home_price, "away": avg_away_price},
+                    "home_prob": home_prob,
+                    "away_prob": away_prob,
+                    "draw_prob": draw_prob,
+                    "avg_spread": avg_spread,
+                    "avg_total": avg_total,
+                    "home_elo": home_elo,
+                    "away_elo": away_elo,
+                    "home_form": home_form,
+                    "away_form": away_form,
+                    "home_injuries": home_injuries,
+                    "away_injuries": away_injuries,
+                    "h2h_history": h2h_history,
+                }
+                if draw_prob and avg_draw_price:
+                    context["avg_h2h"]["draw"] = avg_draw_price
+                prompt = self.model.build_game_prompt(game_data, context)
+                response = bedrock.invoke_model(
+                    modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+                    body=json.dumps({
+                        "anthropic_version": "bedrock-2023-05-31",
+                        "max_tokens": 500,
+                        "messages": [{"role": "user", "content": prompt}],
+                    }),
+                )
+                result = json.loads(response["body"].read())
+                content = result["content"][0]["text"]
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0].strip()
+                return json.loads(content)
+
+            # V1/V2: full prompt with performance context
 
             # Build market odds section
             market_odds = f"""MONEYLINE (H2H):
@@ -2120,16 +2183,25 @@ IMPORTANT:
 
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Place a virtual bet"""
-        # Check adaptive threshold
         sport = opportunity["sport"]
         market = opportunity["market_key"]
-        required_confidence = self._get_adaptive_threshold(sport, market)
+        confidence = opportunity["confidence"]
+        odds = opportunity.get("odds")
 
-        if opportunity["confidence"] < required_confidence:
-            print(
-                f"  Skipping: confidence {opportunity['confidence']:.2f} < required {required_confidence:.2f}"
-            )
-            return {"success": False, "reason": f"Confidence below threshold"}
+        # V3: use model's should_bet and flat sizing
+        if self.model:
+            implied_prob = self._american_to_probability(float(odds)) if odds else 0.5
+            if not self.model.should_bet(confidence, opportunity.get("expected_value", 0), implied_prob, sport, market):
+                print(f"  Skipping: model rejected (conf={confidence:.2f}, ev={opportunity.get('expected_value', 0):.3f}, edge_vs_market={confidence - implied_prob:.3f})")
+                return {"success": False, "reason": "Model rejected"}
+            bet_size = self.model.calculate_bet_size(confidence, float(odds) if odds else 0, self.bankroll)
+        else:
+            # V1/V2: adaptive threshold + Kelly sizing
+            required_confidence = self._get_adaptive_threshold(sport, market)
+            if confidence < required_confidence:
+                print(f"  Skipping: confidence {confidence:.2f} < required {required_confidence:.2f}")
+                return {"success": False, "reason": f"Confidence below threshold"}
+            bet_size = self.bankroll_manager.calculate_bet_size(confidence, odds)
 
         # Check for existing bet
         game_id = opportunity["game_id"]
@@ -2150,16 +2222,11 @@ IMPORTANT:
             print(f"  Skipping: already have pending bet")
             return {"success": False, "reason": "Already have pending bet"}
 
-        # Calculate bet size
-        confidence = opportunity["confidence"]
-        odds = opportunity.get("odds")
-        bet_size = self.bankroll_manager.calculate_bet_size(confidence, odds)
-
         # Check minimum bet size
-        MIN_BET = Decimal("5.00")
-        if bet_size < MIN_BET:
-            print(f"  Skipping: bet size ${bet_size:.2f} < minimum ${MIN_BET}")
-            return {"success": False, "reason": f"Bet size below ${MIN_BET} minimum"}
+        min_bet = self.model.get_min_bet() if self.model else Decimal("5.00")
+        if bet_size < min_bet:
+            print(f"  Skipping: bet size ${bet_size:.2f} < minimum ${min_bet}")
+            return {"success": False, "reason": f"Bet size below ${min_bet} minimum"}
 
         if bet_size > self.bankroll:
             return {"success": False, "reason": "Insufficient bankroll"}
@@ -2222,15 +2289,16 @@ IMPORTANT:
         # Check if auto-deposit is needed
         auto_deposited = self._auto_deposit_if_needed()
 
-        # Update learning parameters before analyzing
-        self.update_learning_parameters()
+        # Update learning parameters before analyzing (V1/V2 only)
+        if self.version != "v3":
+            self.update_learning_parameters()
 
         # Run feature analysis for v2
         if self.version == "v2":
             self.analyze_feature_performance()
 
-        # 1. Evaluate existing positions for cash-out/double-down
-        position_actions = self._manage_positions()
+        # 1. Evaluate existing positions for cash-out/double-down (V1/V2 only)
+        position_actions = self._manage_positions() if self.version != "v3" else {"cash_outs": 0, "double_downs": 0, "details": {"cash_outs": [], "double_downs": []}}
 
         # 2. Analyze all games and props
         game_opportunities = self.analyze_games()
@@ -2270,10 +2338,10 @@ IMPORTANT:
                     )
             print(f"Placed {len(parlay_bets)} parlays")
 
-        # 4. Combine and sort by confidence * edge (best opportunities first)
+        # 4. Combine and sort by expected value (best opportunities first)
         all_opportunities = game_opportunities + prop_opportunities
         all_opportunities.sort(
-            key=lambda x: x.get("confidence", 0) * x.get("edge", 0), reverse=True
+            key=lambda x: x.get("expected_value", 0), reverse=True
         )
 
         # 5. Place bets in priority order
@@ -2306,7 +2374,7 @@ IMPORTANT:
             f"{len(parlay_bets)} parlays (${total_bet} total)"
         )
 
-        return {
+        result = {
             "game_opportunities": len(game_opportunities),
             "prop_opportunities": len(prop_opportunities),
             "total_bets": len(placed_bets) + len(parlay_bets),
@@ -2319,6 +2387,12 @@ IMPORTANT:
             "parlay_bets": parlay_bets,
             "position_actions": position_actions,
         }
+
+        # V3: run post-analysis (Monte Carlo variance tracking)
+        if self.model:
+            self.model.post_run(result)
+
+        return result
 
     def _manage_positions(self) -> Dict[str, Any]:
         """Manage existing positions - cash-out and double-down"""
@@ -2752,6 +2826,11 @@ if __name__ == "__main__":
         trader_v2 = BennyTrader(version="v2")
         result_v2 = trader_v2.run_daily_analysis()
         print(f"Benny v2 complete: {result_v2}")
+
+        print("\nRunning Benny v3...")
+        trader_v3 = BennyTrader(version="v3")
+        result_v3 = trader_v3.run_daily_analysis()
+        print(f"Benny v3 complete: {result_v3}")
     except Exception as e:
         print(f"Error: {e}")
         import traceback
