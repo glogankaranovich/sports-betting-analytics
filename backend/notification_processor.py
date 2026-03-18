@@ -41,6 +41,20 @@ def lambda_handler(event, context):
                 else:
                     results['failed'] += 1
                     results['errors'].append(f"Failed to send SMS for {data.get('game')}")
+            elif notification_type == 'consensus_report':
+                email = os.environ.get('BENNY_NOTIFICATION_EMAIL')
+                if not email:
+                    logger.warning("BENNY_NOTIFICATION_EMAIL not set, skipping consensus report")
+                    continue
+
+                formatted_message = service.format_consensus_report(data)
+                success = service.send_notification('email', email, formatted_message, data)
+
+                if success:
+                    results['successful'] += 1
+                else:
+                    results['failed'] += 1
+                    results['errors'].append("Failed to send consensus report")
             else:
                 logger.warning(f"Unknown notification type: {notification_type}")
                 

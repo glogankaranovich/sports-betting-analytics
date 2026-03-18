@@ -44,7 +44,19 @@ class BennyV1(BennyModelBase):
     def version(self) -> str:
         return "v1"
 
-    # --- Prompt helpers (moved from trader) ---
+    # --- Prompt helpers ---
+
+    _coaching_memo_cache = None
+
+    def _get_coaching_memo(self) -> str:
+        if self._coaching_memo_cache is not None:
+            return self._coaching_memo_cache
+        try:
+            from benny.coaching_agent import CoachingAgent
+            self._coaching_memo_cache = CoachingAgent(self.table, self.pk).get_memo()
+        except Exception:
+            self._coaching_memo_cache = ""
+        return self._coaching_memo_cache
 
     def _get_what_works_analysis(self) -> str:
         params = self.learning_engine.params
@@ -189,16 +201,8 @@ Note: Use this to inform confidence - be more conservative in markets where you'
         sport = game_data["sport"]
         params = self.learning_engine.params
         bankroll = context["bankroll"]
-
-        perf_context = self._build_perf_context(context.get("perf_stats", {}))
+        coaching_memo = self._get_coaching_memo()
         perf_warnings = self.learning_engine.get_performance_warnings(sport)
-        what_works = self._get_what_works_analysis()
-        what_fails = self._get_what_fails_analysis()
-        recent_mistakes = self._analyze_recent_mistakes()
-        winning_examples = self._get_winning_examples(sport, limit=2)
-        winning_factors = self._extract_winning_factors()
-        model_benchmarks = self._get_model_benchmarks(sport)
-        feature_insights = self._get_feature_insights()
 
         return f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
@@ -207,30 +211,11 @@ RISK PARAMETERS:
 - Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
 - Target ROI: {params.get('target_roi', 0.15)*100:.0f}%
 - Current Bankroll: ${float(bankroll):.2f}
-{perf_context}
 
 {perf_warnings}
 
-{feature_insights}
-
-WHAT'S WORKING FOR YOU:
-{what_works}
-
-WHAT'S NOT WORKING:
-{what_fails}
-
-RECENT MISTAKE PATTERNS:
-{recent_mistakes}
-
-YOUR RECENT WINS IN {sport.upper()}:
-{winning_examples}
-
-FACTORS THAT PREDICT SUCCESS:
-{winning_factors}
-
-OTHER MODELS' PERFORMANCE ON {sport.upper()}:
-{model_benchmarks}
-Note: You should aim to match or beat the best models. If you're underperforming, learn from their approach.
+COACHING MEMO (from your performance coach — follow these rules):
+{coaching_memo if coaching_memo else 'No coaching data yet — use your best judgment.'}
 
 Game: {game_data['away_team']} @ {game_data['home_team']}
 Sport: {game_data['sport']}
@@ -246,15 +231,12 @@ Note: Higher = stronger. Difference >50 = significant edge. Average team = 1500.
 OPPONENT-ADJUSTED EFFICIENCY:
 Home: {json.dumps(context.get('home_adjusted'), indent=2) if context.get('home_adjusted') else 'No data'}
 Away: {json.dumps(context.get('away_adjusted'), indent=2) if context.get('away_adjusted') else 'No data'}
-Note: Adjusted for opponent strength - more accurate than raw stats.
 
 TRAVEL & FATIGUE:
 {json.dumps(context.get('fatigue'), indent=2) if context.get('fatigue') else 'No data'}
-Note: Fatigue score 0-100 where <30=fresh, 30-60=moderate, >60=tired. High fatigue hurts performance.
 
 WEATHER CONDITIONS:
 {json.dumps(context.get('weather'), indent=2) if context.get('weather') else 'Indoor venue or no data'}
-Note: Impact levels - high=significant effect, moderate=some effect, low=minimal.
 
 RECENT FORM (Last 5 games):
 Home: {context['home_form'].get('record', 'Unknown')} - {context['home_form'].get('streak', '')}
@@ -280,18 +262,13 @@ ANALYSIS INSTRUCTIONS:
 2. Prioritize Elo ratings and opponent-adjusted metrics
 3. Factor in fatigue if either team has score >50 or traveled >1000 miles
 4. Consider weather impact if marked as "high" or "moderate"
-5. CRITICAL BETTING THRESHOLDS:
+5. FOLLOW YOUR COACHING MEMO — avoid markets/situations it flags
+6. CRITICAL BETTING THRESHOLDS:
    - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
    - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
    - Calculate EV/Expected ROI = (confidence × payout) - 1
-   - Example: -110 odds (payout 1.909) at 65% confidence = EV of 0.24 (24% expected ROI) ✓
-   - Example: -110 odds (payout 1.909) at 55% confidence = EV of 0.05 (5% expected ROI) ✓
-   - Example: -110 odds (payout 1.909) at 52% confidence = EV of -0.007 (negative ROI) ✗
    - NEVER bet on negative expected ROI - you will lose money over time
-6. For spreads: Consider if favorite can cover the spread, not just win
-7. For totals: Analyze pace, defense, and scoring trends
-8. Be highly selective - quality over quantity. Skip games where edge is unclear.
-9. Learn from your performance by sport - adjust confidence accordingly
+7. Be highly selective - quality over quantity. Skip games where edge is unclear.
 
 Respond with JSON only - include ALL markets you want to bet on:
 {{"h2h": {{"prediction": "Team Name (Moneyline)", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name -X.X (Spread)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under XXX.X (Total)", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
@@ -320,38 +297,17 @@ IMPORTANT:
         over_prob = _american_to_probability(avg_over) if avg_over else 0.5
         under_prob = _american_to_probability(avg_under) if avg_under else 0.5
 
-        sport = prop_data["sport"]
-        perf_context = self._build_perf_context(self._get_perf_stats())
-        perf_warnings = self.learning_engine.get_performance_warnings(sport)
-        what_works = self._get_what_works_analysis()
-        what_fails = self._get_what_fails_analysis()
-        recent_mistakes = self._analyze_recent_mistakes()
-        winning_examples = self._get_winning_examples(sport, limit=2)
-        winning_factors = self._extract_winning_factors()
+        coaching_memo = self._get_coaching_memo()
 
         return f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
 RISK PARAMETERS:
 - Kelly Fraction: {params.get('kelly_fraction', 0.5)} (bet sizing multiplier)
 - Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
-- Target ROI: {params.get('target_roi', 0.15)*100:.0f}%
 - Current Bankroll: ${float(bankroll):.2f}
-{perf_context}
 
-WHAT'S WORKING FOR YOU:
-{what_works}
-
-WHAT'S NOT WORKING:
-{what_fails}
-
-RECENT MISTAKE PATTERNS:
-{recent_mistakes}
-
-YOUR RECENT WINS IN {sport.upper()}:
-{winning_examples}
-
-FACTORS THAT PREDICT SUCCESS:
-{winning_factors}
+COACHING MEMO (from your performance coach — follow these rules):
+{coaching_memo if coaching_memo else 'No coaching data yet — use your best judgment.'}
 
 Player: {prop_data['player']} ({prop_data['team']})
 Opponent: {prop_data['opponent']}
@@ -372,22 +328,18 @@ RECENT TRENDS (Last 10 games for this market):
 MATCHUP HISTORY vs {prop_data['opponent']}:
 {json.dumps(matchup_data, indent=2) if matchup_data else 'No matchup history available'}
 
-BENNY'S PROP PERFORMANCE:
-{self._get_prop_market_performance(prop_data['market'])}
-
 ANALYSIS INSTRUCTIONS:
 1. Compare player's season average and last 5 games to the line
 2. Consider recent trends - is player hot or cold?
 3. Factor in matchup history against this opponent
-4. Look for value where the line doesn't match recent performance
-5. Consider Benny's historical accuracy on this prop type
-6. CRITICAL BETTING THRESHOLDS:
+4. FOLLOW YOUR COACHING MEMO — avoid markets/situations it flags
+5. CRITICAL BETTING THRESHOLDS:
    - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
    - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
    - Calculate EV/Expected ROI = (confidence × payout) - 1
    - NEVER bet on negative expected ROI - you will lose money over time
-7. Be highly selective - props are harder to predict than games
-8. Skip if player data is limited or matchup is unclear
+6. Be highly selective - props are harder to predict than games
+7. Skip if player data is limited or matchup is unclear
 
 Respond with JSON only:
 {{"prediction": "Over/Under X.X (Player Market)", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}
@@ -579,5 +531,32 @@ IMPORTANT:
                 for market, stats in sorted(perf_by_prop_market.items(), key=lambda x: x[1]["wins"] / max(x[1]["total"], 1), reverse=True):
                     wr = stats["wins"] / stats["total"] if stats["total"] > 0 else 0
                     print(f"  {market}: {stats['wins']}/{stats['total']} ({wr:.1%})")
+
+            # Feature analysis + threshold optimization (ported from V2)
+            try:
+                from benny.outcome_analyzer import OutcomeAnalyzer
+                from benny.threshold_optimizer import ThresholdOptimizer
+
+                analyzer = OutcomeAnalyzer(self.table, self.pk)
+                insights = analyzer.analyze_features()
+                if "error" not in insights:
+                    print(f"Feature analysis: {insights['total_bets']} bets, top predictors: {[p['feature'] for p in insights.get('strongest_predictors', [])[:3]]}")
+                    insights["timestamp"] = datetime.utcnow().isoformat()
+                    analyzer.save_insights(insights)
+
+                calibration = analyzer.analyze_confidence_calibration()
+                if "error" not in calibration:
+                    print(f"Calibration error: {calibration['avg_calibration_error']:.1%}")
+                    calibration["timestamp"] = datetime.utcnow().isoformat()
+                    analyzer.save_calibration(calibration)
+
+                optimizer = ThresholdOptimizer(self.table, self.pk)
+                thresholds = optimizer.optimize_thresholds()
+                if "error" not in thresholds:
+                    print(f"Optimal threshold: conf={thresholds['global']['optimal_min_confidence']:.0%}")
+                    thresholds["timestamp"] = datetime.utcnow().isoformat()
+                    optimizer.save_optimal_thresholds(thresholds)
+            except Exception as e:
+                print(f"Error in feature analysis: {e}")
         except Exception as e:
             print(f"Error updating learning parameters: {e}")

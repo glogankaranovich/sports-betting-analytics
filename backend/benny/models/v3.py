@@ -35,7 +35,7 @@ class BennyV3(BennyModelBase):
         self.variance_tracker = VarianceTracker(table, self.pk)
 
     def get_min_bet(self) -> Decimal:
-        return Decimal("1.00")
+        return Decimal("5.00")
 
     @property
     def pk(self) -> str:
@@ -45,9 +45,22 @@ class BennyV3(BennyModelBase):
     def version(self) -> str:
         return "v3"
 
+    _coaching_memo_cache = None
+
+    def _get_coaching_memo(self) -> str:
+        if self._coaching_memo_cache is not None:
+            return self._coaching_memo_cache
+        try:
+            from benny.coaching_agent import CoachingAgent
+            self._coaching_memo_cache = CoachingAgent(self.table, self.pk).get_memo()
+        except Exception:
+            self._coaching_memo_cache = ""
+        return self._coaching_memo_cache
+
     def build_game_prompt(self, game_data: Dict, context: Dict[str, Any]) -> str:
         home = game_data["home_team"]
         away = game_data["away_team"]
+        coaching_memo = self._get_coaching_memo()
 
         # Build compact odds section
         odds_section = f"""MONEYLINE: Home {context['avg_h2h']['home']:+.0f} ({context['home_prob']:.1%}) | Away {context['avg_h2h']['away']:+.0f} ({context['away_prob']:.1%})"""
@@ -59,6 +72,8 @@ class BennyV3(BennyModelBase):
         if context.get("avg_total"):
             t = context["avg_total"]
             odds_section += f"\nTOTAL: O/U {t['point']:.1f} — Over {t['over_price']:+.0f} | Under {t['under_price']:+.0f}"
+
+        memo_block = f"\nCOACHING MEMO:\n{coaching_memo}\n" if coaching_memo else ""
 
         return f"""Analyze this game and pick the best betting market. Be selective — only bet when you see a clear edge.
 
@@ -73,11 +88,12 @@ FORM (Last 5): {home} {context['home_form'].get('record', '?')} {context['home_f
 INJURIES: {home}: {json.dumps(context['home_injuries']) if context['home_injuries'] else 'None'} | {away}: {json.dumps(context['away_injuries']) if context['away_injuries'] else 'None'}
 
 H2H: {json.dumps(context['h2h_history']) if context['h2h_history'] else 'No history'}
-
+{memo_block}
 RULES:
 - Confidence must be your TRUE probability estimate (0.65-0.95 range)
 - Only include markets where you're genuinely 70%+ confident
 - EV = (confidence × payout) - 1 must be > 5%
+- Follow coaching memo rules if present
 - Skip entirely if edge is unclear
 
 Respond with JSON only. Include only markets worth betting:
@@ -88,6 +104,8 @@ Respond with JSON only. Include only markets worth betting:
         under_odds = [o for o in prop_data["odds"] if o["side"] == "Under"]
         avg_over = sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
         avg_under = sum(o["price"] for o in under_odds) / len(under_odds) if under_odds else 0
+        coaching_memo = self._get_coaching_memo()
+        memo_block = f"\nCOACHING MEMO:\n{coaching_memo}\n" if coaching_memo else ""
 
         return f"""Analyze this player prop. Only bet when stats clearly support it.
 
@@ -98,11 +116,12 @@ Odds: Over {avg_over:+.0f} | Under {avg_under:+.0f}
 STATS (Last 20 games): {json.dumps(player_stats) if player_stats else 'No data'}
 TRENDS (Last 10): {json.dumps(player_trends) if player_trends else 'No data'}
 MATCHUP vs {prop_data['opponent']}: {json.dumps(matchup_data) if matchup_data else 'No data'}
-
+{memo_block}
 RULES:
 - Compare season avg and last 5 to the line
 - Confidence must be your TRUE probability (0.65-0.95)
 - Only bet when confidence ≥ 70% AND EV > 5%
+- Follow coaching memo rules if present
 - Skip if data is limited
 
 JSON only:

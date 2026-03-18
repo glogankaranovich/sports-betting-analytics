@@ -27,6 +27,7 @@ import { BennyTraderStack } from '../lib/benny-trader-stack';
 import { BennyTraderScheduleStack } from '../lib/benny-trader-schedule-stack';
 import { BennyWeeklyReporterStack } from '../lib/benny-weekly-reporter-stack';
 import { BennyABReporterStack } from '../lib/benny-ab-reporter-stack';
+import { CoachingMemoStack } from '../lib/coaching-memo-stack';
 import { ModelComparisonCacheStack } from '../lib/model-comparison-cache-stack';
 import { NewsCollectorsStack } from '../lib/news-collectors-stack';
 import { CustomDataStack } from '../lib/custom-data-stack';
@@ -190,6 +191,13 @@ if (environment === 'dev') {
 
   // Benny A/B reporter (dev only)
   new BennyABReporterStack(app, StackNames.forEnvironment('dev', 'BennyABReporter'), {
+    environment: 'dev',
+    betsTable: dynamoStack.betsTable,
+    env: ENVIRONMENTS.dev,
+  });
+
+  // Coaching memo generator (dev only)
+  new CoachingMemoStack(app, StackNames.forEnvironment('dev', 'CoachingMemo'), {
     environment: 'dev',
     betsTable: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,

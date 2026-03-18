@@ -134,3 +134,51 @@ Expected ROI: {expected_roi:.1f}%
 Reason: {reasoning}"""
         
         return message
+
+    def format_consensus_report(self, data: Dict) -> str:
+        """Format consensus report comparing V1 and V3 bets."""
+        date = data.get('date', 'Unknown')
+        agree = data.get('agree', [])
+        v1_only = data.get('v1_only', [])
+        v3_only = data.get('v3_only', [])
+
+        lines = [f"Benny Consensus Report — {date}", ""]
+
+        if agree:
+            same = [a for a in agree if a.get('same_pick')]
+            diff = [a for a in agree if not a.get('same_pick')]
+            if same:
+                lines.append("🤝 Both Models Agree:")
+                for a in same:
+                    lines.append(
+                        f"  {a['pick']} ({a['sport']}) — "
+                        f"V1: {a['v1_conf']:.0%}, V3: {a['v3_conf']:.0%}, odds: {a['odds']:+.0f}"
+                    )
+                lines.append("")
+            if diff:
+                lines.append("⚔️ Same Game, Different Pick:")
+                for a in diff:
+                    lines.append(
+                        f"  {a['sport']}: V1={a['pick']} ({a['v1_conf']:.0%}), "
+                        f"V3={a.get('v3_pick', '?')} ({a['v3_conf']:.0%})"
+                    )
+                lines.append("")
+
+        if v1_only:
+            lines.append("V1 Only:")
+            for b in v1_only:
+                lines.append(
+                    f"  {b['prediction']} ({b['sport']}) — "
+                    f"conf: {b['confidence']:.0%}, ${b['bet_amount']:.2f}"
+                )
+            lines.append("")
+
+        if v3_only:
+            lines.append("V3 Only:")
+            for b in v3_only:
+                lines.append(
+                    f"  {b['prediction']} ({b['sport']}) — "
+                    f"conf: {b['confidence']:.0%}, ${b['bet_amount']:.2f}"
+                )
+
+        return "\n".join(lines)

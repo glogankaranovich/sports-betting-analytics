@@ -1439,9 +1439,34 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
             game_ids = [o.get("game_id") for o in eligible]
             print(f"Parlay candidates: {len(eligible)} legs with ≥0.70 conf, {len(set(game_ids))} unique games")
             parlays = self.parlay_engine.build_parlays(prop_opportunities)
+
+            # Load existing pending parlays to avoid duplicates
+            existing_parlays = self.table.query(
+                KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BET#"),
+                FilterExpression="bet_type = :parlay AND #status = :pending",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={":parlay": "parlay", ":pending": "pending"},
+            )
+            existing_sigs = set()
+            for item in existing_parlays.get("Items", []):
+                legs = item.get("legs", [])
+                sig = frozenset(
+                    (l.get("game_id", ""), l.get("player", ""), l.get("market", ""), l.get("prediction", ""))
+                    for l in legs
+                )
+                existing_sigs.add(sig)
+
             for parlay in parlays:
                 if self.bankroll < Decimal("10.00"):
                     break
+                # Check for duplicate parlay
+                sig = frozenset(
+                    (l.get("game_id", ""), l.get("player", ""), l.get("market", ""), l.get("prediction", ""))
+                    for l in parlay["legs"]
+                )
+                if sig in existing_sigs:
+                    print(f"  Skipping parlay: duplicate of existing pending parlay")
+                    continue
                 bet_size = self.parlay_engine.calculate_parlay_bet_size(
                     parlay, self.bankroll
                 )
@@ -1929,7 +1954,7 @@ def lambda_handler(event, context):
 
 
 def _send_consensus_email(table):
-    """Compare today's V1 and V3 bets and email consensus/disagreements."""
+    """Compare today's V1 and V3 bets and send consensus report via SQS."""
     try:
         today = datetime.utcnow().strftime("%Y-%m-%d")
         v1_bets = _get_todays_bets(table, "BENNY", today)
@@ -1956,74 +1981,47 @@ def _send_consensus_email(table):
                     "odds": float(b1.get("odds", 0)),
                     "same_pick": same_pick,
                 }
-                if same_pick:
-                    agree.append(entry)
-                else:
+                if not same_pick:
                     entry["v3_pick"] = b3["prediction"]
-                    agree.append(entry)  # still interesting — same game, different pick
+                agree.append(entry)
             else:
                 v1_only.append(b1)
         for key, b3 in v3_by_key.items():
             if key not in v1_by_key:
                 v3_only.append(b3)
 
-        # Build email
-        lines = [f"<h2>Benny Consensus Report — {today}</h2>"]
+        # Serialize bets for SQS (convert Decimal to float)
+        def _serialize_bets(bets):
+            serialized = []
+            for b in bets:
+                serialized.append({
+                    "prediction": b.get("prediction", ""),
+                    "sport": b.get("sport", ""),
+                    "confidence": float(b.get("confidence", 0)),
+                    "bet_amount": float(b.get("bet_amount", 0)),
+                })
+            return serialized
 
-        if agree:
-            same = [a for a in agree if a["same_pick"]]
-            diff = [a for a in agree if not a["same_pick"]]
-            if same:
-                lines.append("<h3>🤝 Both Models Agree</h3><ul>")
-                for a in same:
-                    lines.append(
-                        f"<li><b>{a['pick']}</b> ({a['sport']}) — "
-                        f"V1 conf: {a['v1_conf']:.0%}, V3 conf: {a['v3_conf']:.0%}, "
-                        f"odds: {a['odds']:+.0f}</li>"
-                    )
-                lines.append("</ul>")
-            if diff:
-                lines.append("<h3>⚔️ Same Game, Different Pick</h3><ul>")
-                for a in diff:
-                    lines.append(
-                        f"<li>{a['sport']}: V1 says <b>{a['pick']}</b> (conf {a['v1_conf']:.0%}), "
-                        f"V3 says <b>{a['v3_pick']}</b> (conf {a['v3_conf']:.0%})</li>"
-                    )
-                lines.append("</ul>")
+        queue_url = os.environ.get("NOTIFICATION_QUEUE_URL")
+        if not queue_url:
+            print("NOTIFICATION_QUEUE_URL not set, skipping consensus notification")
+            return
 
-        if v1_only:
-            lines.append("<h3>V1 Only</h3><ul>")
-            for b in v1_only:
-                lines.append(
-                    f"<li>{b['prediction']} ({b.get('sport', '')}) — "
-                    f"conf: {float(b.get('confidence', 0)):.0%}, "
-                    f"${float(b.get('bet_amount', 0)):.2f}</li>"
-                )
-            lines.append("</ul>")
-
-        if v3_only:
-            lines.append("<h3>V3 Only</h3><ul>")
-            for b in v3_only:
-                lines.append(
-                    f"<li>{b['prediction']} ({b.get('sport', '')}) — "
-                    f"conf: {float(b.get('confidence', 0)):.0%}, "
-                    f"${float(b.get('bet_amount', 0)):.2f}</li>"
-                )
-            lines.append("</ul>")
-
-        html = "\n".join(lines)
-        ses = boto3.client("ses", region_name="us-east-1")
-        ses.send_email(
-            Source="noreply@carpoolbets.com",
-            Destination={"ToAddresses": ["glogankaranovich@gmail.com"]},
-            Message={
-                "Subject": {"Data": f"Benny Consensus — {today}"},
-                "Body": {"Html": {"Data": html}},
+        message = {
+            "type": "consensus_report",
+            "data": {
+                "date": today,
+                "agree": agree,
+                "v1_only": _serialize_bets(v1_only),
+                "v3_only": _serialize_bets(v3_only),
             },
-        )
-        print(f"Consensus email sent: {len(agree)} shared, {len(v1_only)} V1-only, {len(v3_only)} V3-only")
+        }
+
+        sqs = boto3.client("sqs")
+        sqs.send_message(QueueUrl=queue_url, MessageBody=json.dumps(message))
+        print(f"Consensus report queued: {len(agree)} shared, {len(v1_only)} V1-only, {len(v3_only)} V3-only")
     except Exception as e:
-        print(f"Failed to send consensus email: {e}")
+        print(f"Failed to send consensus report: {e}")
 
 
 def _get_todays_bets(table, pk, today):

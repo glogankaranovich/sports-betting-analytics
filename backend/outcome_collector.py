@@ -769,14 +769,24 @@ class OutcomeCollector:
                     prediction = bet.get("prediction", "")
                     odds = bet.get("odds")
 
-                    # Determine if bet won using improved matching
-                    bet_won = self._check_bet_outcome(
-                        prediction,
-                        game["home_team"],
-                        game["away_team"],
-                        self._determine_winner(game),
-                        game,
-                    )
+                    # Prop bets need player stat checking, not game score
+                    if bet.get("player_name") and bet.get("market_key", "").startswith("player_"):
+                        bet_won = self._check_prop_analysis_accuracy(
+                            {
+                                "market_key": bet["market_key"],
+                                "player_name": bet["player_name"],
+                                "prediction": prediction,
+                            },
+                            game,
+                        )
+                    else:
+                        bet_won = self._check_bet_outcome(
+                            prediction,
+                            game["home_team"],
+                            game["away_team"],
+                            self._determine_winner(game),
+                            game,
+                        )
 
                     # Calculate payout using actual odds
                     if bet_won:
@@ -897,14 +907,24 @@ class OutcomeCollector:
                         if leg.get("status") != "pending" or leg["game_id"] != game_id:
                             continue
 
-                        # Check this leg's outcome
-                        leg_won = self._check_bet_outcome(
-                            leg["prediction"],
-                            game["home_team"],
-                            game["away_team"],
-                            self._determine_winner(game),
-                            game,
-                        )
+                        # Prop legs need player stat checking, not game score
+                        if leg.get("player"):
+                            leg_won = self._check_prop_analysis_accuracy(
+                                {
+                                    "market_key": leg.get("market", ""),
+                                    "player_name": leg["player"],
+                                    "prediction": leg["prediction"],
+                                },
+                                game,
+                            )
+                        else:
+                            leg_won = self._check_bet_outcome(
+                                leg["prediction"],
+                                game["home_team"],
+                                game["away_team"],
+                                self._determine_winner(game),
+                                game,
+                            )
                         leg["status"] = "won" if leg_won else "lost"
                         updated = True
 

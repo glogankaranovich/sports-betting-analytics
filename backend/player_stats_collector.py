@@ -34,7 +34,7 @@ class PlayerStatsCollector:
         self.espn_base_url = "https://site.web.api.espn.com/apis/site/v2/sports"
         self.per_calculator = PERCalculator()
 
-    def collect_stats_for_sport(self, sport: str) -> int:
+    def collect_stats_for_sport(self, sport: str, days_back: int = 3, hours_delay: int = 2) -> int:
         """Collect player stats for completed games"""
         from constants import SUPPORTED_SPORTS
         
@@ -43,7 +43,7 @@ class PlayerStatsCollector:
             return 0
 
         # Get completed games from DynamoDB
-        completed_games = self._get_completed_games(sport)
+        completed_games = self._get_completed_games(sport, days_back, hours_delay)
         print(f"Found {len(completed_games)} completed games for {sport}")
 
         stats_collected = 0
@@ -72,40 +72,51 @@ class PlayerStatsCollector:
 
         return stats_collected
 
-    def _get_completed_games(self, sport: str) -> List[Dict[str, Any]]:
+    def _get_completed_games(self, sport: str, days_back: int = 3, hours_delay: int = 2) -> List[Dict[str, Any]]:
         """Get completed games that don't have player stats yet"""
         try:
-            # Query using GSI to get games by commence_time
             now = datetime.now(timezone.utc)
-            two_hours_ago = (now - timedelta(hours=2)).isoformat()
+            end_time = (now - timedelta(hours=hours_delay)).isoformat()
+            start_time = (now - timedelta(days=days_back)).isoformat()
 
-            response = self.table.query(
-                IndexName="ActiveBetsIndexV2",
-                KeyConditionExpression="active_bet_pk = :pk AND commence_time < :now",
-                FilterExpression="contains(sk, :latest) AND attribute_not_exists(player_stats_collected)",
-                ExpressionAttributeValues={
-                    ":pk": f"GAME#{sport}",
-                    ":now": two_hours_ago,
-                    ":latest": "LATEST",
-                },
-                ProjectionExpression="pk, home_team, away_team, commence_time",
-            )
-
-            # Deduplicate by game_id (pk)
             seen_games = set()
             games = []
-            for item in response.get("Items", []):
-                game_id = item["pk"].split("#")[1]
-                if game_id not in seen_games:
-                    seen_games.add(game_id)
-                    games.append(
-                        {
-                            "id": game_id,
-                            "home_team": item.get("home_team"),
-                            "away_team": item.get("away_team"),
-                            "commence_time": item.get("commence_time"),
-                        }
-                    )
+            last_evaluated_key = None
+
+            while True:
+                query_params = {
+                    "IndexName": "ActiveBetsIndexV2",
+                    "KeyConditionExpression": "active_bet_pk = :pk AND commence_time BETWEEN :start AND :end",
+                    "FilterExpression": "contains(sk, :latest) AND attribute_not_exists(player_stats_collected)",
+                    "ExpressionAttributeValues": {
+                        ":pk": f"GAME#{sport}",
+                        ":start": start_time,
+                        ":end": end_time,
+                        ":latest": "LATEST",
+                    },
+                    "ProjectionExpression": "pk, home_team, away_team, commence_time",
+                }
+                if last_evaluated_key:
+                    query_params["ExclusiveStartKey"] = last_evaluated_key
+
+                response = self.table.query(**query_params)
+
+                for item in response.get("Items", []):
+                    game_id = item["pk"].split("#")[1]
+                    if game_id not in seen_games:
+                        seen_games.add(game_id)
+                        games.append(
+                            {
+                                "id": game_id,
+                                "home_team": item.get("home_team"),
+                                "away_team": item.get("away_team"),
+                                "commence_time": item.get("commence_time"),
+                            }
+                        )
+
+                last_evaluated_key = response.get("LastEvaluatedKey")
+                if not last_evaluated_key:
+                    break
 
             return games
 
@@ -333,8 +344,10 @@ def lambda_handler(event, context):
     try:
         collector = PlayerStatsCollector()
         sport = event.get("sport", "basketball_nba")
+        days_back = event.get("days_back", 3)
+        hours_delay = event.get("hours_delay", 2)
 
-        stats_collected = collector.collect_stats_for_sport(sport)
+        stats_collected = collector.collect_stats_for_sport(sport, days_back, hours_delay)
 
         return {
             "statusCode": 200,
