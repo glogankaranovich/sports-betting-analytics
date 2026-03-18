@@ -320,13 +320,13 @@ Over {prop_data['line']}: {avg_over} ({over_prob:.1%} implied)
 Under {prop_data['line']}: {avg_under} ({under_prob:.1%} implied)
 
 PLAYER SEASON STATS (Last 20 games):
-{json.dumps(player_stats, indent=2) if player_stats else 'No season data available'}
+{json.dumps(player_stats, indent=2, default=str) if player_stats else 'No season data available'}
 
 RECENT TRENDS (Last 10 games for this market):
-{json.dumps(player_trends, indent=2) if player_trends else 'No trend data available'}
+{json.dumps(player_trends, indent=2, default=str) if player_trends else 'No trend data available'}
 
 MATCHUP HISTORY vs {prop_data['opponent']}:
-{json.dumps(matchup_data, indent=2) if matchup_data else 'No matchup history available'}
+{json.dumps(matchup_data, indent=2, default=str) if matchup_data else 'No matchup history available'}
 
 ANALYSIS INSTRUCTIONS:
 1. Compare player's season average and last 5 games to the line

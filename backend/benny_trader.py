@@ -786,8 +786,11 @@ class BennyTrader:
                     avg_odds_float = float(avg_odds)
                     if avg_odds_float > 0:
                         payout_multiplier = 1 + (avg_odds_float / 100)
-                    else:
+                    elif avg_odds_float < 0:
                         payout_multiplier = 1 + (100 / abs(avg_odds_float))
+                    else:
+                        print(f"    Skipping: zero odds")
+                        continue
 
                     expected_value = (
                         float(analysis["confidence"]) * payout_multiplier

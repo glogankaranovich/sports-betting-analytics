@@ -113,9 +113,9 @@ Respond with JSON only. Include only markets worth betting:
 Market: {prop_data['market']} | Line: {prop_data['line']}
 Odds: Over {avg_over:+.0f} | Under {avg_under:+.0f}
 
-STATS (Last 20 games): {json.dumps(player_stats) if player_stats else 'No data'}
-TRENDS (Last 10): {json.dumps(player_trends) if player_trends else 'No data'}
-MATCHUP vs {prop_data['opponent']}: {json.dumps(matchup_data) if matchup_data else 'No data'}
+STATS (Last 20 games): {json.dumps(player_stats, default=str) if player_stats else 'No data'}
+TRENDS (Last 10): {json.dumps(player_trends, default=str) if player_trends else 'No data'}
+MATCHUP vs {prop_data['opponent']}: {json.dumps(matchup_data, default=str) if matchup_data else 'No data'}
 {memo_block}
 RULES:
 - Compare season avg and last 5 to the line

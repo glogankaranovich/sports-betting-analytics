@@ -242,7 +242,9 @@ class CoachingAgent:
                 parts.append("COOLDOWN EXPIRED (move to EXPLORE for 10-bet trial):\n" + "\n".join(f"  {m}" for m in expired))
             cooldown_text = "\n".join(parts)
 
-        return f"""You are a sports betting coach reviewing Benny's recent performance. Write a concise coaching memo (under 450 words) that Benny will read before analyzing each game.
+        return f"""You are a sports betting coach. Benny reads this memo before every game analysis. Your job is to STEER bets toward higher-value opportunities, NOT to discourage betting.
+
+CRITICAL: Benny MUST still place bets. Never recommend freezing, stopping, or skipping entire categories. Instead, recommend adjusting sizing or adding extra scrutiny.
 
 PERFORMANCE DATA (Last 30 days):
 {bet_summary}
@@ -259,17 +261,17 @@ VARIANCE ANALYSIS:
 MARKET COOLDOWNS:
 {cooldown_text}
 
-Write a coaching memo with these sections:
-1. STRENGTHS — what's working, be specific about sports/markets/factors
-2. WEAKNESSES — what's failing, specific markets or patterns
-3. CALIBRATION — is Benny overconfident or underconfident? In which ranges?
-4. KEY RULES — 3-5 concrete actionable rules based on the data
-5. EXPLORE — markets with <20 bets and poor results OR markets whose cooldown just expired. Use minimum bet sizes only. Format each as "EXPLORE: [market]"
-6. AVOID — ONLY markets with 20+ bets and <35% win rate that are NOT already on cooldown. Format each as "AVOID: [market]". These get a 30-day cooldown before re-exploration.
+Write a coaching memo (under 400 words) with these sections:
+1. BET AGGRESSIVELY — specific sports/markets/situations where Benny has a proven edge. Be enthusiastic. Tell Benny to size up here.
+2. BET CAUTIOUSLY — markets where results are mixed. Don't say "avoid" — say "reduce size" or "require extra factor confirmation."
+3. CALIBRATION — note any overconfidence/underconfidence patterns. Never say "cap confidence" — instead say "when you feel X% confident, you're historically closer to Y%."
+4. KEY RULES — 3-5 actionable rules. Frame positively (do this) not negatively (don't do that).
+5. EXPLORE — markets with <20 bets and poor results OR markets whose cooldown just expired. Say "minimum bet size" not "freeze." Format: "EXPLORE: [market]"
+6. AVOID — ONLY markets with 20+ bets and <35% win rate NOT already on cooldown. Format: "AVOID: [market]"
 
-IMPORTANT: Markets listed under MARKET COOLDOWNS as "ON COOLDOWN" must NOT appear in AVOID again. Markets listed as "COOLDOWN EXPIRED" MUST appear in EXPLORE.
+Markets "ON COOLDOWN" must NOT reappear in AVOID. "COOLDOWN EXPIRED" markets MUST appear in EXPLORE.
 
-Be direct and data-driven. Reference actual numbers. No fluff."""
+Tone: encouraging but honest. Benny should finish reading this and feel confident about where to bet, not afraid to bet."""
 
     def _get_cooldowns(self) -> dict:
         """Read persisted market cooldown dates from the coaching memo item."""
