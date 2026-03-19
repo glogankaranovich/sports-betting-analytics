@@ -604,10 +604,13 @@ class BennyTrader:
                             predicted_team = prediction_data["prediction"].lower()
                             if game_data["home_team"].lower() in predicted_team:
                                 odds = avg_h2h["home"]
+                                normalized_pred = f"{game_data['home_team']} (Moneyline)"
                             elif game_data["away_team"].lower() in predicted_team:
                                 odds = avg_h2h["away"]
+                                normalized_pred = f"{game_data['away_team']} (Moneyline)"
                             elif "draw" in predicted_team and "draw" in avg_h2h:
                                 odds = avg_h2h["draw"]
+                                normalized_pred = "Draw (Moneyline)"
                             else:
                                 continue
 
@@ -617,14 +620,18 @@ class BennyTrader:
                                 in prediction_data["prediction"].lower()
                             ):
                                 odds = avg_spread["home_price"]
+                                normalized_pred = f"{game_data['home_team']} {avg_spread['home_point']:+.1f} (Spread)"
                             else:
                                 odds = avg_spread["away_price"]
+                                normalized_pred = f"{game_data['away_team']} {avg_spread['away_point']:+.1f} (Spread)"
 
                         elif market_type == "total" and avg_total:
                             if "over" in prediction_data["prediction"].lower():
                                 odds = avg_total["over_price"]
+                                normalized_pred = f"Over {avg_total['point']:.1f} (Total)"
                             else:
                                 odds = avg_total["under_price"]
+                                normalized_pred = f"Under {avg_total['point']:.1f} (Total)"
 
                         else:
                             continue
@@ -646,7 +653,7 @@ class BennyTrader:
                             "sport": sport,
                             "home_team": game_data["home_team"],
                             "away_team": game_data["away_team"],
-                            "prediction": prediction_data["prediction"],
+                            "prediction": normalized_pred,
                             "confidence": prediction_data["confidence"],
                             "reasoning": prediction_data["reasoning"],
                             "key_factors": prediction_data["key_factors"],
@@ -797,6 +804,10 @@ class BennyTrader:
                     ) - 1
                     print(f"    EV: {expected_value:.3f}")
 
+                    # Normalize prop prediction: "Over 25.5 (Points)"
+                    market_label = prop_data["market"].replace("player_", "").replace("_", " ").title()
+                    normalized_prop = f"{predicted_side} {prop_data['line']} ({market_label})"
+
                     opportunities.append(
                         {
                             "game_id": prop_data["game_id"],
@@ -804,7 +815,7 @@ class BennyTrader:
                             "player": prop_data["player"],
                             "market": prop_data["market"],
                             "line": prop_data["line"],
-                            "prediction": analysis["prediction"],
+                            "prediction": normalized_prop,
                             "confidence": analysis["confidence"],
                             "reasoning": analysis["reasoning"],
                             "key_factors": analysis["key_factors"],
@@ -1615,7 +1626,7 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
             "game": game,
             "prediction": prediction,
             "market": b.get("market_key", "h2h"),
-            "bet_type": "parlay" if is_parlay else "single",
+            "bet_type": "parlay" if is_parlay else ("prop" if b.get("market_key", "").startswith("player_") else "game"),
             "ensemble_confidence": float(b.get("ensemble_confidence", b.get("confidence", confidence))),
             "final_confidence": confidence,
             "ai_reasoning": b.get("ai_reasoning", ""),
@@ -1712,6 +1723,24 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
             else:
                 sports_performance[sport]["losses"] += 1
             sports_performance[sport]["wagered"] += float(bet.get("bet_amount", 0))
+
+        # Performance by bet type (game / prop / parlay)
+        bet_type_performance = {}
+        for bet in settled_bets:
+            if bet.get("bet_type") == "parlay":
+                bt = "parlay"
+            elif bet.get("market_key", "").startswith("player_"):
+                bt = "prop"
+            else:
+                bt = "game"
+            if bt not in bet_type_performance:
+                bet_type_performance[bt] = {"wins": 0, "losses": 0, "wagered": 0, "returned": 0}
+            if bet.get("status") == "won":
+                bet_type_performance[bt]["wins"] += 1
+                bet_type_performance[bt]["returned"] += float(bet.get("payout", 0))
+            else:
+                bet_type_performance[bt]["losses"] += 1
+            bet_type_performance[bt]["wagered"] += float(bet.get("bet_amount", 0))
 
         # Confidence calibration
         confidence_buckets = {"60-70%": [], "70-80%": [], "80-90%": [], "90-100%": []}
@@ -1872,6 +1901,18 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
                     else 0,
                 }
                 for sport, stats in sports_performance.items()
+            },
+            "bet_type_performance": {
+                bt: {
+                    "record": f"{stats['wins']}-{stats['losses']}",
+                    "win_rate": round(stats["wins"] / (stats["wins"] + stats["losses"]), 3)
+                    if (stats["wins"] + stats["losses"]) > 0 else 0,
+                    "roi": round((stats["returned"] - stats["wagered"]) / stats["wagered"], 3)
+                    if stats["wagered"] > 0 else 0,
+                    "wagered": round(stats["wagered"], 2),
+                    "profit": round(stats["returned"] - stats["wagered"], 2),
+                }
+                for bt, stats in bet_type_performance.items()
             },
             "confidence_accuracy": confidence_accuracy,
             "best_bet": {

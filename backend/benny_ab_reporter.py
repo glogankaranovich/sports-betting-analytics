@@ -53,6 +53,24 @@ def calculate_metrics(bets: List[Dict]) -> Dict[str, Any]:
                 "profit": sum(float(b.get("profit", 0)) for b in market_bets)
             }
     
+    # By bet type (game / prop / parlay)
+    by_bet_type = {}
+    for b in settled:
+        if b.get("bet_type") == "parlay":
+            bt = "parlay"
+        elif b.get("market_key", "").startswith("player_"):
+            bt = "prop"
+        else:
+            bt = "game"
+        by_bet_type.setdefault(bt, {"bets": 0, "wins": 0, "wagered": 0, "profit": 0})
+        by_bet_type[bt]["bets"] += 1
+        by_bet_type[bt]["wagered"] += float(b.get("bet_amount", 0))
+        by_bet_type[bt]["profit"] += float(b.get("profit", 0))
+        if b.get("status") == "won":
+            by_bet_type[bt]["wins"] += 1
+    for bt, d in by_bet_type.items():
+        d["win_rate"] = d["wins"] / d["bets"] * 100 if d["bets"] else 0
+
     return {
         "total_bets": len(bets),
         "settled_bets": len(settled),
@@ -62,7 +80,8 @@ def calculate_metrics(bets: List[Dict]) -> Dict[str, Any]:
         "total_profit": total_profit,
         "avg_bet_size": total_wagered / len(bets) if bets else 0,
         "by_sport": by_sport,
-        "by_market": by_market
+        "by_market": by_market,
+        "by_bet_type": by_bet_type
     }
 
 
@@ -79,7 +98,38 @@ def get_bets(table, pk: str, days: int) -> List[Dict]:
     return response.get("Items", [])
 
 
-def format_email(v1_metrics: Dict, v3_metrics: Dict, days: int) -> str:
+def calculate_consensus(v1_bets: List[Dict], v3_bets: List[Dict]) -> Dict[str, Any]:
+    """Find overlapping settled bets and measure accuracy when both models agree vs disagree."""
+    v1_map = {(b.get("game_id"), b.get("market_key")): b
+              for b in v1_bets if b.get("status") in ("won", "lost") and b.get("bet_type") != "parlay"}
+    
+    agree_wins = agree_total = disagree_wins = disagree_total = 0
+    for b in v3_bets:
+        if b.get("status") not in ("won", "lost") or b.get("bet_type") == "parlay":
+            continue
+        key = (b.get("game_id"), b.get("market_key"))
+        v1 = v1_map.get(key)
+        if not v1:
+            continue
+        same_pick = v1.get("prediction") == b.get("prediction")
+        won = b.get("status") == "won"
+        if same_pick:
+            agree_total += 1
+            agree_wins += int(won)
+        else:
+            disagree_total += 1
+            disagree_wins += int(won)
+
+    return {
+        "agree_wins": agree_wins, "agree_total": agree_total,
+        "agree_win_rate": (agree_wins / agree_total * 100) if agree_total else 0,
+        "disagree_wins": disagree_wins, "disagree_total": disagree_total,
+        "disagree_win_rate": (disagree_wins / disagree_total * 100) if disagree_total else 0,
+        "total_overlap": agree_total + disagree_total,
+    }
+
+
+def format_email(v1_metrics: Dict, v3_metrics: Dict, days: int, consensus: Dict = None) -> str:
     """Format HTML email comparing v1 and v3"""
     
     def format_sport_table(metrics: Dict) -> str:
@@ -110,8 +160,35 @@ def format_email(v1_metrics: Dict, v3_metrics: Dict, days: int) -> str:
             </tr>"""
         return f"<table border='1' cellpadding='5'><tr><th>Market</th><th>Bets</th><th>Win Rate</th><th>Profit</th></tr>{rows}</table>"
     
+    def format_bet_type_table(metrics: Dict) -> str:
+        if not metrics["by_bet_type"]:
+            return "<p>No data</p>"
+        rows = ""
+        for bt, data in metrics["by_bet_type"].items():
+            rows += f"""
+            <tr>
+                <td>{bt.title()}</td>
+                <td>{data['bets']}</td>
+                <td>{data['win_rate']:.1f}%</td>
+                <td>${data['profit']:.2f}</td>
+            </tr>"""
+        return f"<table border='1' cellpadding='5'><tr><th>Type</th><th>Bets</th><th>Win Rate</th><th>Profit</th></tr>{rows}</table>"
+    
     winner = "v3" if v3_metrics["roi"] > v1_metrics["roi"] else "v1"
     roi_diff = abs(v3_metrics["roi"] - v1_metrics["roi"])
+
+    def _format_consensus(c, v1_settled, v3_settled):
+        if not c or c["total_overlap"] == 0:
+            return ""
+        al = c["agree_total"] - c["agree_wins"]
+        dl = c["disagree_total"] - c["disagree_wins"]
+        return f"""<h3>Consensus Performance</h3>
+        <table border="1" cellpadding="10">
+            <tr><th></th><th>Record</th><th>Win Rate</th></tr>
+            <tr><td>Both Agree</td><td>{c['agree_wins']}-{al}</td><td>{c['agree_win_rate']:.1f}%</td></tr>
+            <tr><td>Disagree</td><td>{c['disagree_wins']}-{dl}</td><td>{c['disagree_win_rate']:.1f}%</td></tr>
+        </table>
+        <p>{c['total_overlap']} overlapping bets out of {v1_settled} V1 / {v3_settled} V3 settled</p>"""
     
     return f"""
     <html>
@@ -175,6 +252,14 @@ def format_email(v1_metrics: Dict, v3_metrics: Dict, days: int) -> str:
         <h3>v3 Performance by Market</h3>
         {format_market_table(v3_metrics)}
         
+        <h3>v1 Performance by Bet Type</h3>
+        {format_bet_type_table(v1_metrics)}
+        
+        <h3>v3 Performance by Bet Type</h3>
+        {format_bet_type_table(v3_metrics)}
+        
+        {_format_consensus(consensus, v1_metrics['settled_bets'], v3_metrics['settled_bets'])}
+        
         <p><em>Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</em></p>
     </body>
     </html>
@@ -197,8 +282,11 @@ def handler(event, context):
     v1_metrics = calculate_metrics(v1_bets)
     v3_metrics = calculate_metrics(v3_bets)
     
+    # Calculate consensus
+    consensus = calculate_consensus(v1_bets, v3_bets)
+    
     # Format email
-    email_body = format_email(v1_metrics, v3_metrics, 7)
+    email_body = format_email(v1_metrics, v3_metrics, 7, consensus)
     
     # Send email
     try:

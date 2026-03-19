@@ -54,6 +54,28 @@
                         </td>
                     </tr>
                     
+                    <!-- Performance by Bet Type -->
+                    {{#if has_bet_type_data}}
+                    <tr>
+                        <td style="padding: 0 30px 30px 30px;">
+                            <h2 style="margin: 0 0 15px 0; color: #e2e8f0; font-size: 18px; font-weight: 600;">🎲 Performance by Bet Type</h2>
+                            
+                            {{#each bet_type_list}}
+                            <div style="background-color: #334155; border-radius: 8px; padding: 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="color: #e2e8f0; font-weight: 600;">{{this.label}}</span>
+                                    <span style="color: #94a3b8; font-size: 13px; margin-left: 8px;">{{this.record}} ({{this.win_rate}}%)</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="color: #94a3b8; font-size: 12px;">${{this.wagered}} wagered</span>
+                                    <span style="color: {{this.profit_color}}; font-weight: 700; margin-left: 10px;">${{this.profit}}</span>
+                                </div>
+                            </div>
+                            {{/each}}
+                        </td>
+                    </tr>
+                    {{/if}}
+                    
                     <!-- Pending Bets -->
                     {{#if has_pending_bets}}
                     <tr>

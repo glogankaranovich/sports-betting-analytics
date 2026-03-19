@@ -40,7 +40,7 @@ def render_template(template: str, data: Dict[str, Any]) -> str:
                 html = html.replace(f'{{{{{key}.{nested_key}}}}}', str(nested_value))
     
     # Handle conditionals
-    for key in ['has_pending_bets', 'has_completed_bets', 'has_notable_bets', 'has_ai_impact', 'has_cashouts', 'best_bet', 'worst_bet']:
+    for key in ['has_pending_bets', 'has_completed_bets', 'has_notable_bets', 'has_ai_impact', 'has_cashouts', 'has_bet_type_data', 'best_bet', 'worst_bet']:
         if_block = f'{{{{#if {key}}}}}'
         endif_block = f'{{{{/if}}}}'
         
@@ -57,7 +57,7 @@ def render_template(template: str, data: Dict[str, Any]) -> str:
                     html = html[:start] + html[end + len(endif_block):]
     
     # Handle loops
-    for list_key in ['pending_bets_list', 'completed_bets_list', 'cashouts_list']:
+    for list_key in ['pending_bets_list', 'completed_bets_list', 'cashouts_list', 'bet_type_list']:
         each_block = f'{{{{#each {list_key}}}}}'
         endeach_block = '{{/each}}'
         
@@ -147,6 +147,26 @@ def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekl
             }
             cashouts_list.append(cashout_item)
     
+    # Bet type breakdown
+    btp = dashboard_data.get('bet_type_performance', {})
+    bet_type_list = []
+    for bt in ['game', 'prop', 'parlay']:
+        d = btp.get(bt, {})
+        w, l = d.get('wins', 0), d.get('losses', 0)
+        total = w + l
+        if total == 0:
+            continue
+        wagered = d.get('wagered', 0)
+        profit = d.get('returned', 0) - wagered
+        bet_type_list.append({
+            'label': bt.capitalize(),
+            'record': f"{w}-{l}",
+            'win_rate': f"{w/total*100:.0f}",
+            'wagered': f"{wagered:.2f}",
+            'profit': f"{profit:+.2f}",
+            'profit_color': '#10b981' if profit >= 0 else '#ef4444',
+        })
+
     return {
         'report_type': report_type.capitalize(),
         'week_start': week_start,
@@ -183,6 +203,8 @@ def prepare_email_data(dashboard_data: Dict[str, Any], report_type: str = 'weekl
         'cashout_net': f"{cashout_stats.get('net_impact', 0):+.2f}",
         'cashout_net_color': '#10b981' if cashout_stats.get('net_impact', 0) >= 0 else '#ef4444',
         'cashouts_list': cashouts_list,
+        'has_bet_type_data': len(bet_type_list) > 0,
+        'bet_type_list': bet_type_list,
         'dashboard_url': f"{FRONTEND_URL}/benny",
         'unsubscribe_url': f"{FRONTEND_URL}/settings?unsubscribe=benny_weekly",
         'settings_url': f"{FRONTEND_URL}/settings"

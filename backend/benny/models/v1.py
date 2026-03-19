@@ -393,7 +393,8 @@ IMPORTANT:
 
     def calculate_bet_size(self, confidence: float, odds: float, bankroll: Decimal) -> Decimal:
         calibrated = self._calibrate_confidence(confidence)
-        return self.bankroll_manager.calculate_bet_size(calibrated, odds)
+        size = self.bankroll_manager.calculate_bet_size(calibrated, odds)
+        return max(size, self.get_min_bet()) if size > Decimal("0") else size
 
     def _calibrate_confidence(self, raw_confidence: float) -> float:
         """Map raw AI confidence to historical win rate at that level."""

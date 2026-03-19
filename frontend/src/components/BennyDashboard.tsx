@@ -58,6 +58,15 @@ interface DashboardData {
     game: string;
     loss: number;
   } | null;
+  bet_type_performance?: {
+    [type: string]: {
+      record: string;
+      win_rate: number;
+      roi: number;
+      wagered: number;
+      profit: number;
+    };
+  };
   ai_impact: {
     win_rate: number | null;
     bets_count: number;
@@ -101,6 +110,7 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
   const [expandedBet, setExpandedBet] = useState<string | null>(null);
   const [chartView, setChartView] = useState<'bankroll' | 'profit' | 'winrate'>('bankroll');
   const [activeTab, setActiveTab] = useState<'v1' | 'v3'>('v1');
+  const [betTypeFilter, setBetTypeFilter] = useState<'all' | 'game' | 'prop' | 'parlay'>('all');
 
   useEffect(() => {
     if (hasAccess) {
@@ -388,6 +398,23 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
             </div>
           )}
 
+          {/* By Bet Type */}
+          {data.bet_type_performance && Object.keys(data.bet_type_performance).length > 0 && (
+            <div className="metric-card">
+              <h4>Performance by Bet Type</h4>
+              {Object.entries(data.bet_type_performance).map(([type, stats]) => (
+                <div key={type} className="sport-stat">
+                  <span className="sport-name">{type === 'game' ? '🏀 Game' : type === 'prop' ? '🎯 Prop' : '🎲 Parlay'}</span>
+                  <span className="sport-record">{stats.record}</span>
+                  <span className="sport-winrate">{(stats.win_rate * 100).toFixed(0)}%</span>
+                  <span className={`sport-roi ${stats.roi >= 0 ? 'positive' : 'negative'}`}>
+                    {stats.roi >= 0 ? '+' : ''}{(stats.roi * 100).toFixed(1)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Confidence Calibration */}
           {Object.keys(data.confidence_accuracy).length > 0 && (
             <div className="metric-card">
@@ -508,12 +535,33 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
 
       {/* Pending Bets Section */}
       <div className="benny-bets">
-        <h3>Pending Bets</h3>
-        {data.recent_bets.filter(bet => bet.status === 'pending').length === 0 ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h3 style={{ margin: 0 }}>Pending Bets</h3>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {(['all', 'game', 'prop', 'parlay'] as const).map(f => (
+              <button key={f} onClick={() => setBetTypeFilter(f)} style={{
+                padding: '4px 10px', fontSize: '12px', border: 'none', borderRadius: '4px', cursor: 'pointer',
+                background: betTypeFilter === f ? '#4CAF50' : 'rgba(255,255,255,0.1)',
+                color: betTypeFilter === f ? '#fff' : '#888'
+              }}>{f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</button>
+            ))}
+          </div>
+        </div>
+        {data.recent_bets.filter(bet => bet.status === 'pending').filter(bet => {
+          if (betTypeFilter === 'all') return true;
+          if (betTypeFilter === 'parlay') return bet.bet_type === 'parlay';
+          if (betTypeFilter === 'prop') return bet.bet_type === 'prop';
+          return bet.bet_type === 'game';
+        }).length === 0 ? (
           <div className="no-data-message">No pending bets</div>
         ) : (
           <div className="bets-table">
-            {data.recent_bets.filter(bet => bet.status === 'pending').map((bet) => (
+            {data.recent_bets.filter(bet => bet.status === 'pending').filter(bet => {
+              if (betTypeFilter === 'all') return true;
+              if (betTypeFilter === 'parlay') return bet.bet_type === 'parlay';
+              if (betTypeFilter === 'prop') return bet.bet_type === 'prop';
+              return bet.bet_type === 'game';
+            }).map((bet) => (
             <div key={bet.bet_id} className={`bet-card ${bet.status}`}>
               <div 
                 className={`bet-row ${bet.status}`}
@@ -584,11 +632,21 @@ export const BennyDashboard: React.FC<BennyDashboardProps> = ({ subscription, on
       {/* Completed Bets Section */}
       <div className="benny-bets" style={{ marginTop: '40px' }}>
         <h3>Recent Completed Bets</h3>
-        {data.recent_bets.filter(bet => bet.status !== 'pending').length === 0 ? (
+        {data.recent_bets.filter(bet => bet.status !== 'pending').filter(bet => {
+          if (betTypeFilter === 'all') return true;
+          if (betTypeFilter === 'parlay') return bet.bet_type === 'parlay';
+          if (betTypeFilter === 'prop') return bet.bet_type === 'prop';
+          return bet.bet_type === 'game';
+        }).length === 0 ? (
           <div className="no-data-message">No completed bets yet</div>
         ) : (
           <div className="bets-table">
-            {data.recent_bets.filter(bet => bet.status !== 'pending').map((bet) => (
+            {data.recent_bets.filter(bet => bet.status !== 'pending').filter(bet => {
+              if (betTypeFilter === 'all') return true;
+              if (betTypeFilter === 'parlay') return bet.bet_type === 'parlay';
+              if (betTypeFilter === 'prop') return bet.bet_type === 'prop';
+              return bet.bet_type === 'game';
+            }).map((bet) => (
             <div key={bet.bet_id} className={`bet-card ${bet.status}`}>
               <div 
                 className={`bet-row ${bet.status}`}

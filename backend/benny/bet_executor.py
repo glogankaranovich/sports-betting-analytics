@@ -136,6 +136,7 @@ class BetExecutor:
             "GSI1SK": earliest,
             "bet_id": bet_id,
             "bet_type": "parlay",
+            "sport": "mixed",
             "market_key": "parlay",
             "num_legs": parlay["num_legs"],
             "legs": legs_for_db,
