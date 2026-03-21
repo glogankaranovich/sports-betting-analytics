@@ -2,6 +2,28 @@
 
 ## Performance Optimization
 
+### ~~Accuracy & ROI Improvements (V1 + V3)~~ ✅ DONE (March 2026)
+**Priority**: High
+**Effort**: Medium
+**Impact**: High
+
+**Implemented across V1 and V3:**
+- **Sport-specific edge floors**: NBA/NFL require 10% edge vs market, EPL/MLB/NHL 8%, NCAAB/MLS 6%. Prevents betting on thin margins in efficient markets.
+- **Confidence calibration in bet decisions**: Maps raw AI confidence to actual win rate from settled bets. Rejects bets where calibrated confidence < market implied probability.
+- **Calibration table in prompts**: Shows AI its own track record ("80% → 48% (overconfident)") so it self-corrects.
+- **V1 `should_bet` upgraded**: Now enforces EV ≥ 5%, edge floor, and calibration gate (previously only checked confidence ≥ adaptive threshold).
+
+**V3-only:**
+- **ROI auto-gating**: Reads last 60 days of settled bets by sport|market. Blocks at -15% ROI (15+ bets), probation at -5% (requires extra 5% edge). Self-learning — no hardcoding.
+- **Post-run ROI logging**: Prints gating status per sport|market combo.
+
+**Coaching agent:**
+- Replaced generic "KEY RULES" with "HARD RULES" requiring concrete factor-based thresholds (e.g., "RULE: Only bet favorites when ELO diff > +50").
+
+**Code Locations**: `backend/benny/models/v1.py`, `backend/benny/models/v3.py`, `backend/benny/coaching_agent.py`
+
+---
+
 ### ~~Separate Learning for Props vs Games~~ ✅ DONE (March 2026)
 **Priority**: Medium  
 **Effort**: Low  
