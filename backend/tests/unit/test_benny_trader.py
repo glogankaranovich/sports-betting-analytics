@@ -26,17 +26,16 @@ def mock_bedrock():
 def trader(mock_table, mock_bedrock):
     # Mock for BankrollManager (uses query)
     mock_table.query.return_value = {
-        "Items": [{
-            "amount": Decimal("100.00"),
-            "timestamp": datetime.utcnow().isoformat(),
-        }]
+        "Items": [
+            {
+                "amount": Decimal("100.00"),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        ]
     }
     # Mock for LearningEngine (uses get_item)
     mock_table.get_item.return_value = {
-        "Item": {
-            "performance_by_sport": {},
-            "performance_by_market": {}
-        }
+        "Item": {"performance_by_sport": {}, "performance_by_market": {}}
     }
     return BennyTrader(version="v1")
 
@@ -51,10 +50,7 @@ class TestBennyTrader:
         # Mock empty query result to trigger reset
         mock_table.query.return_value = {"Items": []}
         mock_table.get_item.return_value = {
-            "Item": {
-                "performance_by_sport": {},
-                "performance_by_market": {}
-            }
+            "Item": {"performance_by_sport": {}, "performance_by_market": {}}
         }
 
         trader = BennyTrader(version="v1")
@@ -82,7 +78,9 @@ class TestBennyTrader:
                 {
                     "pk": "GAME#game1",
                     "active_bet_pk": "GAME#basketball_nba",
-                    "commence_time": (datetime.utcnow() + timedelta(hours=2)).isoformat(),
+                    "commence_time": (
+                        datetime.utcnow() + timedelta(hours=2)
+                    ).isoformat(),
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "sport": "basketball_nba",
@@ -97,7 +95,9 @@ class TestBennyTrader:
                 {
                     "pk": "GAME#game1",
                     "active_bet_pk": "GAME#basketball_nba",
-                    "commence_time": (datetime.utcnow() + timedelta(hours=2)).isoformat(),
+                    "commence_time": (
+                        datetime.utcnow() + timedelta(hours=2)
+                    ).isoformat(),
                     "home_team": "Lakers",
                     "away_team": "Warriors",
                     "sport": "basketball_nba",
@@ -117,12 +117,14 @@ class TestBennyTrader:
         trader._get_team_injuries = MagicMock(return_value=[])
         trader._get_head_to_head = MagicMock(return_value=[])
         trader._get_recent_form = MagicMock(return_value=[])
-        trader._get_team_news_sentiment = MagicMock(return_value={"sentiment_score": 0.0, "impact_score": 0.0, "news_count": 0})
+        trader._get_team_news_sentiment = MagicMock(
+            return_value={"sentiment_score": 0.0, "impact_score": 0.0, "news_count": 0}
+        )
         trader._get_elo_rating = MagicMock(return_value=1500.0)
         trader._get_adjusted_metrics = MagicMock(return_value={})
         trader._get_weather_data = MagicMock(return_value={})
         trader._get_fatigue_data = MagicMock(return_value={})
-        
+
         # Mock AI analysis to return high confidence for h2h market
         trader._ai_analyze_game = MagicMock(
             return_value={
@@ -145,7 +147,7 @@ class TestBennyTrader:
         """Test successful bet placement with AI reasoning"""
         # Mock put_item to succeed
         mock_table.put_item.return_value = {}
-        
+
         # Mock team stats query
         mock_table.query.side_effect = [
             {"Items": []},  # Home team stats
@@ -181,6 +183,8 @@ class TestBennyTrader:
             "market_key": "h2h",
             "reasoning": "Strong matchup",
             "key_factors": ["Home advantage"],
+            "expected_value": 0.10,
+            "odds": -150,
         }
 
         result = trader.place_bet(opportunity)
@@ -195,7 +199,7 @@ class TestBennyTrader:
         """Test bet fails with insufficient bankroll"""
         trader.bankroll = Decimal("0.01")  # Very small bankroll
         trader.bankroll_manager.bankroll = Decimal("0.01")
-        
+
         # Mock no existing bets
         mock_table.query.return_value = {"Items": []}
 
@@ -210,7 +214,8 @@ class TestBennyTrader:
             "key_factors": ["factor1"],
             "commence_time": "2024-01-15T19:00:00Z",
             "market_key": "h2h",
-            "odds": 5.0,  # High odds requiring larger bet
+            "odds": -150,
+            "expected_value": 0.10,
         }
 
         result = trader.place_bet(opportunity)
@@ -305,12 +310,14 @@ class TestBennyTrader:
         """Test dashboard data retrieval with performance metrics"""
         # Mock for BankrollManager initialization
         mock_table.query.return_value = {
-            "Items": [{
-                "amount": Decimal("85.50"),
-                "timestamp": datetime.utcnow().isoformat(),
-            }]
+            "Items": [
+                {
+                    "amount": Decimal("85.50"),
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            ]
         }
-        
+
         # Mock for LearningEngine initialization
         mock_table.get_item.return_value = {
             "Item": {
@@ -322,7 +329,7 @@ class TestBennyTrader:
         }
 
         trader = BennyTrader(version="v1")
-        
+
         # Now mock for dashboard data query
         mock_table.query.return_value = {
             "Items": [
@@ -343,7 +350,7 @@ class TestBennyTrader:
                 }
             ]
         }
-        
+
         dashboard = trader.get_dashboard_data()
 
         assert dashboard["current_bankroll"] == 85.50
@@ -358,17 +365,15 @@ class TestBennyTrader:
 
     def test_get_elo_rating(self, trader, mock_table):
         """Test fetching Elo ratings"""
-        mock_table.query.return_value = {
-            "Items": [{"rating": Decimal("1650")}]
-        }
-        
+        mock_table.query.return_value = {"Items": [{"rating": Decimal("1650")}]}
+
         rating = trader._get_elo_rating("Lakers", "basketball_nba")
         assert rating == 1650.0
 
     def test_get_elo_rating_default(self, trader, mock_table):
         """Test Elo defaults to 1500 when no data"""
         mock_table.query.return_value = {"Items": []}
-        
+
         rating = trader._get_elo_rating("NewTeam", "basketball_nba")
         assert rating == 1500.0
 
@@ -377,7 +382,7 @@ class TestBennyTrader:
         mock_table.query.return_value = {
             "Items": [{"metrics": {"adjusted_ppg": 110.5, "vs_league_avg": 1.05}}]
         }
-        
+
         metrics = trader._get_adjusted_metrics("Lakers", "basketball_nba")
         assert metrics["adjusted_ppg"] == 110.5
         assert metrics["vs_league_avg"] == 1.05
@@ -385,9 +390,16 @@ class TestBennyTrader:
     def test_get_weather_data(self, trader, mock_table):
         """Test fetching weather data"""
         mock_table.query.return_value = {
-            "Items": [{"temp_f": Decimal("45"), "wind_mph": Decimal("15"), "precip_in": Decimal("0.1"), "impact": "moderate"}]
+            "Items": [
+                {
+                    "temp_f": Decimal("45"),
+                    "wind_mph": Decimal("15"),
+                    "precip_in": Decimal("0.1"),
+                    "impact": "moderate",
+                }
+            ]
         }
-        
+
         weather = trader._get_weather_data("game123")
         assert weather["temp_f"] == 45.0
         assert weather["wind_mph"] == 15.0
@@ -396,26 +408,27 @@ class TestBennyTrader:
     def test_get_fatigue_data(self, trader, mock_table):
         """Test fetching fatigue data"""
         mock_table.query.return_value = {
-            "Items": [{
-                "home_fatigue_score": Decimal("25"),
-                "home_total_miles": Decimal("500"),
-                "home_days_rest": 2,
-                "away_fatigue_score": Decimal("65"),
-                "away_total_miles": Decimal("2500"),
-                "away_days_rest": 1,
-            }]
+            "Items": [
+                {
+                    "home_fatigue_score": Decimal("25"),
+                    "home_total_miles": Decimal("500"),
+                    "home_days_rest": 2,
+                    "away_fatigue_score": Decimal("65"),
+                    "away_total_miles": Decimal("2500"),
+                    "away_days_rest": 1,
+                }
+            ]
         }
-        
+
         fatigue = trader._get_fatigue_data("game123")
         assert fatigue["home_fatigue"] == 25.0
         assert fatigue["away_fatigue"] == 65.0
         assert fatigue["away_miles"] == 2500.0
 
-
     def test_max_bet_size_limit(self, trader):
         """Test maximum bet size is enforced"""
         trader.bankroll = Decimal("1000.00")
-        
+
         bet_size = trader.model.calculate_bet_size(0.95, -110, trader.bankroll)
         assert bet_size <= Decimal("200.00")  # 20% max
 

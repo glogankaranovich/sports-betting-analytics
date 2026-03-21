@@ -28,7 +28,9 @@ class CoachingAgent:
         today = datetime.utcnow().date().isoformat()
         expired = [m for m, d in cooldowns.items() if d <= today]
 
-        prompt = self._build_coach_prompt(settled, features, calibration, variance, cooldowns, expired)
+        prompt = self._build_coach_prompt(
+            settled, features, calibration, variance, cooldowns, expired
+        )
         memo = self._call_llm(prompt)
         if memo:
             # Remove expired cooldowns so they get a fresh trial
@@ -38,7 +40,9 @@ class CoachingAgent:
             new_avoids = self._parse_avoids(memo)
             for market in new_avoids:
                 if market not in cooldowns:
-                    cooldowns[market] = (datetime.utcnow().date() + timedelta(days=30)).isoformat()
+                    cooldowns[market] = (
+                        datetime.utcnow().date() + timedelta(days=30)
+                    ).isoformat()
             self._store_memo(memo, cooldowns)
         return memo
 
@@ -56,10 +60,15 @@ class CoachingAgent:
         cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
         try:
             resp = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
                 FilterExpression="settled_at > :cutoff AND #s IN (:w, :l)",
                 ExpressionAttributeNames={"#s": "status"},
-                ExpressionAttributeValues={":cutoff": cutoff, ":w": "won", ":l": "lost"},
+                ExpressionAttributeValues={
+                    ":cutoff": cutoff,
+                    ":w": "won",
+                    ":l": "lost",
+                },
             )
             return resp.get("Items", [])
         except Exception:
@@ -126,7 +135,8 @@ class CoachingAgent:
 
         # High-confidence losses
         high_conf_losses = [
-            b for b in bets
+            b
+            for b in bets
             if b.get("status") == "lost" and float(b.get("confidence", 0)) > 0.80
         ]
 
@@ -177,11 +187,21 @@ class CoachingAgent:
                 factor_perf[f]["t"] += 1
                 if won:
                     factor_perf[f]["w"] += 1
-        good_factors = [(f, v) for f, v in factor_perf.items() if v["t"] >= 3 and v["w"] / v["t"] >= 0.60]
-        bad_factors = [(f, v) for f, v in factor_perf.items() if v["t"] >= 3 and v["w"] / v["t"] <= 0.40]
+        good_factors = [
+            (f, v)
+            for f, v in factor_perf.items()
+            if v["t"] >= 3 and v["w"] / v["t"] >= 0.60
+        ]
+        bad_factors = [
+            (f, v)
+            for f, v in factor_perf.items()
+            if v["t"] >= 3 and v["w"] / v["t"] <= 0.40
+        ]
         if good_factors or bad_factors:
             lines.append("\nFACTOR TRACK RECORD:")
-            for f, v in sorted(good_factors, key=lambda x: x[1]["w"] / x[1]["t"], reverse=True)[:5]:
+            for f, v in sorted(
+                good_factors, key=lambda x: x[1]["w"] / x[1]["t"], reverse=True
+            )[:5]:
                 lines.append(f"  ✓ {f}: {v['w']}/{v['t']} ({v['w']/v['t']:.0%})")
             for f, v in sorted(bad_factors, key=lambda x: x[1]["w"] / x[1]["t"])[:5]:
                 lines.append(f"  ✗ {f}: {v['w']}/{v['t']} ({v['w']/v['t']:.0%})")
@@ -200,7 +220,11 @@ class CoachingAgent:
             spread = float(pred.get("spread", 0))
             lines.append(f"{f}: {spread:.1%} win-rate spread")
             detail = features.get("insights", {}).get(f, {})
-            for rng, data in sorted(detail.items(), key=lambda x: float(x[1].get("win_rate", 0)), reverse=True)[:3]:
+            for rng, data in sorted(
+                detail.items(),
+                key=lambda x: float(x[1].get("win_rate", 0)),
+                reverse=True,
+            )[:3]:
                 cnt = int(data.get("count", 0))
                 if cnt >= 5:
                     lines.append(f"  {rng}: {float(data['win_rate']):.1%} ({cnt} bets)")
@@ -218,7 +242,9 @@ class CoachingAgent:
                 )
         return "\n".join(lines) if lines else "No calibration data."
 
-    def _build_coach_prompt(self, bets, features, calibration, variance, cooldowns, expired) -> str:
+    def _build_coach_prompt(
+        self, bets, features, calibration, variance, cooldowns, expired
+    ) -> str:
         bet_summary = self._summarize_bets(bets)
         feature_text = self._format_features(features)
         cal_text = self._format_calibration(calibration)
@@ -237,9 +263,15 @@ class CoachingAgent:
             active = {m: d for m, d in cooldowns.items() if m not in expired}
             parts = []
             if active:
-                parts.append("ON COOLDOWN (do not re-add to AVOID):\n" + "\n".join(f"  {m} — revisit after {d}" for m, d in active.items()))
+                parts.append(
+                    "ON COOLDOWN (do not re-add to AVOID):\n"
+                    + "\n".join(f"  {m} — revisit after {d}" for m, d in active.items())
+                )
             if expired:
-                parts.append("COOLDOWN EXPIRED (move to EXPLORE for 10-bet trial):\n" + "\n".join(f"  {m}" for m in expired))
+                parts.append(
+                    "COOLDOWN EXPIRED (move to EXPLORE for 10-bet trial):\n"
+                    + "\n".join(f"  {m}" for m in expired)
+                )
             cooldown_text = "\n".join(parts)
 
         return f"""You are a sports betting coach. Benny reads this memo before every game analysis. Your job is to STEER bets toward higher-value opportunities, NOT to discourage betting.
@@ -261,11 +293,15 @@ VARIANCE ANALYSIS:
 MARKET COOLDOWNS:
 {cooldown_text}
 
-Write a coaching memo (under 400 words) with these sections:
+Write a coaching memo (under 500 words) with these sections:
 1. BET AGGRESSIVELY — specific sports/markets/situations where Benny has a proven edge. Be enthusiastic. Tell Benny to size up here.
 2. BET CAUTIOUSLY — markets where results are mixed. Don't say "avoid" — say "reduce size" or "require extra factor confirmation."
 3. CALIBRATION — note any overconfidence/underconfidence patterns. Never say "cap confidence" — instead say "when you feel X% confident, you're historically closer to Y%."
-4. KEY RULES — 3-5 actionable rules. Frame positively (do this) not negatively (don't do that).
+4. HARD RULES — 3-5 concrete, data-backed rules derived from the factor track record above. Each rule MUST reference a specific threshold. Examples:
+   - "RULE: Only bet favorites when ELO diff > +50"
+   - "RULE: Skip totals when both teams are on back-to-backs"
+   - "RULE: Require 75%+ confidence for away underdogs"
+   Format each as "RULE: [condition] → [action]". Base these on which factors actually win and which lose.
 5. EXPLORE — markets with <20 bets and poor results OR markets whose cooldown just expired. Say "minimum bet size" not "freeze." Format: "EXPLORE: [market]"
 6. AVOID — ONLY markets with 20+ bets and <35% win rate NOT already on cooldown. Format: "AVOID: [market]"
 
@@ -286,13 +322,14 @@ Tone: encouraging but honest. Benny should finish reading this and feel confiden
     def _parse_avoids(self, memo: str) -> list:
         """Extract market names from AVOID lines in the memo."""
         import re
+
         markets = []
         for line in memo.split("\n"):
             line = line.strip().lstrip("*-• ")
             if line.upper().startswith("AVOID:"):
                 raw = line.split(":", 1)[1].strip().strip("*")
                 # Take only the first word/underscore token (e.g. "soccer_epl")
-                match = re.match(r'[\w]+', raw)
+                match = re.match(r"[\w]+", raw)
                 if match:
                     markets.append(match.group())
         return markets
@@ -301,11 +338,13 @@ Tone: encouraging but honest. Benny should finish reading this and feel confiden
         try:
             resp = bedrock.invoke_model(
                 modelId="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-                body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 900,
-                    "messages": [{"role": "user", "content": prompt}],
-                }),
+                body=json.dumps(
+                    {
+                        "anthropic_version": "bedrock-2023-05-31",
+                        "max_tokens": 1100,
+                        "messages": [{"role": "user", "content": prompt}],
+                    }
+                ),
             )
             result = json.loads(resp["body"].read())
             return result["content"][0]["text"]
@@ -323,4 +362,6 @@ Tone: encouraging but honest. Benny should finish reading this and feel confiden
         if cooldowns:
             item["cooldowns"] = cooldowns
         self.table.put_item(Item=item)
-        print(f"[COACH] Stored coaching memo ({len(memo)} chars), cooldowns: {cooldowns or {}}")
+        print(
+            f"[COACH] Stored coaching memo ({len(memo)} chars), cooldowns: {cooldowns or {}}"
+        )

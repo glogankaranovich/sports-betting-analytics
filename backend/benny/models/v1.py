@@ -24,12 +24,26 @@ from benny.models.base import BennyModelBase
 
 
 class BennyV1(BennyModelBase):
-
     BASE_MIN_CONFIDENCE = 0.70
     MIN_EV = 0.05
+    DEFAULT_EDGE_FLOOR = 0.08
     MAX_BET_PERCENTAGE = 0.20
     MIN_SAMPLE_SIZE = 30
     WEEKLY_BUDGET = Decimal("100.00")
+
+    # Sport-specific edge floors — same as V3
+    SPORT_EDGE_FLOORS = {
+        "basketball_nba": 0.10,
+        "americanfootball_nfl": 0.10,
+        "basketball_wnba": 0.08,
+        "americanfootball_ncaaf": 0.07,
+        "basketball_ncaab": 0.06,
+        "basketball_wncaab": 0.06,
+        "soccer_epl": 0.08,
+        "soccer_usa_mls": 0.06,
+        "baseball_mlb": 0.08,
+        "icehockey_nhl": 0.08,
+    }
 
     def __init__(self, table, learning_engine, bankroll_manager):
         self.table = table
@@ -53,6 +67,7 @@ class BennyV1(BennyModelBase):
             return self._coaching_memo_cache
         try:
             from benny.coaching_agent import CoachingAgent
+
             self._coaching_memo_cache = CoachingAgent(self.table, self.pk).get_memo()
         except Exception:
             self._coaching_memo_cache = ""
@@ -65,8 +80,14 @@ class BennyV1(BennyModelBase):
             for key, stats in params.get(src, {}).items():
                 if stats["total"] >= 5 and stats["wins"] / stats["total"] > 0.55:
                     wr = stats["wins"] / stats["total"]
-                    insights.append(f"✓ {key}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})")
-        return "\n".join(insights) if insights else "Not enough data yet (need 5+ bets per category)"
+                    insights.append(
+                        f"✓ {key}: {wr:.1%} win rate ({stats['wins']}/{stats['total']})"
+                    )
+        return (
+            "\n".join(insights)
+            if insights
+            else "Not enough data yet (need 5+ bets per category)"
+        )
 
     def _get_what_fails_analysis(self) -> str:
         params = self.learning_engine.params
@@ -75,26 +96,36 @@ class BennyV1(BennyModelBase):
             for key, stats in params.get(src, {}).items():
                 if stats["total"] >= 5 and stats["wins"] / stats["total"] < 0.45:
                     wr = stats["wins"] / stats["total"]
-                    warnings.append(f"✗ {key}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence")
+                    warnings.append(
+                        f"✗ {key}: {wr:.1%} win rate ({stats['wins']}/{stats['total']}) - be very selective, require higher confidence"
+                    )
         return "\n".join(warnings) if warnings else "No clear failure patterns yet"
 
     def _analyze_recent_mistakes(self, limit: int = 10) -> str:
         try:
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BET#"),
-                ScanIndexForward=False, Limit=200,
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
+                ScanIndexForward=False,
+                Limit=200,
             )
-            losses = [b for b in response.get("Items", []) if b.get("status") == "lost"][:limit]
+            losses = [
+                b for b in response.get("Items", []) if b.get("status") == "lost"
+            ][:limit]
             if not losses:
                 return "No recent losses to analyze"
 
             patterns = []
             high_conf = [b for b in losses if float(b.get("confidence", 0)) > 0.75]
             if len(high_conf) > len(losses) * 0.5:
-                patterns.append(f"⚠️ {len(high_conf)}/{len(losses)} losses were high confidence (>75%) - may be overconfident")
+                patterns.append(
+                    f"⚠️ {len(high_conf)}/{len(losses)} losses were high confidence (>75%) - may be overconfident"
+                )
             underdogs = [b for b in losses if float(b.get("odds", 0)) > 0]
             if len(underdogs) > len(losses) * 0.6:
-                patterns.append(f"⚠️ {len(underdogs)}/{len(losses)} losses were underdogs (+odds) - may be chasing value")
+                patterns.append(
+                    f"⚠️ {len(underdogs)}/{len(losses)} losses were underdogs (+odds) - may be chasing value"
+                )
             sport_losses = {}
             for bet in losses:
                 s = bet.get("sport", "unknown")
@@ -102,17 +133,27 @@ class BennyV1(BennyModelBase):
             for sport, count in sport_losses.items():
                 if count >= 3:
                     patterns.append(f"⚠️ {count} recent losses in {sport}")
-            return "\n".join(patterns) if patterns else "No clear patterns in recent losses"
+            return (
+                "\n".join(patterns)
+                if patterns
+                else "No clear patterns in recent losses"
+            )
         except Exception as e:
             return "Error analyzing recent mistakes"
 
     def _get_winning_examples(self, sport: str, limit: int = 3) -> str:
         try:
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BET#"),
-                ScanIndexForward=False, Limit=200,
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
+                ScanIndexForward=False,
+                Limit=200,
             )
-            wins = [b for b in response.get("Items", []) if b.get("status") == "won" and b.get("sport") == sport][:limit]
+            wins = [
+                b
+                for b in response.get("Items", [])
+                if b.get("status") == "won" and b.get("sport") == sport
+            ][:limit]
             if not wins:
                 return f"No winning bets yet for {sport}"
             examples = []
@@ -120,7 +161,9 @@ class BennyV1(BennyModelBase):
                 profit = float(bet.get("profit", 0))
                 confidence = float(bet.get("confidence", 0))
                 reasoning = bet.get("ai_reasoning", "N/A")[:100]
-                examples.append(f"✓ {bet.get('prediction')} ({confidence:.0%} conf) - Won ${profit:.2f}\n  Reasoning: {reasoning}")
+                examples.append(
+                    f"✓ {bet.get('prediction')} ({confidence:.0%} conf) - Won ${profit:.2f}\n  Reasoning: {reasoning}"
+                )
             return "\n\n".join(examples)
         except Exception as e:
             return f"Error loading winning examples for {sport}"
@@ -128,7 +171,8 @@ class BennyV1(BennyModelBase):
     def _extract_winning_factors(self) -> str:
         try:
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
                 FilterExpression="#status IN (:won, :lost)",
                 ExpressionAttributeNames={"#status": "status"},
                 ExpressionAttributeValues={":won": "won", ":lost": "lost"},
@@ -147,33 +191,55 @@ class BennyV1(BennyModelBase):
                     if won:
                         factor_perf[factor]["wins"] += 1
             insights = []
-            for factor, stats in sorted(factor_perf.items(), key=lambda x: x[1]["wins"] / max(x[1]["total"], 1), reverse=True):
+            for factor, stats in sorted(
+                factor_perf.items(),
+                key=lambda x: x[1]["wins"] / max(x[1]["total"], 1),
+                reverse=True,
+            ):
                 if stats["total"] >= 3:
                     wr = stats["wins"] / stats["total"]
                     if wr >= 0.60:
-                        insights.append(f"✓ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})")
+                        insights.append(
+                            f"✓ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})"
+                        )
                     elif wr <= 0.40:
-                        insights.append(f"✗ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})")
-            return "\n".join(insights) if insights else "No clear factor patterns yet (need factors with 3+ occurrences)"
+                        insights.append(
+                            f"✗ {factor}: {wr:.0%} ({stats['wins']}/{stats['total']})"
+                        )
+            return (
+                "\n".join(insights)
+                if insights
+                else "No clear factor patterns yet (need factors with 3+ occurrences)"
+            )
         except Exception as e:
             return "Error analyzing winning factors"
 
     def _get_model_benchmarks(self, sport: str) -> str:
         try:
             from constants import SYSTEM_MODELS
+
             benchmarks = []
             for model in SYSTEM_MODELS:
                 response = self.table.query(
                     IndexName="VerifiedAnalysisGSI",
-                    KeyConditionExpression=Key("verified_analysis_pk").eq(f"VERIFIED#{model}#{sport}#game"),
-                    ScanIndexForward=False, Limit=50,
+                    KeyConditionExpression=Key("verified_analysis_pk").eq(
+                        f"VERIFIED#{model}#{sport}#game"
+                    ),
+                    ScanIndexForward=False,
+                    Limit=50,
                 )
                 preds = response.get("Items", [])
                 if len(preds) >= 10:
                     correct = sum(1 for p in preds if p.get("analysis_correct"))
                     accuracy = correct / len(preds)
-                    benchmarks.append(f"{model}: {accuracy:.1%} ({correct}/{len(preds)})")
-            return "\n".join(benchmarks) if benchmarks else f"No benchmark data for {sport}"
+                    benchmarks.append(
+                        f"{model}: {accuracy:.1%} ({correct}/{len(preds)})"
+                    )
+            return (
+                "\n".join(benchmarks)
+                if benchmarks
+                else f"No benchmark data for {sport}"
+            )
         except Exception as e:
             return f"Error loading benchmarks for {sport}"
 
@@ -203,6 +269,8 @@ Note: Use this to inform confidence - be more conservative in markets where you'
         bankroll = context["bankroll"]
         coaching_memo = self._get_coaching_memo()
         perf_warnings = self.learning_engine.get_performance_warnings(sport)
+        cal_text = self._get_calibration_text()
+        cal_section = f"\n{cal_text}\n" if cal_text else ""
 
         return f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
@@ -216,6 +284,7 @@ RISK PARAMETERS:
 
 COACHING MEMO (from your performance coach — follow these rules):
 {coaching_memo if coaching_memo else 'No coaching data yet — use your best judgment.'}
+{cal_section}
 
 Game: {game_data['away_team']} @ {game_data['home_team']}
 Sport: {game_data['sport']}
@@ -263,12 +332,13 @@ ANALYSIS INSTRUCTIONS:
 3. Factor in fatigue if either team has score >50 or traveled >1000 miles
 4. Consider weather impact if marked as "high" or "moderate"
 5. FOLLOW YOUR COACHING MEMO — avoid markets/situations it flags
-6. CRITICAL BETTING THRESHOLDS:
+6. If calibration data is shown above, adjust: when you said X% before, you actually won Y%
+7. CRITICAL BETTING THRESHOLDS:
    - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
    - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
    - Calculate EV/Expected ROI = (confidence × payout) - 1
    - NEVER bet on negative expected ROI - you will lose money over time
-7. Be highly selective - quality over quantity. Skip games where edge is unclear.
+8. Be highly selective - quality over quantity. Skip games where edge is unclear.
 
 Respond with JSON only - include ALL markets you want to bet on:
 {{"h2h": {{"prediction": "Team Name (Moneyline)", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name -X.X (Spread)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under XXX.X (Total)", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
@@ -279,15 +349,25 @@ IMPORTANT:
 - Expected ROI = (confidence × payout) - 1 must be positive and > 5%
 - When in doubt, skip the bet - protecting bankroll is priority #1"""
 
-    def build_prop_prompt(self, prop_data: Dict, player_stats: Dict, player_trends: Dict, matchup_data: Dict) -> str:
+    def build_prop_prompt(
+        self,
+        prop_data: Dict,
+        player_stats: Dict,
+        player_trends: Dict,
+        matchup_data: Dict,
+    ) -> str:
         params = self.learning_engine.params
         bankroll = self.bankroll_manager.bankroll
 
         # Calculate avg odds
         over_odds = [o for o in prop_data["odds"] if o["side"] == "Over"]
         under_odds = [o for o in prop_data["odds"] if o["side"] == "Under"]
-        avg_over = sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
-        avg_under = sum(o["price"] for o in under_odds) / len(under_odds) if under_odds else 0
+        avg_over = (
+            sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
+        )
+        avg_under = (
+            sum(o["price"] for o in under_odds) / len(under_odds) if under_odds else 0
+        )
 
         def _american_to_probability(odds):
             if odds > 0:
@@ -298,6 +378,8 @@ IMPORTANT:
         under_prob = _american_to_probability(avg_under) if avg_under else 0.5
 
         coaching_memo = self._get_coaching_memo()
+        cal_text = self._get_calibration_text()
+        cal_section = f"\n{cal_text}\n" if cal_text else ""
 
         return f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
@@ -308,6 +390,7 @@ RISK PARAMETERS:
 
 COACHING MEMO (from your performance coach — follow these rules):
 {coaching_memo if coaching_memo else 'No coaching data yet — use your best judgment.'}
+{cal_section}
 
 Player: {prop_data['player']} ({prop_data['team']})
 Opponent: {prop_data['opponent']}
@@ -333,13 +416,14 @@ ANALYSIS INSTRUCTIONS:
 2. Consider recent trends - is player hot or cold?
 3. Factor in matchup history against this opponent
 4. FOLLOW YOUR COACHING MEMO — avoid markets/situations it flags
-5. CRITICAL BETTING THRESHOLDS:
+5. If calibration data is shown above, adjust: when you said X% before, you actually won Y%
+6. CRITICAL BETTING THRESHOLDS:
    - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
    - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
    - Calculate EV/Expected ROI = (confidence × payout) - 1
    - NEVER bet on negative expected ROI - you will lose money over time
-6. Be highly selective - props are harder to predict than games
-7. Skip if player data is limited or matchup is unclear
+7. Be highly selective - props are harder to predict than games
+8. Skip if player data is limited or matchup is unclear
 
 Respond with JSON only:
 {{"prediction": "Over/Under X.X (Player Market)", "confidence": 0.70, "reasoning": "Brief explanation", "key_factors": ["factor1", "factor2"]}}
@@ -356,12 +440,18 @@ IMPORTANT:
         # in context for game prompts, but prop prompts need it too.
         try:
             from datetime import timedelta
+
             cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
                 FilterExpression="settled_at > :cutoff AND #status IN (:won, :lost)",
                 ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={":cutoff": cutoff, ":won": "won", ":lost": "lost"},
+                ExpressionAttributeValues={
+                    ":cutoff": cutoff,
+                    ":won": "won",
+                    ":lost": "lost",
+                },
             )
             bets = response.get("Items", [])
             if not bets:
@@ -380,7 +470,11 @@ IMPORTANT:
                     if b.get("status") == "won":
                         d[k]["w"] += 1
             return {
-                "overall": {"win_rate": f"{wins}/{len(bets)} ({wins/len(bets):.1%})", "roi": f"{roi:.1f}%", "total_bets": len(bets)},
+                "overall": {
+                    "win_rate": f"{wins}/{len(bets)} ({wins/len(bets):.1%})",
+                    "roi": f"{roi:.1f}%",
+                    "total_bets": len(bets),
+                },
                 "by_sport": {s: f"{v['w']}/{v['t']}" for s, v in by_sport.items()},
                 "by_market": {m: f"{v['w']}/{v['t']}" for m, v in by_market.items()},
             }
@@ -391,7 +485,29 @@ IMPORTANT:
         """V1 has no feature insights."""
         return "No learned insights available (v1)"
 
-    def calculate_bet_size(self, confidence: float, odds: float, bankroll: Decimal) -> Decimal:
+    def _get_calibration_text(self) -> str:
+        """Format calibration table for inclusion in prompts."""
+        if not hasattr(self, "_calibration_cache"):
+            self._calibration_cache = self._build_calibration_table()
+        if not self._calibration_cache:
+            return ""
+        lines = ["YOUR CALIBRATION (stated confidence → actual win rate):"]
+        for conf in sorted(self._calibration_cache.keys()):
+            actual = self._calibration_cache[conf]
+            diff = actual - conf
+            label = (
+                "overconfident"
+                if diff < -0.05
+                else "underconfident"
+                if diff > 0.05
+                else "calibrated"
+            )
+            lines.append(f"  {conf:.0%} → {actual:.0%} ({label})")
+        return "\n".join(lines)
+
+    def calculate_bet_size(
+        self, confidence: float, odds: float, bankroll: Decimal
+    ) -> Decimal:
         calibrated = self._calibrate_confidence(confidence)
         size = self.bankroll_manager.calculate_bet_size(calibrated, odds)
         return max(size, self.get_min_bet()) if size > Decimal("0") else size
@@ -408,7 +524,8 @@ IMPORTANT:
         """Build confidence → actual win rate mapping from settled bets."""
         try:
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq("BENNY") & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq("BENNY")
+                & Key("sk").begins_with("BET#"),
                 FilterExpression="#s IN (:w, :l)",
                 ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={":w": "won", ":l": "lost"},
@@ -438,24 +555,59 @@ IMPORTANT:
     def get_threshold(self, sport: str, market: str) -> float:
         return self.learning_engine.get_adaptive_threshold(sport, market)
 
-    def should_bet(self, confidence: float, expected_value: float, implied_prob: float, sport: str, market: str) -> bool:
+    def should_bet(
+        self,
+        confidence: float,
+        expected_value: float,
+        implied_prob: float,
+        sport: str,
+        market: str,
+    ) -> bool:
+        """Gate: adaptive threshold + EV + sport-specific edge floor + calibration check."""
         required = self.get_threshold(sport, market)
-        return confidence >= required
+        if confidence < required:
+            return False
+        if expected_value < self.MIN_EV:
+            return False
+
+        # Sport-specific edge floor
+        edge_floor = self.SPORT_EDGE_FLOORS.get(sport, self.DEFAULT_EDGE_FLOOR)
+        edge_vs_market = confidence - implied_prob
+        if edge_vs_market < edge_floor:
+            return False
+
+        # Calibration check: reject if calibrated confidence < market implied prob
+        calibrated = self._calibrate_confidence(confidence)
+        if calibrated < implied_prob:
+            print(
+                f"  [V1-CAL] Rejected: raw={confidence:.0%} calibrates to {calibrated:.0%}, market={implied_prob:.0%}"
+            )
+            return False
+
+        return True
 
     def post_run(self, results: Dict[str, Any]):
         """Update learning parameters based on recent performance."""
         try:
             from datetime import timedelta
+
             cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
             response = self.table.query(
-                KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("BET#"),
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
                 FilterExpression="settled_at > :cutoff AND #status IN (:won, :lost)",
                 ExpressionAttributeNames={"#status": "status"},
-                ExpressionAttributeValues={":cutoff": cutoff, ":won": "won", ":lost": "lost"},
+                ExpressionAttributeValues={
+                    ":cutoff": cutoff,
+                    ":won": "won",
+                    ":lost": "lost",
+                },
             )
             bets = response.get("Items", [])
             if len(bets) < self.MIN_SAMPLE_SIZE:
-                print(f"Insufficient data for learning: {len(bets)} bets (need {self.MIN_SAMPLE_SIZE})")
+                print(
+                    f"Insufficient data for learning: {len(bets)} bets (need {self.MIN_SAMPLE_SIZE})"
+                )
                 return
 
             wins = sum(1 for b in bets if b.get("status") == "won")
@@ -463,14 +615,20 @@ IMPORTANT:
 
             total_wagered = sum(Decimal(str(b.get("bet_amount", 0))) for b in bets)
             total_profit = sum(Decimal(str(b.get("profit", 0))) for b in bets)
-            roi = (total_profit / total_wagered * 100) if total_wagered > 0 else Decimal("0")
+            roi = (
+                (total_profit / total_wagered * 100)
+                if total_wagered > 0
+                else Decimal("0")
+            )
 
             if win_rate > 0.60:
                 adjustment = -0.02
             elif win_rate < 0.45:
                 adjustment = 0.05
             else:
-                current_adj = float(self.learning_engine.params.get("min_confidence_adjustment", 0))
+                current_adj = float(
+                    self.learning_engine.params.get("min_confidence_adjustment", 0)
+                )
                 adjustment = -current_adj * 0.1
 
             perf_by_sport, perf_by_market, perf_by_prop_market = {}, {}, {}
@@ -487,12 +645,19 @@ IMPORTANT:
                     perf_by_sport[sport]["wins"] += 1
 
                 if market_key not in perf_by_market:
-                    perf_by_market[market_key] = {"wins": 0, "total": 0, "wagered": Decimal("0"), "returned": Decimal("0")}
+                    perf_by_market[market_key] = {
+                        "wins": 0,
+                        "total": 0,
+                        "wagered": Decimal("0"),
+                        "returned": Decimal("0"),
+                    }
                 perf_by_market[market_key]["total"] += 1
                 perf_by_market[market_key]["wagered"] += bet_amt
                 if won:
                     perf_by_market[market_key]["wins"] += 1
-                    perf_by_market[market_key]["returned"] += Decimal(str(bet.get("payout", 0)))
+                    perf_by_market[market_key]["returned"] += Decimal(
+                        str(bet.get("payout", 0))
+                    )
 
                 if market_key.startswith("player_"):
                     if market_key not in perf_by_prop_market:
@@ -505,31 +670,42 @@ IMPORTANT:
             bankroll = self.bankroll_manager.bankroll
             try:
                 dep_resp = self.table.query(
-                    KeyConditionExpression=Key("pk").eq(self.pk) & Key("sk").begins_with("DEPOSIT#"),
+                    KeyConditionExpression=Key("pk").eq(self.pk)
+                    & Key("sk").begins_with("DEPOSIT#"),
                 )
-                total_deposits = sum(Decimal(str(d.get("amount", 0))) for d in dep_resp.get("Items", []))
+                total_deposits = sum(
+                    Decimal(str(d.get("amount", 0))) for d in dep_resp.get("Items", [])
+                )
             except Exception:
                 total_deposits = Decimal("0")
             true_profit = bankroll - self.WEEKLY_BUDGET - total_deposits
 
-            self.learning_engine.params.update({
-                "min_confidence_adjustment": Decimal(str(adjustment)),
-                "performance_by_sport": perf_by_sport,
-                "performance_by_market": perf_by_market,
-                "performance_by_prop_market": perf_by_prop_market,
-                "overall_win_rate": Decimal(str(win_rate)),
-                "total_bets_analyzed": len(bets),
-                "total_deposits": total_deposits,
-                "true_profit": true_profit,
-                "roi_percentage": roi,
-                "last_updated": datetime.utcnow().isoformat(),
-            })
+            self.learning_engine.params.update(
+                {
+                    "min_confidence_adjustment": Decimal(str(adjustment)),
+                    "performance_by_sport": perf_by_sport,
+                    "performance_by_market": perf_by_market,
+                    "performance_by_prop_market": perf_by_prop_market,
+                    "overall_win_rate": Decimal(str(win_rate)),
+                    "total_bets_analyzed": len(bets),
+                    "total_deposits": total_deposits,
+                    "true_profit": true_profit,
+                    "roi_percentage": roi,
+                    "last_updated": datetime.utcnow().isoformat(),
+                }
+            )
             self.table.put_item(Item=self.learning_engine.params)
-            print(f"Updated learning: win_rate={win_rate:.2%}, adjustment={adjustment:+.3f}")
+            print(
+                f"Updated learning: win_rate={win_rate:.2%}, adjustment={adjustment:+.3f}"
+            )
 
             if perf_by_prop_market:
                 print("Prop market performance:")
-                for market, stats in sorted(perf_by_prop_market.items(), key=lambda x: x[1]["wins"] / max(x[1]["total"], 1), reverse=True):
+                for market, stats in sorted(
+                    perf_by_prop_market.items(),
+                    key=lambda x: x[1]["wins"] / max(x[1]["total"], 1),
+                    reverse=True,
+                ):
                     wr = stats["wins"] / stats["total"] if stats["total"] > 0 else 0
                     print(f"  {market}: {stats['wins']}/{stats['total']} ({wr:.1%})")
 
@@ -541,20 +717,26 @@ IMPORTANT:
                 analyzer = OutcomeAnalyzer(self.table, self.pk)
                 insights = analyzer.analyze_features()
                 if "error" not in insights:
-                    print(f"Feature analysis: {insights['total_bets']} bets, top predictors: {[p['feature'] for p in insights.get('strongest_predictors', [])[:3]]}")
+                    print(
+                        f"Feature analysis: {insights['total_bets']} bets, top predictors: {[p['feature'] for p in insights.get('strongest_predictors', [])[:3]]}"
+                    )
                     insights["timestamp"] = datetime.utcnow().isoformat()
                     analyzer.save_insights(insights)
 
                 calibration = analyzer.analyze_confidence_calibration()
                 if "error" not in calibration:
-                    print(f"Calibration error: {calibration['avg_calibration_error']:.1%}")
+                    print(
+                        f"Calibration error: {calibration['avg_calibration_error']:.1%}"
+                    )
                     calibration["timestamp"] = datetime.utcnow().isoformat()
                     analyzer.save_calibration(calibration)
 
                 optimizer = ThresholdOptimizer(self.table, self.pk)
                 thresholds = optimizer.optimize_thresholds()
                 if "error" not in thresholds:
-                    print(f"Optimal threshold: conf={thresholds['global']['optimal_min_confidence']:.0%}")
+                    print(
+                        f"Optimal threshold: conf={thresholds['global']['optimal_min_confidence']:.0%}"
+                    )
                     thresholds["timestamp"] = datetime.utcnow().isoformat()
                     optimizer.save_optimal_thresholds(thresholds)
             except Exception as e:
