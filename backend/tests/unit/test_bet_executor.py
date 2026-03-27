@@ -30,7 +30,7 @@ def test_place_bet_stores_in_dynamodb(mock_table, mock_sqs):
         "key_factors": ["factor1"],
         "market_key": "h2h",
         "commence_time": "2026-03-08T00:00:00",
-        "odds": 2.0,
+        "odds": -150,
         "expected_value": 0.10
     }
     
@@ -55,7 +55,7 @@ def test_place_bet_returns_bet_info(mock_table, mock_sqs):
         "key_factors": ["factor1"],
         "market_key": "h2h",
         "commence_time": "2026-03-08T00:00:00",
-        "odds": 2.0,
+        "odds": -150,
         "expected_value": 0.10
     }
     
@@ -81,7 +81,7 @@ def test_send_notification_in_dev(mock_table, mock_sqs, monkeypatch):
         "key_factors": ["factor1"],
         "market_key": "h2h",
         "commence_time": "2026-03-08T00:00:00",
-        "odds": 2.0,
+        "odds": -150,
         "expected_value": 0.10
     }
     
@@ -106,7 +106,7 @@ def test_no_notification_without_queue_url(mock_table, mock_sqs, monkeypatch):
         "key_factors": ["factor1"],
         "market_key": "h2h",
         "commence_time": "2026-03-08T00:00:00",
-        "odds": 2.0,
+        "odds": -150,
         "expected_value": 0.10
     }
     

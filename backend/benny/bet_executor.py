@@ -52,6 +52,11 @@ class BetExecutor:
             "version": self.version,
         }
 
+        # Reject bets with invalid odds (between -100 and +100 exclusive)
+        if bet["odds"] is not None and Decimal("-100") < bet["odds"] < Decimal("100"):
+            print(f"WARNING: Rejecting bet with invalid odds {bet['odds']} for {opportunity.get('game_id')}")
+            return None
+
         # Add features for v2 (learning version)
         if features and self.version == "v2":
             bet["features"] = features

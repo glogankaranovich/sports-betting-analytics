@@ -266,7 +266,7 @@ def lambda_handler(event, context):
         print(f"Generating Benny {report_type} report...")
         
         # Get dashboard data
-        dashboard_data = BennyTrader.get_dashboard_data()
+        dashboard_data = BennyTrader().get_dashboard_data()
         
         # Load and render template
         template = load_template()

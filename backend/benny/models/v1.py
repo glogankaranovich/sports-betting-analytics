@@ -24,7 +24,7 @@ from benny.models.base import BennyModelBase
 
 
 class BennyV1(BennyModelBase):
-    BASE_MIN_CONFIDENCE = 0.70
+    BASE_MIN_CONFIDENCE = 0.55
     MIN_EV = 0.05
     DEFAULT_EDGE_FLOOR = 0.08
     MAX_BET_PERCENTAGE = 0.20
@@ -59,19 +59,6 @@ class BennyV1(BennyModelBase):
         return "v1"
 
     # --- Prompt helpers ---
-
-    _coaching_memo_cache = None
-
-    def _get_coaching_memo(self) -> str:
-        if self._coaching_memo_cache is not None:
-            return self._coaching_memo_cache
-        try:
-            from benny.coaching_agent import CoachingAgent
-
-            self._coaching_memo_cache = CoachingAgent(self.table, self.pk).get_memo()
-        except Exception:
-            self._coaching_memo_cache = ""
-        return self._coaching_memo_cache
 
     def _get_what_works_analysis(self) -> str:
         params = self.learning_engine.params
@@ -267,10 +254,13 @@ Note: Use this to inform confidence - be more conservative in markets where you'
         sport = game_data["sport"]
         params = self.learning_engine.params
         bankroll = context["bankroll"]
-        coaching_memo = self._get_coaching_memo()
         perf_warnings = self.learning_engine.get_performance_warnings(sport)
         cal_text = self._get_calibration_text()
-        cal_section = f"\n{cal_text}\n" if cal_text else ""
+        cal_section = f"\n{cal_text}\nIMPORTANT: We WILL remap your confidence using this table. If you say 0.75 and the table maps it to 0.45, your bet gets rejected. Adjust your outputs to reflect reality.\n" if cal_text else ""
+        losses_section = self._get_recent_losses_text(sport=sport)
+        wins_section = self._get_recent_wins_text(sport=sport)
+        factor_section = self._get_factor_track_record()
+        record_section = self._get_sport_market_record(sport)
 
         return f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
@@ -281,10 +271,14 @@ RISK PARAMETERS:
 - Current Bankroll: ${float(bankroll):.2f}
 
 {perf_warnings}
-
-COACHING MEMO (from your performance coach — follow these rules):
-{coaching_memo if coaching_memo else 'No coaching data yet — use your best judgment.'}
 {cal_section}
+{record_section}
+
+{factor_section}
+
+{wins_section}
+
+{losses_section}
 
 Game: {game_data['away_team']} @ {game_data['home_team']}
 Sport: {game_data['sport']}
@@ -331,22 +325,16 @@ ANALYSIS INSTRUCTIONS:
 2. Prioritize Elo ratings and opponent-adjusted metrics
 3. Factor in fatigue if either team has score >50 or traveled >1000 miles
 4. Consider weather impact if marked as "high" or "moderate"
-5. FOLLOW YOUR COACHING MEMO — avoid markets/situations it flags
-6. If calibration data is shown above, adjust: when you said X% before, you actually won Y%
-7. CRITICAL BETTING THRESHOLDS:
-   - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
-   - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
-   - Calculate EV/Expected ROI = (confidence × payout) - 1
-   - NEVER bet on negative expected ROI - you will lose money over time
-8. Be highly selective - quality over quantity. Skip games where edge is unclear.
+5. Check your track record above — avoid markets where your win rate is low
+6. If calibration data is shown above, your confidence WILL be remapped. Output honest numbers.
+7. Learn from your recent losses and lean into patterns from your recent wins.
 
 Respond with JSON only - include ALL markets you want to bet on:
 {{"h2h": {{"prediction": "Team Name (Moneyline)", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team Name -X.X (Spread)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "total": {{"prediction": "Over/Under XXX.X (Total)", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}}}
 
 IMPORTANT: 
 - Include market type in prediction text for clarity
-- Only include markets where confidence >= {self.BASE_MIN_CONFIDENCE} AND expected ROI >= {self.MIN_EV}
-- Expected ROI = (confidence × payout) - 1 must be positive and > 5%
+- Only include markets where you have a clear analytical edge
 - When in doubt, skip the bet - protecting bankroll is priority #1"""
 
     def build_prop_prompt(
@@ -359,15 +347,19 @@ IMPORTANT:
         params = self.learning_engine.params
         bankroll = self.bankroll_manager.bankroll
 
-        # Calculate avg odds
+        # Use preferred bookmaker odds (FanDuel > DraftKings > first)
         over_odds = [o for o in prop_data["odds"] if o["side"] == "Over"]
         under_odds = [o for o in prop_data["odds"] if o["side"] == "Under"]
-        avg_over = (
-            sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
-        )
-        avg_under = (
-            sum(o["price"] for o in under_odds) / len(under_odds) if under_odds else 0
-        )
+
+        def _pick_preferred(odds_list):
+            by_book = {o["bookmaker"]: o for o in odds_list}
+            for book in ("fanduel", "draftkings"):
+                if book in by_book:
+                    return by_book[book]["price"]
+            return odds_list[0]["price"] if odds_list else 0
+
+        avg_over = _pick_preferred(over_odds) if over_odds else 0
+        avg_under = _pick_preferred(under_odds) if under_odds else 0
 
         def _american_to_probability(odds):
             if odds > 0:
@@ -377,9 +369,12 @@ IMPORTANT:
         over_prob = _american_to_probability(avg_over) if avg_over else 0.5
         under_prob = _american_to_probability(avg_under) if avg_under else 0.5
 
-        coaching_memo = self._get_coaching_memo()
         cal_text = self._get_calibration_text()
-        cal_section = f"\n{cal_text}\n" if cal_text else ""
+        cal_section = f"\n{cal_text}\nIMPORTANT: We WILL remap your confidence using this table. Adjust your outputs to reflect reality.\n" if cal_text else ""
+        losses_section = self._get_recent_losses_text(sport=prop_data['sport'])
+        wins_section = self._get_recent_wins_text(sport=prop_data['sport'])
+        factor_section = self._get_factor_track_record()
+        record_section = self._get_sport_market_record(prop_data['sport'])
 
         return f"""You are Benny, an expert sports betting analyst. Your goal is to achieve 15%+ ROI through strategic betting decisions.
 
@@ -387,10 +382,14 @@ RISK PARAMETERS:
 - Kelly Fraction: {params.get('kelly_fraction', 0.5)} (bet sizing multiplier)
 - Max Bet Size: {self.MAX_BET_PERCENTAGE*100:.0f}% of bankroll (${float(bankroll * Decimal(str(self.MAX_BET_PERCENTAGE))):.2f})
 - Current Bankroll: ${float(bankroll):.2f}
-
-COACHING MEMO (from your performance coach — follow these rules):
-{coaching_memo if coaching_memo else 'No coaching data yet — use your best judgment.'}
 {cal_section}
+{record_section}
+
+{factor_section}
+
+{wins_section}
+
+{losses_section}
 
 Player: {prop_data['player']} ({prop_data['team']})
 Opponent: {prop_data['opponent']}
@@ -415,13 +414,9 @@ ANALYSIS INSTRUCTIONS:
 1. Compare player's season average and last 5 games to the line
 2. Consider recent trends - is player hot or cold?
 3. Factor in matchup history against this opponent
-4. FOLLOW YOUR COACHING MEMO — avoid markets/situations it flags
-5. If calibration data is shown above, adjust: when you said X% before, you actually won Y%
-6. CRITICAL BETTING THRESHOLDS:
-   - Minimum Confidence: {self.BASE_MIN_CONFIDENCE} (65%) - Do not bet below this
-   - Minimum Expected Value/ROI: {self.MIN_EV} (5%) - Only bet when expected ROI > 5%
-   - Calculate EV/Expected ROI = (confidence × payout) - 1
-   - NEVER bet on negative expected ROI - you will lose money over time
+4. Check your track record above — avoid markets where your win rate is low
+5. If calibration data is shown above, your confidence WILL be remapped. Output honest numbers.
+6. Learn from your recent losses and lean into patterns from your recent wins.
 7. Be highly selective - props are harder to predict than games
 8. Skip if player data is limited or matchup is unclear
 
@@ -430,8 +425,7 @@ Respond with JSON only:
 
 IMPORTANT: 
 - Include market type in prediction for clarity (e.g., "Over 25.5 (Points)", "Under 8.5 (Rebounds)")
-- Only bet when confidence >= {self.BASE_MIN_CONFIDENCE} AND expected ROI >= {self.MIN_EV}
-- Expected ROI = (confidence × payout) - 1 must be positive and > 5%
+- Only include props where you have a clear analytical edge
 - When in doubt, skip - protecting bankroll is priority #1"""
 
     def _get_perf_stats(self) -> Dict:

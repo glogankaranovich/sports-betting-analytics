@@ -1,4 +1,40 @@
-# Benny Trader - Future Improvements
+# Benny Trader - Improvements & Current Plan
+
+## Current Architecture (March 2026)
+
+### Self-Correction System (replaces coaching memo)
+The AI now sees raw performance data directly in every prompt instead of an LLM-generated coaching memo. This eliminates the "telephone game" of one LLM interpreting data and another LLM interpreting the interpretation.
+
+**What the AI sees before every bet:**
+1. **Calibration table** — "you said 70% confident, you actually won 44%". Forceful wording: "We WILL remap your confidence. Adjust your outputs."
+2. **Recent losses per sport** — last 5 losses with prediction, confidence, and reasoning
+3. **Recent wins per sport** — last 5 wins to reinforce good patterns
+4. **Factor track record** — which `key_factors` correlate with wins vs losses (e.g., "✓ Elo advantage: 12/18 (67%) — trust this" / "✗ Recent form: 3/11 (27%) — misleads you")
+5. **Sport/market win rates** — raw record by market (e.g., "h2h: 8/15 (53%), spread: 3/12 (25%)")
+
+**Calibration in bet decisions:** Both V1 and V3 reject bets where calibrated confidence < market implied probability. V1 also uses calibrated confidence for Kelly sizing.
+
+**Code:** `base.py` (shared helpers), `v1.py`, `v3.py` (prompts), `benny_trader.py` (bet flow)
+
+### Shadow Bet Tracking
+Every AI pick is stored as a "shadow bet" before any filtering (confidence threshold, calibration, edge floor, ROI gating). This tracks pick accuracy independent of the betting gates.
+
+**How it works:**
+- `benny_trader.py` `_store_shadow_bet()` writes to DynamoDB with `sk=SHADOW#...`, `status=shadow`
+- `outcome_collector.py` `_settle_shadow_bets()` settles them alongside real bets → `shadow_won` / `shadow_lost`
+- No bankroll impact — purely for data collection
+
+**Key question it answers:** "Is the AI good at picking sides but bad at calibrating confidence, or is it bad at both?"
+
+**Plan:** Collect 1-2 weeks of data, then analyze shadow bet accuracy vs real bet accuracy. If shadow accuracy is significantly higher, the gates are too aggressive. If it's the same, the AI's picks need work.
+
+### Deprecated: Coaching Memo
+The coaching agent (`coaching_agent.py`) and its Lambda (`coaching-memo-stack.ts`) are deprecated. The Lambda instantiation was removed from `infrastructure.ts`. The coaching agent code still exists but nothing imports it. The coaching memo is still generated for email reports via `coaching_memo_generator.py` but is no longer injected into AI prompts.
+
+### Deprecated: Confidence Scorer
+`confidence_scorer.py` exists but is no longer imported. It was an experiment to replace AI confidence with programmatic signals (Elo, form, injuries, market alignment). Removed because it second-guessed the AI's picks with a simpler model — the AI might see nuances the scorer can't.
+
+---
 
 ## Performance Optimization
 
@@ -11,16 +47,14 @@
 - **Sport-specific edge floors**: NBA/NFL require 10% edge vs market, EPL/MLB/NHL 8%, NCAAB/MLS 6%. Prevents betting on thin margins in efficient markets.
 - **Confidence calibration in bet decisions**: Maps raw AI confidence to actual win rate from settled bets. Rejects bets where calibrated confidence < market implied probability.
 - **Calibration table in prompts**: Shows AI its own track record ("80% → 48% (overconfident)") so it self-corrects.
-- **V1 `should_bet` upgraded**: Now enforces EV ≥ 5%, edge floor, and calibration gate (previously only checked confidence ≥ adaptive threshold).
+- **Raw self-correction signals**: Recent wins/losses per sport, factor track record, sport/market win rates — all injected directly into prompts (replaced coaching memo).
+- **Shadow bet tracking**: Every AI pick stored before filtering for pick accuracy analysis.
+- **Lowered confidence threshold**: 0.70 → 0.55 since AI now outputs honest (lower) confidence after seeing calibration data.
 
 **V3-only:**
 - **ROI auto-gating**: Reads last 60 days of settled bets by sport|market. Blocks at -15% ROI (15+ bets), probation at -5% (requires extra 5% edge). Self-learning — no hardcoding.
-- **Post-run ROI logging**: Prints gating status per sport|market combo.
 
-**Coaching agent:**
-- Replaced generic "KEY RULES" with "HARD RULES" requiring concrete factor-based thresholds (e.g., "RULE: Only bet favorites when ELO diff > +50").
-
-**Code Locations**: `backend/benny/models/v1.py`, `backend/benny/models/v3.py`, `backend/benny/coaching_agent.py`
+**Code Locations**: `backend/benny/models/base.py`, `backend/benny/models/v1.py`, `backend/benny/models/v3.py`, `backend/benny_trader.py`, `backend/outcome_collector.py`
 
 ---
 

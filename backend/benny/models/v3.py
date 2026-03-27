@@ -23,7 +23,7 @@ class BennyV3(BennyModelBase):
     """Lean betting model — flat sizing, minimal prompts, variance-aware"""
 
     FLAT_BET_PCT = Decimal("0.05")  # 5% of bankroll
-    MIN_CONFIDENCE = 0.70
+    MIN_CONFIDENCE = 0.55
     MIN_EV = 0.05
     DEFAULT_EDGE_FLOOR = 0.08  # Default: 8% edge vs market
 
@@ -63,23 +63,15 @@ class BennyV3(BennyModelBase):
     def version(self) -> str:
         return "v3"
 
-    _coaching_memo_cache = None
-
-    def _get_coaching_memo(self) -> str:
-        if self._coaching_memo_cache is not None:
-            return self._coaching_memo_cache
-        try:
-            from benny.coaching_agent import CoachingAgent
-
-            self._coaching_memo_cache = CoachingAgent(self.table, self.pk).get_memo()
-        except Exception:
-            self._coaching_memo_cache = ""
-        return self._coaching_memo_cache
-
     def build_game_prompt(self, game_data: Dict, context: Dict[str, Any]) -> str:
         home = game_data["home_team"]
         away = game_data["away_team"]
-        coaching_memo = self._get_coaching_memo()
+        sport = game_data["sport"]
+        cal_text = self._get_calibration_text()
+        losses_section = self._get_recent_losses_text(sport=sport)
+        wins_section = self._get_recent_wins_text(sport=sport)
+        factor_section = self._get_factor_track_record()
+        record_section = self._get_sport_market_record(sport)
 
         # Build compact odds section
         odds_section = f"""MONEYLINE: Home {context['avg_h2h']['home']:+.0f} ({context['home_prob']:.1%}) | Away {context['avg_h2h']['away']:+.0f} ({context['away_prob']:.1%})"""
@@ -92,13 +84,11 @@ class BennyV3(BennyModelBase):
             t = context["avg_total"]
             odds_section += f"\nTOTAL: O/U {t['point']:.1f} — Over {t['over_price']:+.0f} | Under {t['under_price']:+.0f}"
 
-        memo_block = f"\nCOACHING MEMO:\n{coaching_memo}\n" if coaching_memo else ""
-        cal_block = self._get_calibration_text()
-        cal_section = f"\n{cal_block}\n" if cal_block else ""
+        cal_block = f"\n{cal_text}\nIMPORTANT: We WILL remap your confidence using this table. Adjust your outputs to reflect reality.\n" if cal_text else ""
 
         return f"""Analyze this game and pick the best betting market. Be selective — only bet when you see a clear edge.
 
-{away} @ {home} ({game_data['sport']}) — {game_data['commence_time']}
+{away} @ {home} ({sport}) — {game_data['commence_time']}
 
 {odds_section}
 
@@ -109,17 +99,24 @@ FORM (Last 5): {home} {context['home_form'].get('record', '?')} {context['home_f
 INJURIES: {home}: {json.dumps(context['home_injuries']) if context['home_injuries'] else 'None'} | {away}: {json.dumps(context['away_injuries']) if context['away_injuries'] else 'None'}
 
 H2H: {json.dumps(context['h2h_history']) if context['h2h_history'] else 'No history'}
-{memo_block}{cal_section}
+{cal_block}
+{record_section}
+
+{factor_section}
+
+{wins_section}
+
+{losses_section}
+
 RULES:
-- Confidence must be your TRUE probability estimate (0.65-0.95 range)
-- If calibration data is shown above, adjust: when you said X% before, you actually won Y%
-- Only include markets where you're genuinely 70%+ confident
-- EV = (confidence × payout) - 1 must be > 5%
-- Follow coaching memo rules if present
+- Only include markets where you see a clear reason to bet
+- Your confidence WILL be calibrated — output honest numbers, not optimistic ones
+- Check your track record above — avoid markets where your win rate is low
+- Learn from your recent losses and lean into patterns from your recent wins
 - Skip entirely if edge is unclear
 
 Respond with JSON only. Include only markets worth betting:
-{{"h2h": {{"prediction": "Team (Moneyline)", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team ±X (Spread)", "confidence": 0.72, "reasoning": "Brief", "key_factors": ["f1"]}}, "total": {{"prediction": "Over/Under X (Total)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1"]}}}}"""
+{{"h2h": {{"prediction": "Team (Moneyline)", "confidence": 0.75, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}, "spread": {{"prediction": "Team ±X (Spread)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1"]}}, "total": {{"prediction": "Over/Under X (Total)", "confidence": 0.65, "reasoning": "Brief", "key_factors": ["f1"]}}}}"""
 
     def build_prop_prompt(
         self,
@@ -128,18 +125,26 @@ Respond with JSON only. Include only markets worth betting:
         player_trends: Dict,
         matchup_data: Dict,
     ) -> str:
+        # Use preferred bookmaker odds (FanDuel > DraftKings > first)
         over_odds = [o for o in prop_data["odds"] if o["side"] == "Over"]
         under_odds = [o for o in prop_data["odds"] if o["side"] == "Under"]
-        avg_over = (
-            sum(o["price"] for o in over_odds) / len(over_odds) if over_odds else 0
-        )
-        avg_under = (
-            sum(o["price"] for o in under_odds) / len(under_odds) if under_odds else 0
-        )
-        coaching_memo = self._get_coaching_memo()
-        memo_block = f"\nCOACHING MEMO:\n{coaching_memo}\n" if coaching_memo else ""
-        cal_block = self._get_calibration_text()
-        cal_section = f"\n{cal_block}\n" if cal_block else ""
+
+        def _pick_preferred(odds_list):
+            by_book = {o["bookmaker"]: o for o in odds_list}
+            for book in ("fanduel", "draftkings"):
+                if book in by_book:
+                    return by_book[book]["price"]
+            return odds_list[0]["price"] if odds_list else 0
+
+        avg_over = _pick_preferred(over_odds) if over_odds else 0
+        avg_under = _pick_preferred(under_odds) if under_odds else 0
+        sport = prop_data['sport']
+        cal_text = self._get_calibration_text()
+        cal_block = f"\n{cal_text}\nIMPORTANT: We WILL remap your confidence using this table. Adjust your outputs to reflect reality.\n" if cal_text else ""
+        losses_section = self._get_recent_losses_text(sport=sport)
+        wins_section = self._get_recent_wins_text(sport=sport)
+        factor_section = self._get_factor_track_record()
+        record_section = self._get_sport_market_record(sport)
 
         return f"""Analyze this player prop. Only bet when stats clearly support it.
 
@@ -150,17 +155,25 @@ Odds: Over {avg_over:+.0f} | Under {avg_under:+.0f}
 STATS (Last 20 games): {json.dumps(player_stats, default=str) if player_stats else 'No data'}
 TRENDS (Last 10): {json.dumps(player_trends, default=str) if player_trends else 'No data'}
 MATCHUP vs {prop_data['opponent']}: {json.dumps(matchup_data, default=str) if matchup_data else 'No data'}
-{memo_block}{cal_section}
+{cal_block}
+{record_section}
+
+{factor_section}
+
+{wins_section}
+
+{losses_section}
+
 RULES:
 - Compare season avg and last 5 to the line
-- Confidence must be your TRUE probability (0.65-0.95)
-- If calibration data is shown above, adjust: when you said X% before, you actually won Y%
-- Only bet when confidence ≥ 70% AND EV > 5%
-- Follow coaching memo rules if present
+- Your confidence WILL be calibrated — output honest numbers
+- Check your track record above — avoid markets where your win rate is low
+- Learn from your recent losses and lean into patterns from your recent wins
+- Only pick when stats clearly support over or under
 - Skip if data is limited
 
 JSON only:
-{{"prediction": "Over/Under X.X (Market)", "confidence": 0.72, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}"""
+{{"prediction": "Over/Under X.X (Market)", "confidence": 0.70, "reasoning": "Brief", "key_factors": ["f1", "f2"]}}"""
 
     def calculate_bet_size(
         self, confidence: float, odds: float, bankroll: Decimal
@@ -180,7 +193,7 @@ JSON only:
         sport: str,
         market: str,
     ) -> bool:
-        """Gate bets through: confidence, EV, sport-specific edge floor, ROI auto-gating, and calibration."""
+        """Gate bets through: confidence, EV, sport-specific edge floor, calibration, and ROI auto-gating."""
         if confidence < self.MIN_CONFIDENCE:
             return False
         if expected_value < self.MIN_EV:
@@ -190,6 +203,14 @@ JSON only:
         edge_floor = self.SPORT_EDGE_FLOORS.get(sport, self.DEFAULT_EDGE_FLOOR)
         edge_vs_market = confidence - implied_prob
         if edge_vs_market < edge_floor:
+            return False
+
+        # Calibration check: reject if calibrated confidence < market implied prob
+        calibrated = self._calibrate_confidence(confidence)
+        if calibrated < implied_prob:
+            print(
+                f"  [V3-CAL] Rejected: raw={confidence:.0%} calibrates to {calibrated:.0%}, market={implied_prob:.0%}"
+            )
             return False
 
         # ROI auto-gating: learn from settled bets, block bleeding sport+market combos
@@ -209,14 +230,6 @@ JSON only:
                         f"  [V3-GATE] PROBATION {key}: ROI={roi:.1%}, edge {edge_vs_market:.1%} < {edge_floor + 0.05:.1%}"
                     )
                     return False
-
-        # Calibration check: use actual win rate at this confidence level
-        calibrated = self._calibrate_confidence(confidence)
-        if calibrated < implied_prob:
-            print(
-                f"  [V3-CAL] Rejected: raw={confidence:.0%} calibrates to {calibrated:.0%}, market={implied_prob:.0%}"
-            )
-            return False
 
         return True
 

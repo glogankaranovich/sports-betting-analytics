@@ -117,3 +117,114 @@ class BennyModelBase(ABC):
     def get_max_bet_pct(self) -> float:
         """Maximum bet as percentage of bankroll. Override if needed."""
         return 0.20
+
+    _recent_losses_cache = None
+    _settled_bets_cache = None
+
+    def _get_settled_bets(self):
+        """Fetch and cache all settled bets (newest first). Single DB query per run."""
+        if self._settled_bets_cache is not None:
+            return self._settled_bets_cache
+        try:
+            from boto3.dynamodb.conditions import Key
+
+            response = self.table.query(
+                KeyConditionExpression=Key("pk").eq(self.pk)
+                & Key("sk").begins_with("BET#"),
+                FilterExpression="#s IN (:w, :l)",
+                ExpressionAttributeNames={"#s": "status"},
+                ExpressionAttributeValues={":w": "won", ":l": "lost"},
+                ScanIndexForward=False,
+                Limit=200,
+            )
+            self._settled_bets_cache = response.get("Items", [])
+        except Exception:
+            self._settled_bets_cache = []
+        return self._settled_bets_cache
+
+    def _get_recent_losses_text(self, sport: str = None, limit: int = 5) -> str:
+        """Recent losses per sport — shows the AI its specific mistakes."""
+        bets = self._get_settled_bets()
+        losses = [b for b in bets if b.get("status") == "lost"]
+        if sport:
+            losses = [b for b in losses if b.get("sport") == sport]
+        losses = losses[:limit]
+        if not losses:
+            return ""
+        lines = [f"YOUR RECENT LOSSES{f' IN {sport}' if sport else ''} (learn from these — do not repeat):"]
+        for b in losses:
+            pred = b.get("prediction", "?")
+            conf = float(b.get("confidence", 0))
+            reasoning = (b.get("ai_reasoning") or "")[:120]
+            lines.append(f"  ✗ {pred} — you said {conf:.0%} confident")
+            if reasoning:
+                lines.append(f"    Reasoning: {reasoning}")
+        return "\n".join(lines)
+
+    def _get_recent_wins_text(self, sport: str = None, limit: int = 5) -> str:
+        """Recent wins per sport — reinforces what works."""
+        bets = self._get_settled_bets()
+        wins = [b for b in bets if b.get("status") == "won"]
+        if sport:
+            wins = [b for b in wins if b.get("sport") == sport]
+        wins = wins[:limit]
+        if not wins:
+            return ""
+        lines = [f"YOUR RECENT WINS{f' IN {sport}' if sport else ''} (repeat these patterns):"]
+        for b in wins:
+            pred = b.get("prediction", "?")
+            conf = float(b.get("confidence", 0))
+            reasoning = (b.get("ai_reasoning") or "")[:120]
+            lines.append(f"  ✓ {pred} — you said {conf:.0%} confident")
+            if reasoning:
+                lines.append(f"    Reasoning: {reasoning}")
+        return "\n".join(lines)
+
+    def _get_factor_track_record(self) -> str:
+        """Which key_factors correlate with wins vs losses."""
+        bets = self._get_settled_bets()
+        if len(bets) < 10:
+            return ""
+        factor_perf = {}
+        for b in bets:
+            won = b.get("status") == "won"
+            for f in b.get("ai_key_factors", []):
+                if f not in factor_perf:
+                    factor_perf[f] = {"w": 0, "t": 0}
+                factor_perf[f]["t"] += 1
+                if won:
+                    factor_perf[f]["w"] += 1
+        # Only show factors with 3+ occurrences
+        relevant = {f: v for f, v in factor_perf.items() if v["t"] >= 3}
+        if not relevant:
+            return ""
+        good = [(f, v) for f, v in relevant.items() if v["w"] / v["t"] >= 0.55]
+        bad = [(f, v) for f, v in relevant.items() if v["w"] / v["t"] <= 0.40]
+        good.sort(key=lambda x: x[1]["w"] / x[1]["t"], reverse=True)
+        bad.sort(key=lambda x: x[1]["w"] / x[1]["t"])
+        lines = ["FACTOR TRACK RECORD (which reasoning factors actually predict wins):"]
+        for f, v in good[:5]:
+            lines.append(f"  ✓ {f}: {v['w']}/{v['t']} ({v['w']/v['t']:.0%}) — trust this factor")
+        for f, v in bad[:5]:
+            lines.append(f"  ✗ {f}: {v['w']}/{v['t']} ({v['w']/v['t']:.0%}) — this factor misleads you")
+        return "\n".join(lines)
+
+    def _get_sport_market_record(self, sport: str) -> str:
+        """Win rate by market for a given sport. Raw numbers."""
+        bets = self._get_settled_bets()
+        sport_bets = [b for b in bets if b.get("sport") == sport]
+        if not sport_bets:
+            return ""
+        by_market = {}
+        for b in sport_bets:
+            m = b.get("market_key", "?")
+            if m not in by_market:
+                by_market[m] = {"w": 0, "t": 0}
+            by_market[m]["t"] += 1
+            if b.get("status") == "won":
+                by_market[m]["w"] += 1
+        lines = [f"YOUR RECORD IN {sport}:"]
+        for m, v in sorted(by_market.items(), key=lambda x: x[1]["t"], reverse=True):
+            wr = v["w"] / v["t"] if v["t"] else 0
+            lines.append(f"  {m}: {v['w']}/{v['t']} ({wr:.0%})")
+        return "\n".join(lines)

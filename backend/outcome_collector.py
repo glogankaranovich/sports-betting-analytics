@@ -793,19 +793,25 @@ class OutcomeCollector:
                         if odds:
                             # Use actual American odds
                             odds_value = float(odds)
-                            if odds_value > 0:
-                                # Positive odds: profit = (bet * odds) / 100
-                                profit = (
-                                    bet_amount
-                                    * Decimal(str(odds_value))
-                                    / Decimal("100")
-                                )
+                            # Guard: American odds must be <= -100 or >= +100
+                            if -100 < odds_value < 100:
+                                print(f"WARNING: Invalid odds {odds_value} for bet {bet.get('sk')} — treating as even money")
+                                odds_value = None
+                            if odds_value is not None:
+                                if odds_value > 0:
+                                    profit = (
+                                        bet_amount
+                                        * Decimal(str(odds_value))
+                                        / Decimal("100")
+                                    )
+                                else:
+                                    profit = bet_amount / (
+                                        Decimal(str(abs(odds_value))) / Decimal("100")
+                                    )
+                                payout = bet_amount + profit
                             else:
-                                # Negative odds: profit = bet / (abs(odds) / 100)
-                                profit = bet_amount / (
-                                    Decimal(str(abs(odds_value))) / Decimal("100")
-                                )
-                            payout = bet_amount + profit
+                                profit = bet_amount
+                                payout = bet_amount * Decimal("2.0")
                         else:
                             # Fallback to even money if no odds stored
                             profit = bet_amount
@@ -864,11 +870,55 @@ class OutcomeCollector:
 
                 print(f"Updated Benny {version_label} bankroll: ${current_bankroll}")
 
+            # Settle shadow bets (no bankroll impact)
+            self._settle_shadow_bets(game, version_pk)
+
         except Exception as e:
             print(f"Error settling Benny bets for game {game.get('id')}: {e}")
             import traceback
 
             traceback.print_exc()
+
+    def _settle_shadow_bets(self, game: Dict[str, Any], version_pk: str) -> None:
+        """Settle shadow bets for pick accuracy tracking. No bankroll impact."""
+        try:
+            game_id = game["id"]
+            response = self.table.query(
+                KeyConditionExpression="pk = :pk AND begins_with(sk, :prefix)",
+                FilterExpression="game_id = :game_id AND #status = :shadow",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues={
+                    ":pk": version_pk,
+                    ":prefix": "SHADOW#",
+                    ":game_id": game_id,
+                    ":shadow": "shadow",
+                },
+            )
+            for bet in response.get("Items", []):
+                prediction = bet.get("prediction", "")
+                if bet.get("player_name") and bet.get("market_key", "").startswith("player_"):
+                    won = self._check_prop_analysis_accuracy(
+                        {"market_key": bet["market_key"], "player_name": bet["player_name"], "prediction": prediction},
+                        game,
+                    )
+                else:
+                    won = self._check_bet_outcome(
+                        prediction, game["home_team"], game["away_team"],
+                        self._determine_winner(game), game,
+                    )
+                self.table.update_item(
+                    Key={"pk": bet["pk"], "sk": bet["sk"]},
+                    UpdateExpression="SET #status = :status, settled_at = :settled",
+                    ExpressionAttributeNames={"#status": "status"},
+                    ExpressionAttributeValues={
+                        ":status": "shadow_won" if won else "shadow_lost",
+                        ":settled": datetime.utcnow().isoformat(),
+                    },
+                )
+                version_label = "v1" if version_pk == "BENNY" else "v3"
+                print(f"Settled shadow bet {version_label}: {prediction} = {'won' if won else 'lost'}")
+        except Exception as e:
+            print(f"Error settling shadow bets: {e}")
 
     def _settle_benny_parlays(self, game: Dict[str, Any]) -> None:
         """Settle parlay legs for a completed game."""

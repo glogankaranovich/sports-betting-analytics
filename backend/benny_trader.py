@@ -57,7 +57,7 @@ class BennyTrader:
         self.opportunity_analyzer = OpportunityAnalyzer(self.learning_engine)
 
         sqs = boto3.client("sqs")
-        notification_queue_url = os.environ.get("NOTIFICATION_QUEUE_URL")
+        notification_queue_url = os.environ.get("NOTIFICATION_QUEUE_URL") if version != "v3" else None
         self.bet_executor = BetExecutor(
             self.table, sqs, notification_queue_url, version
         )
@@ -520,55 +520,32 @@ class BennyTrader:
                 weather = self._get_weather_data(game_id)
                 fatigue = self._get_fatigue_data(game_id)
 
-                # Calculate average odds for all markets
+                # Use preferred bookmaker odds (FanDuel > DraftKings > first)
+                h2h_book = self._get_preferred_book(game_data["h2h_odds"])
                 avg_h2h = {
-                    "home": sum(o["home_price"] for o in game_data["h2h_odds"])
-                    / len(game_data["h2h_odds"]),
-                    "away": sum(o["away_price"] for o in game_data["h2h_odds"])
-                    / len(game_data["h2h_odds"]),
+                    "home": h2h_book["home_price"],
+                    "away": h2h_book["away_price"],
                 }
-                draw_prices = [
-                    o["draw_price"]
-                    for o in game_data["h2h_odds"]
-                    if o.get("draw_price")
-                ]
-                if draw_prices:
-                    avg_h2h["draw"] = sum(draw_prices) / len(draw_prices)
+                if h2h_book.get("draw_price"):
+                    avg_h2h["draw"] = h2h_book["draw_price"]
 
                 avg_spread = None
                 if game_data["spread_odds"]:
+                    spread_book = self._get_preferred_book(game_data["spread_odds"])
                     avg_spread = {
-                        "home_point": sum(
-                            o["home_point"] for o in game_data["spread_odds"]
-                        )
-                        / len(game_data["spread_odds"]),
-                        "home_price": sum(
-                            o["home_price"] for o in game_data["spread_odds"]
-                        )
-                        / len(game_data["spread_odds"]),
-                        "away_point": sum(
-                            o["away_point"] for o in game_data["spread_odds"]
-                        )
-                        / len(game_data["spread_odds"]),
-                        "away_price": sum(
-                            o["away_price"] for o in game_data["spread_odds"]
-                        )
-                        / len(game_data["spread_odds"]),
+                        "home_point": spread_book["home_point"],
+                        "home_price": spread_book["home_price"],
+                        "away_point": spread_book["away_point"],
+                        "away_price": spread_book["away_price"],
                     }
 
                 avg_total = None
                 if game_data["total_odds"]:
+                    total_book = self._get_preferred_book(game_data["total_odds"])
                     avg_total = {
-                        "point": sum(o["over_point"] for o in game_data["total_odds"])
-                        / len(game_data["total_odds"]),
-                        "over_price": sum(
-                            o["over_price"] for o in game_data["total_odds"]
-                        )
-                        / len(game_data["total_odds"]),
-                        "under_price": sum(
-                            o["under_price"] for o in game_data["total_odds"]
-                        )
-                        / len(game_data["total_odds"]),
+                        "point": total_book["over_point"],
+                        "over_price": total_book["over_price"],
+                        "under_price": total_book["under_price"],
                     }
 
                 # Let AI analyze all markets
@@ -785,9 +762,9 @@ class BennyTrader:
                         )
                         continue
 
-                    avg_odds = sum(o["price"] for o in matching_odds) / len(
-                        matching_odds
-                    )
+                    # Use preferred bookmaker odds
+                    preferred = self._get_preferred_book(matching_odds)
+                    avg_odds = preferred["price"]
 
                     # Calculate EV for props
                     avg_odds_float = float(avg_odds)
@@ -862,7 +839,9 @@ class BennyTrader:
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0].strip()
 
-            return json.loads(content)
+            parsed = json.loads(content)
+
+            return parsed
         except Exception as e:
             print(f"Error in prop AI analysis: {e}")
             return None
@@ -1066,11 +1045,11 @@ class BennyTrader:
     ) -> Dict[str, Any]:
         """Have AI analyze game data and make independent prediction"""
         try:
-            # Calculate average h2h odds
-            avg_home_price = sum(o["home_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"])
-            avg_away_price = sum(o["away_price"] for o in game_data["h2h_odds"]) / len(game_data["h2h_odds"])
-            draw_prices = [o["draw_price"] for o in game_data["h2h_odds"] if o.get("draw_price")]
-            avg_draw_price = sum(draw_prices) / len(draw_prices) if draw_prices else None
+            # Use preferred bookmaker odds (FanDuel > DraftKings > first)
+            h2h_book = self._get_preferred_book(game_data["h2h_odds"])
+            avg_home_price = h2h_book["home_price"]
+            avg_away_price = h2h_book["away_price"]
+            avg_draw_price = h2h_book.get("draw_price")
 
             home_prob = self._american_to_probability(avg_home_price)
             away_prob = self._american_to_probability(avg_away_price)
@@ -1141,17 +1120,29 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0].strip()
 
-            return json.loads(content)
+            parsed = json.loads(content)
+
+            return parsed
         except Exception as e:
             print(f"Error in AI analysis: {e}")
             return None
 
-    def _american_to_probability(self, american_odds: float) -> float:
+    @staticmethod
+    def _american_to_probability(american_odds: float) -> float:
         """Convert American odds to implied probability"""
         if american_odds > 0:
             return 100 / (american_odds + 100)
         else:
             return abs(american_odds) / (abs(american_odds) + 100)
+
+    @staticmethod
+    def _get_preferred_book(odds_list: list, preferred=("fanduel", "draftkings")) -> dict:
+        """Pick preferred bookmaker's odds entry. Falls back to first available."""
+        by_book = {o["bookmaker"]: o for o in odds_list}
+        for book in preferred:
+            if book in by_book:
+                return by_book[book]
+        return odds_list[0]
 
     def _get_team_injuries(self, team_name: str, sport: str) -> List[Dict]:
         """Get current injuries for a team"""
@@ -1336,12 +1327,42 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
             print(f"Error fetching team stats: {e}")
             return {}
 
+    def _store_shadow_bet(self, opportunity: Dict[str, Any]):
+        """Store every AI pick as a shadow bet for tracking pick accuracy."""
+        try:
+            implied_prob = self._american_to_probability(float(opportunity.get("odds", 0))) if opportunity.get("odds") else 0.5
+            self.table.put_item(Item={
+                "pk": self.pk,
+                "sk": f"SHADOW#{datetime.utcnow().isoformat()}#{opportunity['game_id']}#{opportunity['market_key']}",
+                "status": "shadow",
+                "game_id": opportunity["game_id"],
+                "sport": opportunity["sport"],
+                "prediction": opportunity["prediction"],
+                "confidence": Decimal(str(round(float(opportunity.get("confidence", 0)), 4))),
+                "odds": Decimal(str(float(opportunity.get("odds", 0)))),
+                "implied_prob": Decimal(str(round(implied_prob, 4))),
+                "expected_value": Decimal(str(round(float(opportunity.get("expected_value", 0)), 4))),
+                "market_key": opportunity["market_key"],
+                "reasoning": (opportunity.get("reasoning") or "")[:200],
+                "key_factors": opportunity.get("key_factors", []),
+                "home_team": opportunity.get("home_team", ""),
+                "away_team": opportunity.get("away_team", ""),
+                "player_name": opportunity.get("player", ""),
+                "placed_at": datetime.utcnow().isoformat(),
+                "version": self.version,
+            })
+        except Exception as e:
+            print(f"  Shadow bet storage error: {e}")
+
     def place_bet(self, opportunity: Dict[str, Any]) -> Dict[str, Any]:
         """Place a virtual bet"""
         sport = opportunity["sport"]
         market = opportunity["market_key"]
         confidence = opportunity["confidence"]
         odds = opportunity.get("odds")
+
+        # Store shadow bet for every AI pick (before filtering)
+        self._store_shadow_bet(opportunity)
 
         # Delegate to model for threshold/sizing
         implied_prob = self._american_to_probability(float(odds)) if odds else 0.5
@@ -1382,6 +1403,9 @@ Away: {avg_away_price} ({away_prob:.1%} implied)"""
         result = self.bet_executor.place_bet(
             opportunity, bet_size, self.bankroll, None
         )
+
+        if result is None:
+            return {"success": False, "reason": "Invalid odds"}
 
         # Update bankroll
         new_bankroll = self.bankroll - bet_size
@@ -1967,7 +1991,8 @@ def lambda_handler(event, context):
                 trader._release_lock()
         else:
             # API call for dashboard
-            dashboard = BennyTrader.get_dashboard_data()
+            trader = BennyTrader()
+            dashboard = trader.get_dashboard_data()
 
             return {
                 "statusCode": 200,
