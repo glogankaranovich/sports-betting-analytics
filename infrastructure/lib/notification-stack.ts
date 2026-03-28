@@ -53,6 +53,7 @@ export class NotificationStack extends cdk.Stack {
       environment: {
         BENNY_NOTIFICATION_EMAIL: 'glogankaranovich@gmail.com',
         NOTIFICATION_FROM_EMAIL: 'noreply@carpoolbets.com',
+        DISCORD_WEBHOOK_URL: 'https://discord.com/api/webhooks/1487232758760869970/E7vQpFy3ggCM5GKlfzwWGMyof36lhH_ao0uIDbLrJuVoWg3-4CPj-fQP5tvSZzn9771_',
       },
     });
 

@@ -27,34 +27,40 @@ def lambda_handler(event, context):
             data = message.get('data', {})
             
             if notification_type == 'bet_placed':
-                # Send to email
-                email = os.environ.get('BENNY_NOTIFICATION_EMAIL')
-                if not email:
-                    logger.warning("BENNY_NOTIFICATION_EMAIL not set, skipping notification")
-                    continue
-                
                 formatted_message = service.format_bet_notification(data)
-                success = service.send_notification('email', email, formatted_message, data)
-                
-                if success:
-                    results['successful'] += 1
-                else:
-                    results['failed'] += 1
-                    results['errors'].append(f"Failed to send SMS for {data.get('game')}")
-            elif notification_type == 'consensus_report':
+
+                # Discord (always)
+                service.send_notification('discord', '', formatted_message, data)
+
+                # Email
                 email = os.environ.get('BENNY_NOTIFICATION_EMAIL')
                 if not email:
-                    logger.warning("BENNY_NOTIFICATION_EMAIL not set, skipping consensus report")
-                    continue
-
-                formatted_message = service.format_consensus_report(data)
-                success = service.send_notification('email', email, formatted_message, data)
-
-                if success:
-                    results['successful'] += 1
+                    logger.warning("BENNY_NOTIFICATION_EMAIL not set, skipping email")
                 else:
-                    results['failed'] += 1
-                    results['errors'].append("Failed to send consensus report")
+                    success = service.send_notification('email', email, formatted_message, data)
+                    if not success:
+                        results['failed'] += 1
+                        results['errors'].append(f"Failed to send email for {data.get('game')}")
+
+                results['successful'] += 1
+
+            elif notification_type == 'consensus_report':
+                formatted_message = service.format_consensus_report(data)
+
+                # Discord (always)
+                service.send_notification('discord', '', formatted_message, data)
+
+                # Email
+                email = os.environ.get('BENNY_NOTIFICATION_EMAIL')
+                if not email:
+                    logger.warning("BENNY_NOTIFICATION_EMAIL not set, skipping email")
+                else:
+                    success = service.send_notification('email', email, formatted_message, data)
+                    if not success:
+                        results['failed'] += 1
+                        results['errors'].append("Failed to send consensus report email")
+
+                results['successful'] += 1
             else:
                 logger.warning(f"Unknown notification type: {notification_type}")
                 

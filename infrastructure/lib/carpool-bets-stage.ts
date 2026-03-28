@@ -29,6 +29,7 @@ import { ModelComparisonCacheStack } from './model-comparison-cache-stack';
 import { CustomDataStack } from './custom-data-stack';
 import { NewsCollectorsStack } from './news-collectors-stack';
 import { NotificationStack } from './notification-stack';
+import { DiscordBotStack } from './discord-bot-stack';
 import { EcsClusterStack } from './ecs-cluster-stack';
 import { EcsTaskStack } from './ecs-task-stack';
 import { EcsAlarmsStack } from './ecs-alarms-stack';
@@ -196,6 +197,12 @@ export class CarpoolBetsStage extends cdk.Stage {
         betsTable: dynamoStack.betsTable,
       });
     }
+
+    // Benny Discord Bot
+    new DiscordBotStack(this, 'DiscordBot', {
+      environment: props.stage,
+      table: dynamoStack.betsTable,
+    });
 
     // Schedule stacks - simplified to avoid Lambda permission limit
     new OddsCollectorScheduleStack(this, 'OddsSchedule', {

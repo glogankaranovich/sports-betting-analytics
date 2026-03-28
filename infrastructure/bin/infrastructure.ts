@@ -32,6 +32,7 @@ import { NewsCollectorsStack } from '../lib/news-collectors-stack';
 import { CustomDataStack } from '../lib/custom-data-stack';
 import { WeatherCollectorStack } from '../lib/weather-collector-stack';
 import { NotificationStack } from '../lib/notification-stack';
+import { DiscordBotStack } from '../lib/discord-bot-stack';
 import { MetricsCalculatorStack } from '../lib/metrics-calculator-stack'; // DEPRECATED
 import { EcsClusterStack } from '../lib/ecs-cluster-stack';
 import { EcsTaskStack } from '../lib/ecs-task-stack';
@@ -304,6 +305,13 @@ if (environment === 'dev') {
     oddsApiKeySecretName: 'sports-betting/odds-api-key-dev',
     notificationQueueUrl: notificationStack.notificationQueue.queueUrl,
     notificationQueueArn: notificationStack.notificationQueue.queueArn,
+    env: ENVIRONMENTS.dev,
+  });
+
+  // Benny Discord Bot
+  new DiscordBotStack(app, StackNames.forEnvironment('dev', 'DiscordBot'), {
+    environment: 'dev',
+    table: dynamoStack.betsTable,
     env: ENVIRONMENTS.dev,
   });
 } else {

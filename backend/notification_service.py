@@ -77,6 +77,36 @@ class SMSChannel(NotificationChannel):
             return False
 
 
+class DiscordChannel(NotificationChannel):
+    """Discord delivery via webhook"""
+
+    def __init__(self):
+        self.webhook_url = os.environ.get('DISCORD_WEBHOOK_URL')
+
+    def send(self, recipient: str, message: str, metadata: Optional[Dict] = None) -> bool:
+        """Send message to Discord via webhook."""
+        if not self.webhook_url:
+            logger.error("DISCORD_WEBHOOK_URL not set")
+            return False
+        try:
+            import json as _json
+            from urllib import request as urllib_request
+            # Discord max message length is 2000 chars
+            truncated = message[:1990]
+            data = _json.dumps({"content": truncated}).encode()
+            req = urllib_request.Request(
+                self.webhook_url,
+                data=data,
+                headers={"Content-Type": "application/json", "User-Agent": "Benny/1.0"},
+            )
+            urllib_request.urlopen(req, timeout=5)
+            logger.info("Discord notification sent")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send Discord notification: {e}")
+            return False
+
+
 class NotificationService:
     """Central service for sending notifications"""
     
@@ -84,6 +114,7 @@ class NotificationService:
         self.channels = {
             'email': EmailChannel(),
             'sms': SMSChannel(),
+            'discord': DiscordChannel(),
         }
     
     def send_notification(
